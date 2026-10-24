@@ -1,6 +1,6 @@
 # Control Tower als tabblad in SafeTools (safetail.nl/intern/control-tower)
 
-De Control Tower (versie 3.0) staat als eigen tabblad "Control Tower" in SafeTools, het
+De Control Tower (versie 3.1) staat als eigen tabblad "Control Tower" in SafeTools, het
 interne deel van safetail.nl (achter de inlog van de oprichters, naast Ideeënbus, Vragen
 en Dossiers). De wijzigingen voor de website staan in de repo
 `SafeTail-V-O-F/Website` op de tak `ronde10/control-tower`; omdat deze sessie daar niet
@@ -16,11 +16,12 @@ npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
 git push -u origin ronde10/control-tower
 ```
 
-De bundel bouwt voort op commit 7bc9d46 (de top van `main` en `setup-astro-site` op 24 oktober
-2026) en bevat twee commits: 1019985 (het tabblad, versie 2.0) en 958a680 (versie 3.0 en de
-puntjes uit de review). Daarna samenvoegen in `setup-astro-site` en deployen zoals altijd
-(DEPLOY.md). Er is geen migratie, geen nieuwe omgevingsvariabele en niets aan de edge
-function veranderd.
+De tak `ronde10/control-tower` staat inmiddels op origin (de websitesessie heeft de eerdere
+bundel opgehaald en met `setup-astro-site` samengevoegd, commit 158fc6a). Deze bundel bouwt
+daarop voort en bevat alleen de nieuwe commit met versie 3.1 (bundel, pagina en docs):
+`git fetch <bundel> ronde10/control-tower` werkt in een kopie die 158fc6a al heeft. Daarna
+samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
+geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
 
 ## Wat er in de website-repo verandert
 
@@ -46,8 +47,11 @@ Commit e0238de maakte de app inbedbaar: alle CSS onder `.slct`, thema en kiosk o
 app-root, `contain: layout` houdt de vaste panelen binnen de app, een terugval zonder
 WebGL, en een tweede Vite-build met vaste bestandsnamen. Commit 75acd59 is versie 3.0:
 diensten zonder vaste wagen, losse opleggers en trekkers, bakwagens en bussen, een kaart
-met voertuigen in hun rijrichting en zonder clusters, de weergave Opleggers. De losse
-versie (`dist/index.html`, het artifact) is dezelfde app.
+met voertuigen in hun rijrichting en zonder clusters, de weergave Opleggers. Commits 29bddd1
+en f939ca9 zijn versie 3.1: het nieuwe ontwerp (ontwerpsysteem, rustige kaart, minder drukke
+weergaven, mobiele opzet) en de verbeterde werking (voorstellen die het plan aanpassen,
+URL's voor elke weergave, meldingen met geheugen, panelen, planbordfilters, aftelling,
+zoekpalet). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
 
 ## Gecontroleerd
 
