@@ -10,19 +10,21 @@ mag pushen, staat die tak hier als git-bundel: `safetail-control-tower.bundle`.
 
 ```
 cd <pad naar de website-repo>
-git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-33:ronde10/control-tower-33
-git checkout ronde10/control-tower-33
+git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-34:ronde10/control-tower-34
+git checkout ronde10/control-tower-34
 npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
-git push -u origin ronde10/control-tower
+git push -u origin ronde10/control-tower-34
 ```
 
 De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-review) heeft
 de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Ook de
-bundel met de drie punten uit de deltareview is samengevoegd (`setup-astro-site` op a25ddba).
-Deze bundel bevat de tak `ronde10/control-tower-33`: een commit boven a25ddba met versie 3.2
-(de 3D-wereld; `three.js` komt als vijfde bestand bij de bundel en de bewaker, de pagina en
-de docs noemen het) en de meetbon. `git fetch <bundel> ronde10/control-tower-33` werkt in een
-kopie die a25ddba al heeft. Daarna
+bundel met de drie punten uit de deltareview (a25ddba) en versie 3.2 met de 3D-wereld (tak
+ronde10/control-tower-33, `three.js` als vijfde bestand) zijn samengevoegd en live
+(`setup-astro-site` op 584a75a). Deze bundel bevat de tak `ronde10/control-tower-34`: een
+commit boven 584a75a met de nieuwe bundel (three.js wordt pas geladen bij de eerste klik op de
+kubus, bronregel volgt de tegels, paneel naast een open pagina), de 3D-stand in de opslaglijst
+en de meetbon. `git fetch <bundel> ronde10/control-tower-34` werkt in een kopie die 584a75a al
+heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
 
@@ -58,7 +60,8 @@ zoekpalet). Commit 7594cae verwerkt de zes punten uit de Fable-review van de Saf
 (volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen);
 commit 92b17b1 de drie punten uit de deltareview (topbalk in een smal kader, terugknop naar
 de kaart, schakelaar van de online kaartlaag); commit 443d64d is versie 3.2: de 3D-wereld op
-de kaart (three.js in een eigen MapLibre-laag, knop met de kubus, toets d). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
+de kaart (three.js in een eigen MapLibre-laag, knop met de kubus, toets d); commit e575459 laadt
+three.js pas bij de eerste klik en verwerkt drie puntjes uit de deltacheck van de website. De losse versie (`dist/index.html`, het artifact) is dezelfde app.
 
 ## Gecontroleerd
 
