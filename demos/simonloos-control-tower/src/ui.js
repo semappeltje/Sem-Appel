@@ -26,6 +26,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   const F = { regios: new Set(), sps: new Set(), divs: new Set(Object.keys(DIV)), sts: new Set(Object.keys(ST)), q: '', dim: true };
   let role = ROLES[store.get('sl-role')] ? store.get('sl-role') : 'planner';
   let profile = null; try { profile = JSON.parse(store.get('sl-werkgebied') || 'null'); } catch { profile = null; }
+  // bij "minder beweging" (prefers-reduced-motion) vliegt de kaart niet maar springt hij
+  const RM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; const FLY = RM ? 0 : 900;
   let mapApi = null, selTruck = null, selSp = null, selRest = null, selTrailer = null, follow = false, lastFollow = 0, panelMode = 'meld', hoverId = null, hoverPt = null, view = 'kaart', tick = 0, pbSp = SP[0], exFilter = 'Alle', showDone = false, restOnMap = false, trailersOnMap = false, sheet = null, halSp = null, klantId = null;
   const S = new Map(), TRS = new Map(), prevSt = new Map(); const feed = [], chat = []; let exceptions = [], trailerEx = [], counts = {}, kpi = {}, msgCount = 0; const pbF = { div: 'alle', kind: 'alle' };
   // ---------- acties van vandaag (localStorage sl-acties): afgehandeld, toegewezen, later, toegepaste voorstellen, berichten ----------
@@ -89,7 +91,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     F.regios = new Set((profile.regios || []).filter(r => REGIOS.includes(r))); F.divs = new Set((profile.divs || []).filter(k => DIV[k])); if (!F.divs.size) F.divs = new Set(Object.keys(DIV));
     role = ROLES[profile.role] ? profile.role : role; store.set('sl-role', role);
     F.sps = new Set(profile.sp && SP.find(s => s.n === profile.sp) ? [profile.sp] : []);
-    if (mapApi) { if (F.sps.size) { const sp = SP.find(s => s.n === profile.sp); mapApi.highlightSp(sp.n); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: 9.4, duration: 900 }); } else if (F.regios.size && F.regios.size < REGIOS.length) mapApi.fitSps(SP.filter(s => F.regios.has(s.regio))); else mapApi.map.easeTo({ center: [5.3, 52.2], zoom: 6.6, duration: 900 }); }
+    if (mapApi) { if (F.sps.size) { const sp = SP.find(s => s.n === profile.sp); mapApi.highlightSp(sp.n); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: 9.4, duration: FLY }); } else if (F.regios.size && F.regios.size < REGIOS.length) mapApi.fitSps(SP.filter(s => F.regios.has(s.regio))); else mapApi.map.easeTo({ center: [5.3, 52.2], zoom: 6.6, duration: FLY }); }
     renderTopbar(); renderRail(); frame(true);
   }
 
@@ -105,7 +107,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   }
   function renderTopbar() {
     const v = VIEWS.find(x => x[0] === view);
-    $('topbar').innerHTML = `<button class="ib mob" id="menuBtn">${ic('menu', 18)}</button><div class="tt"><b id="vtitle">${v[1]}</b><span id="vsub"></span></div>
+    $('topbar').innerHTML = `<button class="ib mob" id="menuBtn" aria-label="Menu">${ic('menu', 18)}</button><div class="tt"><b id="vtitle">${v[1]}</b><span id="vsub"></span></div>
       <div class="tr"><button class="srch" id="palBtn">${ic('search', 16)}<span>Zoek voertuig, oplegger, persoon</span><kbd>/</kbd></button>
       <div class="dropdown"><button class="btn" id="viewsBtn">${ic('save', 15)} <span class="lbl">Weergaven</span></button><div class="menu" id="viewsMenu" hidden></div></div>
       <div class="seg2" id="roleSeg"><span>Bekijk als</span>${Object.entries(ROLES).map(([k, r]) => `<button class="${role === k ? 'on' : ''}" data-role="${k}">${r.n}</button>`).join('')}</div>
@@ -134,7 +136,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       ok.onclick = save; $('saveName').addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderViewsMenu(); });
     }
   }
-  function applyView(v) { F.regios = new Set(v.regios); F.divs = new Set(v.divs); F.sts = new Set(v.sts); F.sps = new Set(v.sps); mapApi.highlightSp(F.sps.size === 1 ? [...F.sps][0] : null); setView(v.view || 'kaart'); if (v.center) mapApi.map.easeTo({ center: v.center, zoom: v.zoom, duration: 800 }); frame(true); notice(`Weergave "${v.name}" geladen.`); }
+  function applyView(v) { F.regios = new Set(v.regios); F.divs = new Set(v.divs); F.sts = new Set(v.sts); F.sps = new Set(v.sps); mapApi.highlightSp(F.sps.size === 1 ? [...F.sps][0] : null); setView(v.view || 'kaart'); if (v.center) mapApi.map.easeTo({ center: v.center, zoom: v.zoom, duration: FLY }); frame(true); notice(`Weergave "${v.name}" geladen.`); }
 
   // ---------- frame ----------
   function frame(force) {
@@ -176,7 +178,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     mapApi.setTrucks(feats, dims);
     // de nu-lijn van het planbord loopt elke beurt mee (de rest van het bord ververst elke achtste beurt)
     if (view === 'planbord') { const g = $('v-planbord').querySelector('.gbody'); const nl = g && g.querySelector('.nowline'); if (nl && g.dataset.w0) { nl.style.left = `calc(var(--who) + (100% - var(--who)) * ${((T - +g.dataset.w0) / +g.dataset.span).toFixed(4)})`; const lb = nl.firstElementChild; if (lb) lb.textContent = hhmm(T); } }
-    if (selTruck) { const s = S.get(selTruck.id); mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); drawRoute(selTruck, s); if (follow && Date.now() - lastFollow > 900) { lastFollow = Date.now(); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], duration: 800 }); } }
+    if (selTruck) { const s = S.get(selTruck.id); mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); drawRoute(selTruck, s); if (follow && Date.now() - lastFollow > 900) { lastFollow = Date.now(); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], duration: FLY }); } }
     else if (selTrailer) { const s = TRS.get(selTrailer.id); if (s) mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); }
     else mapApi.setSelected(null);
     renderStatline(); renderFcard(); updateSub();
@@ -229,7 +231,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       ${t.kind === 'trekker' ? `<div class="fl">${s.tr ? trailerLine(s.tr, trs, state.simTime) : `${ic('unlink', 12)} zonder oplegger (solo)${nx && nx.pickup ? `, haalt ${nx.pickup.id} op` : ''}`}</div>` : ''}
       <div class="fl">${nx ? `→ ${esc(nx.name)} · ETA ${hhmm(nx.eta)}${nx.win ? ` · venster tot ${hhmm(nx.win[1])}` : ''}${nx.eta > (nx.win ? nx.win[1] : Infinity) ? ' <em class="bad">te laat</em>' : ''}${nx.swap ? ' · oplegger wisselen' : ''}` : d ? 'Dienst afgerond' : `Standplaats ${esc(t.base.n)}`}</div>
       <div class="fa"><a data-act="sheet">Open voertuig</a><a data-act="panel">Rit en berichten</a>${s.tr ? `<a data-act="trailer">Oplegger</a>` : ''}<a data-act="link">Deel link</a><a data-act="follow" class="${follow ? 'on' : ''}">${follow ? 'Volgen aan' : 'Volg'}</a></div>`;
-    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelectorAll('[data-act]').forEach(a => a.addEventListener('click', () => { const k = a.dataset.act; if (k === 'close') clearSel(); else if (k === 'sheet') openSheet('truck', t.id); else if (k === 'panel') openPanel('truck'); else if (k === 'trailer') selectTrailer(s.tr.id); else if (k === 'link') shareLink(t); else if (k === 'follow') { follow = !follow; if (follow) mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: 900 }); renderFcard(); } })); }
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelectorAll('[data-act]').forEach(a => a.addEventListener('click', () => { const k = a.dataset.act; if (k === 'close') clearSel(); else if (k === 'sheet') openSheet('truck', t.id); else if (k === 'panel') openPanel('truck'); else if (k === 'trailer') selectTrailer(s.tr.id); else if (k === 'link') shareLink(t); else if (k === 'follow') { follow = !follow; if (follow) mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: FLY }); renderFcard(); } })); }
   }
   function shareLink(t) { const url = `${location.href.split('#')[0]}#klant/${t.id}`; try { navigator.clipboard && navigator.clipboard.writeText(url); } catch { /* geen klembord */ } notice(`Klant-link gekopieerd: alleen ${t.id} en de volgende levering zijn zichtbaar. ${url}`); }
 
@@ -335,7 +337,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     p.querySelectorAll('[data-assign]').forEach(el => el.addEventListener('change', () => { const h = handled.get(el.dataset.assign) || {}; h.who = el.value; handled.set(el.dataset.assign, h); if (h.who) notice(`Melding toegewezen aan ${h.who}.`); renderPanel(); }));
     p.querySelectorAll('[data-later]').forEach(el => el.addEventListener('change', () => { const h = handled.get(el.dataset.later) || {}; const m = +el.value; if (el.value === '') return; h.until = m > 0 ? state.simTime + m : 0; handled.set(el.dataset.later, h); notice(m > 0 ? `Melding komt terug om ${hhmm(h.until)}.` : 'Melding staat weer open.'); frame(true); }));
     p.querySelectorAll('[data-trworkorder]').forEach(el => el.addEventListener('click', () => { const tr = fleet.trailerById.get(el.dataset.trworkorder); if (tr) { runAction({ k: 'trworkorder', tr: tr.id, T: state.simTime }, true); notice(`Werkorder aangemaakt voor ${tr.id}.`); frame(true); renderPanel(); } }));
-    const tm = $('trlMap'); if (tm) tm.onclick = () => { const tr = selTrailer; if (!tr) return; setTrailersOnMap(true); if (view !== 'kaart') setView('kaart'); const s = trailerState(tr); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 13), duration: 900 }); frame(true); };
+    const tm = $('trlMap'); if (tm) tm.onclick = () => { const tr = selTrailer; if (!tr) return; setTrailersOnMap(true); if (view !== 'kaart') setView('kaart'); const s = trailerState(tr); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 13), duration: FLY }); frame(true); };
     const sd = $('showDone'); if (sd) sd.onclick = () => { showDone = !showDone; renderPanel(); };
     const x = $('closePanel'); if (x) x.onclick = () => closePanel();
     const h = $('toHal'); if (h) h.onclick = () => { hashTo('#hal/' + encodeURIComponent(selSp.n)); fullscreen(); };
@@ -356,7 +358,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function selectTruck(id, opts = {}) {
     const t = fleet.byId.get(id); if (!t) return; selTruck = t; selRest = null; selTrailer = null; follow = false; const s = fleet.stateAt(t, state.simTime); S.set(t.id, s);
     if (!opts.stay && view !== 'kaart') setView('kaart');
-    if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 10.2), duration: 900 });
+    if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 10.2), duration: FLY });
     if (opts.stay || panelOpen()) openPanel('truck');
     if (view === 'pauze') renderPauze(ctx);
     frame(true); syncHash();
@@ -366,14 +368,14 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     const s = fleet.trailerStateAt(tr, state.simTime); TRS.set(tr.id, s);
     if (s.st !== 'gekoppeld' && s.st !== 'onderhoud') setTrailersOnMap(true);
     if (!opts.stay && view !== 'kaart') setView('kaart');
-    if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: 900 });
+    if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: FLY });
     openPanel('trailer'); frame(true); syncHash();
   }
   function selectSp(sp) {
     selSp = sp; selTruck = null; selRest = null; selTrailer = null; follow = false; mapApi.setRoute(null, null, []); F.sps = new Set([sp.n]); mapApi.highlightSp(sp.n);
-    if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: Math.max(mapApi.map.getZoom(), 9.4), duration: 900 }); openPanel('sp'); frame(true); syncHash();
+    if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: Math.max(mapApi.map.getZoom(), 9.4), duration: FLY }); openPanel('sp'); frame(true); syncHash();
   }
-  function selectRest(id) { const p = rest.byId.get(id); if (!p) return; selRest = p; selTrailer = null; restOnMap = true; mapApi.showRest(true); mapApi.setRest(rest.places, p.id); if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(mapApi.map.getZoom(), 9.6), duration: 900 }); openPanel('rest'); }
+  function selectRest(id) { const p = rest.byId.get(id); if (!p) return; selRest = p; selTrailer = null; restOnMap = true; mapApi.showRest(true); mapApi.setRest(rest.places, p.id); if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(mapApi.map.getZoom(), 9.6), duration: FLY }); openPanel('rest'); }
   function clearSel() { selTruck = null; selTrailer = null; follow = false; mapApi.setRoute(null, null, []); if (panelMode === 'truck' || panelMode === 'trailer') closePanel(); frame(true); syncHash(); }
   function setTrailersOnMap(v) { trailersOnMap = v; if (mapApi) mapApi.showTrailers(v); renderStatline(); const lt = $('trlTog'); if (lt) lt.classList.toggle('on', v); }
   function hover(id, pt) { hoverId = id; hoverPt = pt; renderTip(); }
@@ -415,7 +417,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     return VIEW_HASH[view] || 'kaart';
   }
   function syncHash() { if (applyingHash) return; const h = currentHash(); if (readHash() === h) return; try { location.hash = h; } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } }
-  function hashTo(h) { try { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h || '', true); }
+  function hashTo(h) { if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); try { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h || '', true); }
   function onHash(forced, explicit) {
     let h = forced !== undefined ? String(forced).replace(/^#/, '') : readHash(); const [k, ...r] = h.split('/'); let arg = r.join('/'); try { arg = decodeURIComponent(arg); } catch { /* laat staan */ }
     const parts = arg.split('/'); const id = parts[0] || ''; const sub = parts[1] || '';
@@ -501,7 +503,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   });
 
   // ---------- tijdbalk, kaartlagen, meldingen ----------
-  $('timebar').innerHTML = `<span class="lbl">Vandaag</span><input type="range" id="scrub" min="0" max="1439" step="1" value="0"><b id="tbClock">--:--</b><button class="tb" id="playBtn" title="Pauzeer of speel af">${ic('pause', 12)}</button><div class="spd">${[1, 12, 60, 300].map(s => `<button data-s="${s}" class="${s === state.speed ? 'on' : ''}">${s}×</button>`).join('')}</div><button class="tb" id="nowBtn" title="Spring naar de echte klok">Nu</button>`;
+  $('timebar').innerHTML = `<span class="lbl">Vandaag</span><input type="range" id="scrub" min="0" max="1439" step="1" value="0" aria-label="Tijd van vandaag"><b id="tbClock">--:--</b><button class="tb" id="playBtn" title="Pauzeer of speel af">${ic('pause', 12)}</button><div class="spd">${[1, 12, 60, 300].map(s => `<button data-s="${s}" class="${s === state.speed ? 'on' : ''}">${s}×</button>`).join('')}</div><button class="tb" id="nowBtn" title="Spring naar de echte klok">Nu</button>`;
   $('scrub').addEventListener('input', e => { state.simTime = +e.target.value; frame(true); });
   $('playBtn').onclick = () => { state.playing = !state.playing; $('playBtn').innerHTML = state.playing ? ic('pause', 12) : ic('play', 12); };
   $('nowBtn').onclick = () => { const n = new Date(); state.simTime = n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60; frame(true); };

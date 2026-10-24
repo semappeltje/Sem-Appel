@@ -10,8 +10,8 @@ import { nearestNode, shortestPath, buildPath, posAt } from './roads.js';
 let seed = 20261024; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const pick = a => a[Math.floor(rnd() * a.length)];
 const r = (a, b) => a + rnd() * (b - a);
-export const FIRST = ['Kees', 'Jan', 'Piet', 'Henk', 'Robert', 'Marco', 'Dennis', 'Jeroen', 'Sandra', 'Linda', 'Mohammed', 'Ahmed', 'Daan', 'Bram', 'Sven', 'Thijs', 'Ruud', 'Gerrit', 'Wesley', 'Marieke', 'Anouk', 'Jolanda', 'Patrick', 'Nick', 'Erik', 'Rick', 'Ilse', 'Fatima', 'Jos', 'Ton', 'Sem', 'Peter', 'Youssef', 'Lars', 'Niels', 'Femke', 'Bas', 'Tom', 'Kevin', 'Martijn'];
-export const LAST = ['de Vries', 'Bakker', 'Jansen', 'Visser', 'Smit', 'de Boer', 'Mulder', 'Bos', 'Vos', 'Peters', 'Hendriks', 'Dekker', 'Brouwer', 'Koning', 'Vermeulen', 'Schouten', 'Groot', 'Appelman', 'Vlaar', 'Koster', 'van Dijk', 'Meijer', 'de Jong', 'Willems', 'Kooijman', 'Blokker', 'Ruiter', 'Beemster', 'Zwaan', 'Mol', 'Karsten', 'Timmerman', 'Bruin', 'Hoogland', 'Ott', 'Laan', 'Zeeman', 'Doodeman'];
+export const FIRST = ['Kees', 'Jan', 'Piet', 'Henk', 'Robert', 'Marco', 'Dennis', 'Jeroen', 'Sandra', 'Linda', 'Mohammed', 'Ahmed', 'Daan', 'Bram', 'Sven', 'Ruud', 'Gerrit', 'Wesley', 'Marieke', 'Anouk', 'Jolanda', 'Patrick', 'Nick', 'Erik', 'Rick', 'Ilse', 'Fatima', 'Jos', 'Ton', 'Peter', 'Youssef', 'Lars', 'Niels', 'Femke', 'Bas', 'Tom', 'Kevin', 'Martijn'];
+export const LAST = ['de Vries', 'Bakker', 'Jansen', 'Visser', 'Smit', 'de Boer', 'Mulder', 'Bos', 'Vos', 'Peters', 'Hendriks', 'Dekker', 'Brouwer', 'Koning', 'Vermeulen', 'Schouten', 'Groot', 'Vlaar', 'Koster', 'van Dijk', 'Meijer', 'de Jong', 'Willems', 'Kooijman', 'Blokker', 'Ruiter', 'Beemster', 'Zwaan', 'Mol', 'Karsten', 'Timmerman', 'Bruin', 'Hoogland', 'Ott', 'Laan', 'Zeeman', 'Doodeman'];
 
 // Soorten motorvoertuigen en opleggers.
 export const KIND = { trekker: { n: 'Trekker', mv: 'trekkers' }, bakwagen: { n: 'Bakwagen', mv: 'bakwagens' }, bus: { n: 'Bestelbus', mv: 'bestelbussen' } };
@@ -42,7 +42,8 @@ const LADING = {
 };
 const STORING = ['Bandenspanning as 2 laag (melding boordcomputer)', 'AdBlue-niveau laag, 180 km resterend', 'Melding uitlaatgasnabehandeling, vermogen begrensd'];
 export const KOELSTORING = 'Koelunit haalt het doel niet: -12 °C bij doel -20 °C';
-const plate = kind => { const L = 'BDFGHJKLNPRSTVXZ'; const l = () => L[Math.floor(rnd() * L.length)]; const d = () => Math.floor(rnd() * 10); return kind === 'bus' ? `V-${d()}${d()}${d()}-${l()}${l()}` : kind === 'oplegger' ? `O${l()}-${d()}${d()}-${l()}${l()}` : `${d()}${d()}-${l()}${l()}${l()}-${d()}`; };
+// Kentekens in de vorm van de RDW, maar altijd met een Q: die letter geeft de RDW niet uit, dus geen kenteken valt samen met een echt voertuig.
+const plate = kind => { const L = 'BDFGHJKLNPRSTVXZ'; const l = () => L[Math.floor(rnd() * L.length)]; const q = () => { l(); return 'Q'; }; const d = () => Math.floor(rnd() * 10); return kind === 'bus' ? `V-${d()}${d()}${d()}-${q()}${l()}` : kind === 'oplegger' ? `O${q()}-${d()}${d()}-${l()}${l()}` : `${d()}${d()}-${l()}${q()}${l()}-${d()}`; };
 
 for (const s of SP) s.node = nearestNode(s.lon, s.lat);
 for (const t of TOWNS) t.node = nearestNode(t.lon, t.lat);

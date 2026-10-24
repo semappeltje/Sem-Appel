@@ -1,7 +1,7 @@
 # Simon Loos Control Tower (demo, versie 3.1)
 
 Werkende demo van een control tower voor Simon Loos: 1.300 gesimuleerde voertuigen
-(trekkers, bakwagens en bestelbussen) en 1.700 opleggers die over het **echte wegennet**
+(trekkers, bakwagens en bestelbussen) en 1.681 opleggers die over het **echte wegennet**
 rijden, op een kaart die zonder internet werkt. Versie 2.0 was het ontwerp uit het
 document "Control Tower 2.0: ontwerpvoorstellen, rollen en mockups": een rustige
 interface met een iconenbalk, een werkgebied per gebruiker, rollen, record-pagina's,

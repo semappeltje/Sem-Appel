@@ -179,6 +179,6 @@ export function createMap(container, opts) {
   function highlightSp(name) { for (const { m, s } of markers.sp) m.getElement().classList.toggle('on', s.n === name); }
   function setRest(places, selId) { if (!ready) return; map.getSource('rest').setData(fc(places.map(p => ({ type: 'Feature', properties: { id: p.id, sel: p.id === selId }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })))); }
   function showRest(v) { if (!ready) return; map.setLayoutProperty('rest', 'visibility', v ? 'visible' : 'none'); }
-  function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: 800 }); }
+  function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 }); }
   return { map, setTheme, setOnline, whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => tiles && !onlineFailed, hasTiles: () => tiles };
 }
