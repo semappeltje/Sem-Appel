@@ -18,7 +18,8 @@ git push -u origin ronde10/control-tower
 
 De tak `ronde10/control-tower` staat inmiddels op origin (de websitesessie heeft de eerdere
 bundel opgehaald en met `setup-astro-site` samengevoegd, commit 158fc6a). Deze bundel bouwt
-daarop voort en bevat alleen de nieuwe commit met versie 3.1 (bundel, pagina en docs):
+daarop voort en bevat twee nieuwe commits: 405e494 (versie 3.1: bundel, pagina en docs) en
+de commit met de zes punten uit de Fable-review van de tab (bundel en meetbon):
 `git fetch <bundel> ronde10/control-tower` werkt in een kopie die 158fc6a al heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
@@ -51,7 +52,9 @@ met voertuigen in hun rijrichting en zonder clusters, de weergave Opleggers. Com
 en f939ca9 zijn versie 3.1: het nieuwe ontwerp (ontwerpsysteem, rustige kaart, minder drukke
 weergaven, mobiele opzet) en de verbeterde werking (voorstellen die het plan aanpassen,
 URL's voor elke weergave, meldingen met geheugen, panelen, planbordfilters, aftelling,
-zoekpalet). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
+zoekpalet). Commit 7594cae verwerkt de zes punten uit de Fable-review van de SafeTail-tab
+(volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen).
+De losse versie (`dist/index.html`, het artifact) is dezelfde app.
 
 ## Gecontroleerd
 
