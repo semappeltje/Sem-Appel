@@ -35,3 +35,23 @@ rivieren). De regionale wegen rond Hoorn, Enkhuizen en Medemblik zijn met de han
 toegevoegd omdat ze in Natural Earth ontbreken. Standplaatsen en klanten komen
 van werkenbijsimonloos.nl. Alle operationele data (wagennummers, kentekens,
 chauffeurs, ritten, tijden, aantallen trucks per standplaats) is gesimuleerd.
+
+## Versie 2.0: ontwerpvoorstellen, rollen en mockups
+
+Zeven nieuwe mockups in `mockups-2.0/` bij het document
+https://claude.ai/artifact/PEAiAqMnTV7Y2TUxrqyaE3 (voorstellen waarover per stuk
+wordt beslist; niets hiervan zit al in de demo `demos/simonloos-control-tower`).
+
+| # | Scherm | Wat het laat zien |
+| --- | --- | --- |
+| 01 | Echte landkaart | Wognum, Zwaag en Hoorn op straatniveau (Overture Maps / OpenStreetMap: gebouwen, landgebruik, water, straatnamen), trucks als stippen, rustige interface met iconenbalk |
+| 02 | Truck: historie | Wie reed erop, kerngegevens uit de RDW, verbruik per chauffeur, afgeschermde kosten per km |
+| 03 | Persoon (regiomanager) | Vandaag, bevoegdheden, rij-score en schades open; contract en kosten gesloten |
+| 04 | Persoon (planner) | Dezelfde pagina met alleen vandaag en bevoegdheden open |
+| 05 | Werkgebied kiezen | Eenmalige wizard: regio's, rittypes, klaar |
+| 06 | Beheer: rollen | Rechtenmatrix per rol, gebruikers, koppelingen |
+| 07 | Chauffeursapp | Mijn dag en Schade melden op de telefoon |
+
+Bron in `bron-2.0/`: `mock2.py` rendert de HTML-schermen (de kaart komt uit
+Overture-parquet via shapely, opgehaald met `demos/simonloos-control-tower/tools/ov_bbox.py`),
+`mock2.css` is het ontwerpsysteem (wit, Inter, één accentkleur, iconenbalk).
