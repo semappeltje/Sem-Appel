@@ -36,13 +36,42 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 ```
 npm install
 npm run dev              # ontwikkelserver
-npm run build            # dist/index.html: één bestand met alles erin (ca. 8 MB)
-node tools/artifact.cjs  # dist/artifact.html: variant voor het Claude-artifact
+npm run build            # dist/index.html: één bestand met alles erin (ca. 8 MB), plus dist/artifact.html voor het Claude-artifact
+npm run build:site       # dist-site/: app.js, data.js, maplibre.js en app.css met vaste namen, om in een site in te bedden
 ```
 
 Open `dist/index.html` via een webserver (bijvoorbeeld `npx vite preview` of
 `python3 -m http.server` in `dist/`). Direct vanaf schijf (`file://`) werkt niet,
 omdat MapLibre een web worker start.
+
+## Inbedden in een site (SafeTail: safetail.nl/intern/control-tower)
+
+De app staat als tabblad "Control Tower" in SafeTools, het interne deel van safetail.nl
+(repo SafeTail-V-O-F/Website, pagina `src/pages/intern/control-tower.astro`, achter de
+inlog van de oprichters). Daarvoor is de app inbedbaar gemaakt:
+
+- Alle CSS staat onder `.slct`, de app-root (`#app.app.slct`); het thema (`data-theme`)
+  en de kiosk-klasse voor het hal-scherm staan op die root, niet op `<html>` of `<body>`.
+  Met `contain: layout` blijven de vaste panelen (paneel, record-pagina, modals, hal-scherm)
+  binnen de app, ook midden in een andere pagina.
+- Twee opties als data-attribuut op de root: `data-tiles="off"` laadt geen externe
+  kaarttegels (geen enkel verzoek naar buiten; de basiskaart zit in de bundel) en
+  `data-embedded` houdt de sneltoetsen binnen de app en vraagt bij "Open als hal-scherm"
+  om volledig scherm op de app zelf (Esc sluit beide).
+- Zonder WebGL toont de kaart een rustige melding; de andere weergaven werken gewoon.
+
+Bijwerken in de SafeTail-repo:
+
+```
+npm run build:site
+node tools/sync-safetail.mjs ../../../website   # pad naar de website-repo
+```
+
+Dat kopieert de vier bestanden naar `public/intern/control-tower/app/` en schrijft daar
+`VERSIE.json` (commit en datum). De pagina daar bevat de HTML-opbouw van de app (dezelfde
+id's als `index.html` hier): verandert die opbouw, pas dan ook die pagina aan. Daarna in de
+website-repo: `npm run build`, `npm test`, committen (zie daar DEPLOY.md, "SafeTools ·
+Control Tower").
 
 ## Kaart en wegen
 
@@ -65,7 +94,7 @@ overgenomen lostijden en eigen beoordelingen staan in de browser (localStorage).
 
 ## Bestanden
 
-- `index.html`, `src/main.js`: opbouw, laden en de klok van de simulatie
+- `index.html`, `src/main.js`: opbouw, opties van de app-root, laden en de klok van de simulatie
 - `src/ui.js`: iconenbalk, topbalk, kaartweergave, meldingenpaneel, wizard, zoekpalet, sneltoetsen, weergaven, routes
 - `src/views.js`: planbord, standplaatsen, hal-scherm, klantweergave, assistent
 - `src/sheets.js`: truck- en persoonspagina's met rechten per rol
@@ -75,4 +104,5 @@ overgenomen lostijden en eigen beoordelingen staan in de browser (localStorage).
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart, simulatie, wegennet, standplaatsen, rollen en rechten
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
 - `src/data/`: `graph.json` (routeergraaf), `roads_display.json`, `water.json`, `provinces.json`, `urban.json`, `places.json`
-- `tools/`: dataverwerking (Overture) en `artifact.cjs`
+- `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)
+- `tools/`: dataverwerking (Overture), `artifact.cjs` en `sync-safetail.mjs` (de bundel naar de SafeTail-repo)

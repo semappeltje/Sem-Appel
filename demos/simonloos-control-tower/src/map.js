@@ -27,15 +27,29 @@ function buildBase() {
   return { mw: fc(mw), tr: fc(tr), pr: fc(pr), se: fc(se), te: fc(te), water: fc(wat) };
 }
 
+function hasWebGL() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } }
+
+// Zonder WebGL (uitgeschakeld, of een testomgeving zonder GPU): dezelfde API, zonder kaart. De kaartweergave toont een
+// melding; alles wat de kaart aanstuurt doet niets. De andere weergaven hebben de kaart niet nodig.
+function noMap(container, theme) {
+  const el = typeof container === 'string' ? document.getElementById(container) : container;
+  if (el) el.innerHTML = '<div class="nomap"><div><b>De kaart heeft WebGL nodig</b>Deze browser heeft WebGL uit staan of ondersteunt het niet. Planbord, trucks, mensen, standplaatsen, laden, lostijden en pauzeplekken werken gewoon.</div></div>';
+  const no = () => {};
+  const map = { easeTo: no, flyTo: no, resize: no, fitBounds: no, on: no, off: no, getZoom: () => 6.6, getCenter: () => ({ lng: 5.3, lat: 52.2 }) };
+  return { map, setTheme: no, setOnline: no, whenReady: f => setTimeout(f, 0), setTrucks: no, setSelected: no, setRoute: no, highlightSp: no, fitSps: no, setRest: no, showRest: no, isOnline: () => false, hasOnline: () => false, hasTiles: () => false, noWebGL: true, theme };
+}
+
+// opts.tiles === false: geen externe kaarttegels (geen enkel verzoek naar buiten); alleen de ingebouwde basiskaart.
 export function createMap(container, opts) {
-  let theme = opts.theme || 'light'; let online = opts.online !== false; let onlineFailed = false; let tilesOk = false;
+  let theme = opts.theme || 'light'; const tiles = opts.tiles !== false; let online = tiles && opts.online !== false; let onlineFailed = false; let tilesOk = false;
+  if (!hasWebGL()) return noMap(container, theme);
   const map = new maplibregl.Map({
     container, style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': PAL[theme].land } }] },
     center: [5.3, 52.2], zoom: 6.6, minZoom: 5.5, maxZoom: 17, attributionControl: false, antialias: true, maxPitch: 60,
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
   map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
-  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Wegen en water © OpenStreetMap-bijdragers via Overture Maps · provincies Natural Earth · online tegels © CARTO' }), 'bottom-left');
+  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Wegen en water © OpenStreetMap-bijdragers via Overture Maps · provincies Natural Earth' + (tiles ? ' · online tegels © CARTO' : '') }), 'bottom-left');
 
   const markers = { cities: [], sp: [], clusters: new Map() };
   const empty = fc([]);
@@ -47,11 +61,11 @@ export function createMap(container, opts) {
     map.addSource('water', { type: 'geojson', data: base.water, tolerance: 0.3, maxzoom: 14, buffer: 16 });
     map.addSource('prov', { type: 'geojson', data: fc(prov.flatMap(p => p.rings.map(r => line(r)))) });
     for (const k of ['mw', 'tr', 'pr', 'se', 'te']) map.addSource(k, { type: 'geojson', data: base[k], tolerance: 0.3, maxzoom: 14, buffer: 16 });
-    map.addSource('tiles', { type: 'raster', tiles: ['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`), tileSize: 256, maxzoom: 19 });
+    if (tiles) map.addSource('tiles', { type: 'raster', tiles: ['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`), tileSize: 256, maxzoom: 19 });
     map.addLayer({ id: 'urban', type: 'fill', source: 'urban', maxzoom: 12, paint: { 'fill-color': P.urban, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.9, 12, 0.35] } });
     map.addLayer({ id: 'water', type: 'fill', source: 'water', paint: { 'fill-color': P.water } });
     // online tegels bóven de ingebouwde basiskaart; laden ze niet, dan blijft de basiskaart zichtbaar
-    map.addLayer({ id: 'tiles', type: 'raster', source: 'tiles', layout: { visibility: online ? 'visible' : 'none' } });
+    if (tiles) map.addLayer({ id: 'tiles', type: 'raster', source: 'tiles', layout: { visibility: online ? 'visible' : 'none' } });
     map.addLayer({ id: 'prov', type: 'line', source: 'prov', paint: { 'line-color': P.prov, 'line-width': 0.9, 'line-dasharray': [3, 2] } });
     const Z = (...stops) => ['interpolate', ['linear'], ['zoom'], ...stops];
     const road = (id, src, minzoom, casing, fill, wC, w) => {
@@ -122,7 +136,7 @@ export function createMap(container, opts) {
     map.setPaintProperty('route-casing', 'line-color', P.stroke); map.setPaintProperty('trucks', 'circle-stroke-color', P.stroke);
     const src = map.getSource('tiles'); if (src && src.setTiles) src.setTiles(['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`));
   }
-  function setOnline(v) { online = v && !onlineFailed; if (!ready) return; map.setLayoutProperty('tiles', 'visibility', online ? 'visible' : 'none'); applyZoomClasses(); }
+  function setOnline(v) { online = tiles && v && !onlineFailed; if (!ready || !tiles) return; map.setLayoutProperty('tiles', 'visibility', online ? 'visible' : 'none'); applyZoomClasses(); }
   const whenReady = f => ready ? f() : onReady.push(f);
   function setTrucks(features, dimFeatures) { if (!ready) return; map.getSource('trucks').setData(fc(features)); map.getSource('dim').setData(fc(dimFeatures)); }
   function setSelected(feature) { if (!ready) return; map.getSource('sel').setData(fc(feature ? [feature] : [])); }
@@ -131,5 +145,5 @@ export function createMap(container, opts) {
   function setRest(places, selId) { if (!ready) return; map.getSource('rest').setData(fc(places.map(p => ({ type: 'Feature', properties: { id: p.id, sel: p.id === selId }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })))); }
   function showRest(v) { if (!ready) return; map.setLayoutProperty('rest', 'visibility', v ? 'visible' : 'none'); }
   function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: 800 }); }
-  return { map, setTheme, setOnline, whenReady, setTrucks, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => !onlineFailed };
+  return { map, setTheme, setOnline, whenReady, setTrucks, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => tiles && !onlineFailed, hasTiles: () => tiles };
 }

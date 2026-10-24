@@ -35,7 +35,7 @@ export function renderSpView(ctx) {
       <div class="halfoot"><button class="btn" data-hal="${esc(pb.n)}">${ic('tv', 15)} Open als hal-scherm</button><button class="btn" data-pb="${esc(pb.n)}">${ic('cal', 15)} Planbord</button></div></div></div>`;
   $('v-standplaatsen').querySelectorAll('tr[data-sp]').forEach(el => el.addEventListener('click', () => { ctx.setPbSp(SP.find(s => s.n === el.dataset.sp)); renderSpView(ctx); }));
   $('v-standplaatsen').querySelectorAll('[data-truck]').forEach(el => el.addEventListener('click', () => ctx.selectTruck(el.dataset.truck, { stay: true })));
-  const h = $('v-standplaatsen').querySelector('[data-hal]'); if (h) h.onclick = () => ctx.hashTo('#hal/' + encodeURIComponent(h.dataset.hal));
+  const h = $('v-standplaatsen').querySelector('[data-hal]'); if (h) h.onclick = () => { ctx.hashTo('#hal/' + encodeURIComponent(h.dataset.hal)); ctx.fullscreen(); };
   const p = $('v-standplaatsen').querySelector('[data-pb]'); if (p) p.onclick = () => ctx.setView('planbord');
 }
 

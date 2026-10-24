@@ -13,7 +13,9 @@ const QUICK = ['Dock gewijzigd, zie app', 'Pauze bij de volgende stop', 'Bel de 
 const REPLIES = ['👍 Ontvangen', 'Oké, doe ik.', 'Begrepen, ik rij door naar de volgende stop.', 'Top, bedankt.'];
 const DIVDESC = { winkel: 'Albert Heijn, Jumbo, Plus, Lidl, SPAR, Vomar', netwerk: 'DC naar DC, crossdock Tiel en Geldermalsen, LZV', bulk: 'Poeders, granulaat, suiker', dranken: 'Heineken, Bavaria, Vrumona', bezorg: 'AH Home Service, bestelbussen' };
 
-export function createUI(fleet, state, store, { people, rest, lostijden }) {
+// root: de app-root (#app.slct) die thema en kiosk-klasse draagt; embedded: ingebed in een andere pagina (SafeTail):
+// sneltoetsen gelden dan alleen binnen de app en het hal-scherm vraagt om volledig scherm.
+export function createUI(fleet, state, store, { people, rest, lostijden, root = document.getElementById('app'), embedded = false }) {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const F = { regios: new Set(), sps: new Set(), divs: new Set(Object.keys(DIV)), sts: new Set(Object.keys(ST)), q: '', dim: true };
@@ -53,7 +55,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
       <div class="rail-foot"><button class="ri" id="wgBtn" title="Mijn werkgebied">${ic('settings', 20)}<span>Werkgebied</span></button><button class="ri" id="themeBtn" title="Licht of donker">${ic(state.theme === 'dark' ? 'sun' : 'moon', 20)}<span>Thema</span></button><div class="av" id="meAv" title="${ROLES[role].n}">${role === 'hr' ? 'HR' : role[0].toUpperCase() + role[1]}</div></div>`;
     $('rail').querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
     $('wgBtn').onclick = () => openWizard(1);
-    $('themeBtn').onclick = () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = t; state.theme = t; store.set('sl-theme', t); mapApi && mapApi.setTheme(t); renderRail(); };
+    $('themeBtn').onclick = () => { const t = root.dataset.theme === 'dark' ? 'light' : 'dark'; root.dataset.theme = t; state.theme = t; store.set('sl-theme', t); mapApi && mapApi.setTheme(t); renderRail(); };
   }
   function renderTopbar() {
     const v = VIEWS.find(x => x[0] === view);
@@ -220,7 +222,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
     p.querySelectorAll('[data-assign]').forEach(el => el.addEventListener('change', () => { const h = handled.get(el.dataset.assign) || {}; h.who = el.value; handled.set(el.dataset.assign, h); if (h.who) notice(`Melding toegewezen aan ${h.who}.`); renderPanel(); }));
     const sd = $('showDone'); if (sd) sd.onclick = () => { showDone = !showDone; renderPanel(); };
     const x = $('closePanel'); if (x) x.onclick = () => closePanel();
-    const h = $('toHal'); if (h) h.onclick = () => hashTo('#hal/' + encodeURIComponent(selSp.n));
+    const h = $('toHal'); if (h) h.onclick = () => { hashTo('#hal/' + encodeURIComponent(selSp.n)); fullscreen(); };
     const ld = $('toLaden'); if (ld) ld.onclick = () => setView('laden');
     const pb = $('toPb'); if (pb) pb.onclick = () => { pbSp = selSp; setView('planbord'); };
     const pb2 = $('toPb2'); if (pb2) pb2.onclick = () => { pbSp = selTruck.base; setView('planbord'); };
@@ -269,11 +271,14 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
   function closeSheet() { sheet = null; $('sheet').hidden = true; if (sheetPanel) { openPanel(sheetPanel); sheetPanel = null; } }
 
   // ---------- routes: hal-scherm en klant-link ----------
+  // Ingebed: het hal-scherm (tv in de loods) vult het hele scherm; Esc of "Sluiten" sluit beide weer.
+  function fullscreen() { if (!embedded || !root.requestFullscreen || document.fullscreenElement) return; root.requestFullscreen().catch(() => {}); }
+  if (embedded) document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && (halSp || klantId)) hashTo(''); });
   function hashTo(h) { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; onHash(); }
   function onHash() {
     const h = decodeURIComponent(location.hash.slice(1)); const [k, ...r] = h.split('/'); const arg = r.join('/');
     const wasHal = halSp, wasKlant = klantId; halSp = k === 'hal' ? (SP.find(s => s.n === arg) ? arg : SP[0].n) : null; klantId = k === 'klant' ? arg : null;
-    $('hal').hidden = !halSp; $('klant').hidden = !klantId; document.body.classList.toggle('kiosk', !!(halSp || klantId));
+    $('hal').hidden = !halSp; $('klant').hidden = !klantId; root.classList.toggle('kiosk', !!(halSp || klantId));
     if (halSp) renderHal(ctx, halSp);
     if (klantId) { if (wasKlant !== klantId) { selectTruck(klantId); follow = true; closePanel(); } renderKlant(ctx, klantId); }
     if (wasKlant && !klantId) { follow = false; }
@@ -312,7 +317,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
     const s = qs.trim().toLowerCase(); const out = []; const has = v => v.toLowerCase().includes(s);
     if (!s) { out.push(...VIEWS.map(v => ({ type: 'Weergave', label: v[1], sub: '', run: () => setView(v[0]) }))); return out.slice(0, 9); }
     for (const v of VIEWS) if (has(v[1])) out.push({ type: 'Weergave', label: v[1], sub: 'open deze weergave', run: () => setView(v[0]) });
-    for (const sp of SP) if (has(sp.n)) { out.push({ type: 'Standplaats', label: sp.n, sub: `${sp.fleet} trucks · ${sp.regio}`, run: () => selectSp(sp) }); out.push({ type: 'Hal-scherm', label: `Hal-scherm ${sp.n}`, sub: 'vertrekbord op volledig scherm', run: () => hashTo('#hal/' + encodeURIComponent(sp.n)) }); }
+    for (const sp of SP) if (has(sp.n)) { out.push({ type: 'Standplaats', label: sp.n, sub: `${sp.fleet} trucks · ${sp.regio}`, run: () => selectSp(sp) }); out.push({ type: 'Hal-scherm', label: `Hal-scherm ${sp.n}`, sub: 'vertrekbord op volledig scherm', run: () => { hashTo('#hal/' + encodeURIComponent(sp.n)); fullscreen(); } }); }
     let n = 0; for (const t of fleet.trucks) { if (n > 8) break; if (has(t.id) || has(t.plate) || has(t.driver)) { n++; const st = S.get(t.id); out.push({ type: 'Truck', label: `${t.id} · ${t.driver}`, sub: `${t.model.replace('Mercedes-Benz ', '')} · ${t.base.n}${st ? ' · ' + ST[st.st].n : ''}`, run: () => selectTruck(t.id) }); } }
     n = 0; for (const p of people.persons) { if (n > 6) break; if (has(p.name)) { n++; out.push({ type: 'Persoon', label: p.name, sub: `${p.role} · ${p.base.n}`, run: () => openSheet('persoon', p.id) }); } }
     n = 0; for (const e of lostijden.stops) { if (n > 5) break; if (has(e.name)) { n++; out.push({ type: 'Winkel', label: e.name, sub: `${e.n} stops per dag · gepland ${Math.round(e.planned)} min, gemeten ${Math.round(e.avg)} min`, run: () => { const t = fleet.byId.get([...e.trucks][0]); if (t) selectTruck(t.id); } }); } }
@@ -324,6 +329,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
 
   // ---------- sneltoetsen ----------
   document.addEventListener('keydown', e => {
+    // Ingebed in een pagina: alleen toetsen binnen de app (of zonder focus) tellen; de rest van de pagina houdt zijn eigen toetsen.
+    if (embedded && e.target instanceof Element && e.target !== document.body && e.target !== document.documentElement && !root.contains(e.target)) return;
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '');
     if (e.key === 'Escape') { if (!$('palette').hidden) closePalette(); else if (sheet) closeSheet(); else if (!$('wizard').hidden && profile) $('wizard').hidden = true; else if (halSp || klantId) hashTo(''); else if (selTruck) clearSel(); else if (panelOpen()) closePanel(); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
@@ -342,16 +349,16 @@ export function createUI(fleet, state, store, { people, rest, lostijden }) {
   $('nowBtn').onclick = () => { const n = new Date(); state.simTime = n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60; frame(true); };
   $('timebar').querySelector('.spd').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; state.speed = +b.dataset.s; $('timebar').querySelectorAll('.spd button').forEach(x => x.classList.toggle('on', x === b)); });
   function renderMapTools() {
-    $('maptools').innerHTML = `<button class="ib" id="layersBtn" title="Kaartlagen">${ic('layers', 16)}</button><div class="pop" id="layersPop" hidden><label class="sw ${mapApi && mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag (OpenStreetMap)</span></label><label class="sw ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen</span></label><label class="sw ${restOnMap ? 'on' : ''}" id="restTog"><i></i><span>Pauzeplekken</span></label></div>`;
+    $('maptools').innerHTML = `<button class="ib" id="layersBtn" title="Kaartlagen">${ic('layers', 16)}</button><div class="pop" id="layersPop" hidden>${mapApi && mapApi.hasTiles() ? `<label class="sw ${mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag (OpenStreetMap)</span></label>` : ''}<label class="sw ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen</span></label><label class="sw ${restOnMap ? 'on' : ''}" id="restTog"><i></i><span>Pauzeplekken</span></label></div>`;
     $('layersBtn').onclick = () => { $('layersPop').hidden = !$('layersPop').hidden; };
-    $('onlineTog').onclick = () => { if (!mapApi) return; const v = !mapApi.isOnline(); if (v && !mapApi.hasOnline()) { notice('De online kaartlaag is in deze omgeving niet bereikbaar.'); return; } mapApi.setOnline(v); store.set('sl-online', v ? 'on' : 'off'); $('onlineTog').classList.toggle('on', v); };
+    if ($('onlineTog')) $('onlineTog').onclick = () => { if (!mapApi) return; const v = !mapApi.isOnline(); if (v && !mapApi.hasOnline()) { notice('De online kaartlaag is in deze omgeving niet bereikbaar.'); return; } mapApi.setOnline(v); store.set('sl-online', v ? 'on' : 'off'); $('onlineTog').classList.toggle('on', v); };
     $('dimTog').onclick = () => { F.dim = !F.dim; $('dimTog').classList.toggle('on', F.dim); frame(true); };
     $('restTog').onclick = () => { setRestOnMap(!restOnMap); $('restTog').classList.toggle('on', restOnMap); };
   }
   function setRestOnMap(v) { restOnMap = v; if (mapApi) { mapApi.showRest(v); if (v) mapApi.setRest(rest.places, selRest && selRest.id); } }
   let noticeT = null; function notice(msg) { const n = $('notice'); n.textContent = msg; n.classList.add('on'); clearTimeout(noticeT); noticeT = setTimeout(() => n.classList.remove('on'), 7000); }
 
-  const ctx = { fleet, state, store, people, rest, lostijden, F, S, $, esc, ic, role: () => role, can, selectTruck, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, frame, hashTo, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, mapApi: () => mapApi };
+  const ctx = { fleet, state, store, people, rest, lostijden, F, S, $, esc, ic, role: () => role, can, selectTruck, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, frame, hashTo, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, mapApi: () => mapApi, fullscreen, embedded };
 
   function attachMap(api) { mapApi = api; api.whenReady(() => { renderMapTools(); frame(true); }); }
   function start() { renderRail(); renderTopbar(); window.addEventListener('hashchange', onHash); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
