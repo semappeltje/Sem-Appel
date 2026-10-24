@@ -603,7 +603,11 @@
   /* ---------- responsive ---------- */
   @container slct (max-width:1560px){&.panel-open .tt span{display:none}&.panel-open .srch{width:220px}}
   @container slct (max-width:1340px){&.panel-open .srch{width:36px;padding:0;justify-content:center}&.panel-open .srch span,&.panel-open .srch kbd{display:none}&.panel-open .seg2>span{display:none}&.panel-open .seg2 button:not(.on){display:none}&.panel-open .btn .lbl{display:none}}
-  @container slct (max-width:1200px){.srch{width:200px}.seg2>span{display:none}.btn .lbl{display:none}.cols{grid-template-columns:1fr}.col-side{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:20px}.nums{grid-template-columns:repeat(3,1fr)}.nums div:nth-child(4){border-left:0}}
+  /* topbalk compacter: alleen als de app echt smal is, of als het paneel open staat en de balk minder dan ~1040 px overhoudt */
+  @container slct (max-width:1100px){.srch{width:200px}.seg2>span{display:none}.btn .lbl{display:none}}
+  @container slct (max-width:1400px){&.panel-open .srch{width:200px}&.panel-open .seg2>span{display:none}&.panel-open .btn .lbl{display:none}}
+  /* pagina's: twee kolommen tot ~1000 px (in het SafeTools-kader van 1134 px blijven Kerngegevens dus naast het dagplan staan) */
+  @container slct (max-width:1000px){.cols{grid-template-columns:1fr}.col-side{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:20px}.nums{grid-template-columns:repeat(3,1fr)}.nums div:nth-child(4){border-left:0}}
   @media (max-width:900px){
     &{--rail:0px;--who:150px;--timebar:40px}
     /* onderbalk: vier weergaven plus Meer; open = alle weergaven in een raster erboven */

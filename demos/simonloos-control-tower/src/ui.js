@@ -396,7 +396,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   }
   function openSheet(kind, id, tab) { sheet = { kind, id, tab }; if (panelOpen()) { sheetPanel = panelMode; closePanel(); } renderSheet(ctx, kind, id, tab); $('sheet').hidden = false; $('sheet').scrollTop = 0; syncHash(); }
   let sheetPanel = null;
-  function closeSheet() { sheet = null; $('sheet').hidden = true; if (sheetPanel) { openPanel(sheetPanel); sheetPanel = null; } syncHash(); }
+  function closeSheet() { const cur = readHash(); sheet = null; $('sheet').hidden = true; if (sheetPanel) { openPanel(sheetPanel); sheetPanel = null; } if (!applyingHash && depth() > 0 && sheetOf(cur + '/') && cur !== currentHash()) history.back(); else syncHash(); }
 
   // ---------- routes: de URL volgt de app (weergave, selectie, pagina, hal-scherm, klant-link) ----------
   // #kaart, #planbord, #voertuigen, #opleggers, #mensen, #standplaatsen, #laden, #lostijden, #pauze, #assistent,
@@ -409,6 +409,12 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   const HASH_VIEW = Object.fromEntries(Object.entries(VIEW_HASH).map(([k, v]) => [v, k])); HASH_VIEW.trucks = 'trucks'; HASH_VIEW.pauzeplekken = 'pauze';
   const SHEET_TABS = ['Historie', 'Vandaag', 'Cijfers', 'Onderhoud', 'Documenten'];
   let applyingHash = false;
+  // Geschiedenis: elke ingang die de app zelf maakt krijgt een volgnummer in history.state; sluiten (hal, klant-link, pagina) gaat dan echt een stap terug in plaats van een nieuwe ingang te maken. Een tabwissel op een pagina vervangt de ingang.
+  let seq = 0; const url = h => location.pathname + location.search + (h ? (h[0] === '#' ? h : '#' + h) : '');
+  const depth = () => (history.state && history.state.n) || 0;
+  function pushHash(h) { try { history.pushState({ n: ++seq }, '', url(h)); } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } }
+  function replaceHash(h) { try { history.replaceState(history.state, '', url(h)); } catch { /* idem */ } }
+  const sheetOf = x => (/^(voertuig|persoon)\/[^/]+\//.test(x) ? x.split('/').slice(0, 2).join('/') : null);
   const readHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return location.hash.slice(1); } };
   function currentHash() {
     if (halSp) return 'hal/' + halSp; if (klantId) return 'klant/' + klantId;
@@ -416,9 +422,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (view === 'kaart') { if (selTruck) return 'voertuig/' + selTruck.id; if (selTrailer) return 'oplegger/' + selTrailer.id; if (selSp && panelMode === 'sp' && panelOpen()) return 'standplaats/' + selSp.n; }
     return VIEW_HASH[view] || 'kaart';
   }
-  function syncHash() { if (applyingHash) return; const h = currentHash(); if (readHash() === h) return; try { location.hash = h; } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } }
+  function syncHash() { if (applyingHash) return; const h = currentHash(); const cur = readHash(); if (cur === h) return; if (sheetOf(h) && sheetOf(h) === sheetOf(cur)) replaceHash(h); else pushHash(h); }
   // Sluiten (hal, klant-link, pagina) gaat terug naar de weergave eronder en zet die in het adres (replace, geen extra stap in de geschiedenis).
-  function hashTo(h) { if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); if (!h) { h = '#' + (VIEW_HASH[view] || 'kaart'); try { history.replaceState(null, '', location.pathname + location.search + h); } catch { /* zie boven */ } onHash(h, true); return; } try { if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h, true); }
+  function hashTo(h) { if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); if (!h) { if (depth() > 0) { history.back(); return; } h = '#' + (VIEW_HASH[view] || 'kaart'); replaceHash(h); onHash(h, true); return; } if (readHash() !== String(h).replace(/^#/, '')) pushHash(h); onHash(h, true); }
   function onHash(forced, explicit) {
     let h = forced !== undefined ? String(forced).replace(/^#/, '') : readHash(); const [k, ...r] = h.split('/'); let arg = r.join('/'); try { arg = decodeURIComponent(arg); } catch { /* laat staan */ }
     const parts = arg.split('/'); const id = parts[0] || ''; const sub = parts[1] || '';
@@ -524,6 +530,6 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
 
   if (embedded) { root.tabIndex = -1; root.addEventListener('pointerdown', () => { if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); }); }
   function attachMap(api) { mapApi = api; api.whenReady(() => { renderMapTools(); frame(true); }); }
-  function start() { renderRail(); renderTopbar(); restoreActs(); window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); }); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
+  function start() { renderRail(); renderTopbar(); restoreActs(); window.addEventListener('popstate', () => { if (readHash() !== currentHash()) onHash(); }); window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); }); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
   return { attachMap, frame, selectTruck, selectTrailer, selectSp, selectRest, hover, notice, start, openWizard, setView, openSheet, runAction, ctx };
 }
