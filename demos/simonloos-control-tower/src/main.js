@@ -22,7 +22,7 @@ const mapApi = createMap('map', {
   theme, tiles: cfg.tiles, online: cfg.tiles && store.get('sl-online') !== 'off',
   onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id), onSelectTrailer: id => window.SLCT && window.SLCT.ui.selectTrailer(id),
   onHover: (id, pt) => window.SLCT && window.SLCT.ui.hover(id, pt), onMapClick: () => window.SLCT && window.SLCT.ui.hover(null),
-  onTilesFailed: () => window.SLCT && window.SLCT.ui.notice('Online kaartlaag niet bereikbaar; de ingebouwde basiskaart is actief.'),
+  onTilesFailed: () => { const tog = document.getElementById('onlineTog'); if (tog) tog.classList.remove('on'); window.SLCT && window.SLCT.ui.notice('Online kaartlaag niet bereikbaar; de ingebouwde basiskaart is actief.'); },
 });
 // Eerst de pagina laten zien, dan de routes over het echte wegennet berekenen (ongeveer een seconde).
 const loadMsg = document.getElementById('loadMsg');

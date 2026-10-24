@@ -417,7 +417,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     return VIEW_HASH[view] || 'kaart';
   }
   function syncHash() { if (applyingHash) return; const h = currentHash(); if (readHash() === h) return; try { location.hash = h; } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } }
-  function hashTo(h) { if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); try { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h || '', true); }
+  // Sluiten (hal, klant-link, pagina) gaat terug naar de weergave eronder en zet die in het adres (replace, geen extra stap in de geschiedenis).
+  function hashTo(h) { if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); if (!h) { h = '#' + (VIEW_HASH[view] || 'kaart'); try { history.replaceState(null, '', location.pathname + location.search + h); } catch { /* zie boven */ } onHash(h, true); return; } try { if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h, true); }
   function onHash(forced, explicit) {
     let h = forced !== undefined ? String(forced).replace(/^#/, '') : readHash(); const [k, ...r] = h.split('/'); let arg = r.join('/'); try { arg = decodeURIComponent(arg); } catch { /* laat staan */ }
     const parts = arg.split('/'); const id = parts[0] || ''; const sub = parts[1] || '';
@@ -436,7 +437,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       else if (k === 'oplegger' && fleet.trailerById.get(id)) { if (sheet) closeSheet(); selectTrailer(id); }
       else if (k === 'persoon' && people.byId.get(id)) openSheet('persoon', id);
       else if (k === 'standplaats') { const sp = SP.find(s => s.n === id); if (sp) { if (sheet) closeSheet(); selectSp(sp); } }
-      else if (!k && !explicit) { if (sheet) closeSheet(); if (selTruck || selTrailer) clearSel(); }
+      else if (!k && !explicit) { if (sheet) closeSheet(); if (selTruck || selTrailer) clearSel(); if (view !== 'kaart') setView('kaart'); }
     } catch (err) { console.warn('route', h, err); } finally { applyingHash = false; }
   }
 
