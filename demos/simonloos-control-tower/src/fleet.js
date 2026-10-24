@@ -34,7 +34,7 @@ function makeRoute(base, div, klant) {
   for (let i = 0; i < seq.length - 1; i++) { const p = shortestPath(seq[i].node, seq[i + 1].node); if (i > 0) p.shift(); marks.push({ place: seq[i], at: ids.length }); ids.push(...p); }
   marks.push({ place: base, at: ids.length - 1 });
   const path = buildPath(ids);
-  return { seq, path, marks: marks.map((m, i) => ({ place: m.place, km: path.cum[Math.min(m.at, path.cum.length - 1)], name: i === 0 || i === marks.length - 1 ? base.n : stopName(div, klant, m.place) })), total: path.total };
+  return { seq, path, marks: marks.map((m, i) => ({ place: m.place, km: path.nodeKm[Math.min(m.at, path.nodeKm.length - 1)], name: i === 0 || i === marks.length - 1 ? base.n : stopName(div, klant, m.place) })), total: path.total };
 }
 
 const SHIFTS = { winkel: [[180, 480], [780, 1080]], netwerk: [[240, 1320]], bulk: [[300, 420], [720, 840]], dranken: [[300, 420]], bezorg: [[420, 540], [780, 900]] };

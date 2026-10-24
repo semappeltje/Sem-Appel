@@ -23,13 +23,12 @@ export function createUI(fleet, state, store) {
     const regioCount = r => fleet.trucks.filter(t => r === 'Alle' || t.base.regio === r).length;
     const side = $('side');
     side.innerHTML = `
-      <div class="sec"><h4>Regio</h4><div class="chips" id="regioChips">${['Alle', ...REGIOS].map(r => `<button class="chip ${F.regio === r ? 'on' : ''}" data-regio="${r}">${r === 'Alle' ? "Alle regio's" : r} <small>${fmt(regioCount(r))}</small></button>`).join('')}</div></div>
+      <div class="sec"><h4>Regio</h4><div class="chips" id="regioChips">${['Alle', ...REGIOS].map(r => `<button class="chip ${F.regio === r ? 'on' : ''}" data-regio="${r}">${r === 'Alle' ? "Alle regio's" : r}</button>`).join('')}</div></div>
       <div class="sec"><h4>Standplaats <small id="spSel"></small></h4><div class="search sm"><span>🔍</span><input id="spq" placeholder="Zoek standplaats…" value="${esc(F.spq)}"></div><div class="list" id="spList"></div><div class="more" id="spMore"></div>
-        <label class="toggle ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen<small>bij een selectie; uit = verbergen</small></span></label></div>
+        <label class="toggle ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen</span></label></div>
       <div class="sec"><h4>Divisie <small>${F.divs.size === Object.keys(DIV).length ? 'alle' : F.divs.size + ' gekozen'}</small></h4><div class="chips" id="divChips">${Object.entries(DIV).map(([k, d]) => `<button class="chip ${F.divs.has(k) && F.divs.size !== Object.keys(DIV).length ? 'on' : ''} ${F.divs.has(k) ? '' : 'off'}" data-div="${k}"><i style="background:${d.color}"></i>${d.n}</button>`).join('')}</div></div>
-      <div class="sec"><h4>Status <small>${F.sts.size === Object.keys(ST).length ? 'alle' : F.sts.size + ' gekozen'}</small></h4><div class="chips" id="stChips">${Object.entries(ST).map(([k, s]) => `<button class="chip ${F.sts.has(k) && F.sts.size !== Object.keys(ST).length ? 'on' : ''} ${F.sts.has(k) ? '' : 'off'}" data-st="${k}"><i style="background:${s.color}"></i>${s.n} <small data-cnt="${k}">0</small></button>`).join('')}</div></div>
-      <div class="sec foot"><h4>Kaart</h4><label class="toggle ${mapApi && mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag<small>OpenStreetMap-tegels via CARTO; uit = ingebouwde basiskaart</small></span></label>
-        <div class="hint">Uitgezoomd: clusters per gebied · Ingezoomd: losse trucks met rijrichting · Klik op een truck: rit, ETA en chauffeur</div></div>`;
+      <div class="sec"><h4>Status <small>${F.sts.size === Object.keys(ST).length ? 'alle' : F.sts.size + ' gekozen'}</small></h4><div class="chips" id="stChips">${Object.entries(ST).map(([k, s]) => `<button class="chip ${F.sts.has(k) && F.sts.size !== Object.keys(ST).length ? 'on' : ''} ${F.sts.has(k) ? '' : 'off'}" data-st="${k}"><i style="background:${s.color}"></i>${s.n}</button>`).join('')}</div></div>
+      <div class="sec foot"><label class="toggle ${mapApi && mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag (OpenStreetMap)</span></label></div>`;
     renderSpList();
     side.querySelector('#regioChips').addEventListener('click', e => { const b = e.target.closest('[data-regio]'); if (!b) return; F.regio = b.dataset.regio; F.sps.clear(); selSp = null; if (panelMode === 'sp') panelMode = 'feed'; renderSide(); if (mapApi) { if (F.regio === 'Alle') mapApi.map.easeTo({ center: [5.3, 52.2], zoom: 6.6, duration: 800 }); else mapApi.fitSps(SP.filter(s => s.regio === F.regio)); mapApi.highlightSp(null); } frame(true); });
     side.querySelector('#divChips').addEventListener('click', e => { const b = e.target.closest('[data-div]'); if (!b) return; const k = b.dataset.div; if (F.divs.has(k) && F.divs.size === 1) F.divs = new Set(Object.keys(DIV)); else if (F.divs.size === Object.keys(DIV).length) F.divs = new Set([k]); else F.divs.has(k) ? F.divs.delete(k) : F.divs.add(k); renderSide(); frame(true); });
@@ -106,17 +105,14 @@ export function createUI(fleet, state, store) {
   // ---------- KPI's, crumb, klok ----------
   function renderKpis() {
     const k = kpi; $('kpis').innerHTML = [
-      ['Trucks actief', fmt(k.actief), `van ${fmt(k.nVis)} in beeld · ${fmt(counts.terrein)} op terrein`, ''],
-      ['Stops vandaag', fmt(k.stopsDone), `afgerond · ${fmt(k.ritten)} ritten gepland`, ''],
-      ['Op tijd bij klant', `${k.onTime.toFixed(1).replace('.', ',')} %`, 'tijdvenster gehaald · doel 95 %', k.onTime < 95 ? 'warn' : 'good'],
-      ['Uitzonderingen', fmt(k.ex), `${k.vertraging} vertraging · ${k.rijtijd} rijtijd · ${k.accu} accu · ${k.techniek} techniek`, k.ex ? 'bad' : ''],
-      ['Rijtijd-risico', fmt(k.rijtijdRisk), 'chauffeurs binnen 30 min op limiet', k.rijtijdRisk ? 'warn' : ''],
-      ['Laadpunten', `${k.laden} / ${k.lp}`, 'bezet · eActros laden nu', ''],
+      ['Onderweg', fmt(k.actief), `van ${fmt(k.nVis)}`, ''],
+      ['Op tijd', `${k.onTime.toFixed(0)} %`, 'doel 95 %', k.onTime < 95 ? 'warn' : 'good'],
+      ['Uitzonderingen', fmt(k.ex), k.ex ? `${k.vertraging} vertraging` : 'geen', k.ex ? 'bad' : ''],
     ].map(([l, v, s, c]) => `<div class="kpi ${c}"><small>${l}</small><b>${v}</b><span>${s}</span></div>`).join('');
   }
   function renderCrumb() {
     const z = mapApi.map.getZoom(); const scope = F.sps.size === 1 ? `${[...F.sps][0]}` : F.sps.size > 1 ? `${F.sps.size} standplaatsen` : F.regio === 'Alle' ? 'Nederland' : F.regio;
-    $('crumb').innerHTML = `<b>${esc(scope)}</b> · ${fmt(kpi.nVis)} van ${fmt(fleet.trucks.length)} trucks in beeld <span class="pill">${z < 8.5 ? 'Clusters' : 'Losse trucks'}</span>${F.sps.size ? `<span class="pill red" id="clearSp">Alleen ${esc(F.sps.size === 1 ? [...F.sps][0] : F.sps.size + ' standplaatsen')} ✕</span>` : ''}${F.q ? `<span class="pill" id="clearQ">Zoek: ${esc(F.q)} ✕</span>` : ''}`;
+    $('crumb').innerHTML = `<b>${esc(scope)}</b> · ${fmt(kpi.nVis)} trucks <span class="pill">${z < 8.5 ? 'Clusters' : 'Stippen'}</span>${F.sps.size ? `<span class="pill red" id="clearSp">Alleen ${esc(F.sps.size === 1 ? [...F.sps][0] : F.sps.size + ' standplaatsen')} ✕</span>` : ''}${F.q ? `<span class="pill" id="clearQ">Zoek: ${esc(F.q)} ✕</span>` : ''}`;
     const c = $('clearSp'); if (c) c.onclick = () => { F.sps.clear(); selSp = null; if (panelMode === 'sp') panelMode = 'feed'; renderSpList(); mapApi.highlightSp(null); frame(true); };
     const cq = $('clearQ'); if (cq) cq.onclick = () => { F.q = ''; $('q').value = ''; frame(true); };
   }
@@ -132,9 +128,9 @@ export function createUI(fleet, state, store) {
   }
   function feedPanel() {
     const ex = exceptions.filter(e => exFilter === 'Alle' || e.kind === exFilter).slice(0, 40);
-    const chips = ['Alle', 'Vertraging', 'Rijtijd', 'Accu', 'Techniek'].map(k => `<button class="chip sm ${exFilter === k ? 'on' : ''}" data-ex="${k}">${k}${k === 'Alle' ? '' : ' ' + (kpi[k.toLowerCase()] || 0)}</button>`).join('');
+    const chips = ['Alle', 'Vertraging', 'Rijtijd', 'Accu', 'Techniek'].map(k => `<button class="chip sm ${exFilter === k ? 'on' : ''}" data-ex="${k}">${k}</button>`).join('');
     return `<div class="ph"><h3>Uitzonderingen <b>${kpi.ex || 0}</b></h3></div><div class="pf">${chips}</div>
-      <div class="als">${ex.length ? ex.map(e => `<div class="al ${e.sev}" data-truck="${e.t.id}"><i></i><div><b>${e.t.id}</b><span>${esc(e.t.base.n)} · ${esc(e.kind)}</span><p>${esc(e.text)}</p></div></div>`).join('') : '<div class="empty">Geen uitzonderingen binnen de huidige filters.</div>'}</div>
+      <div class="als">${ex.length ? ex.map(e => `<div class="al ${e.sev}" data-truck="${e.t.id}"><i></i><div><b>${e.t.id}</b><span>${esc(e.t.base.n)}</span><p>${esc(e.text)}</p></div></div>`).join('') : '<div class="empty">Geen uitzonderingen binnen de huidige filters.</div>'}</div>
       <h4 class="sub">Gebeurtenissen <small>live</small></h4><div class="evs">${feed.filter(e => matchBase(e.t) && (!F.sps.size || F.sps.has(e.t.base.n))).slice(0, 14).map(e => `<div class="ev ${e.sev}" data-truck="${e.t.id}"><time>${hhmm(e.T)}</time><span><b>${e.t.id}</b> ${esc(e.t.driver)} ${esc(e.txt)}</span></div>`).join('') || '<div class="empty">Nog geen gebeurtenissen.</div>'}</div>`;
   }
   function spPanel(sp) {
@@ -214,7 +210,7 @@ export function createUI(fleet, state, store) {
   // ---------- planbord ----------
   function renderPlanbord() {
     const sp = pbSp; const T = state.simTime; const rows = fleet.trucks.filter(t => t.base === sp).sort((a, b) => a.shiftStart - b.shiftStart);
-    const head = $('pbHead'); head.innerHTML = `<div class="bf"><label class="dd"><small>Standplaats</small><select id="pbSel">${SP.slice().sort((a, b) => a.n.localeCompare(b.n)).map(s => `<option ${s === sp ? 'selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label><span class="dd"><small>Dag</small><b>vandaag · ${hhmm(T)}</b></span><span class="pill">${rows.length} trucks · ${rows.filter(t => t.plan.some(s => s.delay)).length} met vertraging</span><span class="pill ghost">Sleep-en-plan en automatisch herplannen (VROOM) volgen in de echte versie</span></div>
+    const head = $('pbHead'); head.innerHTML = `<div class="bf"><label class="dd"><small>Standplaats</small><select id="pbSel">${SP.slice().sort((a, b) => a.n.localeCompare(b.n)).map(s => `<option ${s === sp ? 'selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label><span class="dd"><small>Dag</small><b>vandaag · ${hhmm(T)}</b></span><span class="pill">${rows.length} trucks</span></div>
       <div class="legend2">${[['drive', '#E3001F', 'Rijden'], ['stop', '#E0A800', 'Bij klant'], ['pauze', '#8A919E', 'Pauze'], ['laden', '#16A34A', 'Laden accu'], ['terrein', '#B3B8C2', 'Op terrein']].map(([k, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}<span class="now2"><i></i>Nu ${hhmm(T)}</span></div>`;
     $('pbSel').onchange = e => { pbSp = SP.find(s => s.n === e.target.value); renderPlanbord(); };
     const W0 = Math.floor((T - 180) / 60) * 60, SPAN = 14 * 60, PX = 1020 / SPAN; // venster van 14 uur, drie uur terug
@@ -235,7 +231,7 @@ export function createUI(fleet, state, store) {
     const T = state.simTime; const rows = SP.slice().sort((a, b) => b.fleet - a.fleet).map(sp => { const c = { onderweg: 0, klant: 0, pauze: 0, vertraagd: 0, terrein: 0 }; let ex = 0; for (const t of fleet.trucks) { if (t.base !== sp) continue; const s = S.get(t.id); if (!s) continue; c[s.st]++; } ex = exceptions.filter(e => e.t.base === sp).length; return { sp, c, ex }; });
     const deps = fleet.departures(pbSp, T, 150).slice(0, 12);
     $('spView').innerHTML = `<div class="spgrid"><div class="sptable"><div class="bf"><h3>Standplaatsen <small>${SP.length} · ${fmt(fleet.trucks.length)} trucks</small></h3></div>
-      <table><thead><tr><th>Standplaats</th><th>Regio</th><th>Klant</th><th class="r">Trucks</th><th class="r">Onderweg</th><th class="r">Bij klant</th><th class="r">Terrein</th><th class="r">Uitz.</th></tr></thead><tbody>${rows.map(({ sp, c, ex }) => `<tr class="${sp === pbSp ? 'sel' : ''}" data-sp="${esc(sp.n)}"><td><b>${esc(sp.n)}</b>${sp.hub ? ' <small>hoofdkantoor</small>' : ''}</td><td>${esc(sp.regio)}</td><td>${esc(sp.klant)}</td><td class="r">${sp.fleet}</td><td class="r">${c.onderweg + c.vertraagd}</td><td class="r">${c.klant}</td><td class="r">${c.terrein}</td><td class="r ${ex ? 'bad' : ''}">${ex}</td></tr>`).join('')}</tbody></table></div>
+      <table><thead><tr><th>Standplaats</th><th>Regio</th><th>Klant</th><th class="r">Trucks</th><th class="r">Onderweg</th><th class="r">Uitz.</th></tr></thead><tbody>${rows.map(({ sp, c, ex }) => `<tr class="${sp === pbSp ? 'sel' : ''}" data-sp="${esc(sp.n)}"><td><b>${esc(sp.n)}</b>${sp.hub ? ' <small>hoofdkantoor</small>' : ''}</td><td>${esc(sp.regio)}</td><td>${esc(sp.klant)}</td><td class="r">${sp.fleet}</td><td class="r">${c.onderweg + c.vertraagd}</td><td class="r ${ex ? 'bad' : ''}">${ex}</td></tr>`).join('')}</tbody></table></div>
       <div class="hal"><div class="halhead"><span class="prod">Vertrekbord</span><h3>${esc(pbSp.n)}</h3><b>${hhmm(T)}</b></div><div class="halrows">${deps.map(d => `<div class="halrow"><time>${hhmm(d.at)}</time><b>${d.t.id}</b><span class="drv">${esc(d.t.driver)}</span><span class="dest">${esc(d.dest)}</span><em>Dock ${d.dock}</em><i class="${d.at - T < 15 ? 'soon' : ''}">${d.at - T < 15 ? 'Laden' : 'Gepland'}</i></div>`).join('') || '<div class="empty">Geen vertrekken in de komende 2,5 uur.</div>'}</div><div class="halfoot">Hal-scherm per standplaats: dezelfde data als de control tower, op een tv in de loods.</div></div></div>`;
     $('spView').querySelectorAll('[data-sp]').forEach(el => el.addEventListener('click', () => { pbSp = SP.find(s => s.n === el.dataset.sp); renderSpView(); }));
   }
@@ -314,7 +310,7 @@ export function createUI(fleet, state, store) {
   $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
   $('q').addEventListener('input', e => { F.q = e.target.value.trim(); frame(true); });
   $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { const q = F.q.toLowerCase(); const t = fleet.trucks.find(t => t.id.toLowerCase() === q || t.driver.toLowerCase() === q || t.plate.toLowerCase() === q); if (t) selectTruck(t.id); const sp = SP.find(s => s.n.toLowerCase() === q); if (sp) selectSp(sp); } });
-  $('timebar').innerHTML = `<span class="lbl">Vandaag</span><input type="range" id="scrub" min="0" max="1439" step="1" value="0"><b id="tbClock">--:--</b><button class="tb" id="playBtn" title="Pauzeer of speel af">❚❚</button><div class="spd">${[1, 12, 60, 300].map(s => `<button data-s="${s}" class="${s === state.speed ? 'on' : ''}">${s}×</button>`).join('')}</div><button class="tb" id="nowBtn" title="Spring naar de echte klok">Nu</button><span class="tbhint">Schuif voor replay · 1× is echte tijd</span>`;
+  $('timebar').innerHTML = `<span class="lbl">Vandaag</span><input type="range" id="scrub" min="0" max="1439" step="1" value="0"><b id="tbClock">--:--</b><button class="tb" id="playBtn" title="Pauzeer of speel af">❚❚</button><div class="spd">${[1, 12, 60, 300].map(s => `<button data-s="${s}" class="${s === state.speed ? 'on' : ''}">${s}×</button>`).join('')}</div><button class="tb" id="nowBtn" title="Spring naar de echte klok">Nu</button>`;
   $('scrub').addEventListener('input', e => { state.simTime = +e.target.value; frame(true); });
   $('playBtn').onclick = () => { state.playing = !state.playing; $('playBtn').textContent = state.playing ? '❚❚' : '▶'; };
   $('nowBtn').onclick = () => { const n = new Date(); state.simTime = n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60; frame(true); };
