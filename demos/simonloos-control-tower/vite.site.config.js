@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 // Build voor inbedding in een site (SafeTail, safetail.nl/intern/control-tower): geen index.html, maar vaste
 // bestandsnamen die een pagina zelf laadt: app.js (de code), data.js (het wegennet en de plaatsen), maplibre.js
-// (de kaartbibliotheek), three.js (de 3D-wereld) en app.css. De code verandert vaak, de data zelden: zo blijft een update klein.
+// (de kaartbibliotheek), three.js (de 3D-wereld, pas geladen bij de eerste klik op de kubus) en app.css. De code verandert vaak, de data zelden: zo blijft een update klein.
 // Gebruik: npm run build:site, dan node tools/sync-safetail.mjs <pad naar de website-repo>.
 export default defineConfig({
   base: '/intern/control-tower/app/',
@@ -12,7 +12,7 @@ export default defineConfig({
       input: 'src/main.js',
       output: {
         entryFileNames: 'app.js', chunkFileNames: '[name].js', assetFileNames: 'app.[ext]',
-        manualChunks(id) { if (id.includes('/src/data/')) return 'data'; if (id.includes('node_modules/maplibre-gl/')) return 'maplibre'; if (id.includes('node_modules/three/')) return 'three'; },
+        manualChunks(id) { if (id.includes('/src/data/')) return 'data'; if (id.includes('node_modules/maplibre-gl/')) return 'maplibre'; if (id.includes('node_modules/three/') || id.endsWith('/src/scene3d.js')) return 'three'; },
       },
     },
   },

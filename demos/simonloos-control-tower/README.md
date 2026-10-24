@@ -146,7 +146,8 @@ diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
 en beoordelingen. Werkgebied, rol, thema, opgeslagen weergaven, overgenomen lostijden,
 eigen beoordelingen, de overdrachtstekst, de 3D-stand en de acties van vandaag (afgehandelde en
-uitgestelde meldingen, toegepaste voorstellen, berichten) staan in de browser (localStorage, `sl-*`).
+uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan in de browser
+(localStorage, `sl-*`).
 
 ## Bestanden
 

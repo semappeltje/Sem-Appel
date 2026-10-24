@@ -437,6 +437,7 @@
 
   /* ---------- record-pagina's ---------- */
   .sheet{position:fixed;top:var(--tb);right:0;bottom:0;left:var(--rail);background:var(--bg);z-index:30;overflow:auto}
+  &.panel-open .sheet{right:var(--panel)}   /* het paneel (bel) blijft naast een open pagina zichtbaar */
   .sheetin{max-width:1120px;margin:0 auto;padding:20px 32px 56px}
   .sheetbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}
   .crumbs{color:var(--muted);font-size:12px}
@@ -629,7 +630,8 @@
     .tt{flex-direction:column;align-items:flex-start;gap:0;flex:1}
     .tt b{font-size:15px}.tt span{font-size:11px;max-width:100%}
     .srch{display:none}.seg2{display:none}.dropdown{display:none}.ib.mob{display:grid}
-    .panel{position:fixed;left:0;right:0;top:var(--tb);bottom:58px;width:auto;z-index:25;padding:14px 16px 20px}
+    .panel{position:fixed;left:0;right:0;top:var(--tb);bottom:58px;width:auto;z-index:31;padding:14px 16px 20px}
+    &.panel-open .sheet{right:0}
     .sheet{left:0;bottom:58px}.sheetin{padding:14px 16px 32px}
     .rh{flex-wrap:wrap;gap:12px}.rh .st{margin-left:0}.tabs2{overflow-x:auto;scrollbar-width:none}.tabs2 button{white-space:nowrap;padding:10px 10px}
     .statline{left:8px;right:8px;top:8px;max-width:none;flex-wrap:nowrap;padding:3px 4px;border-radius:999px}
