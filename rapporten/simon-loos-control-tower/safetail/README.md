@@ -1,6 +1,6 @@
 # Control Tower als tabblad in SafeTools (safetail.nl/intern/control-tower)
 
-De Control Tower (versie 3.1) staat als eigen tabblad "Control Tower" in SafeTools, het
+De Control Tower (versie 3.2) staat als eigen tabblad "Control Tower" in SafeTools, het
 interne deel van safetail.nl (achter de inlog van de oprichters, naast Ideeënbus, Vragen
 en Dossiers). De wijzigingen voor de website staan in de repo
 `SafeTail-V-O-F/Website` op de tak `ronde10/control-tower`; omdat deze sessie daar niet
@@ -10,18 +10,19 @@ mag pushen, staat die tak hier als git-bundel: `safetail-control-tower.bundle`.
 
 ```
 cd <pad naar de website-repo>
-git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-32:ronde10/control-tower-32
-git checkout ronde10/control-tower-32
+git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-33:ronde10/control-tower-33
+git checkout ronde10/control-tower-33
 npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
 git push -u origin ronde10/control-tower
 ```
 
 De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-review) heeft
-de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Deze bundel
-bevat de tak `ronde10/control-tower-32`: een commit boven 1e5f201 met de drie punten uit
-de deltareview (topbalk in het kader van 1136 px, terug naar de kaart, schakelaar online
-kaartlaag) en de meetbon. `git fetch <bundel> ronde10/control-tower-32` werkt in een kopie
-die 1e5f201 al heeft. Daarna
+de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Ook de
+bundel met de drie punten uit de deltareview is samengevoegd (`setup-astro-site` op a25ddba).
+Deze bundel bevat de tak `ronde10/control-tower-33`: een commit boven a25ddba met versie 3.2
+(de 3D-wereld; `three.js` komt als vijfde bestand bij de bundel en de bewaker, de pagina en
+de docs noemen het) en de meetbon. `git fetch <bundel> ronde10/control-tower-33` werkt in een
+kopie die a25ddba al heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
 
@@ -32,7 +33,7 @@ geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
   kaarttegels van buiten) en `data-embedded` (sneltoetsen alleen na een klik in de app,
   hal-scherm op volledig scherm).
 - `public/intern/control-tower/app/`: de gebouwde app (`app.js`, `data.js`, `maplibre.js`,
-  `app.css`, `VERSIE.json`), gebouwd uit `demos/simonloos-control-tower` in deze repo met
+  `three.js` sinds 3.2, `app.css`, `VERSIE.json`), gebouwd uit `demos/simonloos-control-tower` in deze repo met
   `npm run build:site` en `node tools/sync-safetail.mjs`. Achter de `/intern`-gate, niets
   in `/_astro`.
 - `InternBar.astro` en `InternIcon.astro`: het tabblad met icoon (het tabblad "Vragen
@@ -56,7 +57,8 @@ URL's voor elke weergave, meldingen met geheugen, panelen, planbordfilters, afte
 zoekpalet). Commit 7594cae verwerkt de zes punten uit de Fable-review van de SafeTail-tab
 (volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen);
 commit 92b17b1 de drie punten uit de deltareview (topbalk in een smal kader, terugknop naar
-de kaart, schakelaar van de online kaartlaag). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
+de kaart, schakelaar van de online kaartlaag); commit 443d64d is versie 3.2: de 3D-wereld op
+de kaart (three.js in een eigen MapLibre-laag, knop met de kubus, toets d). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
 
 ## Gecontroleerd
 
@@ -68,5 +70,5 @@ de kaart, schakelaar van de online kaartlaag). De losse versie (`dist/index.html
 - Schermafbeeldingen: `01` tot en met `04` in deze map.
 
 Let op: de gate zet op alles onder `/intern` `Cache-Control: private, no-store`, dus de
-bundel (ongeveer 8 MB, 3,8 MB gecomprimeerd) laadt bij elk bezoek opnieuw. Voor de
+bundel (ongeveer 8,7 MB, 3,9 MB gecomprimeerd) laadt bij elk bezoek opnieuw. Voor de
 oprichters prima; wordt dat hinderlijk, dan is de data in deze repo kleiner te maken.
