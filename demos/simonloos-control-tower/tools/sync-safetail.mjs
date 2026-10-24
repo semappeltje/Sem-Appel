@@ -4,7 +4,7 @@
 //   npm run build:site
 //   node tools/sync-safetail.mjs ../../../website      # pad naar de website-repo (SafeTail-V-O-F/Website)
 //
-// Kopieert app.js, data.js, maplibre.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
+// Kopieert app.js, data.js, maplibre.js, three.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
 // VERSIE.json (commit en datum van deze repo, bestandsgroottes). De pagina src/pages/intern/control-tower.astro in
 // die repo laadt deze bestanden en toont de versie. Daarna in de website-repo: npm run build, npm test, committen
 // (DEPLOY.md, "SafeTools · Control Tower").
@@ -18,7 +18,7 @@ const dist = path.join(app, 'dist-site');
 const target = process.argv[2];
 if (!target) { console.error('Gebruik: node tools/sync-safetail.mjs <pad naar de website-repo>'); process.exit(1); }
 const doel = path.join(path.resolve(target), 'public', 'intern', 'control-tower', 'app');
-const FILES = ['app.js', 'data.js', 'maplibre.js', 'app.css'];
+const FILES = ['app.js', 'data.js', 'maplibre.js', 'three.js', 'app.css'];
 for (const f of FILES) if (!existsSync(path.join(dist, f))) { console.error(`${f} ontbreekt in dist-site/: draai eerst npm run build:site`); process.exit(1); }
 mkdirSync(doel, { recursive: true });
 const bestanden = {};
