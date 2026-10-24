@@ -1,0 +1,257 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Simon Loos Control Tower · Planbord Wognum</title><style>*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1600px;height:1000px;overflow:hidden;background:#0B0F17;color:#E5E7EB;font-family:Inter,system-ui,sans-serif;font-size:13px;line-height:1.35;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+b{font-weight:600}
+small{font-size:11px;color:#8B94A7;font-weight:500}
+/* ---------- topbar ---------- */
+.top{height:56px;display:flex;align-items:center;gap:22px;padding:0 18px;background:#0E131D;border-bottom:1px solid #1C2432}
+.brand{display:flex;align-items:center;gap:12px}
+.brand img{height:26px;display:block}
+.brand .sep{width:1px;height:22px;background:#2A3344}
+.brand .prod{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#C7CDD8;font-weight:700}
+.tabs{display:flex;gap:4px;margin-left:12px}
+.tabs a{padding:8px 14px;border-radius:8px;color:#9AA3B5;font-weight:500}
+.tabs a.on{background:#1A2231;color:#FFF;font-weight:600}
+.right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.live{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.08em;color:#9AA3B5;font-weight:700}
+.live i{width:8px;height:8px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+.live b{letter-spacing:0;color:#E5E7EB;font-weight:600;font-size:12px}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid #273043;border-radius:9px;background:#0B0F17;color:#6F788B;width:320px}
+.search kbd{margin-left:auto;font:600 10px Inter;border:1px solid #2A3344;border-radius:5px;padding:2px 5px;color:#8B94A7}
+.search.sm{width:auto;height:30px;font-size:12px;margin:0 0 8px}
+.bell{position:relative;width:34px;height:34px;display:grid;place-items:center;border:1px solid #273043;border-radius:9px;background:#0B0F17}
+.bell b{position:absolute;top:-6px;right:-6px;background:#E3001F;color:#FFF;font-size:10px;border-radius:9px;padding:1px 5px}
+.user{display:flex;align-items:center;gap:9px;font-weight:600}
+.user span small{display:block;font-weight:500}
+.av{width:30px;height:30px;border-radius:50%;background:#E3001F;color:#FFF;display:grid;place-items:center;font-size:11px;font-weight:700}
+/* ---------- layout ---------- */
+.app{display:grid;grid-template-columns:300px 980px 320px;height:944px}
+.app.two{grid-template-columns:1010px 590px}
+.side{background:#0E131D;border-right:1px solid #1C2432;padding:14px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.sec h4{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8B94A7;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
+.sec h4 small{text-transform:none;letter-spacing:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips.col{flex-direction:column}
+.chips.wrap{gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid #273043;color:#A4ACBD;font-size:12px;background:#0B0F17}
+.chip small{color:#6F788B}
+.chip.on{background:#1A2231;border-color:#3A4659;color:#FFF}
+.chip.on small{color:#C7CDD8}
+.chip.sm{padding:3px 9px;font-size:11px}
+.chip.st i{width:9px;height:9px;border-radius:50%}
+.chip.st{justify-content:flex-start;align-self:flex-start}
+.list{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:9px;padding:6px 6px;border-radius:7px;color:#C7CDD8}
+.row.on{background:#1A2231;color:#FFF}
+.row b{margin-left:auto;color:#8B94A7;font-weight:600}
+.row.on b{color:#FFF}
+.row span small{color:#6F788B}
+.cb{width:15px;height:15px;border-radius:4px;border:1.5px solid #3A4659;background:#0B0F17;flex:none}
+.cb.on{background:#E3001F;border-color:#E3001F;position:relative}
+.cb.on:after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #FFF;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.more{padding:6px;color:#6F788B;font-size:12px}
+.toggle{display:flex;align-items:flex-start;gap:9px;margin-top:8px;padding:9px 10px;border-radius:9px;border:1px solid #273043;font-size:12px;color:#A4ACBD;line-height:1.3}
+.toggle i{flex:none;width:30px;height:17px;border-radius:9px;background:#2A3344;position:relative;margin-top:1px}
+.toggle i:after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#8B94A7}
+.toggle.on{border-color:#E3001F55;color:#FFF;background:#E3001F10}
+.toggle.on i{background:#E3001F}
+.toggle.on i:after{left:15px;background:#FFF}
+.toggle small{display:block;margin-top:2px}
+.seg{display:inline-flex;border:1px solid #273043;border-radius:8px;overflow:hidden}
+.seg span{padding:6px 12px;color:#8B94A7;font-size:12px;font-weight:500}
+.seg span.on{background:#1A2231;color:#FFF}
+.seg.sm span{padding:4px 9px;font-size:11px}
+.hint{margin-top:8px;font-size:11px;color:#6F788B;line-height:1.4}
+.foot{margin-top:auto}
+/* ---------- map ---------- */
+.map{position:relative;overflow:hidden;background:#0A0E17}
+.map svg{display:block}
+.map svg text{font-family:Inter,sans-serif}
+.city{fill:#8A93A6;font-weight:600;text-anchor:middle;letter-spacing:.06em;paint-order:stroke;stroke:#0A0E17;stroke-width:3px;stroke-linejoin:round}
+.city.r1{fill:#A5ADBF;letter-spacing:.12em}
+.city.r3,.city.r4{fill:#6F788B;font-weight:500;letter-spacing:0}
+.water{fill:#2E4A6E;font-style:italic;text-anchor:middle;letter-spacing:.14em;font-weight:500}
+.cnt{fill:#FFF;font-weight:700;text-anchor:middle}
+.cnt.dark{fill:#0A0E17}
+.splbl{fill:#D5DAE3;font-weight:600;text-anchor:middle;paint-order:stroke;stroke:#0A0E17;stroke-width:3px;stroke-linejoin:round}
+.splbl.hub{fill:#FFF}
+.crumb{position:absolute;left:16px;top:14px;display:flex;align-items:center;gap:10px;color:#C7CDD8;font-size:13px;background:rgba(14,19,29,.86);backdrop-filter:blur(8px);border:1px solid #1F2838;border-radius:10px;padding:8px 12px}
+.crumb b{color:#FFF}
+.crumb .back{color:#8B94A7}
+.pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:#1A2231;color:#C7CDD8;border:1px solid #2A3344}
+.pill.ghost{background:transparent;color:#8B94A7;border-style:dashed}
+.pill.red{background:#E3001F;border-color:#E3001F;color:#FFF}
+.pill.bad{background:#EF444422;border-color:#EF444455;color:#FCA5A5}
+.kpis{position:absolute;left:16px;top:60px;display:flex;gap:8px}
+.kpi{background:rgba(14,19,29,.86);backdrop-filter:blur(8px);border:1px solid #1F2838;border-radius:10px;padding:9px 12px;min-width:138px}
+.kpi small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.kpi b{display:block;font-size:20px;font-weight:700;color:#FFF;margin:2px 0 1px;letter-spacing:-.01em}
+.kpi span{font-size:11px;color:#8B94A7}
+.kpi.warn b{color:#FCD34D}.kpi.bad b{color:#F87171}.kpi.good b{color:#4ADE80}
+.tip{position:absolute;width:280px;background:rgba(14,19,29,.96);border:1px solid #2A3344;border-radius:12px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.tip:before{content:"";position:absolute;left:-7px;top:62px;width:12px;height:12px;background:#0E131D;border-left:1px solid #2A3344;border-bottom:1px solid #2A3344;transform:rotate(45deg)}
+.tip h5{font-size:14px;color:#FFF;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tip.trk{width:330px}
+.tip.trk h5{font-size:13px}
+.bars div{display:grid;grid-template-columns:70px 1fr 28px;align-items:center;gap:8px;margin:4px 0;font-size:12px;color:#A4ACBD}
+.bars i{display:block;height:7px;border-radius:4px;grid-column:1;min-width:3px}
+.bars span{grid-column:2}.bars b{text-align:right;color:#FFF}
+.bars div{grid-template-columns:72px 1fr 28px}
+.bars div i{grid-column:1}
+.tip .act{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #1F2838}
+.tip .act span{font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;background:#1A2231;color:#FFF}
+.kv{display:grid;grid-template-columns:70px 1fr;gap:4px 10px;font-size:12px;color:#8B94A7}
+.kv b{color:#E5E7EB}.kv b.bad{color:#F87171}
+.plate{display:inline-block;background:#FCC41F;color:#111;font-weight:800;font-size:11px;letter-spacing:.04em;padding:1px 6px;border-radius:4px;border:1px solid #c79b12}
+.plate.big{font-size:18px;padding:3px 10px;border-radius:6px}
+.mapctl{position:absolute;right:16px;bottom:72px;display:flex;flex-direction:column;border:1px solid #273043;border-radius:9px;overflow:hidden;background:rgba(14,19,29,.9)}
+.mapctl span{width:34px;height:34px;display:grid;place-items:center;color:#C7CDD8;font-size:17px;border-bottom:1px solid #1F2838;font-weight:600}
+.mapctl span:last-child{border:0}.mapctl .ico{font-size:12px}
+.scale{position:absolute;right:62px;bottom:72px;display:flex;align-items:center;gap:6px;font-size:11px;color:#8B94A7}
+.scale i{height:4px;border:1px solid #8B94A7;border-top:0;display:block}
+.legend{position:absolute;left:16px;bottom:72px;display:flex;gap:12px;font-size:11px;color:#A4ACBD;background:rgba(14,19,29,.86);border:1px solid #1F2838;border-radius:9px;padding:7px 11px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.timebar{position:absolute;left:16px;right:16px;bottom:16px;height:40px;display:flex;align-items:center;gap:12px;padding:0 14px;background:rgba(14,19,29,.9);border:1px solid #1F2838;border-radius:10px;font-size:11px;color:#8B94A7}
+.timebar .bar{flex:1;height:6px;background:#1F2838;border-radius:3px;position:relative}
+.timebar .bar i{position:absolute;left:0;top:0;bottom:0;background:#3A4659;border-radius:3px}
+.timebar .bar b{position:absolute;top:-5px;width:16px;height:16px;border-radius:50%;background:#E3001F;border:2px solid #FFF;transform:translateX(-8px)}
+.timebar .now{color:#FFF;font-weight:700}
+.timebar .ctl{letter-spacing:.15em;color:#C7CDD8}
+.stoplbl{position:absolute;background:rgba(14,19,29,.92);border:1px solid #2A3344;border-radius:8px;padding:5px 9px;font-size:11px;white-space:nowrap;color:#A4ACBD}
+.stoplbl b{display:block;color:#FFF;font-size:12px}
+.stoplbl.done{opacity:.75}.stoplbl.next{border-color:#38BDF8}.stoplbl.live{border-color:#EF4444;background:rgba(239,68,68,.12)}
+.stoplbl.warn{border-color:#F59E0B;background:rgba(245,158,11,.1)}
+/* ---------- right panel ---------- */
+.panel{background:#0E131D;border-left:1px solid #1C2432;padding:14px 16px;display:flex;flex-direction:column;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ph h3{font-size:15px;color:#FFF;display:flex;align-items:center;gap:8px}
+.ph h3 b{background:#E3001F;color:#FFF;font-size:11px;border-radius:9px;padding:1px 7px}
+.ph h3 small{display:block;font-size:11px}
+.ph .x{color:#8B94A7}
+.pf{display:flex;gap:6px;margin-bottom:10px}
+.als{display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.al{display:flex;gap:10px;padding:9px 10px;border-radius:9px;background:#111826;border:1px solid #1C2432}
+.al i{flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px}
+.al.bad i{background:#EF4444;box-shadow:0 0 0 3px #EF444433}.al.warn i{background:#F59E0B;box-shadow:0 0 0 3px #F59E0B33}.al.info i{background:#38BDF8;box-shadow:0 0 0 3px #38BDF833}
+.al div{flex:1;min-width:0}
+.al b{color:#FFF;font-size:12px}.al span{color:#8B94A7;font-size:11px;margin-left:6px}
+.al p{color:#C7CDD8;font-size:12px;margin-top:2px}
+.al time{font-size:10px;color:#6F788B;white-space:nowrap}
+.stat3{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0 8px}
+.stat3 div{background:#111826;border:1px solid #1C2432;border-radius:9px;padding:8px 6px;text-align:center}
+.stat3 b{display:block;font-size:18px;color:#FFF}.stat3 span{font-size:10px;color:#8B94A7}
+.mix{display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px;margin-bottom:14px}
+.sub{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8B94A7;margin:6px 0 8px;display:flex;justify-content:space-between}
+.sub small{text-transform:none;letter-spacing:0}
+.deps{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.dep{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;background:#111826;border:1px solid #1C2432}
+.dep time{font-weight:700;color:#FFF;font-size:13px;width:42px}
+.dep div{flex:1;min-width:0}.dep b{font-size:12px;color:#FFF}.dep b small{color:#8B94A7;font-weight:500}
+.dep span{display:block;font-size:11px;color:#8B94A7}
+.dep em{font-style:normal;font-size:10px;color:#C7CDD8;background:#1A2231;border-radius:5px;padding:2px 6px}
+.btns{display:flex;gap:8px;margin-top:auto}
+.btns.row{margin-top:12px}
+.btn{flex:1;text-align:center;padding:9px 10px;border-radius:9px;border:1px solid #2A3344;color:#E5E7EB;font-weight:600;font-size:12px;background:#111826}
+.btn.pri{background:#E3001F;border-color:#E3001F;color:#FFF}
+/* ---------- truck detail ---------- */
+.detail{background:#0E131D;border-left:1px solid #1C2432;padding:16px 18px;display:flex;flex-direction:column;overflow:hidden}
+.dh{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.dh>div:first-child{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.kent{font-size:10px;color:#6F788B;letter-spacing:.08em}
+.dt b{display:block;font-size:16px;color:#FFF}.dt span{font-size:11px;color:#8B94A7}
+.badge{margin-left:auto;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px}
+.badge.bad{background:#EF444422;color:#FCA5A5;border:1px solid #EF444455}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.tile{background:#111826;border:1px solid #1C2432;border-radius:10px;padding:9px 11px}
+.tile small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.tile b{display:block;font-size:20px;color:#FFF;margin:2px 0}.tile em{font-style:normal;font-size:11px;color:#8B94A7;font-weight:500}
+.tile span{font-size:10px;color:#8B94A7}
+.tile .bar{height:5px;background:#1F2838;border-radius:3px;margin:4px 0 5px;overflow:hidden}.tile .bar i{display:block;height:100%}
+.drv{display:flex;align-items:center;gap:10px;background:#111826;border:1px solid #1C2432;border-radius:10px;padding:9px 11px;margin-bottom:12px}
+.drv .av{width:34px;height:34px;background:#1A2231;color:#FFF}
+.drv div b{display:block;color:#FFF}.drv div span{font-size:11px;color:#8B94A7}
+.drv .btns{margin:0 0 0 auto;flex:none}.drv .btn{flex:none;padding:6px 10px}
+.ph2{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.ph2 h4{font-size:13px;color:#FFF}.ph2 h4 small{margin-left:6px}
+.link{font-size:11px;color:#38BDF8;font-weight:600}
+.tls{display:flex;flex-direction:column;position:relative}
+.tl{display:grid;grid-template-columns:18px 86px 1fr;gap:10px;align-items:start;padding:6px 0;position:relative}
+.tl i{width:10px;height:10px;border-radius:50%;border:2px solid #5B6474;background:#0E131D;margin-top:3px;margin-left:3px;position:relative;z-index:1}
+.tl:after{content:"";position:absolute;left:7.5px;top:20px;bottom:-8px;width:1px;background:#273043}
+.tl:last-child:after{display:none}
+.tl.done i{background:#5B6474}
+.tl.next i{border-color:#38BDF8;background:#38BDF8;box-shadow:0 0 0 4px #38BDF833}
+.tl.next b{color:#FFF}
+.tl.todo{opacity:.7}
+.tl time{font-size:11px;color:#8B94A7;font-weight:600;padding-top:2px}
+.tl div b{display:block;font-size:12px;color:#D5DAE3}.tl div span{font-size:11px;color:#8B94A7}
+.tl div span b.bad{display:inline;color:#F87171}
+/* ---------- planbord ---------- */
+.board{height:944px;display:flex;flex-direction:column;background:#0B0F17}
+.bh{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #1C2432;background:#0E131D}
+.bf{display:flex;align-items:center;gap:10px}
+.bf .search{margin:0}
+.dd{display:flex;flex-direction:column;padding:5px 12px;border:1px solid #273043;border-radius:9px;background:#0B0F17;min-width:130px}
+.dd small{font-size:10px;text-transform:uppercase;letter-spacing:.08em}.dd b{color:#FFF;font-size:13px}
+.bs{display:flex;align-items:center;gap:8px}
+.bs .btn{flex:none;padding:8px 12px}
+.legend2{display:flex;gap:14px;padding:8px 18px;font-size:11px;color:#A4ACBD;border-bottom:1px solid #1C2432}
+.legend2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.now2{margin-left:auto;color:#FFF;font-weight:600}.now2 i{background:#E3001F;border-radius:50%}
+.gantt{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ghead{display:flex;height:34px;border-bottom:1px solid #1C2432;background:#0E131D}
+.ghead .who{width:280px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 14px;font-size:11px;color:#8B94A7}
+.ghead .who b{color:#C7CDD8}
+.lane{flex:1;position:relative}
+.lane.hd i{position:absolute;top:0;bottom:0;border-left:1px solid #1C2432}
+.lane.hd i span{position:absolute;left:4px;top:9px;font-size:10px;color:#6F788B;font-weight:600}
+.gbody{flex:1;position:relative;overflow:hidden;background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/18 - 1px),#151C28 calc(100%/18 - 1px),#151C28 calc(100%/18));background-position:280px 0;background-size:calc(100% - 280px) 100%;background-repeat:no-repeat}
+.prow{display:flex;height:48px;border-bottom:1px solid #141B27}
+.prow.sel{background:#E3001F0C}
+.prow .who{width:280px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;border-right:1px solid #1C2432;background:#0E131D}
+.prow .who b{display:block;font-size:12px;color:#FFF}.prow .who span{font-size:10px;color:#8B94A7}
+.blk{position:absolute;top:7px;height:34px;border-radius:7px;background:color-mix(in srgb,var(--c) 28%,#111826);border:1px solid var(--c);padding:3px 8px;overflow:hidden;color:#FFF;font-size:11px;line-height:1.25}
+.blk b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.blk small{display:block;font-size:10px;color:#C7CDD8}
+.blk.pz{background:repeating-linear-gradient(135deg,#1A2231 0 4px,#232C3C 4px 8px);border-color:#2A3344}
+.blk.ld{background:color-mix(in srgb,#22C55E 22%,#111826)}
+.blk em{position:absolute;right:6px;top:8px;font-style:normal;font-size:10px;font-weight:700;color:#FCA5A5;background:#0B0F17;border-radius:5px;padding:2px 6px}
+.blk.late,.blk.conf,.blk.rt{border-color:#EF4444;box-shadow:0 0 0 2px #EF444433}
+.blk.late small,.blk.conf small,.blk.rt small{color:#FCA5A5}
+.nowline{position:absolute;top:0;bottom:0;width:2px;background:#E3001F;z-index:3}
+.nowline span{position:absolute;top:0;left:-20px;background:#E3001F;color:#FFF;font-size:10px;font-weight:700;padding:1px 5px;border-radius:0 0 5px 5px}
+.tray{border-top:1px solid #1C2432;background:#0E131D;padding:10px 18px;display:flex;align-items:center;gap:14px}
+.tray h4{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8B94A7;width:120px}
+.tray h4 b{background:#E3001F;color:#FFF;font-size:11px;border-radius:9px;padding:1px 7px;margin-left:6px}
+.ucards{display:flex;gap:8px}
+.ucard{border:1px dashed var(--c);border-radius:9px;padding:7px 11px;background:color-mix(in srgb,var(--c) 10%,#111826);min-width:220px}
+.ucard b{display:block;font-size:12px;color:#FFF}.ucard span{font-size:11px;color:#C7CDD8}.ucard em{display:block;font-style:normal;font-size:10px;color:#8B94A7;margin-top:2px}
+.tray .hint{margin:0 0 0 auto;max-width:360px}
+
+.tip.left:before{left:auto;right:-7px;transform:rotate(-135deg)}
+.tip .names{font-size:11px;color:#8B94A7;margin:-4px 0 8px}
+.chips.col{flex-direction:row;flex-wrap:wrap}
+.chip.st{align-self:auto}
+.plate.big{white-space:nowrap}
+.blk.late b,.blk.conf b,.blk.rt b{padding-right:150px}
+.side{gap:12px}
+.tip.below:before{left:20px;top:-7px;transform:rotate(135deg)}
+</style></head><body>
+<header class="top">
+ <div class="brand"><img src="data:image/png;base64,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" alt="Simon Loos"><span class="sep"></span><span class="prod">Control Tower</span></div>
+ <nav class="tabs"><a class="">Kaart</a><a class="on">Planbord</a><a class="">Standplaatsen</a><a class="">Chauffeurs</a><a class="">Rapportages</a></nav>
+ <div class="right">
+  <div class="live"><i></i>LIVE <b>vr 24 okt 2026 · 14:32</b></div>
+  <div class="search">🔍 <span>Zoek truck, chauffeur, rit of klant…</span><kbd>⌘K</kbd></div>
+  <div class="bell">🔔<b>14</b></div>
+  <div class="user"><span class="av">PA</span><span>P. Appel<small>Directie</small></span></div>
+ </div>
+</header>
+<main class="board">
+ <div class="bh"><div class="bf"><span class="dd"><small>Standplaats</small><b>Wognum ▾</b></span><span class="dd"><small>Datum</small><b>vr 24 okt 2026 ▾</b></span><span class="dd"><small>Weergave</small><b>Trucks ▾</b></span><div class="seg"><span class="on">Dag</span><span>Week</span></div><div class="search sm">🔍 <span>Filter op chauffeur, klant, truck…</span></div></div>
+  <div class="bs"><span class="pill">112 trucks · 98 gepland · 3 niet toegewezen</span><span class="pill bad">3 conflicten</span><span class="btn">Exporteer</span><span class="btn pri">✦ Voorstel: automatisch herplannen</span></div></div>
+ <div class="legend2"><span><i style="background:#3B82F6"></i>Albert Heijn</span><span><i style="background:#06B6D4"></i>AH Home Service</span><span><i style="background:#8B5CF6"></i>Netwerk</span><span><i style="background:#F59E0B"></i>Bulk</span><span><i style="background:#3A4356"></i>Pauze</span><span><i style="background:#22C55E"></i>Laden accu</span><span><i style="background:#64748B"></i>Onderhoud</span><span class="now2"><i></i>Nu 14:32</span></div>
+ <div class="gantt"><div class="ghead"><div class="who"><b>Truck / chauffeur</b><span>16 van 112</span></div><div class="lane hd"><i style="left:0.000%"><span>04:00</span></i><i style="left:5.556%"><span>05:00</span></i><i style="left:11.111%"><span>06:00</span></i><i style="left:16.667%"><span>07:00</span></i><i style="left:22.222%"><span>08:00</span></i><i style="left:27.778%"><span>09:00</span></i><i style="left:33.333%"><span>10:00</span></i><i style="left:38.889%"><span>11:00</span></i><i style="left:44.444%"><span>12:00</span></i><i style="left:50.000%"><span>13:00</span></i><i style="left:55.556%"><span>14:00</span></i><i style="left:61.111%"><span>15:00</span></i><i style="left:66.667%"><span>16:00</span></i><i style="left:72.222%"><span>17:00</span></i><i style="left:77.778%"><span>18:00</span></i><i style="left:83.333%"><span>19:00</span></i><i style="left:88.889%"><span>20:00</span></i><i style="left:94.444%"><span>21:00</span></i><i style="left:100.000%"><span>22:00</span></i></div></div>
+  <div class="gbody"><div class="prow sel"><div class="who"><span class="plate">W-0412</span><div><b>J. de Vries</b><span>eActros 600 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:11.667%;width:18.889%;--c:#3B82F6"><b>AH Hoorn · Enkhuizen</b><small>06:05–09:30</small></div><div class="blk pz " style="left:30.556%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ah " style="left:36.667%;width:14.444%;--c:#3B82F6"><b>DC Zaandam → Andijk</b><small>10:35–13:11</small></div><div class="blk ah late" style="left:51.111%;width:16.111%;--c:#3B82F6"><b>Medemblik</b><small>13:11–16:06</small><em>⚠ ETA +7 · venster 15:00</em></div><div class="blk ld " style="left:67.500%;width:8.611%;--c:#22C55E"><b>⚡ Laden</b><small>16:08–17:41</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0212</span><div><b>R. Kooijman</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk hs " style="left:5.556%;width:22.222%;--c:#06B6D4"><b>Home Service Hoorn</b><small>05:00–09:00</small></div><div class="blk pz " style="left:27.778%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk hs " style="left:32.778%;width:24.444%;--c:#06B6D4"><b>Home Service Zwaag</b><small>09:54–14:18</small></div><div class="blk hs " style="left:59.167%;width:21.389%;--c:#06B6D4"><b>Home Service Heerhugowaard</b><small>14:39–18:30</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0588</span><div><b>M. Visser</b><span>eActros 300 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:13.889%;width:23.889%;--c:#3B82F6"><b>AH Alkmaar · 4 stops</b><small>06:30–10:48</small></div><div class="blk pz " style="left:37.778%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ld " style="left:42.778%;width:15.556%;--c:#22C55E"><b>⚡ Laden</b><small>11:41–14:30</small></div><div class="blk ah " style="left:59.722%;width:24.722%;--c:#3B82F6"><b>AH Alkmaar · avond</b><small>14:45–19:11</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0107</span><div><b>D. Smit</b><span>LZV Actros · 06:00–18:00</span></div></div><div class="lane"><div class="blk nw " style="left:2.778%;width:19.444%;--c:#8B5CF6"><b>DC Zaandam</b><small>04:30–08:00</small></div><div class="blk pz " style="left:22.222%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk nw " style="left:27.778%;width:25.000%;--c:#8B5CF6"><b>Geldermalsen</b><small>09:00–13:30</small></div><div class="blk nw " style="left:60.556%;width:22.778%;--c:#8B5CF6"><b>DC Zaandam</b><small>14:54–19:00</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0335</span><div><b>A. Groot</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:16.667%;width:27.778%;--c:#3B82F6"><b>AH Den Helder · 3 stops</b><small>07:00–12:00</small></div><div class="blk pz " style="left:44.444%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ah conf" style="left:50.000%;width:25.000%;--c:#3B82F6"><b>AH Schagen · Anna Paulowna</b><small>13:00–17:30</small><em>⚠ chauffeur: rijtijd 4:30 overschreden</em></div></div></div><div class="prow "><div class="who"><span class="plate">W-0463</span><div><b>S. Blokker</b><span>Actros 2545 · 06:00–18:00</span></div></div><div class="lane"><div class="blk bk " style="left:11.111%;width:25.000%;--c:#F59E0B"><b>Bulk Beverwijk</b><small>06:00–10:30</small></div><div class="blk pz " style="left:36.111%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk bk " style="left:41.667%;width:19.444%;--c:#F59E0B"><b>Bulk Beverwijk</b><small>11:30–15:00</small></div><div class="blk bk " style="left:62.778%;width:19.444%;--c:#F59E0B"><b>Bulk Velsen</b><small>15:18–18:48</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0071</span><div><b>K. Ruiter</b><span>eActros 600 · 06:00–18:00</span></div></div><div class="lane"><div class="blk hs " style="left:8.333%;width:23.889%;--c:#06B6D4"><b>Home Service Heerhugowaard</b><small>05:30–09:48</small></div><div class="blk pz " style="left:32.222%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ld " style="left:37.222%;width:9.444%;--c:#22C55E"><b>⚡ Laden</b><small>10:41–12:24</small></div><div class="blk hs " style="left:63.889%;width:22.222%;--c:#06B6D4"><b>Home Service Hoorn</b><small>15:30–19:30</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0819</span><div><b>F. Appelman</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk nw " style="left:1.111%;width:25.556%;--c:#8B5CF6"><b>Geldermalsen</b><small>04:12–08:48</small></div><div class="blk pz " style="left:26.667%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk nw " style="left:31.667%;width:25.000%;--c:#8B5CF6"><b>Tiel → Wognum</b><small>09:41–14:11</small></div><div class="blk nw " style="left:65.278%;width:23.611%;--c:#8B5CF6"><b>Geldermalsen</b><small>15:45–20:00</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0266</span><div><b>L. Schouten</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:19.444%;width:27.778%;--c:#3B82F6"><b>AH Purmerend · 5 stops</b><small>07:30–12:30</small></div><div class="blk pz " style="left:47.222%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ah " style="left:52.222%;width:25.000%;--c:#3B82F6"><b>AH Edam · Volendam</b><small>13:24–17:53</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0341</span><div><b>T. Beemster</b><span>eActros 300 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:11.111%;width:22.222%;--c:#3B82F6"><b>AH Hoorn centrum</b><small>06:00–10:00</small></div><div class="blk pz " style="left:33.333%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ld " style="left:38.889%;width:8.889%;--c:#22C55E"><b>⚡ Laden</b><small>11:00–12:35</small></div><div class="blk ah " style="left:48.889%;width:22.778%;--c:#3B82F6"><b>AH Hoogkarspel · Bovenkarspel</b><small>12:48–16:53</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0498</span><div><b>N. Koning</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ol " style="left:22.222%;width:16.667%;--c:#64748B"><b>🔧 Onderhoud garage Wognum</b><small>08:00–11:00</small></div><div class="blk ah " style="left:41.667%;width:25.000%;--c:#3B82F6"><b>AH Enkhuizen · 3 stops</b><small>11:30–16:00</small></div><div class="blk pz " style="left:66.667%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ah " style="left:72.222%;width:19.444%;--c:#3B82F6"><b>AH Hoorn avond</b><small>17:00–20:30</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0150</span><div><b>B. Zwaan</b><span>LZV Actros · 06:00–18:00</span></div></div><div class="lane"><div class="blk nw " style="left:0.000%;width:25.000%;--c:#8B5CF6"><b>DC Zaandam</b><small>04:00–08:30</small></div><div class="blk pz " style="left:25.000%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk nw " style="left:30.556%;width:25.000%;--c:#8B5CF6"><b>DC Zaandam</b><small>09:30–14:00</small></div><div class="blk pz " style="left:57.222%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk nw rt" style="left:62.222%;width:25.000%;--c:#8B5CF6"><b>Geldermalsen</b><small>15:11–19:41</small><em>⚠ rusttijd 9 u niet haalbaar</em></div></div></div><div class="prow "><div class="who"><span class="plate">W-0377</span><div><b>E. Mol</b><span>Actros 2545 · 06:00–18:00</span></div></div><div class="lane"><div class="blk bk " style="left:12.778%;width:26.111%;--c:#F59E0B"><b>Bulk Amsterdam Westpoort</b><small>06:17–11:00</small></div><div class="blk pz " style="left:38.889%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk bk " style="left:44.444%;width:25.000%;--c:#F59E0B"><b>Bulk Amsterdam Westpoort</b><small>12:00–16:30</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0602</span><div><b>H. Bos</b><span>eActros 600 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:10.000%;width:25.000%;--c:#3B82F6"><b>AH Alkmaar · Heiloo</b><small>05:47–10:18</small></div><div class="blk pz " style="left:35.000%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ld " style="left:40.000%;width:9.444%;--c:#22C55E"><b>⚡ Laden</b><small>11:11–12:54</small></div><div class="blk ah " style="left:50.000%;width:25.556%;--c:#3B82F6"><b>AH Castricum · Limmen</b><small>13:00–17:36</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0733</span><div><b>P. Wit</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk hs " style="left:17.778%;width:25.000%;--c:#06B6D4"><b>Home Service Alkmaar</b><small>07:12–11:41</small></div><div class="blk pz " style="left:42.778%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk hs " style="left:47.778%;width:25.556%;--c:#06B6D4"><b>Home Service Alkmaar</b><small>12:35–17:11</small></div></div></div><div class="prow "><div class="who"><span class="plate">W-0888</span><div><b>G. Jong</b><span>Actros 1845 · 06:00–18:00</span></div></div><div class="lane"><div class="blk ah " style="left:27.778%;width:25.000%;--c:#3B82F6"><b>AH Medemblik · Wervershoof</b><small>09:00–13:30</small></div><div class="blk pz " style="left:52.778%;width:4.167%;--c:#3A4356"><b></b></div><div class="blk ah " style="left:57.778%;width:25.000%;--c:#3B82F6"><b>AH Opmeer · Spanbroek</b><small>14:24–18:53</small></div></div></div><div class="nowline" style="left:calc(280px + (100% - 280px) * 0.5850)"><span>14:32</span></div></div></div>
+ <div class="tray"><h4>Niet toegewezen <b>3</b></h4><div class="ucards"><div class="ucard" style="--c:#3B82F6"><b>AH Hoorn · avondlevering 18:30–20:00</b><span>3 stops · 46 km</span><em>Sleep naar een truck</em></div><div class="ucard" style="--c:#06B6D4"><b>Home Service Zwaag · 19:00</b><span>1 rit · 8 adressen</span><em>Sleep naar een truck</em></div><div class="ucard" style="--c:#8B5CF6"><b>Netwerk Geldermalsen · 21:00</b><span>LZV · 1 rit</span><em>Sleep naar een truck</em></div></div><div class="hint">Sleep een rit op een truck. Het systeem controleert rijtijd, rusttijd, accu en laadtijd en geeft direct een waarschuwing.</div></div>
+</main>
+</body></html>
