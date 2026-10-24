@@ -518,4 +518,24 @@
   .kv2 b a.lnk{color:var(--text)}
   @media (max-width:900px){.halline,.halcols{grid-template-columns:64px 76px 1fr 86px;font-size:15px}.halline span:nth-child(3),.halcols span:nth-child(3),.halline span:nth-child(4),.halcols span:nth-child(4),.halline em,.halcols span:nth-child(6){display:none}.halline span:nth-child(5),.halcols span:nth-child(5){display:block}}
 
+  /* ===== functionaliteit ronde 4 ===== */
+  /* meldingen: later (snooze), toegewezen; voorstellen die het plan echt aanpassen; planbordfilters; aftelling op het vertrekbord */
+  .alx select.later{max-width:72px}
+  .al.later{opacity:.6}
+  .blk.ingevoegd{box-shadow:inset 0 0 0 2px var(--text)}
+  .legend2 i.ingevoegd{background:transparent;box-shadow:inset 0 0 0 2px var(--text)}
+  .blk[data-a]{cursor:pointer}
+  .prow .who b span small em{font-style:normal;color:var(--warn);font-weight:600}
+  .tl.ingevoegd time{color:var(--brand);font-weight:600}
+  .halline time small,.halrow time small{display:block;font-size:12px;font-weight:500;opacity:.7;line-height:1.1}
+  .halline.gone,.halrow.gone{opacity:.45}
+  .halline.now time,.halrow.now time{color:var(--good)}
+  .halline.late time,.halrow.late time,.halline.late i{color:var(--bad)}
+  .yard{display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 6px}
+  .yard .chip.klaar{border-color:#0E7490;color:#0E7490}
+  .yard .chip small{opacity:.65}
+  .yard .mut{font-size:12px}
+  .badge.gepland{background:var(--warnSoft);color:var(--warn);text-transform:none;font-size:11px}
+  .vhead .dd select{max-width:170px}
+
 }
