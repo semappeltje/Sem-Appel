@@ -199,7 +199,7 @@
   .spm i{width:11px;height:11px;border-radius:2.5px;background:var(--brand);transform:rotate(45deg);border:1.5px solid #FFF;box-shadow:0 1px 3px rgba(0,0,0,.35);font-size:0;flex:none;transition:transform .15s}
   .spm:hover i{transform:rotate(45deg) scale(1.2)}
   .spm span{font-size:11px;font-weight:600;color:var(--text);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg),0 0 4px var(--bg);letter-spacing:.01em}
-  .spm.small span,.spm.nolbl span{display:none}.spm.small i{width:8px;height:8px;border-width:1.5px;border-radius:2px}
+  .spm.small span{display:none}.spm.nolbl{display:none}.spm.small i{width:8px;height:8px;border-width:1.5px;border-radius:2px}
   .spm.on i{box-shadow:0 0 0 4px rgba(227,0,31,.22),0 1px 3px rgba(0,0,0,.35)}
   .spm.hub i{width:13px;height:13px}
   &[data-theme=dark] .spm i{border-color:#0F1216}
@@ -271,7 +271,7 @@
   .al p{color:var(--text2);font-size:12px;margin-top:2px;line-height:1.45}
   .al small{display:block;margin-top:3px;color:var(--good)}
   .al.done{opacity:.5}.al.done p{text-decoration:line-through}
-  .alx{display:flex;flex:0 0 100%;flex-direction:row;justify-content:flex-end;align-items:center;gap:6px}
+  .al>.alx{display:flex;flex:0 0 100%;flex-direction:row;justify-content:flex-end;align-items:center;gap:6px;cursor:default}
   .alx .ok{width:26px;height:26px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;color:var(--muted)}
   .alx .ok:hover{border-color:var(--good);color:var(--good)}
   .alx .ok.on{background:var(--good);border-color:var(--good);color:#FFF}
