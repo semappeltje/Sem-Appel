@@ -10,7 +10,7 @@
 <div id="app">
   <header class="top">
     <div class="brand"><img src="./src/assets/logo.png" alt="Simon Loos"><span class="sep"></span><span class="prod">Control Tower</span><span class="demo">demo · gesimuleerde data</span></div>
-    <nav class="tabs" id="tabs"><button data-tab="kaart" class="on">Kaart</button><button data-tab="planbord">Planbord</button><button data-tab="standplaatsen">Standplaatsen</button></nav>
+    <nav class="tabs" id="tabs"><button data-tab="kaart" class="on">Kaart</button><button data-tab="planbord">Planbord</button><button data-tab="standplaatsen">Standplaatsen</button><button data-tab="assistent">Assistent</button></nav>
     <div class="right">
       <div class="live"><i></i><span>LIVE</span><b id="clock">--:--</b></div>
       <div class="search"><span>🔍</span><input id="q" type="search" placeholder="Zoek truck, chauffeur, standplaats…" autocomplete="off"></div>
@@ -32,6 +32,7 @@
       </section>
       <section id="tab-planbord" class="tab"><div class="bh" id="pbHead"></div><div class="gantt" id="gantt"></div></section>
       <section id="tab-standplaatsen" class="tab"><div id="spView"></div></section>
+      <section id="tab-assistent" class="tab"><div class="assist" id="assist"></div></section>
       <div class="timebar" id="timebar"></div>
     </main>
     <section class="panel" id="panel"></section>
@@ -44,6 +45,7 @@
         <li><b>Filters links:</b> regio, standplaats, divisie en status. Zet <i>Alleen geselecteerde standplaats</i> aan om de rest te dimmen.</li>
         <li><b>Rechts:</b> de uitzonderingen. Klik op een melding, een truck of een standplaats voor het detail.</li>
         <li><b>Onderaan:</b> de klok. Schuif terug in de tijd (replay) of versnel de simulatie.</li>
+        <li><b>Assistent:</b> automatische planvoorstellen, vragen in gewone taal, berichten naar chauffeurs en de overdracht tussen planners.</li>
       </ul>
       <p class="small">De kaart, de standplaatsen en de klanten zijn echt (Natural Earth, werkenbijsimonloos.nl). Trucks, chauffeurs, ritten en tijden zijn gesimuleerd.</p>
       <button id="startBtn">Open de control tower</button>

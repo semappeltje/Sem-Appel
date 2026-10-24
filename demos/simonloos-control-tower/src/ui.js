@@ -1,5 +1,5 @@
 // Interface: filters, KPI's, meldingen, standplaats- en truckdetail, planbord, vertrekbord, tijdbalk.
-import { SP, REGIOS, DIV, ST, laadpunten, fmt, hhmm } from './places.js';
+import { SP, TOWNS, REGIOS, DIV, ST, laadpunten, fmt, hhmm } from './places.js';
 
 export function createUI(fleet, state, store) {
   const $ = id => document.getElementById(id);
@@ -7,6 +7,15 @@ export function createUI(fleet, state, store) {
   const F = { regio: 'Alle', sps: new Set(), dim: true, divs: new Set(Object.keys(DIV)), sts: new Set(Object.keys(ST)), q: '', spq: '', showAll: false };
   let mapApi = null, selTruck = null, selSp = null, follow = false, panelMode = 'feed', hoverId = null, hoverPt = null, tab = 'kaart', tick = 0, pbSp = SP[0], exFilter = 'Alle';
   const S = new Map(); const prevSt = new Map(); const feed = []; let exceptions = []; let counts = {}; let kpi = {};
+  const applied = []; const chat = []; let msgCount = 0;
+  const QUICK = ['Dock gewijzigd, zie app', 'Pauze bij de volgende stop', 'Bel de planning als je stilstaat', 'Rij na deze stop terug naar de standplaats'];
+  const REPLIES = ['👍 Ontvangen', 'Oké, doe ik.', 'Begrepen, ik rij door naar de volgende stop.', 'Top, bedankt.'];
+  const COLLEGAS = [['Sanne Vlaar', 'Wognum', 'Planner winkeldistributie', 360, 840], ['Ruud Koning', 'Wognum', 'Planner netwerk', 780, 1260], ['Fatima el Idrissi', 'Wognum', 'Planner bulk (avond)', 780, 1260], ['Daan Smit', 'Zaandam', 'Planner Albert Heijn', 300, 780], ['Ilse Bakker', 'Geldermalsen', 'Planner netwerk', 420, 900], ['Marco de Boer', 'Wognum', 'Garage en wasstraat', 420, 960], ['Anouk Groot', 'Wognum', 'Teamleider control tower', 480, 1020]];
+  const fmtDrive = m => `${Math.floor(m / 60)}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
+  function sendMsg(t, text, me = true) {
+    t.msgs = t.msgs || []; t.msgs.push({ me, text, T: state.simTime }); if (me) { msgCount++; setTimeout(() => { t.msgs.push({ me: false, text: REPLIES[Math.floor(Math.random() * REPLIES.length)], T: state.simTime }); if (selTruck === t) renderPanel(); if (tab === 'assistent') renderAssist(); }, 3500 + Math.random() * 4000); }
+    if (selTruck === t) renderPanel();
+  }
   let lastFollow = 0;
 
   // ---------- zijbalk ----------
@@ -17,8 +26,8 @@ export function createUI(fleet, state, store) {
       <div class="sec"><h4>Regio</h4><div class="chips" id="regioChips">${['Alle', ...REGIOS].map(r => `<button class="chip ${F.regio === r ? 'on' : ''}" data-regio="${r}">${r === 'Alle' ? "Alle regio's" : r} <small>${fmt(regioCount(r))}</small></button>`).join('')}</div></div>
       <div class="sec"><h4>Standplaats <small id="spSel"></small></h4><div class="search sm"><span>🔍</span><input id="spq" placeholder="Zoek standplaats…" value="${esc(F.spq)}"></div><div class="list" id="spList"></div><div class="more" id="spMore"></div>
         <label class="toggle ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen<small>bij een selectie; uit = verbergen</small></span></label></div>
-      <div class="sec"><h4>Divisie</h4><div class="chips" id="divChips">${Object.entries(DIV).map(([k, d]) => `<button class="chip ${F.divs.has(k) ? 'on' : ''}" data-div="${k}"><i style="background:${d.color}"></i>${d.n}</button>`).join('')}</div></div>
-      <div class="sec"><h4>Status</h4><div class="chips" id="stChips">${Object.entries(ST).map(([k, s]) => `<button class="chip ${F.sts.has(k) ? 'on' : ''}" data-st="${k}"><i style="background:${s.color}"></i>${s.n} <small data-cnt="${k}">0</small></button>`).join('')}</div></div>
+      <div class="sec"><h4>Divisie <small>${F.divs.size === Object.keys(DIV).length ? 'alle' : F.divs.size + ' gekozen'}</small></h4><div class="chips" id="divChips">${Object.entries(DIV).map(([k, d]) => `<button class="chip ${F.divs.has(k) && F.divs.size !== Object.keys(DIV).length ? 'on' : ''} ${F.divs.has(k) ? '' : 'off'}" data-div="${k}"><i style="background:${d.color}"></i>${d.n}</button>`).join('')}</div></div>
+      <div class="sec"><h4>Status <small>${F.sts.size === Object.keys(ST).length ? 'alle' : F.sts.size + ' gekozen'}</small></h4><div class="chips" id="stChips">${Object.entries(ST).map(([k, s]) => `<button class="chip ${F.sts.has(k) && F.sts.size !== Object.keys(ST).length ? 'on' : ''} ${F.sts.has(k) ? '' : 'off'}" data-st="${k}"><i style="background:${s.color}"></i>${s.n} <small data-cnt="${k}">0</small></button>`).join('')}</div></div>
       <div class="sec foot"><h4>Kaart</h4><label class="toggle ${mapApi && mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag<small>OpenStreetMap-tegels via CARTO; uit = ingebouwde basiskaart</small></span></label>
         <div class="hint">Uitgezoomd: clusters per gebied · Ingezoomd: losse trucks met rijrichting · Klik op een truck: rit, ETA en chauffeur</div></div>`;
     renderSpList();
@@ -59,9 +68,9 @@ export function createUI(fleet, state, store) {
       if (s.seg.k === 'laden') laden++;
       for (const seg of t.plan) if (seg.k === 'stop' && seg.t1 <= s.rel) { stopsDone++; const d = t.plan[t.plan.indexOf(seg) - 1]; if (d && d.delay) stopsLate++; }
       if (s.st === 'vertraagd' && s.next) exceptions.push({ sev: 'bad', kind: 'Vertraging', t, text: `${s.next.name}: ETA ${hhmm(s.next.eta)}${s.next.win ? `, venster tot ${hhmm(s.next.win[1])}` : ''} (+${s.next.delay} min)` });
-      if ((s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240) { rijtijdRisk++; exceptions.push({ sev: 'warn', kind: 'Rijtijd', t, text: `${t.driver}: ${Math.floor(s.drive / 60)}:${String(Math.floor(s.drive % 60)).padStart(2, '0')} van 4:30 rijtijd, pauze binnen ${Math.max(0, 270 - Math.floor(s.drive))} min` }); }
-      if (t.ev && s.soc < 20 && s.st !== 'terrein') exceptions.push({ sev: 'warn', kind: 'Accu', t, text: `Accu ${Math.round(s.soc)} % · ${Math.round(t.range * s.soc / 100)} km bereik · ${s.next ? s.next.name : t.base.n}` });
-      if (t.storing && s.st !== 'terrein') exceptions.push({ sev: 'bad', kind: 'Techniek', t, text: t.storing });
+      if ((s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240 && !t.breakPlanned) { rijtijdRisk++; exceptions.push({ sev: 'warn', kind: 'Rijtijd', t, text: `${t.driver}: ${Math.floor(s.drive / 60)}:${String(Math.floor(s.drive % 60)).padStart(2, '0')} van 4:30 rijtijd, pauze binnen ${Math.max(0, 270 - Math.floor(s.drive))} min` }); }
+      if (t.ev && s.soc < 20 && s.st !== 'terrein' && !t.chargePlanned) exceptions.push({ sev: 'warn', kind: 'Accu', t, text: `Accu ${Math.round(s.soc)} % · ${Math.round(t.range * s.soc / 100)} km bereik · ${s.next ? s.next.name : t.base.n}` });
+      if (t.storing && s.st !== 'terrein' && !t.workorder) exceptions.push({ sev: 'bad', kind: 'Techniek', t, text: t.storing });
       const p = prevSt.get(t.id); if (p && p !== s.st) pushEvent(t, s, p); prevSt.set(t.id, s.st);
     }
     exceptions.sort((a, b) => (a.sev === b.sev ? 0 : a.sev === 'bad' ? -1 : 1));
@@ -73,8 +82,8 @@ export function createUI(fleet, state, store) {
     else { mapApi.setSelected(null); }
     for (const k of Object.keys(ST)) { const el = document.querySelector(`[data-cnt="${k}"]`); if (el) el.textContent = fmt(counts[k]); }
     renderKpis(); renderCrumb(); renderClock();
-    if (force || tick % 8 === 0) { renderPanel(); if (tab === 'planbord') renderPlanbord(); if (tab === 'standplaatsen') renderSpView(); }
-    else if (panelMode === 'truck') renderPanel();
+    const typing = document.activeElement && (document.activeElement.id === 'msgIn' || document.activeElement.id === 'askIn' || document.activeElement.id === 'overIn');
+    if (force || tick % 8 === 0) { if (!typing) renderPanel(); if (tab === 'planbord') renderPlanbord(); if (tab === 'standplaatsen') renderSpView(); if (tab === 'assistent' && !typing) renderAssist(); }
     renderTip();
   }
   function pushEvent(t, s, p) {
@@ -157,7 +166,12 @@ export function createUI(fleet, state, store) {
         <div class="tile"><small>Volgende stop</small><b>${nx ? hhmm(nx.eta) : '–'}</b><span>${nx ? (nx.win ? `venster ${hhmm(nx.win[0])}–${hhmm(nx.win[1])}${nx.eta > nx.win[1] ? ' <em class="bad">te laat</em>' : ''}` : esc(nx.name)) : 'dienst afgerond'}</span></div>
       </div>
       <div class="drv"><span class="av">${esc(t.driver.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase())}</span><div><b>${esc(t.driver)}</b><span>chauffeur · dienst ${hhmm(t.shiftStart)} – ${hhmm(t.shiftStart + t.shiftEnd)} · sinds ${t.since} bij Simon Loos</span></div></div>
-      ${t.storing ? `<div class="al bad static"><i></i><div><b>Techniek</b><p>${esc(t.storing)}</p></div></div>` : ''}
+      ${t.storing ? `<div class="al bad static"><i></i><div><b>Techniek</b><p>${esc(t.storing)}${t.workorder ? ' · werkorder aangemaakt' : ''}</p></div></div>` : ''}
+      <h4 class="sub">Berichten <small>voorgelezen in de cabine</small></h4>
+      <div class="msgs">${(t.msgs || []).slice(-5).map(m => `<div class="msg ${m.me ? 'me' : ''}">${esc(m.text)}<time>${hhmm(m.T)} · ${m.me ? 'planning' : esc(t.driver.split(' ')[0])}</time></div>`).join('') || '<div class="empty">Nog geen berichten vandaag.</div>'}</div>
+      <div class="quick">${QUICK.map(q => `<button class="chip sm" data-quick="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+      <div class="ask"><input id="msgIn" placeholder="Bericht aan ${esc(t.driver.split(' ')[0])}…" autocomplete="off"><button class="btn pri sm" id="msgSend">Stuur</button></div>
+      <div class="safety">Onderweg wordt een bericht voorgelezen en antwoordt de chauffeur met één knop; vrije tekst alleen bij stilstand.</div>
       <div class="ph2"><h4>Dagplan <small>${t.routes.length} ${t.routes.length === 1 ? 'rit' : 'ritten'} · ${Math.round(t.routes.reduce((a, r) => a + r.total, 0))} km</small></h4></div>
       <div class="tls">${tl}</div>
       <div class="btns row"><button class="btn ${follow ? 'on' : ''}" id="followBtn">${follow ? 'Volgen aan' : 'Volg truck'}</button><button class="btn" id="toPb2">Planbord</button><button class="btn pri" id="shareBtn">Deel ETA</button></div>`;
@@ -171,6 +185,9 @@ export function createUI(fleet, state, store) {
     const pb = $('toPb'); if (pb) pb.onclick = () => { pbSp = selSp; setTab('planbord'); };
     const pb2 = $('toPb2'); if (pb2) pb2.onclick = () => { pbSp = selTruck.base; setTab('planbord'); };
     const fb = $('followBtn'); if (fb) fb.onclick = () => { follow = !follow; if (follow) { const s = S.get(selTruck.id); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: 900 }); } renderPanel(); };
+    p.querySelectorAll('[data-quick]').forEach(el => el.addEventListener('click', () => sendMsg(selTruck, el.dataset.quick)));
+    const ms = $('msgSend'); if (ms) ms.onclick = () => { const v = $('msgIn').value.trim(); if (v && selTruck) { sendMsg(selTruck, v); } };
+    const mi = $('msgIn'); if (mi) mi.addEventListener('keydown', e => { if (e.key === 'Enter') ms.onclick(); });
     const sb = $('shareBtn'); if (sb) sb.onclick = () => { const s = S.get(selTruck.id); const txt = s.next ? `Simon Loos ${selTruck.id}: verwachte aankomst bij ${s.next.name} om ${hhmm(s.next.eta)}.` : `Simon Loos ${selTruck.id}: dienst afgerond.`; try { navigator.clipboard && navigator.clipboard.writeText(txt); } catch { /* geen klembord */ } notice('ETA gekopieerd als bericht voor de klant: ' + txt); };
   }
 
@@ -198,11 +215,11 @@ export function createUI(fleet, state, store) {
   function renderPlanbord() {
     const sp = pbSp; const T = state.simTime; const rows = fleet.trucks.filter(t => t.base === sp).sort((a, b) => a.shiftStart - b.shiftStart);
     const head = $('pbHead'); head.innerHTML = `<div class="bf"><label class="dd"><small>Standplaats</small><select id="pbSel">${SP.slice().sort((a, b) => a.n.localeCompare(b.n)).map(s => `<option ${s === sp ? 'selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label><span class="dd"><small>Dag</small><b>vandaag · ${hhmm(T)}</b></span><span class="pill">${rows.length} trucks · ${rows.filter(t => t.plan.some(s => s.delay)).length} met vertraging</span><span class="pill ghost">Sleep-en-plan en automatisch herplannen (VROOM) volgen in de echte versie</span></div>
-      <div class="legend2">${[['drive', '#3B82F6', 'Rijden'], ['stop', '#06B6D4', 'Bij klant'], ['pauze', '#64748B', 'Pauze'], ['laden', '#22C55E', 'Laden accu'], ['terrein', '#94A3B8', 'Op terrein']].map(([k, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}<span class="now2"><i></i>Nu ${hhmm(T)}</span></div>`;
+      <div class="legend2">${[['drive', '#E3001F', 'Rijden'], ['stop', '#E0A800', 'Bij klant'], ['pauze', '#8A919E', 'Pauze'], ['laden', '#16A34A', 'Laden accu'], ['terrein', '#B3B8C2', 'Op terrein']].map(([k, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}<span class="now2"><i></i>Nu ${hhmm(T)}</span></div>`;
     $('pbSel').onchange = e => { pbSp = SP.find(s => s.n === e.target.value); renderPlanbord(); };
     const W0 = Math.floor((T - 180) / 60) * 60, SPAN = 14 * 60, PX = 1020 / SPAN; // venster van 14 uur, drie uur terug
     const pct = m => ((m - W0) / SPAN * 100).toFixed(3) + '%';
-    const col = { drive: '#3B82F6', stop: '#06B6D4', pauze: '#64748B', laden: '#22C55E', terrein: '#94A3B8' };
+    const col = { drive: '#E3001F', stop: '#E0A800', pauze: '#8A919E', laden: '#16A34A', terrein: '#B3B8C2' };
     const body = rows.map(t => {
       const s = S.get(t.id); const bl = [];
       for (const b of fleet.blocks(t)) { if (b.k === 'terrein' && b.b - b.a <= 20) continue; for (const off of [-1440, 0, 1440]) { const x = Math.max(b.a + off, W0), y = Math.min(b.b + off, W0 + SPAN); if (y - x > 0.5) bl.push({ ...b, x, y, full: b.a + off >= W0 && b.b + off <= W0 + SPAN }); } }
@@ -221,6 +238,75 @@ export function createUI(fleet, state, store) {
       <table><thead><tr><th>Standplaats</th><th>Regio</th><th>Klant</th><th class="r">Trucks</th><th class="r">Onderweg</th><th class="r">Bij klant</th><th class="r">Terrein</th><th class="r">Uitz.</th></tr></thead><tbody>${rows.map(({ sp, c, ex }) => `<tr class="${sp === pbSp ? 'sel' : ''}" data-sp="${esc(sp.n)}"><td><b>${esc(sp.n)}</b>${sp.hub ? ' <small>hoofdkantoor</small>' : ''}</td><td>${esc(sp.regio)}</td><td>${esc(sp.klant)}</td><td class="r">${sp.fleet}</td><td class="r">${c.onderweg + c.vertraagd}</td><td class="r">${c.klant}</td><td class="r">${c.terrein}</td><td class="r ${ex ? 'bad' : ''}">${ex}</td></tr>`).join('')}</tbody></table></div>
       <div class="hal"><div class="halhead"><span class="prod">Vertrekbord</span><h3>${esc(pbSp.n)}</h3><b>${hhmm(T)}</b></div><div class="halrows">${deps.map(d => `<div class="halrow"><time>${hhmm(d.at)}</time><b>${d.t.id}</b><span class="drv">${esc(d.t.driver)}</span><span class="dest">${esc(d.dest)}</span><em>Dock ${d.dock}</em><i class="${d.at - T < 15 ? 'soon' : ''}">${d.at - T < 15 ? 'Laden' : 'Gepland'}</i></div>`).join('') || '<div class="empty">Geen vertrekken in de komende 2,5 uur.</div>'}</div><div class="halfoot">Hal-scherm per standplaats: dezelfde data als de control tower, op een tv in de loods.</div></div></div>`;
     $('spView').querySelectorAll('[data-sp]').forEach(el => el.addEventListener('click', () => { pbSp = SP.find(s => s.n === el.dataset.sp); renderSpView(); }));
+  }
+
+  // ---------- assistent: voorstellen, vragen, chauffeurs en collega's ----------
+  function nearestSp(pos, minLp = 12) { let best = null, bd = Infinity; for (const sp of SP) { if (laadpunten(sp) < minLp) continue; const d = Math.hypot((sp.lon - pos.lon) * 68, (sp.lat - pos.lat) * 111); if (d < bd) { bd = d; best = sp; } } return { sp: best, km: Math.round(bd) }; }
+  function proposals() {
+    const out = []; const T = state.simTime;
+    for (const e of exceptions.slice(0, 14)) {
+      const t = e.t, s = S.get(t.id); if (!s) continue;
+      if (e.kind === 'Vertraging' && s.next) {
+        const helper = fleet.trucks.find(h => h.base === t.base && h !== t && !h.helping && (S.get(h.id) || {}).st === 'terrein' && ((T - h.shiftStart + 1440) % 1440) < h.shiftEnd - 90);
+        out.push({ id: 'v' + t.id, sev: 'bad', kind: 'Vertraging', t, title: `${t.id} haalt ${s.next.name} niet (ETA ${hhmm(s.next.eta)}, +${s.next.delay} min)`, action: helper ? `${helper.id} (${helper.driver}, op terrein in ${t.base.n}) neemt de resterende stops over; ${t.id} rijdt na ${s.next.name} terug.` : `Klant ${s.next.name} krijgt automatisch de nieuwe ETA ${hhmm(s.next.eta)} en een volg-link; de planner hoeft niet te bellen.`, why: helper ? `${helper.id} heeft nog ${((helper.shiftStart + helper.shiftEnd - T + 1440) % 1440 / 60).toFixed(1).replace('.', ',')} uur dienst en staat naast de lading.` : 'Geen vrije truck op de standplaats; informeren is dan de beste stap.', apply: () => { t.delayResolved = true; if (helper) helper.helping = t.id; sendMsg(t, helper ? `Planning: ${helper.id} neemt je resterende stops over na ${s.next.name}. Rij daarna terug naar ${t.base.n}.` : `Planning: klant ${s.next.name} is geïnformeerd over je nieuwe ETA ${hhmm(s.next.eta)}.`); } });
+      } else if (e.kind === 'Rijtijd') {
+        out.push({ id: 'r' + t.id, sev: 'warn', kind: 'Rijtijd', t, title: `${t.driver} (${t.id}) zit op ${fmtDrive(s.drive)} rijtijd`, action: `Pauze van 45 min inplannen bij ${s.next ? s.next.name : 'de volgende stop'} (aankomst ${s.next ? hhmm(s.next.eta) : '–'}); het tijdvenster van de stop erna blijft haalbaar.`, why: 'Pauze op een losplek kost geen extra stilstand; onderweg stoppen wel.', apply: () => { t.breakPlanned = true; sendMsg(t, `Planning: neem je pauze van 45 min bij ${s.next ? s.next.name : 'de volgende stop'}. Het tijdvenster daarna blijft haalbaar.`); } });
+      } else if (e.kind === 'Accu') {
+        const { sp, km } = nearestSp(s.pos);
+        out.push({ id: 'a' + t.id, sev: 'warn', kind: 'Accu', t, title: `${t.id} heeft ${Math.round(s.soc)} % accu (${Math.round(t.range * s.soc / 100)} km)`, action: sp ? `25 min snelladen bij ${sp.n} (${laadpunten(sp)} laadpunten, ${km} km van de route); laadpunt wordt gereserveerd.` : 'Terug naar de standplaats om te laden.', why: 'Het bereik is te krap voor de terugrit; laden onderweg kost minder dan slepen.', apply: () => { t.chargePlanned = true; sendMsg(t, `Planning: laad 25 min bij ${sp ? sp.n : t.base.n}, laadpunt ${1 + (t.idx % 6)} is gereserveerd.`); } });
+      } else if (e.kind === 'Techniek') {
+        out.push({ id: 't' + t.id, sev: 'bad', kind: 'Techniek', t, title: `${t.id}: ${t.storing}`, action: `Werkorder in de garage ${t.base.hub ? 'Wognum' : 'Opmeer'} na de dienst (${hhmm(t.shiftStart + t.shiftEnd)}); reservetruck wordt klaargezet.`, why: 'De rit kan veilig worden afgemaakt; de storing moet vandaag nog bekeken worden.', apply: () => { t.workorder = true; sendMsg(t, `Planning: werkorder aangemaakt voor "${t.storing}". Na je dienst naar de garage; reservetruck staat klaar.`); } });
+      }
+    }
+    return out;
+  }
+  function answer(q) {
+    const ql = q.toLowerCase(); const vis = fleet.trucks.filter(t => matchBase(t) && (!F.sps.size || F.sps.has(t.base.n)));
+    const truck = fleet.trucks.find(t => ql.includes(t.id.toLowerCase())) || fleet.trucks.find(t => ql.includes(t.driver.toLowerCase()));
+    if (truck) { const s = S.get(truck.id); return `${truck.id} (${truck.driver}, ${truck.model}, standplaats ${truck.base.n}): ${ST[s.st].n.toLowerCase()}${s.next ? `, volgende stop ${s.next.name} om ${hhmm(s.next.eta)}${s.next.delay ? ` (+${s.next.delay} min)` : ''}` : ''}, ${truck.ev ? 'accu' : 'brandstof'} ${Math.round(s.soc)} %, rijtijd ${fmtDrive(s.drive)}.`; }
+    if (/te laat|tijdvenster|vertraag/.test(ql)) { const L = exceptions.filter(e => e.kind === 'Vertraging'); return L.length ? `${L.length} trucks halen hun tijdvenster niet: ${L.slice(0, 6).map(e => `${e.t.id} (${e.t.base.n})`).join(', ')}${L.length > 6 ? ' en meer' : ''}. De voorstellen staan hiernaast.` : 'Geen trucks met een gemist tijdvenster binnen de huidige filters.'; }
+    if (/accu|laden|laadpunt|elektr/.test(ql)) { const ev = vis.filter(t => t.ev); const laden = ev.filter(t => ((S.get(t.id) || {}).seg || {}).k === 'laden').length; const low = ev.filter(t => (S.get(t.id) || {}).soc < 25).length; return `${ev.length} elektrische voertuigen in beeld: ${laden} laden nu, ${low} hebben minder dan 25 % accu.`; }
+    if (/rijtijd|pauze/.test(ql)) { const L = exceptions.filter(e => e.kind === 'Rijtijd'); return L.length ? `${L.length} chauffeurs zitten binnen 30 minuten op de rijtijdlimiet: ${L.map(e => `${e.t.driver} (${e.t.id})`).join(', ')}.` : 'Niemand zit binnen 30 minuten op de rijtijdlimiet.'; }
+    const sp = SP.find(x => ql.includes(x.n.toLowerCase())); if (sp) { const mine = fleet.trucks.filter(t => t.base === sp); const c = { onderweg: 0, klant: 0, pauze: 0, vertraagd: 0, terrein: 0 }; for (const t of mine) { const st = (S.get(t.id) || {}).st; if (st) c[st]++; } return `${sp.n}: ${mine.length} trucks, ${c.onderweg + c.vertraagd} onderweg, ${c.klant} bij een klant, ${c.pauze} met pauze, ${c.terrein} op het terrein; ${fleet.departures(sp, state.simTime, 120).length} vertrekken in de komende twee uur.`; }
+    const town = TOWNS.find(x => ql.includes(x.n.toLowerCase())); if (town) { const L = vis.filter(t => { const s = S.get(t.id); return s && s.next && s.next.name.toLowerCase().includes(town.n.toLowerCase()); }); return L.length ? `${L.length} trucks rijden naar ${town.n}: ${L.slice(0, 8).map(t => `${t.id} (ETA ${hhmm(S.get(t.id).next.eta)})`).join(', ')}.` : `Op dit moment rijdt geen truck naar ${town.n}.`; }
+    if (/hoeveel|aantal|status/.test(ql)) return `${counts.onderweg + counts.vertraagd} trucks zijn onderweg, ${counts.klant} staan bij een klant, ${counts.pauze} hebben pauze en ${counts.terrein} staan op het terrein. ${kpi.onTime.toFixed(1).replace('.', ',')} % van de stops was op tijd.`;
+    return 'Ik beantwoord vragen over tijdvensters, accu\'s, rijtijden, standplaatsen, plaatsen, trucks en chauffeurs. Probeer: "welke trucks halen hun tijdvenster niet?", "wat doet Wognum?" of "wie rijdt er naar Hoorn?".';
+  }
+  function renderAssist() {
+    const el = $('assist'); if (!el) return; const props = proposals(); const T = state.simTime;
+    const over = store.get('sl-overdracht') || '';
+    el.innerHTML = `<div class="acol">
+      <div class="acard"><h3>Voorstellen van de planning-assistent <b>${props.length}</b></h3>
+        <div class="auto"><div><b>${applied.length}</b><span>vandaag toegepast</span></div><div><b>${props.length}</b><span>wachten op akkoord</span></div><div><b>${msgCount}</b><span>berichten naar chauffeurs</span></div></div>
+        ${props.length ? props.map(p => `<div class="prop ${p.sev}"><i></i><div><b>${esc(p.title)}</b><span>${esc(p.kind)}</span><p>${esc(p.action)}</p><div class="why">Waarom: ${esc(p.why)}</div></div><button class="btn pri" data-apply="${p.id}">Pas toe</button></div>`).join('') : '<div class="empty">Geen open voorstellen. De assistent kijkt elke seconde opnieuw naar tijdvensters, rijtijden, accu\'s en storingen.</div>'}
+        ${applied.length ? `<h4 class="sub">Afgehandeld <small>laatste ${Math.min(applied.length, 6)}</small></h4>${applied.slice(-6).reverse().map(a => `<div class="prop done ${a.sev}"><i></i><div><b>${esc(a.title)}</b><span>${hhmm(a.T)}</span><p>${esc(a.action)}</p></div></div>`).join('')}` : ''}
+        <div class="hint">Zo werkt het in de echte versie: VROOM of Timefold rekent elke vijf minuten alle ritten opnieuw door met de live ETA's; de assistent legt per voorstel uit waarom, en de planner keurt goed met één klik. Routinewerk gaat vanzelf, uitzonderingen blijven mensenwerk.</div>
+      </div>
+      <div class="acard"><h3>Vraag het de assistent</h3>
+        <div class="chat" id="chatBox">${chat.length ? chat.map(m => `<div class="msg ${m.me ? 'me' : ''}">${esc(m.text)}<time>${hhmm(m.T)}</time></div>`).join('') : '<div class="empty">Stel een vraag in gewone taal over de live situatie.</div>'}</div>
+        <div class="ask"><input id="askIn" placeholder="Bijvoorbeeld: welke trucks halen hun tijdvenster niet?" autocomplete="off"><button class="btn pri sm" id="askBtn">Vraag</button></div>
+        <div class="sugg">${['Welke trucks halen hun tijdvenster niet?', 'Hoeveel eActros laden nu?', 'Wie zit bijna op zijn rijtijd?', 'Wat doet Wognum?', 'Wie rijdt er naar Hoorn?'].map(q => `<button class="chip sm" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+        <div class="hint">Demo met regels op de live data. In de echte versie beantwoordt Claude deze vragen via een MCP-koppeling op de control tower, met dezelfde cijfers die de planner ziet.</div>
+      </div>
+    </div>
+    <div class="acol">
+      <div class="acard"><h3>Collega's op dienst</h3>
+        ${COLLEGAS.map(([n, sp, role, a, b]) => { const on = T >= a && T < b; return `<div class="col"><span class="av ${on ? 'on' : ''}">${esc(n.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase())}</span><div><b>${esc(n)}</b><span>${esc(role)} · ${esc(sp)} · ${hhmm(a)}–${hhmm(b)}</span></div><em class="${on ? 'on' : ''}">${on ? 'op dienst' : 'buiten dienst'}</em></div>`; }).join('')}
+        <h4 class="sub">Overdracht naar de volgende dienst</h4>
+        <textarea id="overIn" class="over" placeholder="Wat moet de volgende planner weten? Bijvoorbeeld: W-0412 rijdt met vertraging voor AH Medemblik, klant is gebeld.">${esc(over)}</textarea>
+        <div class="hint">De overdracht blijft staan voor de volgende planner (in deze demo in je eigen browser). In de echte versie hangt elke notitie aan de truck of de rit en ziet de hal hem ook.</div>
+      </div>
+      <div class="acard"><h3>Berichten met chauffeurs <b>${msgCount}</b></h3>
+        ${(() => { const L = fleet.trucks.filter(t => t.msgs && t.msgs.length).slice(-6).reverse(); return L.length ? L.map(t => { const m = t.msgs[t.msgs.length - 1]; return `<div class="col" data-truck="${t.id}"><span class="av">${esc(t.driver.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase())}</span><div><b>${esc(t.driver)} · ${t.id}</b><span>${esc(m.text)}</span></div><em>${hhmm(m.T)}</em></div>`; }).join('') : '<div class="empty">Nog geen berichten. Open een truck en stuur een bericht, of pas een voorstel toe.</div>'; })()}
+        <div class="hint">Berichten komen in de app van de chauffeur en worden onderweg voorgelezen; antwoorden gaat met één knop. Geen vrije tekst achter het stuur.</div>
+      </div>
+    </div>`;
+    el.querySelectorAll('[data-apply]').forEach(b => b.addEventListener('click', () => { const p = props.find(x => x.id === b.dataset.apply); if (!p) return; p.apply(); applied.push({ ...p, T: state.simTime }); feed.unshift({ T: state.simTime, t: p.t, txt: `voorstel toegepast: ${p.kind.toLowerCase()}`, sev: 'ok' }); frame(true); }));
+    el.querySelectorAll('[data-truck]').forEach(x => x.addEventListener('click', () => selectTruck(x.dataset.truck)));
+    const ask = () => { const v = $('askIn').value.trim(); if (!v) return; chat.push({ me: true, text: v, T: state.simTime }); chat.push({ me: false, text: answer(v), T: state.simTime }); if (chat.length > 12) chat.splice(0, chat.length - 12); renderAssist(); const box = $('chatBox'); if (box) box.scrollTop = box.scrollHeight; };
+    $('askBtn').onclick = ask; $('askIn').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+    el.querySelectorAll('[data-ask]').forEach(b => b.addEventListener('click', () => { $('askIn').value = b.dataset.ask; ask(); }));
+    $('overIn').addEventListener('input', e => store.set('sl-overdracht', e.target.value));
   }
 
   // ---------- tabs, tijdbalk, thema ----------

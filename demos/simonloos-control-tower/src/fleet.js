@@ -74,8 +74,9 @@ export function createFleet() {
   for (const s of SP) {
     for (let i = 0; i < s.fleet; i++) {
       const div = s.div[i % s.div.length], van = div === 'bezorg';
-      const ev = van ? rnd() < 0.6 : rnd() < 0.17;
-      const [model, range] = pick(van ? MODELS.van : ev ? MODELS.ev : MODELS.diesel);
+      const evShare = { winkel: 0.22, bezorg: 0.6, dranken: 0.2, netwerk: 0.12, bulk: 0.05 }[div];
+      const ev = rnd() < evShare;
+      const [model, range] = pick(van ? MODELS.van : ev ? (div === 'netwerk' || div === 'bulk' ? [MODELS.ev[0]] : MODELS.ev) : MODELS.diesel);
       const sh = pick(SHIFTS[div]); const shiftStart = Math.round(sh[0] + rnd() * (sh[1] - sh[0]));
       const t = {
         id: `W-${String(++n).padStart(4, '0')}`, idx: n, plate: plate(van), base: s, div, van, ev, model, range,
@@ -99,7 +100,7 @@ export function createFleet() {
     let si = t.plan.length - 1; for (let i = 0; i < t.plan.length; i++) if (rel >= t.plan[i].t0 && rel < t.plan[i].t1) { si = i; break; }
     const seg = t.plan[si];
     let st, pos, km = 0;
-    if (seg.k === 'drive') { const f = (rel - seg.t0) / (seg.t1 - seg.t0); km = seg.km0 + (seg.km1 - seg.km0) * f; pos = posAt(seg.route.path, km); st = seg.delay > 0 ? 'vertraagd' : 'onderweg'; }
+    if (seg.k === 'drive') { const f = (rel - seg.t0) / (seg.t1 - seg.t0); km = seg.km0 + (seg.km1 - seg.km0) * f; pos = posAt(seg.route.path, km); st = seg.delay > 0 && !t.delayResolved ? 'vertraagd' : 'onderweg'; }
     else if (seg.k === 'stop') { pos = posAt(seg.route.path, seg.km0); st = 'klant'; }
     else if (seg.k === 'pauze') { pos = seg.route ? posAt(seg.route.path, seg.km0) : { lon: t.base.lon, lat: t.base.lat, bearing: 0 }; if (!seg.route) { const prev = t.plan[si - 1]; if (prev && prev.route) pos = posAt(prev.route.path, prev.km1); } st = 'pauze'; }
     else { pos = { lon: t.base.lon + ((t.idx % 11) - 5) * 0.0007, lat: t.base.lat + ((t.idx % 5) - 2) * 0.0004, bearing: 90 }; st = 'terrein'; }
@@ -110,13 +111,13 @@ export function createFleet() {
     const soc = Math.max(3, 100 - kmSince / t.range * 100 * (t.ev ? 1 : 0.55));
     // volgende stop
     let next = null;
-    for (let i = si; i < t.plan.length; i++) { const s = t.plan[i]; if (s.k === 'stop' && (i > si || s.k !== seg.k)) { const d = t.plan[i - 1]; next = { name: s.stop, eta: t.shiftStart + s.t0, planned: t.shiftStart + s.t0 - (d && d.delay || 0), win: d && d.win ? [t.shiftStart + d.win[0], t.shiftStart + d.win[1]] : null, delay: d && d.delay || 0, kmLeft: d ? Math.max(0, d.km1 - km) : 0 }; break; } if (s.k === 'laden' || (s.k === 'terrein' && i > si)) { next = { name: `Terug ${t.base.n}`, eta: t.shiftStart + s.t0, planned: t.shiftStart + s.t0, win: null, delay: 0, kmLeft: seg.k === 'drive' ? Math.max(0, seg.km1 - km) : 0, home: true }; break; } }
+    for (let i = si; i < t.plan.length; i++) { const s = t.plan[i]; if (s.k === 'stop' && (i > si || s.k !== seg.k)) { const d = t.plan[i - 1]; next = { name: s.stop, eta: t.shiftStart + s.t0 - (t.delayResolved && d ? d.delay || 0 : 0), planned: t.shiftStart + s.t0 - (d && d.delay || 0), win: d && d.win ? [t.shiftStart + d.win[0], t.shiftStart + d.win[1]] : null, delay: t.delayResolved ? 0 : (d && d.delay || 0), kmLeft: d ? Math.max(0, d.km1 - km) : 0 }; break; } if (s.k === 'laden' || (s.k === 'terrein' && i > si)) { next = { name: `Terug ${t.base.n}`, eta: t.shiftStart + s.t0, planned: t.shiftStart + s.t0, win: null, delay: 0, kmLeft: seg.k === 'drive' ? Math.max(0, seg.km1 - km) : 0, home: true }; break; } }
     return { seg, si, rel, st, pos, km, drive, soc, next, speed: seg.k === 'drive' ? Math.round(t.speed * (0.85 + ((rel * 7) % 10) / 40)) : 0 };
   }
 
   // Dagblokken voor het planbord (absolute minuten van de dag; kunnen > 1440 lopen).
   function blocks(t) {
-    return t.plan.filter(s => s.t1 > s.t0 && !(s.k === 'terrein' && s.t1 === 1440)).map(s => ({ a: t.shiftStart + s.t0, b: t.shiftStart + s.t1, k: s.k, label: s.k === 'drive' ? `→ ${s.route.marks[s.idx].name}` : s.k === 'stop' ? s.stop : s.k === 'pauze' ? 'Pauze' : s.k === 'laden' ? 'Laden accu' : 'Terrein', delay: s.delay || 0, win: s.win }));
+    return t.plan.filter(s => s.t1 > s.t0 && !(s.k === 'terrein' && s.t1 === 1440)).map(s => ({ a: t.shiftStart + s.t0, b: t.shiftStart + s.t1, k: s.k, label: s.k === 'drive' ? `→ ${s.route.marks[s.idx].name}` : s.k === 'stop' ? s.stop : s.k === 'pauze' ? 'Pauze' : s.k === 'laden' ? 'Laden accu' : 'Terrein', delay: t.delayResolved ? 0 : (s.delay || 0), win: s.win }));
   }
 
   // Vertrekken vanaf een standplaats binnen [T, T+horizon].
