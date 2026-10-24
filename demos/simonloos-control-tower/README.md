@@ -46,6 +46,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | Werkgebied | eerste keer, daarna knop Werkgebied | Drie stappen: regio's, ritten, rol en standplaats; bewaard in de browser, niet elke keer opnieuw |
 | Rollen | Bekijk als in de topbalk | Planner, regiomanager, directie, HR; bepaalt welke delen van truck- en persoonspagina's zichtbaar zijn |
 | Kaart | Kaart | Voertuigen als iconen in de statuskleur met hun rijrichting (van veraf stippen, nooit clusters), losse opleggers met toets o of de chip Los, klikbare statusfilters, voertuig- en opleggerkaartje bij selectie, kaartlagen (online tegels, gedimde standplaatsen, pauzeplekken) |
+| 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt en wordt een speelgoedlandschap in de huisstijl: voertuigen als rode trekkers met witte opleggers, bakwagens en bussen op koers, losse opleggers op steunpoten (op het terrein in rijen, bij klanten waar ze staan), depots met een loods met rode daklijst en docks, kantoor en terrein (Wognum met kantoortoren), bomen en huizen in de bebouwing, licht en donker; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
 | Meldingen | bel of toets m | Drie kerngetallen, uitzonderingen (vertraging, rijtijd, accu, techniek, koeling, oplegger te laat opgehaald) afvinken, toewijzen aan een collega of op later zetten; blijft staan na een herlaad |
 | Voertuigpagina | klik op Open voertuig of een rij in Voertuigen | Chauffeurs van vandaag per dienst en de oplegger erachter; Historie (laatste twaalf diensten, wie reed het vaakst), Vandaag (diensten en dagplan), Cijfers (chauffeurswisselingen, verbruik per chauffeur), Onderhoud (RDW, werkorder), Documenten |
 | Opleggerpaneel en -pagina | klik op een oplegger op de kaart, in een paneel of in Opleggers | Status, waar hij staat of achter welke trekker hij hangt, lading, temperatuur bij koel en vries, sinds wanneer, ophaalmoment; pagina met APK, ATP, onderhoud en documenten |
@@ -57,7 +58,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | Pauzeplekken | Pauzeplekken | 48 plekken op het snelwegennet met voorzieningen en beoordelingen; eigen beoordeling; de assistent stelt er een voor bij rijtijd |
 | Hal-scherm | `#hal/<standplaats>` | Vertrekbord (vertrek, voertuig, oplegger, chauffeur, bestemming, dock, status) op volledig scherm voor een tv in de loods |
 | Klant-link | Deel link op het truckkaartje, `#klant/<truck>` | Alleen die truck en de volgende levering, met live ETA |
-| Zoeken en sneltoetsen | toets / of Ctrl K | Voertuigen, opleggers, kentekens, chauffeurs, werkorders, standplaatsen, winkels, pauzeplekken, weergaven; 1 tot 9 en 0 wisselen van weergave, o toont losse opleggers, f volgt, Esc sluit; elke weergave en elk record heeft een URL (`#voertuig/T-1002`) en de terugknop werkt |
+| Zoeken en sneltoetsen | toets / of Ctrl K | Voertuigen, opleggers, kentekens, chauffeurs, werkorders, standplaatsen, winkels, pauzeplekken, weergaven; 1 tot 9 en 0 wisselen van weergave, o toont losse opleggers, d de 3D-wereld, f volgt, Esc sluit; elke weergave en elk record heeft een URL (`#voertuig/T-1002`) en de terugknop werkt |
 | Opgeslagen weergaven | Weergaven in de topbalk | Werkgebied, filters en kaartpositie onder een naam bewaren |
 | Assistent | Assistent | Voorstellen bij vertraging, rijtijd, accu, techniek, koeling en opleggers die wachten (een solo terugrijdende trekker of een reservetrekker haalt ze op); "Pas toe" past het plan aan en stuurt de chauffeur een bericht; vragen in gewone taal, ook over opleggers; collega's; overdracht |
 
@@ -67,7 +68,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 npm install
 npm run dev              # ontwikkelserver
 npm run build            # dist/index.html: één bestand met alles erin (ca. 8 MB), plus dist/artifact.html voor het Claude-artifact
-npm run build:site       # dist-site/: app.js, data.js, maplibre.js en app.css met vaste namen, om in een site in te bedden
+npm run build:site       # dist-site/: app.js, data.js, maplibre.js, three.js en app.css met vaste namen, om in een site in te bedden
 ```
 
 Open `dist/index.html` via een webserver (bijvoorbeeld `npx vite preview` of
@@ -97,12 +98,32 @@ npm run build:site
 node tools/sync-safetail.mjs ../../../website   # pad naar de website-repo
 ```
 
-Dat kopieert de vier bestanden naar `public/intern/control-tower/app/` en schrijft daar
+Dat kopieert de vijf bestanden (sinds de 3D-wereld ook `three.js`, dat `app.js` zelf met een relatief pad
+laadt) naar `public/intern/control-tower/app/` en schrijft daar
 `VERSIE.json` (commit en datum). De pagina daar bevat de HTML-opbouw van de app (dezelfde
 id's als `index.html` hier, sinds 3.0 ook `v-opleggers`): verandert die opbouw, pas dan
 ook die pagina aan. Daarna in de
 website-repo: `npm run build`, `npm test`, committen (zie daar DEPLOY.md, "SafeTools ·
 Control Tower").
+
+## 3D-wereld
+
+De 3D-stand (knop met de kubus naast Kaartlagen, toets d, bewaard als `sl-3d`) is een eigen laag van
+MapLibre (`CustomLayerInterface`, `renderingMode: '3d'`) die met **three.js** tekent (`src/scene3d.js`).
+Alles is procedureel uit boxen, cilinders en kegels: geen modellen of texturen van buiten, dus geen
+enkel verzoek naar buiten (ook ingebed in SafeTail). De camera van MapLibre wordt elke frame
+overgenomen (de projectiematrix uit `defaultProjectionData.mainMatrix`), de scene ligt in meters rond
+de kaartpositie (verschuift mee als de kaart meer dan 2,5 km opschuift) en de maten groeien mee met
+uitzoomen, zoals de iconen op de platte kaart: voertuigen houden ongeveer dezelfde grootte op het
+scherm, gebouwen en bomen schalen de helft mee. Voertuigen en losse opleggers zijn instanced meshes
+(een trekking per soort), met een lampje in de statuskleur op het dak; standplaatsen zijn een mesh per
+depot (loods, docks, kantoor, toren voor het hoofdkantoor) met een terrein dat de parkeerrijen omvat;
+bomen staan op vaste plekken (eigen seed, niet de toevalsreeks van de simulatie) rond de depots en in de
+bebouwde vlakken van `urban.json`, huizen op een derde van die punten vanaf zoom 12,5. Klik en aanwijzen
+gaan via een straal door de scene (raycast op de instanced meshes). In de 3D-stand krijgt de grond een
+zacht speelgoedpalet (paint-waarden van de bestaande lagen, die bij uitzetten terugkomen); volgen zet de
+camera schuin achter het voertuig met de koers als kaartrichting (bij "minder beweging" springt de
+camera en draait hij niet mee). Zonder WebGL is er geen knop.
 
 ## Kaart en wegen
 
@@ -124,7 +145,7 @@ Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
 diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
 en beoordelingen. Werkgebied, rol, thema, opgeslagen weergaven, overgenomen lostijden,
-eigen beoordelingen, de overdrachtstekst en de acties van vandaag (afgehandelde en
+eigen beoordelingen, de overdrachtstekst, de 3D-stand en de acties van vandaag (afgehandelde en
 uitgestelde meldingen, toegepaste voorstellen, berichten) staan in de browser (localStorage, `sl-*`).
 
 ## Bestanden
@@ -136,7 +157,8 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) staan in de browser (l
 - `src/tables.js`: tabellen voertuigen, opleggers en mensen, lostijden, laden, pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
-- `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen), wegennet, standplaatsen, rollen en rechten
+- `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen), wegennet, standplaatsen, rollen en rechten
+- `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
 - `src/data/`: `graph.json` (routeergraaf), `roads_display.json`, `water.json`, `provinces.json`, `urban.json`, `places.json`
 - `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)

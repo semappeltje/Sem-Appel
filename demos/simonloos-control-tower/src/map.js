@@ -9,6 +9,7 @@ import display from './data/roads_display.json';
 import { allEdges, edgeGeom, decode } from './roads.js';
 import { SP, CITIES, ST } from './places.js';
 import { TRST } from './fleet.js';
+import { createScene3d } from './scene3d.js';
 
 // De kaart draait in één bestand (ook als artifact): de MapLibre-worker wordt uit een blob-URL gestart.
 try { const src = workerSrc.replace(/export\s*\{[^}]*\};?\s*(\/\/# sourceMappingURL=\S*)?\s*$/, ''); maplibregl.setWorkerUrl(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); } catch (e) { console.warn('worker-url', e); }
@@ -19,6 +20,8 @@ const PAL = {
   light: { land: '#F3F4F6', urban: '#E9EBEF', water: '#D5E0EA', prov: '#CDD3DC', mw: '#FFFFFF', mwC: '#B9C0CA', tr: '#FFFFFF', trC: '#C8CED7', pr: '#FFFFFF', prC: '#D5DAE1', se: '#FFFFFF', seC: '#DEE2E8', te: '#FFFFFF', teC: '#E6E9ED', tiles: 'light_all', stroke: '#FFFFFF', done: '#A6AEBB', dim: '#A6AEBB' },
   dark: { land: '#12161C', urban: '#181D25', water: '#0A0D12', prov: '#2B323D', mw: '#4A5260', mwC: '#0A0D12', tr: '#3F4654', trC: '#0A0D12', pr: '#343B47', prC: '#0A0D12', se: '#2B313C', seC: '#0A0D12', te: '#262C36', teC: '#0A0D12', tiles: 'dark_all', stroke: '#0F1216', done: '#5F6775', dim: '#4A5260' },
 };
+// in de 3D-stand krijgt de grond een zachte speelgoedkleur: licht groen-grijs land, beige bebouwing, zacht water
+const PAL3 = { light: { land: '#E4EBDF', urban: '#EDE6D9', water: '#B9D5E8' }, dark: { land: '#141B17', urban: '#1C221D', water: '#0A1119' } };
 const fc = f => ({ type: 'FeatureCollection', features: f });
 
 // Iconen voor de kaart, getekend op een canvas (2x): een voertuig van boven met de neus naar het noorden (de kaart draait
@@ -64,7 +67,7 @@ function noMap(container, theme) {
   if (el) el.innerHTML = '<div class="nomap"><div><b>De kaart heeft WebGL nodig</b>Deze browser heeft WebGL uit staan of ondersteunt het niet. Planbord, trucks, mensen, standplaatsen, laden, lostijden en pauzeplekken werken gewoon.</div></div>';
   const no = () => {};
   const map = { easeTo: no, flyTo: no, resize: no, fitBounds: no, on: no, off: no, getZoom: () => 6.6, getCenter: () => ({ lng: 5.3, lat: 52.2 }) };
-  return { map, setTheme: no, setOnline: no, whenReady: f => setTimeout(f, 0), setTrucks: no, setTrailers: no, showTrailers: no, trailersOn: () => false, setSelected: no, setRoute: no, highlightSp: no, fitSps: no, setRest: no, showRest: no, isOnline: () => false, hasOnline: () => false, hasTiles: () => false, noWebGL: true, theme };
+  return { map, setTheme: no, setOnline: no, whenReady: f => setTimeout(f, 0), setTrucks: no, setTrailers: no, showTrailers: no, trailersOn: () => false, setSelected: no, setRoute: no, highlightSp: no, fitSps: no, setRest: no, showRest: no, isOnline: () => false, hasOnline: () => false, hasTiles: () => false, set3d: no, is3d: () => false, has3d: () => false, followCam: no, noWebGL: true, theme };
 }
 
 // opts.tiles === false: geen externe kaarttegels (geen enkel verzoek naar buiten); alleen de ingebouwde basiskaart.
@@ -80,7 +83,7 @@ export function createMap(container, opts) {
   map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Wegen en water © OpenStreetMap-bijdragers via Overture Maps · provincies Natural Earth' + (tiles ? ' · online tegels © CARTO' : '') }), 'bottom-left');
 
   const markers = { cities: [], sp: [] };
-  let trailersOn = false;
+  let trailersOn = false; let scene3d = null, three = false;
   const addIcons = () => { for (const [id, img] of Object.entries(iconSet(PAL[theme].stroke))) { if (map.hasImage(id)) map.removeImage(id); map.addImage(id, img, { pixelRatio: 2 }); } };
   const empty = fc([]);
   let ready = false; const onReady = [];
@@ -162,23 +165,34 @@ export function createMap(container, opts) {
     for (const a of pts) a.el.classList.remove('nolbl');
     for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { const a = pts[i], b = pts[j]; if (Math.abs(a.p.x - b.p.x) < 120 && Math.abs(a.p.y - b.p.y) < 18) { const loser = a.s.hub ? b : b.s.hub ? a : (a.s.fleet || 0) >= (b.s.fleet || 0) ? b : a; loser.el.classList.add('nolbl'); } }
   }
+  // de grondkleuren: het palet van de interface, of in de 3D-stand het speelgoedpalet
+  function applyPalette() { if (!ready) return; const Q = three ? PAL3[theme] : PAL[theme]; map.setPaintProperty('bg', 'background-color', Q.land); map.setPaintProperty('urban', 'fill-color', Q.urban); map.setPaintProperty('water', 'fill-color', Q.water); }
   function setTheme(t) {
-    theme = t; const P = PAL[t]; if (!ready) return;
-    map.setPaintProperty('bg', 'background-color', P.land); map.setPaintProperty('urban', 'fill-color', P.urban); map.setPaintProperty('water', 'fill-color', P.water); map.setPaintProperty('prov', 'line-color', P.prov);
+    theme = t; const P = PAL[t]; if (scene3d) scene3d.setTheme(t); if (!ready) return;
+    applyPalette(); map.setPaintProperty('prov', 'line-color', P.prov);
     for (const [id, c, f] of [['te', P.teC, P.te], ['se', P.seC, P.se], ['pr', P.prC, P.pr], ['tr', P.trC, P.tr], ['mw', P.mwC, P.mw]]) { map.setPaintProperty(id + 'c', 'line-color', c); map.setPaintProperty(id, 'line-color', f); }
     map.setPaintProperty('route-casing', 'line-color', P.stroke); map.setPaintProperty('trucks-dot', 'circle-stroke-color', P.stroke); map.setPaintProperty('route-done', 'line-color', P.done); map.setPaintProperty('stops', 'circle-color', ['case', ['get', 'done'], P.done, '#E3001F']); map.setPaintProperty('stops', 'circle-stroke-color', P.stroke); map.setPaintProperty('dim', 'circle-color', P.dim); map.setPaintProperty('rest', 'circle-stroke-color', P.stroke); addIcons();
     const src = map.getSource('tiles'); if (src && src.setTiles) src.setTiles(['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`));
   }
   function setOnline(v) { online = tiles && v && !onlineFailed; if (!ready || !tiles) return; map.setLayoutProperty('tiles', 'visibility', online ? 'visible' : 'none'); applyZoomClasses(); }
   const whenReady = f => ready ? f() : onReady.push(f);
-  function setTrucks(features, dimFeatures) { if (!ready) return; map.getSource('trucks').setData(fc(features)); map.getSource('dim').setData(fc(dimFeatures)); }
-  function setTrailers(features) { if (!ready) return; map.getSource('trailers').setData(fc(features)); }
-  function showTrailers(v) { trailersOn = v; if (!ready) return; map.setLayoutProperty('trailers', 'visibility', v ? 'visible' : 'none'); }
+  function setTrucks(features, dimFeatures) { if (!ready) return; map.getSource('trucks').setData(fc(features)); map.getSource('dim').setData(fc(dimFeatures)); if (scene3d && three) scene3d.setVehicles(features.map(f => ({ id: f.properties.id, st: f.properties.st, b: f.properties.b, k: f.properties.k, base: f.properties.base, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))); }
+  function setTrailers(features) { if (!ready) return; map.getSource('trailers').setData(fc(features)); if (scene3d && three) scene3d.setTrailers(features.map(f => ({ id: f.properties.id, st: f.properties.st, base: f.properties.base, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))); }
+  function showTrailers(v) { trailersOn = v; if (!ready) return; map.setLayoutProperty('trailers', 'visibility', v && !three ? 'visible' : 'none'); }
+  // 3D-wereld aan of uit: de eigen laag (three.js) tekent voertuigen, opleggers, depots en bomen; de platte iconen gaan uit
+  function set3d(v) {
+    three = !!v; if (!ready) { onReady.push(() => set3d(three)); return; }
+    if (three && !scene3d) scene3d = createScene3d(map, maplibregl, { theme, onSelectTruck: opts.onSelectTruck, onSelectTrailer: opts.onSelectTrailer, onHover: opts.onHover });
+    if (scene3d) { scene3d.setTheme(theme); scene3d.enable(three); }
+    map.setLayoutProperty('trucks', 'visibility', three ? 'none' : 'visible'); map.setLayoutProperty('trailers', 'visibility', trailersOn && !three ? 'visible' : 'none'); applyPalette();
+  }
+  // volgen in 3D: schuin achter het voertuig, de camera draait mee met de koers (niet bij minder beweging)
+  function followCam(pos, duration, rotate) { map.easeTo({ center: [pos.lon, pos.lat], bearing: rotate ? pos.bearing : map.getBearing(), pitch: Math.max(map.getPitch(), 58), zoom: Math.max(map.getZoom(), 14.2), offset: [0, Math.round(map.getContainer().clientHeight * 0.17)], duration, easing: x => x }); }
   function setSelected(feature) { if (!ready) return; map.getSource('sel').setData(fc(feature ? [feature] : [])); }
   function setRoute(done, todo, stops) { if (!ready) return; map.getSource('route-done').setData(fc(done ? [line(done)] : [])); map.getSource('route-todo').setData(fc(todo ? [line(todo)] : [])); map.getSource('stops').setData(fc((stops || []).map(s => ({ type: 'Feature', properties: { done: s.done }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })))); }
   function highlightSp(name) { for (const { m, s } of markers.sp) m.getElement().classList.toggle('on', s.n === name); }
   function setRest(places, selId) { if (!ready) return; map.getSource('rest').setData(fc(places.map(p => ({ type: 'Feature', properties: { id: p.id, sel: p.id === selId }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })))); }
   function showRest(v) { if (!ready) return; map.setLayoutProperty('rest', 'visibility', v ? 'visible' : 'none'); }
   function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 }); }
-  return { map, setTheme, setOnline, whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => tiles && !onlineFailed, hasTiles: () => tiles };
+  return { map, setTheme, setOnline, whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => tiles && !onlineFailed, hasTiles: () => tiles, set3d, is3d: () => three, has3d: () => true, followCam, scene3d: () => scene3d };
 }

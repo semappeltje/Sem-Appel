@@ -28,6 +28,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   let profile = null; try { profile = JSON.parse(store.get('sl-werkgebied') || 'null'); } catch { profile = null; }
   // bij "minder beweging" (prefers-reduced-motion) vliegt de kaart niet maar springt hij
   const RM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; const FLY = RM ? 0 : 900;
+  let three = store.get('sl-3d') === 'on', prevCam = null;
   let mapApi = null, selTruck = null, selSp = null, selRest = null, selTrailer = null, follow = false, lastFollow = 0, panelMode = 'meld', hoverId = null, hoverPt = null, view = 'kaart', tick = 0, pbSp = SP[0], exFilter = 'Alle', showDone = false, restOnMap = false, trailersOnMap = false, sheet = null, halSp = null, klantId = null;
   const S = new Map(), TRS = new Map(), prevSt = new Map(); const feed = [], chat = []; let exceptions = [], trailerEx = [], counts = {}, kpi = {}, msgCount = 0; const pbF = { div: 'alle', kind: 'alle' };
   // ---------- acties van vandaag (localStorage sl-acties): afgehandeld, toegewezen, later, toegepaste voorstellen, berichten ----------
@@ -148,7 +149,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       const vis = visible(t, s);
       if (!vis) { if (F.dim && F.sps.size && !F.sps.has(t.base.n) && matchBase(t) && F.sts.has(s.st)) dims.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); prevSt.set(t.id, s.st); continue; }
       nVis++; counts[s.st]++; spSeen.add(t.base); ritten += t.routes.length; if (t.ev) ev++; if (t.vandaag === 'inzet') inzet++; if (s.solo && s.st !== 'klant') solo++;
-      feats.push({ type: 'Feature', properties: { id: t.id, st: s.st, b: Math.round(s.pos.bearing), mv: s.st === 'onderweg' || s.st === 'vertraagd', k: t.kind === 'trekker' ? (s.tr ? 'trekker' : 'solo') : t.kind }, geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } });
+      feats.push({ type: 'Feature', properties: { id: t.id, st: s.st, b: Math.round(s.pos.bearing), mv: s.st === 'onderweg' || s.st === 'vertraagd', k: t.kind === 'trekker' ? (s.tr ? 'trekker' : 'solo') : t.kind, base: t.base.n }, geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } });
       if (s.seg.k === 'laden') laden++;
       for (const seg of t.plan) if (seg.k === 'stop' && seg.t1 <= s.rel) { stopsDone++; const d = t.plan[t.plan.indexOf(seg) - 1]; if (d && d.delay) stopsLate++; }
       const who = s.driver || t.id;
@@ -166,7 +167,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       for (const tr of fleet.trailers) {
         const s = fleet.trailerStateAt(tr, T); TRS.set(tr.id, s);
         if (!inScopeBase(tr.base, tr.div)) continue;
-        trailers++; if (s.st !== 'gekoppeld') { loose++; if (s.st !== 'onderhoud') trFeats.push({ type: 'Feature', properties: { id: tr.id, st: s.st }, geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); }
+        trailers++; if (s.st !== 'gekoppeld') { loose++; if (s.st !== 'onderhoud') trFeats.push({ type: 'Feature', properties: { id: tr.id, st: s.st, base: tr.base.n }, geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); }
         if (tr.storing && (s.st === 'gekoppeld' || s.st === 'geladen') && !tr.workorder) trailerEx.push({ key: 'K:' + tr.id, sev: 'bad', kind: 'Koeling', tr, t: s.vehicle, text: `${tr.id} (${TRT[tr.type].n.toLowerCase()}${s.vehicle ? `, achter ${s.vehicle.id}` : `, bij ${s.place}`}): ${tr.storing}` });
         if (s.late && !tr.pickupPlanned) { trWait++; trailerEx.push({ key: 'O:' + tr.id, sev: 'warn', kind: 'Oplegger', tr, t: null, text: `${tr.id} staat leeg bij ${s.place}, ophalen was gepland om ${hhmm(s.pickup)} (${Math.max(1, Math.floor((((T - s.pickup) % 1440) + 1440) % 1440 / 60))} u te laat)` }); }
       }
@@ -178,7 +179,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     mapApi.setTrucks(feats, dims);
     // de nu-lijn van het planbord loopt elke beurt mee (de rest van het bord ververst elke achtste beurt)
     if (view === 'planbord') { const g = $('v-planbord').querySelector('.gbody'); const nl = g && g.querySelector('.nowline'); if (nl && g.dataset.w0) { nl.style.left = `calc(var(--who) + (100% - var(--who)) * ${((T - +g.dataset.w0) / +g.dataset.span).toFixed(4)})`; const lb = nl.firstElementChild; if (lb) lb.textContent = hhmm(T); } }
-    if (selTruck) { const s = S.get(selTruck.id); mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); drawRoute(selTruck, s); if (follow && Date.now() - lastFollow > 900) { lastFollow = Date.now(); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], duration: FLY }); } }
+    if (selTruck) { const s = S.get(selTruck.id); mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); drawRoute(selTruck, s); if (follow && Date.now() - lastFollow > 900) { lastFollow = Date.now(); if (three) mapApi.followCam(s.pos, FLY, !RM); else mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], duration: FLY }); } }
     else if (selTrailer) { const s = TRS.get(selTrailer.id); if (s) mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); }
     else mapApi.setSelected(null);
     renderStatline(); renderFcard(); updateSub();
@@ -499,7 +500,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     else if (KEYS.includes(e.key) && VIEWS[KEYS.indexOf(e.key)]) setView(VIEWS[KEYS.indexOf(e.key)][0]);
     else if (e.key === 'f' && selTruck) { follow = !follow; renderFcard(); if (panelMode === 'truck') renderPanel(); }
     else if (e.key === 'o') setTrailersOnMap(!trailersOnMap);
-    else if (e.key === '?') notice('Sneltoetsen: / zoeken · 1 tot 0 weergaven · f volgen · o losse opleggers · Esc sluiten · m meldingen');
+    else if (e.key === 'd') set3dMode(!three);
+    else if (e.key === '?') notice('Sneltoetsen: / zoeken · 1 tot 0 weergaven · f volgen · o losse opleggers · d 3D-wereld · Esc sluiten · m meldingen');
     else if (e.key === 'm') { panelOpen() && panelMode === 'meld' ? closePanel() : openPanel('meld'); }
   });
 
@@ -509,9 +511,20 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   $('playBtn').onclick = () => { state.playing = !state.playing; $('playBtn').innerHTML = state.playing ? ic('pause', 12) : ic('play', 12); };
   $('nowBtn').onclick = () => { const n = new Date(); state.simTime = n.getHours() * 60 + n.getMinutes() + n.getSeconds() / 60; frame(true); };
   $('timebar').querySelector('.spd').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; state.speed = +b.dataset.s; $('timebar').querySelectorAll('.spd button').forEach(x => x.classList.toggle('on', x === b)); });
+  // 3D-wereld aan of uit: aan kantelt de kaart en vliegt naar de standplaats (of het geselecteerde voertuig); uit gaat terug naar plat en de vorige positie
+  function set3dMode(v) {
+    if (!mapApi || !mapApi.has3d()) { if (v) notice('De 3D-wereld heeft WebGL nodig; deze browser heeft dat niet.'); return; }
+    three = !!v; store.set('sl-3d', three ? 'on' : 'off'); root.classList.toggle('three', three); mapApi.set3d(three);
+    if (three) { prevCam = { center: mapApi.map.getCenter(), zoom: mapApi.map.getZoom() }; const s = selTruck && S.get(selTruck.id); const sp = selSp || SP.find(x => x.n === (profile && profile.sp)) || SP[0]; mapApi.map.easeTo({ center: s ? [s.pos.lon, s.pos.lat] : [sp.lon, sp.lat], zoom: s ? 14.2 : 13.6, pitch: 58, bearing: -18, duration: RM ? 0 : 1400 }); lastFollow = Date.now() + 1500; }
+    else { mapApi.map.easeTo({ pitch: 0, bearing: 0, zoom: prevCam ? prevCam.zoom : 10, center: prevCam ? prevCam.center : mapApi.map.getCenter(), duration: RM ? 0 : 900 }); lastFollow = Date.now() + 1000; }
+    renderMapTools(); frame(true);
+  }
   function renderMapTools() {
-    $('maptools').innerHTML = `<button class="ib" id="layersBtn" title="Kaartlagen">${ic('layers', 16)}</button><div class="pop" id="layersPop" hidden>${mapApi && mapApi.hasTiles() ? `<label class="sw ${mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag (OpenStreetMap)</span></label>` : ''}<label class="sw ${trailersOnMap ? 'on' : ''}" id="trlTog"><i></i><span>Losse opleggers (toets o)</span></label><label class="sw ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen</span></label><label class="sw ${restOnMap ? 'on' : ''}" id="restTog"><i></i><span>Pauzeplekken</span></label></div>`;
+    const d3 = mapApi && mapApi.has3d();
+    $('maptools').innerHTML = `<button class="ib" id="layersBtn" title="Kaartlagen">${ic('layers', 16)}</button>${d3 ? `<button class="ib ${three ? 'on' : ''}" id="threeBtn" title="3D-wereld (toets d)" aria-pressed="${three}">${ic('box', 16)}</button>` : ''}<div class="pop" id="layersPop" hidden>${d3 ? `<label class="sw ${three ? 'on' : ''}" id="threeTog"><i></i><span>3D-wereld (toets d)</span></label>` : ''}${mapApi && mapApi.hasTiles() ? `<label class="sw ${mapApi.isOnline() ? 'on' : ''}" id="onlineTog"><i></i><span>Online kaartlaag (OpenStreetMap)</span></label>` : ''}<label class="sw ${trailersOnMap ? 'on' : ''}" id="trlTog"><i></i><span>Losse opleggers (toets o)</span></label><label class="sw ${F.dim ? 'on' : ''}" id="dimTog"><i></i><span>Andere standplaatsen gedimd tonen</span></label><label class="sw ${restOnMap ? 'on' : ''}" id="restTog"><i></i><span>Pauzeplekken</span></label></div>`;
     $('layersBtn').onclick = () => { $('layersPop').hidden = !$('layersPop').hidden; };
+    if ($('threeBtn')) $('threeBtn').onclick = () => set3dMode(!three);
+    if ($('threeTog')) $('threeTog').onclick = () => set3dMode(!three);
     if ($('onlineTog')) $('onlineTog').onclick = () => { if (!mapApi) return; const v = !mapApi.isOnline(); if (v && !mapApi.hasOnline()) { notice('De online kaartlaag is in deze omgeving niet bereikbaar.'); return; } mapApi.setOnline(v); store.set('sl-online', v ? 'on' : 'off'); $('onlineTog').classList.toggle('on', v); };
     $('trlTog').onclick = () => setTrailersOnMap(!trailersOnMap);
     $('dimTog').onclick = () => { F.dim = !F.dim; $('dimTog').classList.toggle('on', F.dim); frame(true); };
@@ -520,10 +533,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function setRestOnMap(v) { restOnMap = v; if (mapApi) { mapApi.showRest(v); if (v) mapApi.setRest(rest.places, selRest && selRest.id); } }
   let noticeT = null; function notice(msg) { const n = $('notice'); n.textContent = msg; n.classList.add('on'); clearTimeout(noticeT); noticeT = setTimeout(() => n.classList.remove('on'), 7000); }
 
-  const ctx = { fleet, state, store, people, rest, lostijden, F, S, TRS, $, esc, ic, role: () => role, can, selectTruck, selectTrailer, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, openExceptions: () => exceptions.filter(isOpen), isOpen, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, runAction, applyProposal, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, pbF, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, selTrailer: () => selTrailer, frame, hashTo, syncHash, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, trailersOnMap: () => trailersOnMap, setTrailersOnMap, mapApi: () => mapApi, fullscreen, embedded, driverName, driverOf, trailerState, trailerLine, fmtDrive, KIND, TRT, TRST };
+  const ctx = { fleet, state, store, people, rest, lostijden, F, S, TRS, $, esc, ic, role: () => role, can, selectTruck, selectTrailer, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, openExceptions: () => exceptions.filter(isOpen), isOpen, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, runAction, applyProposal, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, pbF, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, selTrailer: () => selTrailer, frame, hashTo, syncHash, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, trailersOnMap: () => trailersOnMap, setTrailersOnMap, three: () => three, set3dMode, mapApi: () => mapApi, fullscreen, embedded, driverName, driverOf, trailerState, trailerLine, fmtDrive, KIND, TRT, TRST };
 
   if (embedded) { root.tabIndex = -1; root.addEventListener('pointerdown', () => { if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); }); }
   function attachMap(api) { mapApi = api; api.whenReady(() => { renderMapTools(); frame(true); }); }
-  function start() { renderRail(); renderTopbar(); restoreActs(); window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); }); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
+  function start() { renderRail(); renderTopbar(); restoreActs(); window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); }); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); if (three && mapApi && mapApi.has3d()) { three = false; mapApi.whenReady(() => set3dMode(true)); } }
   return { attachMap, frame, selectTruck, selectTrailer, selectSp, selectRest, hover, notice, start, openWizard, setView, openSheet, runAction, ctx };
 }
