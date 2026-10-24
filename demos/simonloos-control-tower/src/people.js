@@ -1,7 +1,8 @@
-// Personen (chauffeurs) en gegevens per truck voor de record-pagina's: wie reed erop, kerngegevens, cijfers,
-// onderhoud, documenten en de vaste-chauffeurindex. Alles gesimuleerd en deterministisch; namen en nummers zijn fictief.
+// Personen 3.0: chauffeurs uit de pool van elke standplaats, de dienst van vandaag (voertuig en tijden; niemand heeft een
+// vaste wagen), de historie per voertuig (wie reed erop) en per persoon (op welke wagens), kerngegevens, onderhoud en
+// documenten per voertuig en per oplegger. Alles gesimuleerd en deterministisch; namen en nummers zijn fictief.
 import { SP, DIV } from './places.js';
-import { FIRST, LAST } from './fleet.js';
+import { TRT } from './fleet.js';
 
 let seed = 7712026; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const pick = a => a[Math.floor(rnd() * a.length)];
@@ -13,9 +14,11 @@ export const fmtDay = d => clean(d.toLocaleDateString('nl-NL', { weekday: 'short
 export const fmtDate = d => clean(d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }));
 const fmtMY = d => d.toLocaleDateString('nl-NL', { month: '2-digit', year: 'numeric' });
 const monthsAhead = (a, b) => new Date(TODAY.getFullYear(), TODAY.getMonth() + Math.floor(r(a, b)), 1 + Math.floor(rnd() * 27));
-const SCHADE = ['Spiegel rechts, manoeuvreren op dock', 'Krasschade trailer, laadperron', 'Achteruitrijden tegen paal op terrein', 'Bumper, parkeren bij winkel', 'Zijschade trailer, laadkuil', 'Rolcontainer tegen laadklep', 'Laadklep tegen stoeprand'];
-const WHAT = ['banden as 2', 'remmen voor', 'koelunit service', 'APK en kleine beurt', 'grote beurt', 'software-update aandrijflijn', 'AdBlue-sensor', 'laadklep hydrauliek'];
-const WERK = ['Koelunit controleren', 'Lekkage luchtveer rechts', 'Camera achter defect', 'Laadklep traag', 'Melding bandenspanning as 3'];
+const SCHADE = ['Spiegel rechts, manoeuvreren op dock', 'Krasschade oplegger, laadperron', 'Achteruitrijden tegen paal op terrein', 'Bumper, parkeren bij winkel', 'Zijschade oplegger, laadkuil', 'Rolcontainer tegen laadklep', 'Laadklep tegen stoeprand'];
+const WHAT = ['banden as 2', 'remmen voor', 'APK en kleine beurt', 'grote beurt', 'software-update aandrijflijn', 'AdBlue-sensor', 'koppelschotel smeren', 'luchtveer rechts'];
+const WHATTR = ['remmen oplegger', 'banden as 3', 'laadklep hydrauliek', 'koelunit service', 'ATP-keuring', 'verlichting en bekabeling', 'stempelpoten'];
+const WERK = ['Lekkage luchtveer rechts', 'Camera achter defect', 'Melding bandenspanning as 3', 'Koppelschotel speling'];
+const WERKTR = ['Koelunit controleren', 'Laadklep traag', 'Remklauw as 2 vast', 'Zeildoek gescheurd', 'ATP-keuring verlopen'];
 const GARAGE = ['Wognum', 'Opmeer', 'Zaandam', 'Tiel'];
 export const initials = n => n.split(' ').filter(x => /^[A-Z]/.test(x)).map(x => x[0]).join('').slice(0, 2).toUpperCase() || n.slice(0, 2).toUpperCase();
 export const shortName = n => { const p = n.split(' '); return `${p[0][0]}. ${p.slice(1).join(' ')}`; };
@@ -23,65 +26,85 @@ export const CAPACITY = t => /600/.test(t.model) ? 600 : /300/.test(t.model) ? 3
 
 export function createPeople(fleet) {
   const persons = []; const byKey = new Map();
-  const person = (name, base, div, since) => {
+  const person = (name, base, div) => {
     const k = name + '|' + base.n; let p = byKey.get(k); if (p) return p;
     const last = name.split(' ').slice(1).join(' ');
     p = {
-      id: 'P-' + String(persons.length + 1).padStart(4, '0'), name, short: shortName(name), initials: initials(name), base, div, since: since || 1998 + Math.floor(rnd() * 28),
-      role: 'Chauffeur C/CE', licence: { ce: fmtMY(monthsAhead(6, 60)), code95: fmtMY(monthsAhead(3, 56)), code95Uren: Math.floor(rnd() * 36), kaart: fmtMY(monthsAhead(12, 60)), adr: rnd() < 0.12, lzv: div === 'netwerk' ? rnd() < 0.6 : rnd() < 0.15 },
+      id: 'P-' + String(persons.length + 1).padStart(4, '0'), name, short: shortName(name), initials: initials(name), base, div, since: 1998 + Math.floor(rnd() * 28),
+      role: div === 'bezorg' ? 'Bezorger B' : 'Chauffeur C/CE', licence: { ce: fmtMY(monthsAhead(6, 60)), code95: fmtMY(monthsAhead(3, 56)), code95Uren: Math.floor(rnd() * 36), kaart: fmtMY(monthsAhead(12, 60)), adr: rnd() < 0.12, lzv: div === 'netwerk' ? rnd() < 0.6 : rnd() < 0.15 },
       rijscore: +r(6.4, 9.6).toFixed(1), remmingen: +r(0.5, 6).toFixed(1), overtredingen: rnd() < 0.15 ? 1 : 0, factor: r(0.9, 1.15),
-      contract: { type: rnd() < 0.85 ? 'Onbepaalde tijd' : `Bepaalde tijd tot ${fmtMY(monthsAhead(2, 14))}`, uren: pick([40, 40, 40, 36, 32]), tarief: +r(27.5, 34.5).toFixed(2) },
+      contract: { type: rnd() < 0.85 ? 'Onbepaalde tijd' : `Bepaalde tijd tot ${fmtMY(monthsAhead(2, 14))}`, uren: pick([40, 40, 40, 36, 32, 24]), tarief: +r(27.5, 34.5).toFixed(2) },
       verzuim: +Math.max(0, r(-2, 8)).toFixed(1), phone: `06 ${Math.floor(r(10, 99))} ${Math.floor(r(10, 99))} ${Math.floor(r(10, 99))} ${Math.floor(r(10, 99))}`,
-      nood: `${pick(['M.', 'A.', 'S.', 'J.', 'E.'])} ${last} (${pick(['partner', 'partner', 'ouder', 'broer', 'zus'])})`, schades: [], history: [], trucks: new Map(),
+      nood: `${pick(['M.', 'A.', 'S.', 'J.', 'E.'])} ${last} (${pick(['partner', 'partner', 'ouder', 'broer', 'zus'])})`, schades: [], history: [], trucks: new Map(), dienst: null,
     };
     p.phoneMasked = '06 •• •• ' + p.phone.slice(-5);
     persons.push(p); byKey.set(k, p); return p;
   };
-  // vaste chauffeur per truck, plus reservechauffeurs per standplaats
-  for (const t of fleet.trucks) { t.person = person(t.driver, t.base, t.div, t.since); t.vaste = r(0.55, 0.92); }
-  for (const sp of SP) for (let i = 0; i < Math.ceil(sp.fleet * 0.15); i++) person(`${pick(FIRST)} ${pick(LAST)}`, sp, sp.div[i % sp.div.length]);
-  const pool = new Map(); for (const p of persons) { let a = pool.get(p.base.n); if (!a) { a = []; pool.set(p.base.n, a); } a.push(p); }
+  // de hele pool per standplaats (ook wie vandaag vrij is), dan de diensten van vandaag
+  for (const sp of SP) { const pool = fleet.driverPool.get(sp.n); pool.names.forEach((n, i) => person(n, sp, sp.div[i % sp.div.length])); }
+  for (const t of fleet.trucks) for (const d of t.diensten) { const p = person(d.driver, t.base, t.div); d.person = p; p.dienst = { t, d }; p.div = t.div; }
+  const poolOf = new Map(); for (const p of persons) { let a = poolOf.get(p.base.n); if (!a) { a = []; poolOf.set(p.base.n, a); } a.push(p); }
 
+  // historie per voertuig: de laatste 12 diensten, chauffeurs uit de pool zonder vaste koppeling (een 'stam' van vier komt vaker terug)
   const forTruck = new Map();
   for (const t of fleet.trucks) {
-    const others = pool.get(t.base.n).filter(p => p !== t.person);
-    const dayKm = t.routes.reduce((a, x) => a + x.total, 0);
-    const first = t.routes[0].marks[1] ? t.routes[0].marks[1].name : t.klant;
+    const all = poolOf.get(t.base.n); const pool = all.filter(p => t.kind === 'bus' ? p.div === 'bezorg' : p.div !== 'bezorg'); const src = pool.length ? pool : all;
+    const stam = [pick(src), pick(src), pick(src), pick(src)];
+    const dayKm = t.routes.reduce((a, x) => a + x.total, 0) || 260;
+    const first = t.routes[0] && t.routes[0].marks[1] ? t.routes[0].marks[1].name : t.klant;
+    const trs = t.kind === 'trekker' ? fleet.trailersOf(t.base).filter(x => x.div === t.div) : [];
     const history = []; let d = 1;
     while (history.length < 12) {
       const date = dayAgo(d++); if (date.getDay() === 0) continue;
-      const who = rnd() < t.vaste || !others.length ? t.person : pick(others);
-      const start = t.shiftStart + Math.round(r(-45, 45) / 15) * 15, km = Math.round(dayKm * r(0.82, 1.12));
+      const who = rnd() < 0.55 ? pick(stam) : pick(src);
+      const start = (t.dayStart || 300) + Math.round(r(-60, 60) / 15) * 15, len = Math.round(r(470, 590) / 5) * 5, km = Math.round(dayKm / Math.max(1, t.diensten.length) * r(0.82, 1.12));
       const u = rnd(); const note = u < 0.06 ? 'schade gemeld' : u < 0.11 ? 'rijtijdwaarschuwing' : u < 0.15 ? 'storing gemeld' : u < 0.18 ? 'te laat bij tijdvenster' : '';
-      const e = { date, day: fmtDay(date), who, start, end: start + t.shiftEnd, km, rit: `${DIV[t.div].n} · ${first}`, note, truck: t };
+      const e = { date, day: fmtDay(date), who, start, end: start + len, km, rit: `${DIV[t.div].n} · ${first}`, note, truck: t, tr: trs.length ? pick(trs) : null };
       history.push(e); who.history.push(e); who.trucks.set(t.id, (who.trucks.get(t.id) || 0) + 1);
       if (note === 'schade gemeld') who.schades.push({ date, truck: t.id, what: pick(SCHADE), schuld: rnd() < 0.7 ? 'Eigen' : 'Derde', kosten: Math.round(r(300, 2500) / 10) * 10 });
     }
-    const vaste = history.filter(h => h.who === t.person).length / history.length;
-    const bouwjaar = t.ev ? 2024 + Math.floor(rnd() * 3) : 2018 + Math.floor(rnd() * 8);
-    const kmstand = Math.round(((2026 - bouwjaar) * 88000 + r(5000, 60000)) / 10) * 10;
+    const counts = new Map(); for (const h of history) counts.set(h.who, (counts.get(h.who) || 0) + 1);
+    const [topDriver, topN] = [...counts].sort((a, b) => b[1] - a[1])[0];
+    const vaste = topN / history.length;
+    const bouwjaar = t.ev ? 2023 + Math.floor(rnd() * 4) : 2017 + Math.floor(rnd() * 9);
+    const kmstand = Math.round(((2026 - bouwjaar) * (t.kind === 'bus' ? 32000 : 95000) + r(5000, 60000)) / 10) * 10;
     const perDriver = new Map();
     for (const h of history) { const v = perDriver.get(h.who) || { n: 0, km: 0 }; v.n++; v.km += h.km; perDriver.set(h.who, v); }
-    const base = t.ev ? 1.1 : t.van ? 0.3 : 29.5;
-    const verbruik = [...perDriver].map(([p, v]) => ({ p, n: v.n, v: +(base * p.factor * r(0.98, 1.02)).toFixed(t.ev || t.van ? 2 : 1) })).sort((a, b) => b.n - a.n);
+    const base = t.ev ? (t.kind === 'bus' ? 0.3 : 1.1) : t.kind === 'bakwagen' ? 22 : 29.5;
+    const verbruik = [...perDriver].map(([p, v]) => ({ p, n: v.n, v: +(base * p.factor * r(0.98, 1.02)).toFixed(t.ev ? 2 : 1) })).sort((a, b) => b.n - a.n);
     const info = {
-      history, vaste, bouwjaar, kmstand, apk: fmtDate(monthsAhead(1, 12)), terugroep: rnd() < 0.05 ? 'open terugroepactie (software aandrijflijn)' : 'geen open terugroepactie',
+      history, vaste, topDriver, distinct: counts.size, bouwjaar, kmstand, apk: fmtDate(monthsAhead(1, 12)), terugroep: rnd() < 0.05 ? 'open terugroepactie (software aandrijflijn)' : 'geen open terugroepactie',
       onderhoud: { date: fmtDate(dayAgo(Math.floor(r(5, 70)))), what: pick(WHAT), garage: t.base.hub ? 'Wognum' : pick(GARAGE), volgend: kmstand + Math.round(r(4000, 20000) / 500) * 500 },
-      werkorder: t.storing ? { what: t.storing, since: 'vandaag' } : (rnd() < 0.08 ? { what: pick(WERK), since: fmtDay(dayAgo(Math.floor(r(1, 6)))) } : null),
+      werkorder: t.storing ? { what: t.storing, since: 'vandaag' } : t.vandaag === 'onderhoud' ? { what: pick(WERK), since: fmtDay(dayAgo(Math.floor(r(1, 4)))), gepland: 'vandaag in de werkplaats' } : (rnd() < 0.06 ? { what: pick(WERK), since: fmtDay(dayAgo(Math.floor(r(1, 6)))) } : null),
       banden: rnd() < 0.08 ? 'as 2 laag (melding boordcomputer)' : 'in orde', capacity: CAPACITY(t),
       km30: Math.round(history.reduce((a, h) => a + h.km, 0) / 12 * 26), verbruik: verbruik.length ? verbruik.reduce((a, v) => a + v.v * v.n, 0) / history.length : base, inzet: Math.round(r(72, 92)), onTime: +r(90, 99.5).toFixed(1),
-      schades12: history.filter(h => h.note === 'schade gemeld').length, kostenKm: +(t.ev ? r(0.84, 0.98) : t.van ? r(0.42, 0.55) : r(1.02, 1.24)).toFixed(2), perDriver: verbruik,
-      docs: [['Kentekenbewijs', 'deel 1 en 2, RDW'], ['Verzekeringsbewijs', 'casco en WA, tot 31-12-2026'], ['APK-rapport', `laatste keuring ${fmtDate(dayAgo(Math.floor(r(60, 340))))}`], ...(t.div === 'winkel' ? [['ATP-certificaat koeltrailer', `geldig tot ${fmtMY(monthsAhead(4, 30))}`]] : []), ['Tachograaf-ijking', `geldig tot ${fmtMY(monthsAhead(3, 24))}`], ...(t.lzv ? [['LZV-ontheffing', 'RDW, kernnet']] : [])],
+      schades12: history.filter(h => h.note === 'schade gemeld').length, kostenKm: +(t.ev ? r(0.84, 0.98) : t.kind === 'bus' ? r(0.42, 0.55) : t.kind === 'bakwagen' ? r(0.8, 0.95) : r(1.02, 1.24)).toFixed(2), perDriver: verbruik,
+      docs: [['Kentekenbewijs', 'deel 1 en 2, RDW'], ['Verzekeringsbewijs', 'casco en WA, tot 31-12-2026'], ['APK-rapport', `laatste keuring ${fmtDate(dayAgo(Math.floor(r(60, 340))))}`], ['Tachograaf-ijking', `geldig tot ${fmtMY(monthsAhead(3, 24))}`], ...(t.lzv ? [['LZV-ontheffing', 'RDW, kernnet']] : [])],
     };
     forTruck.set(t.id, info);
   }
-  // oudere schades voor een deel van de chauffeurs
-  for (const p of persons) if (rnd() < 0.3) { const d = dayAgo(Math.floor(r(200, 720))); p.schades.push({ date: d, truck: [...p.trucks.keys()][0] || 'W-' + String(Math.floor(r(1, 1300))).padStart(4, '0'), what: pick(SCHADE), schuld: rnd() < 0.65 ? 'Eigen' : 'Derde', kosten: Math.round(r(300, 2500) / 10) * 10 }); }
-  for (const p of persons) p.schades.sort((a, b) => b.date - a.date);
-  // standplaatsstatistiek: gemiddelde vaste-chauffeurindex en wisselingen per week
+  // per persoon: een dienst per dag, nieuwste eerst; oudere schades voor een deel
+  for (const p of persons) {
+    const seen = new Set(); p.history = p.history.sort((a, b) => b.date - a.date).filter(h => { const k = h.date.getTime(); if (seen.has(k)) return false; seen.add(k); return true; });
+    if (rnd() < 0.3) { const d = dayAgo(Math.floor(r(200, 720))); p.schades.push({ date: d, truck: [...p.trucks.keys()][0] || 'T-' + (1000 + Math.floor(r(0, 900))), what: pick(SCHADE), schuld: rnd() < 0.65 ? 'Eigen' : 'Derde', kosten: Math.round(r(300, 2500) / 10) * 10 }); }
+    p.schades.sort((a, b) => b.date - a.date);
+  }
+  // standplaatsstatistiek: herhalingsaandeel (hoe vaak dezelfde chauffeur terugkomt op een wagen) en wisselingen per week
   const spStats = new Map();
-  for (const sp of SP) { const L = fleet.trucks.filter(t => t.base === sp); const v = L.reduce((a, t) => a + forTruck.get(t.id).vaste, 0) / (L.length || 1); spStats.set(sp.n, { vaste: v, wissel: +((1 - v) * 6).toFixed(1), n: L.length }); }
+  for (const sp of SP) { const L = fleet.trucks.filter(t => t.base === sp); const v = L.reduce((a, t) => a + forTruck.get(t.id).vaste, 0) / (L.length || 1); const w = L.reduce((a, t) => a + forTruck.get(t.id).distinct, 0) / (L.length || 1) / 2; spStats.set(sp.n, { vaste: v, wissel: +w.toFixed(1), n: L.length, opDienst: (poolOf.get(sp.n) || []).filter(p => p.dienst).length, pool: (poolOf.get(sp.n) || []).length }); }
+  // opleggers: keuring, ATP, onderhoud, documenten
+  const forTrailer = new Map();
+  for (const tr of fleet.trailers) {
+    const koel = !!TRT[tr.type].temp;
+    forTrailer.set(tr.id, {
+      apk: fmtDate(monthsAhead(1, 12)), atp: koel ? fmtMY(monthsAhead(2, 30)) : null, kmYear: Math.round(r(60, 140)) * 1000,
+      onderhoud: { date: fmtDate(dayAgo(Math.floor(r(5, 90)))), what: pick(koel ? WHATTR : WHATTR.filter(w => !/koel|ATP/.test(w))), garage: tr.base.hub ? 'Wognum' : pick(GARAGE) },
+      werkorder: tr.storing ? { what: tr.storing, since: 'vandaag' } : tr.onderhoud ? { what: pick(koel ? WERKTR : WERKTR.filter(w => !/Koel|ATP/.test(w))), since: fmtDay(dayAgo(Math.floor(r(1, 4)))), gepland: 'in de werkplaats' } : null,
+      banden: rnd() < 0.06 ? 'as 3 profiel laag' : 'in orde',
+      docs: [['Kentekenbewijs', 'deel 1 en 2, RDW'], ['APK-rapport', `laatste keuring ${fmtDate(dayAgo(Math.floor(r(60, 340))))}`], ...(koel ? [['ATP-certificaat', `geldig tot ${fmtMY(monthsAhead(2, 30))}`]] : []), ...(tr.type === 'lzv' ? [['LZV-ontheffing', 'RDW, kernnet']] : [])],
+    });
+  }
   const byId = new Map(persons.map(p => [p.id, p]));
-  const truckOf = p => fleet.trucks.find(t => t.person === p) || null;
-  return { persons, byId, forTruck, spStats, truckOf, dateLabel: fmtDate };
+  const truckOf = p => p.dienst ? p.dienst.t : null;
+  return { persons, byId, forTruck, forTrailer, spStats, truckOf, dateLabel: fmtDate };
 }

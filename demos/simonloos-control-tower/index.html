@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simon Loos Control Tower</title>
-<meta name="description" content="Control tower voor Simon Loos: 1.300 gesimuleerde trucks live op het echte wegennet, met werkgebied per gebruiker, rollen, truck- en persoonspagina's, laadplanning, lostijden en pauzeplekken.">
+<meta name="description" content="Control tower voor Simon Loos: 1.300 gesimuleerde voertuigen en 1.600 opleggers live op het echte wegennet, met diensten per chauffeur, werkgebied per gebruiker, rollen, voertuig- en persoonspagina's, opleggerbord, laadplanning, lostijden en pauzeplekken.">
 <style>html,body{height:100%;margin:0;background:#FFFFFF}</style>
 </head>
 <body>
@@ -25,6 +25,7 @@
       </section>
       <section class="view" id="v-planbord"></section>
       <section class="view" id="v-trucks"></section>
+      <section class="view" id="v-opleggers"></section>
       <section class="view" id="v-mensen"></section>
       <section class="view" id="v-standplaatsen"></section>
       <section class="view" id="v-laden"></section>
@@ -40,7 +41,7 @@
   <div class="modal pal-wrap" id="palette" hidden></div>
   <div class="full" id="hal" hidden></div>
   <div class="full kl" id="klant" hidden></div>
-  <div class="modal" id="loading"><div class="card"><h2>Simon Loos Control Tower</h2><p>Alle trucks op een kaart met het echte wegennet. Routes worden berekend op de wegengraaf; dat duurt ongeveer een seconde.</p><p class="small" id="loadMsg">Routes berekenen op het wegennet…</p><p class="small">Wegen en water uit OpenStreetMap (Overture Maps), standplaatsen en klanten van werkenbijsimonloos.nl. Trucks, chauffeurs, ritten, tijden, prijzen en beoordelingen zijn gesimuleerd.</p></div></div>
+  <div class="modal" id="loading"><div class="card"><h2>Simon Loos Control Tower</h2><p>Alle voertuigen en opleggers op een kaart met het echte wegennet. Routes worden berekend op de wegengraaf; dat duurt ongeveer een seconde.</p><p class="small" id="loadMsg">Routes berekenen op het wegennet…</p><p class="small">Wegen en water uit OpenStreetMap (Overture Maps), standplaatsen en klanten van werkenbijsimonloos.nl. Voertuigen, opleggers, chauffeurs, diensten, ritten, tijden, prijzen en beoordelingen zijn gesimuleerd.</p></div></div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

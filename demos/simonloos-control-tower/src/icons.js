@@ -44,6 +44,13 @@ const P = {
   store: '<path d="M3 9l1-5h16l1 5"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 11v10h14V11M9 21v-6h6v6"/>',
   shower: '<path d="M4 4l2 2M9 3a6 6 0 0 1 10 5l-2 2"/><path d="M4 11h16M6 15v.01M10 15v.01M14 15v.01M18 15v.01M8 19v.01M12 19v.01M16 19v.01"/>',
   food: '<path d="M3 2v7a3 3 0 0 0 6 0V2M6 2v20M18 2a4 4 0 0 0-3 5v15"/>',
+  trailer: '<path d="M2 5h17a1 1 0 0 1 1 1v8H2z"/><path d="M2 14v3M20 14l2 3"/><circle cx="9" cy="17.5" r="2"/><circle cx="14.5" cy="17.5" r="2"/>',
+  thermo: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
+  unlink: '<path d="M15 7l1.5-1.5a5 5 0 0 1 7 7L22 14"/><path d="M9 17l-1.5 1.5a5 5 0 0 1-7-7L2 10"/><path d="M8 2v3M2 8h3M16 19v3M19 16h3"/>',
+  swap: '<path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/>',
+  bus: '<path d="M3 6h11l4 5h3v6h-2"/><path d="M3 6v11h2"/><circle cx="8" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M10 17h5M3 11h11"/>',
+  box: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/>',
   car: '<path d="M5 17h14l2-6-2-4H5L3 11z"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="16.5" cy="17.5" r="2"/>',
 };
 export const ic = (n, s = 18, cls = '') => `<svg class="ic ${cls}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || P.info}</svg>`;

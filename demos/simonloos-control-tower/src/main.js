@@ -20,7 +20,7 @@ const now = new Date(); const simTime = now.getHours() * 60 + now.getMinutes() +
 const state = { simTime, speed: 12, theme, playing: true };
 const mapApi = createMap('map', {
   theme, tiles: cfg.tiles, online: cfg.tiles && store.get('sl-online') !== 'off',
-  onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id),
+  onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id), onSelectTrailer: id => window.SLCT && window.SLCT.ui.selectTrailer(id),
   onHover: (id, pt) => window.SLCT && window.SLCT.ui.hover(id, pt), onMapClick: () => window.SLCT && window.SLCT.ui.hover(null),
   onTilesFailed: () => window.SLCT && window.SLCT.ui.notice('Online kaartlaag niet bereikbaar; de ingebouwde basiskaart is actief.'),
 });
@@ -35,7 +35,7 @@ setTimeout(() => {
   const ui = createUI(fleet, state, store, { people, rest, lostijden, root, embedded: cfg.embedded });
   ui.attachMap(mapApi);
   window.SLCT = { ui, fleet, people, rest, lostijden, state, map: mapApi, cfg };
-  if (loadMsg) loadMsg.textContent = `${fleet.trucks.length} trucks en hun routes staan klaar (${Math.round(performance.now() - t0)} ms).`;
+  if (loadMsg) loadMsg.textContent = `${fleet.trucks.length} voertuigen, ${fleet.trailers.length} opleggers en ${people.persons.length} chauffeurs staan klaar (${Math.round(performance.now() - t0)} ms).`;
   document.getElementById('loading').hidden = true;
   ui.start();
   let last = performance.now(), acc = 0;
