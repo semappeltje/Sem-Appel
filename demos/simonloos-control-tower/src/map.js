@@ -78,8 +78,14 @@ export function createMap(container, opts) {
     map.addLayer({ id: 'sel-glow', type: 'circle', source: 'sel', paint: { 'circle-radius': 22, 'circle-color': '#E3001F', 'circle-opacity': .14 } });
     map.addLayer({ id: 'trucks', type: 'circle', source: 'trucks', filter: ['!', ['has', 'point_count']], paint: { 'circle-radius': Z(6, 3, 9, 4.5, 12, 6, 15, 8), 'circle-color': ['match', ['get', 'st'], ...Object.entries(ST).flatMap(([k, v]) => [k, v.color]), '#64748B'], 'circle-stroke-color': P.stroke, 'circle-stroke-width': 1.3 } });
     map.addLayer({ id: 'sel-ring', type: 'circle', source: 'sel', paint: { 'circle-radius': 13, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#E3001F', 'circle-stroke-width': 2.5 } });
+    // pauzeplekken (aan te zetten vanuit de weergave Pauzeplekken)
+    map.addSource('rest', { type: 'geojson', data: empty });
+    map.addLayer({ id: 'rest', type: 'circle', source: 'rest', layout: { visibility: 'none' }, paint: { 'circle-radius': Z(6, 4, 10, 7, 14, 10), 'circle-color': ['case', ['get', 'sel'], '#E3001F', '#374151'], 'circle-stroke-color': P.stroke, 'circle-stroke-width': 1.6 } });
+    map.on('click', 'rest', e => { const f = e.features && e.features[0]; if (f) { e.preventDefault(); opts.onSelectRest && opts.onSelectRest(f.properties.id); } });
+    map.on('mouseenter', 'rest', () => map.getCanvas().style.cursor = 'pointer'); map.on('mouseleave', 'rest', () => map.getCanvas().style.cursor = '');
     // steden en standplaatsen als HTML-markers (geen glyph-server nodig)
-    for (const c of CITIES) { const el = document.createElement('div'); el.className = 'lbl r' + c.r; el.textContent = c.r <= 2 ? c.n.toUpperCase() : c.n; markers.cities.push({ m: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([c.lon, c.lat]).addTo(map), r: c.r }); }
+    const spNames = new Set(SP.map(s => s.n.toLowerCase()));
+    for (const c of CITIES) { if (spNames.has(c.n.toLowerCase()) && c.r >= 2) continue; const el = document.createElement('div'); el.className = 'lbl r' + c.r; el.textContent = c.r <= 2 ? c.n.toUpperCase() : c.n; markers.cities.push({ m: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([c.lon, c.lat]).addTo(map), r: c.r }); }
     for (const s of SP) { const el = document.createElement('div'); el.className = 'spm' + (s.hub ? ' hub' : ''); el.innerHTML = `<i>SL</i><span>${s.n}</span>`; el.addEventListener('click', e => { e.stopPropagation(); opts.onSelectSp && opts.onSelectSp(s); }); markers.sp.push({ m: new maplibregl.Marker({ element: el, anchor: 'left', offset: [-9, 0] }).setLngLat([s.lon, s.lat]).addTo(map), s }); }
     applyZoomClasses();
     map.on('click', 'trucks', e => { const f = e.features && e.features[0]; if (f) opts.onSelectTruck && opts.onSelectTruck(f.properties.id); });
@@ -122,6 +128,8 @@ export function createMap(container, opts) {
   function setSelected(feature) { if (!ready) return; map.getSource('sel').setData(fc(feature ? [feature] : [])); }
   function setRoute(done, todo, stops) { if (!ready) return; map.getSource('route-done').setData(fc(done ? [line(done)] : [])); map.getSource('route-todo').setData(fc(todo ? [line(todo)] : [])); map.getSource('stops').setData(fc((stops || []).map(s => ({ type: 'Feature', properties: { done: s.done }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } })))); }
   function highlightSp(name) { for (const { m, s } of markers.sp) m.getElement().classList.toggle('on', s.n === name); }
+  function setRest(places, selId) { if (!ready) return; map.getSource('rest').setData(fc(places.map(p => ({ type: 'Feature', properties: { id: p.id, sel: p.id === selId }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })))); }
+  function showRest(v) { if (!ready) return; map.setLayoutProperty('rest', 'visibility', v ? 'visible' : 'none'); }
   function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: 800 }); }
-  return { map, setTheme, setOnline, whenReady, setTrucks, setSelected, setRoute, highlightSp, fitSps, isOnline: () => online, hasOnline: () => !onlineFailed };
+  return { map, setTheme, setOnline, whenReady, setTrucks, setSelected, setRoute, highlightSp, fitSps, setRest, showRest, isOnline: () => online, hasOnline: () => !onlineFailed };
 }

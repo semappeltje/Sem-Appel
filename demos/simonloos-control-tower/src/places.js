@@ -13,11 +13,26 @@ export const DIV = {
   bezorg: { n: 'Boodschappenbezorging', color: '#B388FF' },
 };
 export const ST = {
-  onderweg: { n: 'Onderweg', color: '#22C55E', light: '#86EFAC' },
-  klant: { n: 'Bij klant', color: '#38BDF8', light: '#BAE6FD' },
-  pauze: { n: 'Pauze', color: '#F59E0B', light: '#FDE68A' },
-  vertraagd: { n: 'Vertraagd', color: '#EF4444', light: '#FCA5A5' },
-  terrein: { n: 'Op terrein', color: '#64748B', light: '#CBD5E1' },
+  onderweg: { n: 'Onderweg', color: '#16A34A', light: '#DCFCE7' },
+  klant: { n: 'Bij klant', color: '#2563EB', light: '#DBEAFE' },
+  pauze: { n: 'Pauze', color: '#D97706', light: '#FEF3C7' },
+  vertraagd: { n: 'Vertraagd', color: '#DC2626', light: '#FEE2E2' },
+  terrein: { n: 'Op terrein', color: '#9CA3AF', light: '#F3F4F6' },
+};
+export const ROLES = {
+  planner: { n: 'Planner', sub: 'standplaats' },
+  regiomanager: { n: 'Regiomanager', sub: 'regio' },
+  directie: { n: 'Directie', sub: 'heel Simon Loos' },
+  hr: { n: 'HR', sub: 'personeel' },
+};
+// Wat een rol mag zien (uit het ontwerpdocument Control Tower 2.0; beheerscherm en audit-log volgen later).
+export const CAN = {
+  kosten: ['regiomanager', 'directie'],
+  rijden: ['regiomanager', 'directie', 'hr'],
+  schades: ['regiomanager', 'directie', 'hr'],
+  contract: ['directie', 'hr'],
+  nood: ['regiomanager', 'hr'],
+  planbord: ['planner', 'regiomanager'],
 };
 export const laadpunten = s => s.hub ? 24 : s.wh ? 12 : 4;
 export const fmt = n => new Intl.NumberFormat('nl-NL').format(Math.round(n));
