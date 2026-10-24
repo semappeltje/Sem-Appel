@@ -27,7 +27,16 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   let role = ROLES[store.get('sl-role')] ? store.get('sl-role') : 'planner';
   let profile = null; try { profile = JSON.parse(store.get('sl-werkgebied') || 'null'); } catch { profile = null; }
   let mapApi = null, selTruck = null, selSp = null, selRest = null, selTrailer = null, follow = false, lastFollow = 0, panelMode = 'meld', hoverId = null, hoverPt = null, view = 'kaart', tick = 0, pbSp = SP[0], exFilter = 'Alle', showDone = false, restOnMap = false, trailersOnMap = false, sheet = null, halSp = null, klantId = null;
-  const S = new Map(), TRS = new Map(), prevSt = new Map(), handled = new Map(); const feed = [], applied = [], chat = []; let exceptions = [], trailerEx = [], counts = {}, kpi = {}, msgCount = 0;
+  const S = new Map(), TRS = new Map(), prevSt = new Map(); const feed = [], chat = []; let exceptions = [], trailerEx = [], counts = {}, kpi = {}, msgCount = 0; const pbF = { div: 'alle', kind: 'alle' };
+  // ---------- acties van vandaag (localStorage sl-acties): afgehandeld, toegewezen, later, toegepaste voorstellen, berichten ----------
+  // Eén sleutel met de datum erin; een nieuwe dag begint leeg. Acties op het plan worden bij het laden opnieuw uitgevoerd.
+  const now0 = new Date(); const DAY = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}-${String(now0.getDate()).padStart(2, '0')}`;
+  let acts = { day: DAY, handled: {}, applied: [], msgs: {}, actions: [] };
+  try { const a = JSON.parse(store.get('sl-acties') || 'null'); if (a && a.day === DAY) acts = { day: DAY, handled: a.handled || {}, applied: a.applied || [], msgs: a.msgs || {}, actions: a.actions || [] }; } catch { /* leeg beginnen */ }
+  const saveActs = () => store.set('sl-acties', JSON.stringify(acts));
+  const handled = { get: k => acts.handled[k], set: (k, v) => { acts.handled[k] = v; saveActs(); } };
+  const applied = acts.applied;
+  const isOpen = e => { const h = acts.handled[e.key] || {}; return !h.done && !(h.until && h.until > state.simTime); };
   const can = perm => CAN[perm].includes(role);
   const driverName = t => (S.get(t.id) || {}).driver || t.driver || '';
   const driverOf = t => { const s = S.get(t.id); return s && s.dienst ? s.dienst.person : (t.diensten[0] ? t.diensten[0].person : null); };
@@ -35,9 +44,36 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
 
   // ---------- berichten ----------
   function sendMsg(t, text, me = true) {
-    t.msgs = t.msgs || []; t.msgs.push({ me, text, T: state.simTime });
-    if (me) { msgCount++; setTimeout(() => { t.msgs.push({ me: false, text: REPLIES[Math.floor(Math.random() * REPLIES.length)], T: state.simTime }); if (selTruck === t && panelMode === 'truck') renderPanel(); if (view === 'assistent') renderAssist(ctx); }, 3500 + Math.random() * 4000); }
+    t.msgs = t.msgs || []; t.msgs.push({ me, text, T: state.simTime }); acts.msgs[t.id] = t.msgs; saveActs();
+    if (me) { msgCount++; setTimeout(() => { t.msgs.push({ me: false, text: REPLIES[(t.msgs.length + t.idx) % REPLIES.length], T: state.simTime }); acts.msgs[t.id] = t.msgs; saveActs(); if (selTruck === t && panelMode === 'truck') renderPanel(); if (view === 'assistent') renderAssist(ctx); }, 3500 + (t.idx % 5) * 800); }
     if (selTruck === t && panelMode === 'truck') renderPanel();
+  }
+
+  // ---------- acties op het plan: uitvoeren en bewaren (na een herlaad opnieuw uitgevoerd, in dezelfde volgorde) ----------
+  function runAction(a, live) {
+    const t = a.t ? fleet.byId.get(a.t) : null; const tr = a.tr ? fleet.trailerById.get(a.tr) : null; let r = null;
+    try {
+      if (a.k === 'pauze' && t) r = fleet.insertPause(t, a.T, a.place ? rest.byId.get(a.place) : null);
+      else if (a.k === 'laden' && t) r = fleet.insertCharge(t, a.T, a.sp ? SP.find(s => s.n === a.sp) : null);
+      else if (a.k === 'schuif' && t) r = fleet.shiftDienst(t, a.d, a.min);
+      else if (a.k === 'eta' && t) { fleet.acceptEta(t, a.T); if (a.helper) { const h = fleet.byId.get(a.helper); if (h) h.helping = t.id; } }
+      else if (a.k === 'ophalen' && t && tr) { const p = a.person ? people.byId.get(a.person) : null; r = fleet.pickupDetour(t, tr, a.T, { driver: p ? p.name : '', person: p }); if (r && p && r.dienst && r.dienst.person === p) p.dienst = { t, d: r.dienst }; }
+      else if (a.k === 'werkorder' && t) { t.workorder = { at: a.T, what: t.storing, gepland: a.gepland || '' }; if (a.reserve) { const r2 = fleet.byId.get(a.reserve); const d = t.diensten.find(x => x.i === a.dienst); const moved = r2 && d ? fleet.moveDienst(t, d, r2) : null; if (moved && moved.person) moved.person.dienst = { t: r2, d: moved }; } }
+      else if ((a.k === 'koeling' || a.k === 'trworkorder') && tr) tr.workorder = { at: a.T, what: tr.storing };
+    } catch (err) { console.warn('actie niet uitgevoerd', a, err); }
+    if (live) { acts.actions.push(a); saveActs(); }
+    return r;
+  }
+  function applyProposal(p) {
+    const r = runAction({ ...p.act, T: state.simTime }, true);
+    if (p.msg) { const m = p.msg(r); if (m && m[0]) sendMsg(m[0], m[1]); }
+    applied.push({ id: p.id, kind: p.kind, title: p.title, action: p.action, sev: p.sev, T: state.simTime }); saveActs();
+    if (p.t) feed.unshift({ T: state.simTime, t: p.t, txt: `voorstel toegepast: ${p.kind.toLowerCase()}`, sev: 'ok' });
+    frame(true); notice(`Toegepast: ${p.title}.`);
+  }
+  function restoreActs() {
+    for (const [id, L] of Object.entries(acts.msgs)) { const t = fleet.byId.get(id); if (t && Array.isArray(L)) { t.msgs = L; msgCount += L.filter(m => m.me).length; } }
+    for (const a of acts.actions) runAction(a, false);
   }
 
   // ---------- filters en werkgebied ----------
@@ -81,7 +117,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     updateSub();
   }
   document.addEventListener('click', e => { if (!e.target.closest('.dropdown')) { const m = $('viewsMenu'); if (m) m.hidden = true; } });
-  function updateSub() { const s = $('vsub'); if (s) s.textContent = `${scopeLabel()} · ${divLabel()} · ${fmt(kpi.nVis || 0)} voertuigen · ${fmt(kpi.trailers || 0)} opleggers`; const open = exceptions.filter(e => !(handled.get(e.key) || {}).done).length; const d = $('bellDot'); if (d) d.hidden = !open; const c = $('clock'); if (c) c.textContent = hhmm(state.simTime); const tb = $('tbClock'); if (tb) tb.textContent = hhmm(state.simTime); const sc = $('scrub'); if (sc && document.activeElement !== sc) sc.value = Math.floor(state.simTime); }
+  function updateSub() { const s = $('vsub'); if (s) s.textContent = `${scopeLabel()} · ${divLabel()} · ${fmt(kpi.nVis || 0)} voertuigen · ${fmt(kpi.trailers || 0)} opleggers`; const open = exceptions.filter(isOpen).length; const d = $('bellDot'); if (d) d.hidden = !open; const c = $('clock'); if (c) c.textContent = hhmm(state.simTime); const tb = $('tbClock'); if (tb) tb.textContent = hhmm(state.simTime); const sc = $('scrub'); if (sc && document.activeElement !== sc) sc.value = Math.floor(state.simTime); }
 
   // ---------- opgeslagen weergaven ----------
   const savedViews = () => { try { return JSON.parse(store.get('sl-views') || '[]'); } catch { return []; } };
@@ -134,8 +170,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     }
     exceptions.push(...trailerEx.map(e => ({ ...e, t: e.t || e.tr.base }))); // e.t: voertuig (of de standplaats als drager voor het werkgebied)
     exceptions.sort((a, b) => (a.sev === b.sev ? 0 : a.sev === 'bad' ? -1 : 1));
-    kpi = { ...kpi, nVis, inzet, actief: nVis - counts.terrein, ritten, stopsDone, onTime: stopsDone ? (1 - stopsLate / stopsDone) * 100 : 100, ex: exceptions.length, open: exceptions.filter(e => !(handled.get(e.key) || {}).done).length, laden, ev, solo, lp: [...spSeen].reduce((a, s) => a + laadpunten(s), 0) };
+    kpi = { ...kpi, nVis, inzet, actief: nVis - counts.terrein, ritten, stopsDone, onTime: stopsDone ? (1 - stopsLate / stopsDone) * 100 : 100, ex: exceptions.length, open: exceptions.filter(isOpen).length, laden, ev, solo, lp: [...spSeen].reduce((a, s) => a + laadpunten(s), 0) };
     mapApi.setTrucks(feats, dims);
+    // de nu-lijn van het planbord loopt elke beurt mee (de rest van het bord ververst elke achtste beurt)
+    if (view === 'planbord') { const g = $('v-planbord').querySelector('.gbody'); const nl = g && g.querySelector('.nowline'); if (nl && g.dataset.w0) { nl.style.left = `calc(var(--who) + (100% - var(--who)) * ${((T - +g.dataset.w0) / +g.dataset.span).toFixed(4)})`; const lb = nl.firstElementChild; if (lb) lb.textContent = hhmm(T); } }
     if (selTruck) { const s = S.get(selTruck.id); mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); drawRoute(selTruck, s); if (follow && Date.now() - lastFollow > 900) { lastFollow = Date.now(); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], duration: 800 }); } }
     else if (selTrailer) { const s = TRS.get(selTrailer.id); if (s) mapApi.setSelected({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); }
     else mapApi.setSelected(null);
@@ -186,7 +224,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     const trs = s.tr ? TRS.get(s.tr.id) : null;
     const html = `<div class="fh"><span class="plate">${t.id}</span><span class="kind">${KIND[t.kind].n}</span><span class="st ${s.st === 'vertraagd' ? 'bad' : s.st === 'pauze' ? 'warn' : s.st === 'terrein' ? '' : 'ok'}">${ST[s.st].n}${s.st === 'vertraagd' && nx ? ` +${nx.delay}` : ''}</span><button class="x" data-act="close" title="Sluiten">${ic('x', 14)}</button></div>
       <div class="fl">${d ? `${ic('user', 12)} ${esc(d.driver)} · dienst ${hhmm(d.start)}–${hhmm(d.end)}` : t.vandaag !== 'inzet' ? `${t.vandaag === 'onderhoud' ? 'in de werkplaats' : 'reserve'}, niet ingepland` : s.upcoming ? `volgende dienst ${hhmm(s.upcoming.start)} · ${esc(s.upcoming.driver)}` : 'dienst afgerond'} · ${esc(t.model.replace('Mercedes-Benz ', ''))}</div>
-      ${t.kind === 'trekker' ? `<div class="fl">${s.tr ? trailerLine(s.tr, trs, state.simTime) : `${ic('unlink', 12)} zonder oplegger (solo)`}</div>` : ''}
+      ${t.kind === 'trekker' ? `<div class="fl">${s.tr ? trailerLine(s.tr, trs, state.simTime) : `${ic('unlink', 12)} zonder oplegger (solo)${nx && nx.pickup ? `, haalt ${nx.pickup.id} op` : ''}`}</div>` : ''}
       <div class="fl">${nx ? `→ ${esc(nx.name)} · ETA ${hhmm(nx.eta)}${nx.win ? ` · venster tot ${hhmm(nx.win[1])}` : ''}${nx.eta > (nx.win ? nx.win[1] : Infinity) ? ' <em class="bad">te laat</em>' : ''}${nx.swap ? ' · oplegger wisselen' : ''}` : d ? 'Dienst afgerond' : `Standplaats ${esc(t.base.n)}`}</div>
       <div class="fa"><a data-act="sheet">Open voertuig</a><a data-act="panel">Rit en berichten</a>${s.tr ? `<a data-act="trailer">Oplegger</a>` : ''}<a data-act="link">Deel link</a><a data-act="follow" class="${follow ? 'on' : ''}">${follow ? 'Volgen aan' : 'Volg'}</a></div>`;
     if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; el.querySelectorAll('[data-act]').forEach(a => a.addEventListener('click', () => { const k = a.dataset.act; if (k === 'close') clearSel(); else if (k === 'sheet') openSheet('truck', t.id); else if (k === 'panel') openPanel('truck'); else if (k === 'trailer') selectTrailer(s.tr.id); else if (k === 'link') shareLink(t); else if (k === 'follow') { follow = !follow; if (follow) mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: 900 }); renderFcard(); } })); }
@@ -207,9 +245,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     bindPanel();
   }
   function meldPanel() {
-    const k = kpi; const ex = exceptions.filter(e => exFilter === 'Alle' || e.kind === exFilter).filter(e => showDone || !(handled.get(e.key) || {}).done).slice(0, 40);
+    const k = kpi; const T = state.simTime; const ex = exceptions.filter(e => exFilter === 'Alle' || e.kind === exFilter).filter(e => showDone || isOpen(e)).slice(0, 40);
     const chips = ['Alle', 'Vertraging', 'Rijtijd', 'Accu', 'Techniek', 'Koeling', 'Oplegger'].map(x => `<button class="chip sm ${exFilter === x ? 'on' : ''}" data-ex="${x}">${x}</button>`).join('');
-    const row = e => { const h = handled.get(e.key) || {}; const tr = e.tr; const id = tr ? tr.id : e.t.id; const sub = tr ? `${esc(tr.base.n)} · ${esc(e.kind)}` : `${esc(e.t.base.n)} · ${esc(e.kind)}${driverName(e.t) ? ` · ${esc(driverName(e.t))}` : ''}`; return `<div class="al ${e.sev} ${h.done ? 'done' : ''}"><i></i><div ${tr ? `data-trailer="${tr.id}"` : `data-truck="${e.t.id}"`}><b>${id}</b><span>${sub}</span><p>${esc(e.text)}</p>${h.who ? `<small>toegewezen aan ${esc(h.who)}</small>` : ''}</div><div class="alx"><button class="ok ${h.done ? 'on' : ''}" data-done="${e.key}" title="${h.done ? 'Heropenen' : 'Afgehandeld'}">${ic('check', 13)}</button><select data-assign="${e.key}" title="Toewijzen"><option value="">→</option>${COLLEGAS.map(c => `<option ${h.who === c[0] ? 'selected' : ''}>${esc(c[0])}</option>`).join('')}</select></div></div>`; };
+    const row = e => { const h = handled.get(e.key) || {}; const snoozed = h.until && h.until > T; const tr = e.tr; const id = tr ? tr.id : e.t.id; const sub = tr ? `${esc(tr.base.n)} · ${esc(e.kind)}` : `${esc(e.t.base.n)} · ${esc(e.kind)}${driverName(e.t) ? ` · ${esc(driverName(e.t))}` : ''}`; return `<div class="al ${e.sev} ${h.done ? 'done' : ''} ${snoozed ? 'later' : ''}"><i></i><div ${tr ? `data-trailer="${tr.id}"` : `data-truck="${e.t.id}"`}><b>${id}</b><span>${sub}</span><p>${esc(e.text)}</p>${h.who ? `<small>toegewezen aan ${esc(h.who)}</small>` : ''}${snoozed ? `<small>komt terug om ${hhmm(h.until)}</small>` : ''}</div><div class="alx"><button class="ok ${h.done ? 'on' : ''}" data-done="${e.key}" title="${h.done ? 'Heropenen' : 'Afgehandeld'}">${ic('check', 13)}</button><select data-assign="${e.key}" title="Toewijzen"><option value="">→</option>${COLLEGAS.map(c => `<option ${h.who === c[0] ? 'selected' : ''}>${esc(c[0])}</option>`).join('')}</select><select class="later" data-later="${e.key}" title="Later nog eens tonen"><option value="">later</option><option value="30">30 min</option><option value="60">60 min</option>${snoozed ? '<option value="0">nu weer tonen</option>' : ''}</select></div></div>`; };
     return `<div class="ph"><h3>Meldingen <b>${k.open || 0}</b></h3><button class="x" id="closePanel">${ic('x', 15)}</button></div>
       <div class="cijfers"><div><b>${fmt(k.actief || 0)}</b><span>onderweg van ${fmt(k.inzet || 0)} ingezet</span></div><div class="${(k.onTime || 100) < 95 ? 'warn' : 'good'}"><b>${(k.onTime || 100).toFixed(0)} %</b><span>op tijd · doel 95</span></div><div class="${k.open ? 'bad' : ''}"><b>${fmt(k.open || 0)}</b><span>open meldingen</span></div><div><b>${fmt(k.loose || 0)}</b><span>opleggers los · ${fmt(k.trWait || 0)} wachten te lang</span></div><div><b>${fmt(k.ritten || 0)}</b><span>ritten vandaag · ${fmt(k.solo || 0)} solo</span></div><div><b>${fmt(k.laden || 0)}</b><span>laden nu · ${fmt(k.ev || 0)} elektrisch</span></div></div>
       <div class="pf">${chips}<label class="sw sm ${showDone ? 'on' : ''}" id="showDone"><i></i><span>afgehandeld tonen</span></label></div>
@@ -219,14 +257,22 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function spPanel(sp) {
     const mine = fleet.trucks.filter(t => t.base === sp); const c = { onderweg: 0, klant: 0, pauze: 0, vertraagd: 0, terrein: 0 }; let laden = 0, ev = 0, inzet = 0;
     for (const t of mine) { const s = S.get(t.id); if (!s) continue; c[s.st]++; if (s.seg.k === 'laden') laden++; if (t.ev) ev++; if (t.vandaag === 'inzet') inzet++; }
-    const trs = fleet.trailersOf(sp); const tc = { gekoppeld: 0, geladen: 0, wacht: 0, leeg: 0, klaar: 0, onderhoud: 0 }; for (const tr of trs) { const s = TRS.get(tr.id); if (s) tc[s.st]++; }
-    const deps = fleet.departures(sp, state.simTime, 120).slice(0, 8); const st = people.spStats.get(sp.n);
+    const trs = fleet.trailersOf(sp); const tc = { gekoppeld: 0, geladen: 0, wacht: 0, ophalen: 0, leeg: 0, klaar: 0, onderhoud: 0 }; for (const tr of trs) { const s = TRS.get(tr.id); if (s) tc[s.st]++; }
+    const deps = fleet.departures(sp, state.simTime, 120).slice(0, 8); const st = people.spStats.get(sp.n); const T = state.simTime;
     const kinds = Object.keys(KIND).map(k => [k, mine.filter(t => t.kind === k).length]).filter(x => x[1]).map(([k, n]) => `${n} ${KIND[k].mv}`).join(', ');
+    // wat er nu op het terrein staat en wie er op dienst is
+    const yardV = mine.filter(t => (S.get(t.id) || {}).st === 'terrein').sort((a, b) => (a.vandaag === 'inzet' ? 0 : 1) - (b.vandaag === 'inzet' ? 0 : 1) || a.id.localeCompare(b.id));
+    const yardT = trs.filter(tr => { const s = TRS.get(tr.id); return s && (s.st === 'klaar' || s.st === 'leeg'); });
+    const onDuty = people.persons.filter(p => p.base === sp && p.dienst && p.dienst.d.start <= T && T < p.dienst.d.end);
+    const chipList = (L, f, n) => `<div class="yard">${L.slice(0, n).map(f).join('')}${L.length > n ? `<span class="chip sm mut">+${L.length - n}</span>` : ''}${L.length ? '' : '<span class="mut">geen</span>'}</div>`;
+    const yard = `<h4 class="sub">Op het terrein <small>${yardV.length} voertuigen · ${yardT.length} opleggers</small></h4>${chipList(yardV, t => { const s = S.get(t.id); return `<button class="chip sm" data-truck="${t.id}" title="${t.vandaag === 'inzet' ? (s && s.upcoming ? `volgende dienst ${hhmm(s.upcoming.start)}` : s && s.dienst ? 'tussen twee ritten' : 'dienst afgerond') : t.vandaag}">${t.id}${t.vandaag === 'reserve' ? ' <small>res.</small>' : t.vandaag === 'onderhoud' ? ' <small>wpl.</small>' : ''}</button>`; }, 12)}${chipList(yardT, tr => `<button class="chip sm ${TRS.get(tr.id).st === 'klaar' ? 'klaar' : ''}" data-trailer="${tr.id}" title="${TRST[TRS.get(tr.id).st].n}">${tr.id}</button>`, 12)}
+      <h4 class="sub">Chauffeurs op dienst <small>${onDuty.length} nu · ${st.opDienst} vandaag van ${st.pool}</small></h4>${chipList(onDuty, p => `<button class="chip sm" data-person="${p.id}">${esc(p.short)} <small>${p.dienst.t.id}</small></button>`, 10)}`;
     return `<div class="ph"><h3>${esc(sp.n)}<small>${esc([sp.hub ? 'hoofdkantoor' : null, sp.wh ? 'warehouse' : null, sp.klant].filter(Boolean).join(' · '))}</small></h3><button class="x" id="closePanel">${ic('x', 15)}</button></div>
       <div class="stat5"><div><b>${mine.length}</b><span>voertuigen</span></div><div><b>${c.onderweg + c.vertraagd}</b><span>onderweg</span></div><div><b>${c.klant}</b><span>bij klant</span></div><div><b>${trs.length}</b><span>opleggers</span></div><div><b>${tc.geladen + tc.wacht + tc.leeg + tc.klaar}</b><span>los</span></div></div>
       <div class="mix">${Object.keys(ST).map(k => `<i style="background:${ST[k].color};flex:${Math.max(c[k], 0.2)}"></i>`).join('')}</div>
       <div class="kv2"><span>Vloot</span><b>${esc(kinds)} · ${inzet} vandaag ingezet</b><span>Opleggers</span><b>${tc.gekoppeld} gekoppeld · ${tc.klaar} klaar voor vertrek · ${tc.leeg} leeg op het terrein · ${tc.geladen} geladen bij klant · ${tc.wacht} wachten op ophalen · ${tc.onderhoud} onderhoud</b><span>Chauffeurs</span><b>${st.opDienst} op dienst van ${st.pool} · ${st.wissel.toString().replace('.', ',')} chauffeurs per wagen per week</b><span>Elektrisch</span><b>${ev} voertuigen · ${laden} laden nu · ${laadpunten(sp)} laadpunten</b><span>Regio</span><b>${esc(sp.regio)} · ${esc(sp.prov)}</b>${sp.note ? `<span>Locatie</span><b>${esc(sp.note)}</b>` : ''}</div>
       <h4 class="sub">Volgende vertrekken <small>komende 2 uur · ${deps.length}</small></h4><div class="deps">${deps.map(d => `<div class="dep" data-truck="${d.t.id}"><time>${hhmm(d.at)}</time><div><b>${d.t.id}${d.tr ? ` + ${d.tr.id}` : ''} <small>${esc(d.driver)}</small></b><span>${esc(DIV[d.t.div].n)} · ${esc(d.dest)}</span></div><em>Dock ${d.dock}</em></div>`).join('') || '<div class="empty">Geen vertrekken in de komende twee uur.</div>'}</div>
+      ${yard}
       <div class="btns"><button class="btn" id="toHal">${ic('tv', 14)} Hal-scherm</button><button class="btn" id="toTrl">${ic('trailer', 14)} Opleggers</button><button class="btn pri" id="toPb">Planbord</button></div>`;
   }
   function truckPanel(t, s) {
@@ -234,7 +280,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     const tl = blocks.filter(b => b.k !== 'terrein' || b.b - b.a > 20).map(b => { const a = b.a - t.dayStart, e = b.b - t.dayStart; let cls = e <= rel ? 'done' : (a <= rel ? 'now' : (hadNext ? 'todo' : (hadNext = true, 'next'))); if (cls === 'now') hadNext = true; const sub = b.k === 'drive' ? `${Math.round(b.b - b.a)} min rijden${b.delay ? ` · <em class="bad">+${b.delay} min</em>` : ''}${b.win ? ` · venster ${hhmm(t.dayStart + b.win[0])}–${hhmm(t.dayStart + b.win[1])}` : ''}` : b.k === 'stop' ? (b.swap ? `${b.swap.drop.id} blijft achter${b.swap.take ? `, ${b.swap.take.id} mee terug` : ', solo terug'}` : `lossen ${Math.round(b.b - b.a)} min`) : b.k === 'laden' ? 'laadpunt gereserveerd' : b.k === 'pauze' ? 'rijtijd gereset' : b.k === 'koppel' ? `${TRT[b.tr.type].n.toLowerCase()}, ${esc(b.tr.lading || 'geladen')}` : b.k === 'ontkoppel' ? 'leeg terug op het terrein' : 'op terrein'; return `<div class="tl ${cls}"><i></i><time>${hhmm(b.a)}${b.k === 'drive' ? '' : ' – ' + hhmm(b.b)}</time><div><b>${esc(b.label)}${b.swap ? ` ${ic('swap', 12)}` : ''}</b><span>${sub}</span></div></div>`; }).join('');
     const dienstRows = t.diensten.map(x => `<div class="drv ${d === x ? 'now' : ''}" data-person="${x.person.id}"><span class="av">${esc(x.person.initials)}</span><div><b>${esc(x.driver)}</b><span>dienst ${x.i + 1} · ${hhmm(x.start)} – ${hhmm(x.end)} · ${x.routes.length} ${x.routes.length === 1 ? 'rit' : 'ritten'}${d === x ? ' · nu' : x.end <= T ? ' · klaar' : ''}</span></div>${ic('chev', 16)}</div>`).join('') || `<div class="al static"><i></i><div><b>Niet ingepland</b><p>${t.vandaag === 'onderhoud' ? 'Vandaag in de werkplaats.' : 'Reservevoertuig, vandaag niet ingezet.'}</p></div></div>`;
     const trs = s.tr ? TRS.get(s.tr.id) : null;
-    const trailerBlock = t.kind === 'trekker' ? (s.tr ? `<div class="drv trl" data-trailer="${s.tr.id}"><span class="av tr">${ic('trailer', 15)}</span><div><b>${s.tr.id} <small>${esc(s.tr.plate)}</small></b><span>${trailerLine(s.tr, trs, T, false)}</span></div>${ic('chev', 16)}</div>` : `<div class="al static"><i></i><div><b>Zonder oplegger</b><p>${s.st === 'terrein' ? 'Op het terrein; de volgende oplegger wordt gekoppeld bij vertrek.' : 'Rijdt solo terug naar de standplaats.'}</p></div></div>`) : '';
+    const trailerBlock = t.kind === 'trekker' ? (s.tr ? `<div class="drv trl" data-trailer="${s.tr.id}"><span class="av tr">${ic('trailer', 15)}</span><div><b>${s.tr.id} <small>${esc(s.tr.plate)}</small></b><span>${trailerLine(s.tr, trs, T, false)}</span></div>${ic('chev', 16)}</div>` : `<div class="al static"><i></i><div><b>Zonder oplegger</b><p>${s.st === 'terrein' ? 'Op het terrein; de volgende oplegger wordt gekoppeld bij vertrek.' : nx && nx.pickup ? `Rijdt solo naar ${esc(nx.pickup.id)} bij ${esc(nx.name.split(' · ')[0])} om die op te halen (aankomst ${hhmm(nx.eta)}).` : 'Rijdt solo terug naar de standplaats.'}</p></div></div>`) : '';
     return `<div class="ph"><h3><span class="plate">${t.id}</span><span class="kent">${esc(t.plate)}</span><span class="kind">${KIND[t.kind].n}</span></h3><button class="x" id="closePanel">${ic('x', 15)}</button></div>
       <div class="dt"><b>${esc(t.model)}${t.lzv ? ' · LZV' : ''}</b><span>${esc(DIV[t.div].n)} · ${esc(t.base.n)}${trs && trs.lading ? ` · ${esc(trs.lading)}` : ''}</span><span class="badge ${s.st}">${ST[s.st].n}${s.st === 'vertraagd' && nx ? ` +${nx.delay}` : ''}</span></div>
       <div class="tiles"><div class="tile"><small>Snelheid</small><b>${s.speed} <em>km/u</em></b><span>${nx ? `${nx.kmLeft.toFixed(1).replace('.', ',')} km tot ${esc(nx.name)}` : 'stilstand'}</span></div><div class="tile"><small>${t.ev ? 'Accu' : 'Brandstof'}</small><b>${Math.round(s.soc)} <em>%</em></b><div class="bar"><i style="width:${Math.round(s.soc)}%;background:${s.soc < 20 ? '#DC2626' : '#16A34A'}"></i></div><span>${Math.round(t.range * s.soc / 100)} km bereik</span></div><div class="tile"><small>Rijtijd</small><b>${fmtDrive(s.drive)} <em>/ 4:30</em></b><div class="bar"><i style="width:${drivePct}%;background:${drivePct > 88 ? '#DC2626' : drivePct > 70 ? '#D97706' : '#16A34A'}"></i></div><span>pauze uiterlijk ${hhmm(T + Math.max(0, 270 - s.drive))}</span></div><div class="tile"><small>Volgende stop</small><b>${nx ? hhmm(nx.eta) : '–'}</b><span>${nx ? (nx.win ? `venster ${hhmm(nx.win[0])}–${hhmm(nx.win[1])}${nx.eta > nx.win[1] ? ' <em class="bad">te laat</em>' : ''}` : esc(nx.name)) : 'dienst afgerond'}</span></div></div>
@@ -250,19 +296,21 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     const s = trailerState(tr); const T = state.simTime; const info = people.forTrailer.get(tr.id); const tt = TRT[tr.type]; const temp = fleet.trailerTemp(tr, T);
     const evs = tr.events.filter(e => e.k === 'coupled' || e.k === 'site').sort((a, b) => a.a - b.a).map(e => {
       const a = ((e.a % 1440) + 1440) % 1440, b = ((e.b % 1440) + 1440) % 1440;
-      if (e.k === 'coupled') return { a: e.a, html: `<div class="tl ${e.b <= T ? 'done' : e.a <= T ? 'now' : 'todo'}"><i></i><time>${hhmm(a)} – ${hhmm(b)}</time><div><b>Achter ${e.vehicle.id}</b><span>${esc(e.vehicle.diensten.find(x => x.rel0 + e.vehicle.dayStart <= e.a) ? e.vehicle.diensten.filter(x => e.vehicle.dayStart + x.rel0 <= e.a).pop().driver : '')} · ${esc(e.lading || 'leeg')}</span></div></div>` };
-      return { a: e.a, html: `<div class="tl ${e.a <= T ? 'now' : 'todo'}"><i></i><time>${hhmm(a)}</time><div><b>Achtergelaten bij ${esc(e.place.name)}</b><span>${e.loaded ? `geladen, lossen tot ${hhmm(e.unloadAt)}` : 'leeg'} · ophalen ${e.pickup >= 1440 ? 'morgen ' : ''}${hhmm(e.pickup)}</span></div></div>` };
+      const Tc = e.a > 1440 && T < e.a - 1440 ? T + 1440 : T; const cls = e.b <= Tc ? 'done' : e.a <= Tc ? 'now' : 'todo';
+      if (e.k === 'coupled') return { a: e.a, html: `<div class="tl ${cls} ${e.planned ? 'ingevoegd' : ''}"><i></i><time>${hhmm(a)} – ${hhmm(b)}</time><div><b>${e.planned ? 'Opgehaald door' : 'Achter'} ${e.vehicle.id}</b><span>${esc(e.vehicle.diensten.find(x => x.rel0 + e.vehicle.dayStart <= e.a) ? e.vehicle.diensten.filter(x => e.vehicle.dayStart + x.rel0 <= e.a).pop().driver : '')} · ${esc(e.lading || 'leeg')}${e.planned ? ' · ingepland door de planner' : ''}</span></div></div>` };
+      const pb = tr.pickupBy && tr.pickupBy.at >= e.a && tr.pickupBy.at <= e.b + 1;
+      return { a: e.a, html: `<div class="tl ${cls}"><i></i><time>${hhmm(a)}</time><div><b>Achtergelaten bij ${esc(e.place.name)}</b><span>${e.loaded ? `geladen, lossen tot ${hhmm(e.unloadAt)}` : 'leeg'} · ${pb ? `wordt opgehaald door ${tr.pickupBy.t.id} om ${hhmm(tr.pickupBy.eta)}` : `ophalen ${e.pickup >= 1440 ? 'morgen ' : ''}${hhmm(e.pickup)}`}</span></div></div>` };
     });
-    const where = s.st === 'gekoppeld' ? `achter <a class="lnk" data-truck="${s.vehicle.id}">${s.vehicle.id}</a> (${esc(driverName(s.vehicle) || 'geen chauffeur')})${s.moving ? ', onderweg' : ', stilstaand'}` : esc(s.place);
+    const where = s.st === 'gekoppeld' ? `achter <a class="lnk" data-truck="${s.vehicle.id}">${s.vehicle.id}</a> (${esc(driverName(s.vehicle) || 'geen chauffeur')})${s.moving ? ', onderweg' : ', stilstaand'}` : s.st === 'ophalen' ? `${esc(s.place)} · wordt opgehaald door <a class="lnk" data-truck="${s.pickupBy.t.id}">${s.pickupBy.t.id}</a> (${esc(driverName(s.pickupBy.t) || 'reservechauffeur')}), aankomst ${hhmm(s.pickupBy.eta)}` : esc(s.place);
     return `<div class="ph"><h3><span class="plate">${tr.id}</span><span class="kent">${esc(tr.plate)}</span><span class="kind">Oplegger</span></h3><button class="x" id="closePanel">${ic('x', 15)}</button></div>
       <div class="dt"><b>${esc(tt.n)}${tr.type === 'lzv' ? ' (ontheffing kernnet)' : ''}</b><span>${esc(DIV[tr.div].n)} · standplaats ${esc(tr.base.n)} · bouwjaar ${tr.bouwjaar}</span><span class="badge trst" style="background:${TRST[s.st].color}">${TRST[s.st].n}</span></div>
       <div class="tiles"><div class="tile"><small>Waar</small><b class="wrap">${where}</b><span>${s.since ? `sinds ${hhmm(s.since)}` : 'vandaag niet verplaatst'}</span></div>${tt.temp ? `<div class="tile ${tr.storing ? 'warnt' : ''}"><small>Temperatuur</small><b>${nl1(temp)} <em>°C</em></b><span>doel ${tt.temp[0]} tot ${tt.temp[1]} °C${tr.storing ? ' · <em class="bad">buiten bereik</em>' : ''}</span></div>` : `<div class="tile"><small>Lading</small><b>${s.loaded ? 'geladen' : 'leeg'}</b><span>${esc(s.lading || (s.st === 'onderhoud' ? 'in de werkplaats' : 'klaar voor de volgende rit'))}</span></div>`}</div>
       ${tt.temp ? `<div class="kv2"><span>Lading</span><b>${esc(s.lading || (s.loaded ? 'geladen' : 'leeg'))}</b></div>` : ''}
-      ${s.st === 'wacht' ? `<div class="al ${s.late ? 'warn' : 'info'} static"><i></i><div><b>Wacht op ophalen</b><p>Staat leeg bij ${esc(s.place)} sinds ${hhmm(s.unloadAt)}; ophalen gepland ${s.pickup >= 1440 ? 'morgen ' : ''}${hhmm(s.pickup)}${s.late ? ' <em class="bad">(te laat)</em>' : ''}.</p></div></div>` : ''}
+      ${s.st === 'wacht' ? `<div class="al ${s.late ? 'warn' : 'info'} static"><i></i><div><b>Wacht op ophalen</b><p>Staat leeg bij ${esc(s.place)} sinds ${hhmm(s.unloadAt)}; ophalen gepland ${s.pickup >= 1440 ? 'morgen ' : ''}${hhmm(s.pickup)}${s.late ? ' <em class="bad">(te laat)</em>' : ''}.</p></div></div>` : s.st === 'ophalen' ? `<div class="al ok static"><i></i><div><b>Wordt opgehaald</b><p>${s.pickupBy.t.id} (${esc(driverName(s.pickupBy.t) || 'reservechauffeur')}) is onderweg; aankomst bij ${esc(s.place)} om ${hhmm(s.pickupBy.eta)}, daarna terug naar ${esc(tr.base.n)}.</p></div></div>` : ''}
       ${tr.storing ? `<div class="al bad static"><i></i><div><b>Koeling</b><p>${esc(tr.storing)}${tr.workorder ? ' · werkorder aangemaakt' : ''}</p></div></div>` : ''}
       <h4 class="sub">Vandaag</h4><div class="tls">${evs.sort((a, b) => a.a - b.a).map(e => e.html).join('') || '<div class="empty">Vandaag niet gebruikt: staat op het terrein.</div>'}</div>
       <h4 class="sub">Keuring en onderhoud</h4><div class="kv2"><span>APK</span><b>geldig tot ${esc(info.apk)}</b>${info.atp ? `<span>ATP</span><b>geldig tot ${esc(info.atp)}</b>` : ''}<span>Onderhoud</span><b>${esc(info.onderhoud.date)} · ${esc(info.onderhoud.what)}</b><span>Banden</span><b>${esc(info.banden)}</b><span>Werkorder</span><b>${info.werkorder ? `${esc(info.werkorder.what)} (${esc(info.werkorder.since)})` : 'geen'}</b></div>
-      <div class="btns">${tr.storing && !tr.workorder ? `<button class="btn" data-trworkorder="${tr.id}">${ic('wrench', 14)} Werkorder</button>` : ''}${s.vehicle ? `<button class="btn" data-truck="${s.vehicle.id}">${ic('truck', 14)} Voertuig</button>` : ''}<button class="btn pri" id="toTrlView">Alle opleggers</button></div>`;
+      <div class="btns">${tr.storing && !tr.workorder ? `<button class="btn" data-trworkorder="${tr.id}">${ic('wrench', 14)} Werkorder</button>` : ''}${s.vehicle ? `<button class="btn" data-truck="${s.vehicle.id}">${ic('truck', 14)} Voertuig</button>` : ''}<button class="btn" id="trlMap">${ic('map', 14)} Toon op kaart</button><button class="btn pri" id="toTrlView">Alle opleggers</button></div>`;
   }
   function restPanel(p) {
     const my = rest.myRating(p.id); const s = selTruck && S.get(selTruck.id); const km = s ? Math.round(Math.hypot((p.lon - s.pos.lon) * 68, (p.lat - s.pos.lat) * 111)) : null;
@@ -282,7 +330,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     p.querySelectorAll('[data-ex]').forEach(el => el.addEventListener('click', () => { exFilter = el.dataset.ex; renderPanel(); }));
     p.querySelectorAll('[data-done]').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); const h = handled.get(el.dataset.done) || {}; h.done = !h.done; handled.set(el.dataset.done, h); frame(true); }));
     p.querySelectorAll('[data-assign]').forEach(el => el.addEventListener('change', () => { const h = handled.get(el.dataset.assign) || {}; h.who = el.value; handled.set(el.dataset.assign, h); if (h.who) notice(`Melding toegewezen aan ${h.who}.`); renderPanel(); }));
-    p.querySelectorAll('[data-trworkorder]').forEach(el => el.addEventListener('click', () => { const tr = fleet.trailerById.get(el.dataset.trworkorder); if (tr) { tr.workorder = true; notice(`Werkorder aangemaakt voor ${tr.id}.`); frame(true); renderPanel(); } }));
+    p.querySelectorAll('[data-later]').forEach(el => el.addEventListener('change', () => { const h = handled.get(el.dataset.later) || {}; const m = +el.value; if (el.value === '') return; h.until = m > 0 ? state.simTime + m : 0; handled.set(el.dataset.later, h); notice(m > 0 ? `Melding komt terug om ${hhmm(h.until)}.` : 'Melding staat weer open.'); frame(true); }));
+    p.querySelectorAll('[data-trworkorder]').forEach(el => el.addEventListener('click', () => { const tr = fleet.trailerById.get(el.dataset.trworkorder); if (tr) { runAction({ k: 'trworkorder', tr: tr.id, T: state.simTime }, true); notice(`Werkorder aangemaakt voor ${tr.id}.`); frame(true); renderPanel(); } }));
+    const tm = $('trlMap'); if (tm) tm.onclick = () => { const tr = selTrailer; if (!tr) return; setTrailersOnMap(true); if (view !== 'kaart') setView('kaart'); const s = trailerState(tr); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 13), duration: 900 }); frame(true); };
     const sd = $('showDone'); if (sd) sd.onclick = () => { showDone = !showDone; renderPanel(); };
     const x = $('closePanel'); if (x) x.onclick = () => closePanel();
     const h = $('toHal'); if (h) h.onclick = () => { hashTo('#hal/' + encodeURIComponent(selSp.n)); fullscreen(); };
@@ -306,7 +356,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 10.2), duration: 900 });
     if (opts.stay || panelOpen()) openPanel('truck');
     if (view === 'pauze') renderPauze(ctx);
-    frame(true);
+    frame(true); syncHash();
   }
   function selectTrailer(id, opts = {}) {
     const tr = fleet.trailerById.get(id); if (!tr) return; selTrailer = tr; selTruck = null; selRest = null; follow = false; mapApi.setRoute(null, null, []);
@@ -314,14 +364,14 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (s.st !== 'gekoppeld' && s.st !== 'onderhoud') setTrailersOnMap(true);
     if (!opts.stay && view !== 'kaart') setView('kaart');
     if (view === 'kaart') mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: Math.max(mapApi.map.getZoom(), 11), duration: 900 });
-    openPanel('trailer'); frame(true);
+    openPanel('trailer'); frame(true); syncHash();
   }
   function selectSp(sp) {
     selSp = sp; selTruck = null; selRest = null; selTrailer = null; follow = false; mapApi.setRoute(null, null, []); F.sps = new Set([sp.n]); mapApi.highlightSp(sp.n);
-    if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: Math.max(mapApi.map.getZoom(), 9.4), duration: 900 }); openPanel('sp'); frame(true);
+    if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: Math.max(mapApi.map.getZoom(), 9.4), duration: 900 }); openPanel('sp'); frame(true); syncHash();
   }
   function selectRest(id) { const p = rest.byId.get(id); if (!p) return; selRest = p; selTrailer = null; restOnMap = true; mapApi.showRest(true); mapApi.setRest(rest.places, p.id); if (view !== 'kaart') setView('kaart'); mapApi.map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(mapApi.map.getZoom(), 9.6), duration: 900 }); openPanel('rest'); }
-  function clearSel() { selTruck = null; selTrailer = null; follow = false; mapApi.setRoute(null, null, []); if (panelMode === 'truck' || panelMode === 'trailer') closePanel(); frame(true); }
+  function clearSel() { selTruck = null; selTrailer = null; follow = false; mapApi.setRoute(null, null, []); if (panelMode === 'truck' || panelMode === 'trailer') closePanel(); frame(true); syncHash(); }
   function setTrailersOnMap(v) { trailersOnMap = v; if (mapApi) mapApi.showTrailers(v); renderStatline(); const lt = $('trlTog'); if (lt) lt.classList.toggle('on', v); }
   function hover(id, pt) { hoverId = id; hoverPt = pt; renderTip(); }
   function renderTip() {
@@ -337,26 +387,52 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + name));
     $('rail').classList.remove('open'); renderRail(); renderTopbar();
     if (name === 'kaart') setTimeout(() => mapApi && mapApi.map.resize(), 30);
-    frame(true);
+    frame(true); syncHash();
   }
-  function openSheet(kind, id, tab) { sheet = { kind, id, tab }; if (panelOpen()) { sheetPanel = panelMode; closePanel(); } renderSheet(ctx, kind, id, tab); $('sheet').hidden = false; $('sheet').scrollTop = 0; }
+  function openSheet(kind, id, tab) { sheet = { kind, id, tab }; if (panelOpen()) { sheetPanel = panelMode; closePanel(); } renderSheet(ctx, kind, id, tab); $('sheet').hidden = false; $('sheet').scrollTop = 0; syncHash(); }
   let sheetPanel = null;
-  function closeSheet() { sheet = null; $('sheet').hidden = true; if (sheetPanel) { openPanel(sheetPanel); sheetPanel = null; } }
+  function closeSheet() { sheet = null; $('sheet').hidden = true; if (sheetPanel) { openPanel(sheetPanel); sheetPanel = null; } syncHash(); }
 
-  // ---------- routes: hal-scherm en klant-link ----------
+  // ---------- routes: de URL volgt de app (weergave, selectie, pagina, hal-scherm, klant-link) ----------
+  // #kaart, #planbord, #voertuigen, #opleggers, #mensen, #standplaatsen, #laden, #lostijden, #pauze, #assistent,
+  // #voertuig/T-1002 (op de kaart), #voertuig/T-1002/onderhoud (pagina), #oplegger/O-5150, #persoon/P-0001,
+  // #standplaats/Wognum, #hal/Wognum, #klant/T-1002. De terugknop van de browser werkt daardoor; een onbekende hash doet niets.
   // Ingebed: het hal-scherm (tv in de loods) vult het hele scherm; Esc of "Sluiten" sluit beide weer.
   function fullscreen() { if (!embedded || !root.requestFullscreen || document.fullscreenElement) return; root.requestFullscreen().catch(() => {}); }
   if (embedded) document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && (halSp || klantId)) hashTo(''); });
-  function hashTo(h) { try { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } onHash(h); }
-  function onHash(forced) {
-    let h = ''; try { h = forced !== undefined ? forced.replace(/^#/, '') : decodeURIComponent(location.hash.slice(1)); } catch { h = ''; } const [k, ...r] = h.split('/'); let arg = r.join('/'); try { arg = decodeURIComponent(arg); } catch { /* laat staan */ }
-    const wasHal = halSp, wasKlant = klantId; halSp = k === 'hal' ? (SP.find(s => s.n === arg) ? arg : SP[0].n) : null; klantId = k === 'klant' ? arg : null;
-    $('hal').hidden = !halSp; $('klant').hidden = !klantId; root.classList.toggle('kiosk', !!(halSp || klantId));
-    if (halSp) renderHal(ctx, halSp);
-    if (klantId) { if (wasKlant !== klantId) { selectTruck(klantId); follow = true; closePanel(); } renderKlant(ctx, klantId); }
-    if (wasKlant && !klantId) { follow = false; }
-    if (k === 'view' && arg) setView(arg);
-    if ((wasHal || wasKlant) && !halSp && !klantId) frame(true);
+  const VIEW_HASH = { kaart: 'kaart', planbord: 'planbord', trucks: 'voertuigen', opleggers: 'opleggers', mensen: 'mensen', standplaatsen: 'standplaatsen', laden: 'laden', lostijden: 'lostijden', pauze: 'pauze', assistent: 'assistent' };
+  const HASH_VIEW = Object.fromEntries(Object.entries(VIEW_HASH).map(([k, v]) => [v, k])); HASH_VIEW.trucks = 'trucks'; HASH_VIEW.pauzeplekken = 'pauze';
+  const SHEET_TABS = ['Historie', 'Vandaag', 'Cijfers', 'Onderhoud', 'Documenten'];
+  let applyingHash = false;
+  const readHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return location.hash.slice(1); } };
+  function currentHash() {
+    if (halSp) return 'hal/' + halSp; if (klantId) return 'klant/' + klantId;
+    if (sheet) return sheet.kind === 'truck' ? `voertuig/${sheet.id}/${(SHEET_TABS.includes(sheet.tab) ? sheet.tab : 'Historie').toLowerCase()}` : `persoon/${sheet.id}`;
+    if (view === 'kaart') { if (selTruck) return 'voertuig/' + selTruck.id; if (selTrailer) return 'oplegger/' + selTrailer.id; if (selSp && panelMode === 'sp' && panelOpen()) return 'standplaats/' + selSp.n; }
+    return VIEW_HASH[view] || 'kaart';
+  }
+  function syncHash() { if (applyingHash) return; const h = currentHash(); if (readHash() === h) return; try { location.hash = h; } catch { /* in een afgeschermd venster (artifact) mag dit soms niet */ } }
+  function hashTo(h) { try { if (!h) { history.replaceState(null, '', location.pathname + location.search); } else if (location.hash !== h) location.hash = h; } catch { /* zie boven */ } onHash(h || '', true); }
+  function onHash(forced, explicit) {
+    let h = forced !== undefined ? String(forced).replace(/^#/, '') : readHash(); const [k, ...r] = h.split('/'); let arg = r.join('/'); try { arg = decodeURIComponent(arg); } catch { /* laat staan */ }
+    const parts = arg.split('/'); const id = parts[0] || ''; const sub = parts[1] || '';
+    applyingHash = true;
+    try {
+      const wasHal = halSp, wasKlant = klantId; halSp = k === 'hal' ? (SP.find(s => s.n === id) ? id : SP[0].n) : null; klantId = k === 'klant' ? id : null;
+      $('hal').hidden = !halSp; $('klant').hidden = !klantId; root.classList.toggle('kiosk', !!(halSp || klantId));
+      if (halSp) renderHal(ctx, halSp);
+      if (klantId) { if (wasKlant !== klantId) { selectTruck(klantId); follow = true; closePanel(); } renderKlant(ctx, klantId); }
+      if (wasKlant && !klantId) { follow = false; }
+      if ((wasHal || wasKlant) && !halSp && !klantId) frame(true);
+      if (k === 'view' && HASH_VIEW[id]) setView(HASH_VIEW[id]);
+      else if (k === 'view' && VIEW_HASH[id]) setView(id);
+      else if (HASH_VIEW[k]) { if (sheet) closeSheet(); setView(HASH_VIEW[k]); }
+      else if (k === 'voertuig' && fleet.byId.get(id)) { if (sub) openSheet('truck', id, SHEET_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || 'Historie'); else { if (sheet) closeSheet(); selectTruck(id); openPanel('truck'); } }
+      else if (k === 'oplegger' && fleet.trailerById.get(id)) { if (sheet) closeSheet(); selectTrailer(id); }
+      else if (k === 'persoon' && people.byId.get(id)) openSheet('persoon', id);
+      else if (k === 'standplaats') { const sp = SP.find(s => s.n === id); if (sp) { if (sheet) closeSheet(); selectSp(sp); } }
+      else if (!k && !explicit) { if (sheet) closeSheet(); if (selTruck || selTrailer) clearSel(); }
+    } catch (err) { console.warn('route', h, err); } finally { applyingHash = false; }
   }
 
   // ---------- werkgebied-wizard ----------
@@ -396,6 +472,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     n = 0; for (const p of people.persons) { if (n > 6) break; if (has(p.name)) { n++; out.push({ type: 'Persoon', label: p.name, sub: `${p.role} · ${p.base.n}${p.dienst ? ` · vandaag op ${p.dienst.t.id}` : ' · vandaag vrij'}`, run: () => openSheet('persoon', p.id) }); } }
     n = 0; for (const e of lostijden.stops) { if (n > 5) break; if (has(e.name)) { n++; out.push({ type: 'Winkel', label: e.name, sub: `${e.n} stops per dag · gepland ${Math.round(e.planned)} min, gemeten ${Math.round(e.avg)} min`, run: () => { const t = fleet.byId.get([...e.trucks][0]); if (t) selectTruck(t.id); } }); } }
     n = 0; for (const p of rest.places) { if (n > 4) break; if (has(p.n)) { n++; out.push({ type: 'Pauzeplek', label: p.n, sub: `${rest.score(p).toString().replace('.', ',')}★ · ${p.sub}`, run: () => selectRest(p.id) }); } }
+    // werkorders: storingen van vandaag en open werkorders uit het wagenparksysteem
+    n = 0; const wo = 'werkorder'.startsWith(s) || /storing|garage|werkplaats/.test(s);
+    for (const t of fleet.trucks) { if (n > 5) break; const info = people.forTruck.get(t.id); const w = t.storing || (info.werkorder && info.werkorder.what); if (!w) continue; if (wo || has(w) || has(t.id)) { n++; out.push({ type: 'Werkorder', label: `${t.id} · ${w}`, sub: t.workorder ? `werkorder aangemaakt ${hhmm(t.workorder.at || state.simTime)} · ${t.workorder.gepland || 'na de dienst'}` : t.storing ? 'gemeld vandaag, nog geen werkorder' : `open sinds ${info.werkorder.since}${info.werkorder.gepland ? ' · ' + info.werkorder.gepland : ''}`, run: () => openSheet('truck', t.id, 'Onderhoud') }); } }
+    for (const tr of fleet.trailers) { if (n > 8) break; const info = people.forTrailer.get(tr.id); const w = tr.storing || (info.werkorder && info.werkorder.what); if (!w) continue; if (wo || has(w) || has(tr.id)) { n++; out.push({ type: 'Werkorder', label: `${tr.id} · ${w}`, sub: tr.workorder ? `werkorder aangemaakt ${hhmm(tr.workorder.at || state.simTime)}` : tr.storing ? 'gemeld vandaag, nog geen werkorder' : `open sinds ${info.werkorder.since}${info.werkorder.gepland ? ' · ' + info.werkorder.gepland : ''}`, run: () => selectTrailer(tr.id) }); } }
     for (const v of savedViews()) if (has(v.name)) out.push({ type: 'Opgeslagen weergave', label: v.name, sub: v.scope, run: () => applyView(v) });
     return out.slice(0, 14);
   }
@@ -434,10 +514,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function setRestOnMap(v) { restOnMap = v; if (mapApi) { mapApi.showRest(v); if (v) mapApi.setRest(rest.places, selRest && selRest.id); } }
   let noticeT = null; function notice(msg) { const n = $('notice'); n.textContent = msg; n.classList.add('on'); clearTimeout(noticeT); noticeT = setTimeout(() => n.classList.remove('on'), 7000); }
 
-  const ctx = { fleet, state, store, people, rest, lostijden, F, S, TRS, $, esc, ic, role: () => role, can, selectTruck, selectTrailer, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, selTrailer: () => selTrailer, frame, hashTo, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, trailersOnMap: () => trailersOnMap, setTrailersOnMap, mapApi: () => mapApi, fullscreen, embedded, driverName, driverOf, trailerState, trailerLine, fmtDrive, KIND, TRT, TRST };
+  const ctx = { fleet, state, store, people, rest, lostijden, F, S, TRS, $, esc, ic, role: () => role, can, selectTruck, selectTrailer, selectSp, selectRest, openSheet, closeSheet, openPanel, closePanel, setView, notice, sendMsg, exceptions: () => exceptions, openExceptions: () => exceptions.filter(isOpen), isOpen, kpi: () => kpi, counts: () => counts, feed, applied, chat, msgCount: () => msgCount, handled, runAction, applyProposal, pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, pbF, COLLEGAS, matchBase, inScope, inScopeBase, visible: t => visible(t), selTruck: () => selTruck, selTrailer: () => selTrailer, frame, hashTo, syncHash, restOnMap: () => restOnMap, setRestOnMap: v => { setRestOnMap(v); renderMapTools(); }, trailersOnMap: () => trailersOnMap, setTrailersOnMap, mapApi: () => mapApi, fullscreen, embedded, driverName, driverOf, trailerState, trailerLine, fmtDrive, KIND, TRT, TRST };
 
   if (embedded) { root.tabIndex = -1; root.addEventListener('pointerdown', () => { if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); }); }
   function attachMap(api) { mapApi = api; api.whenReady(() => { renderMapTools(); frame(true); }); }
-  function start() { renderRail(); renderTopbar(); window.addEventListener('hashchange', () => onHash()); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
-  return { attachMap, frame, selectTruck, selectTrailer, selectSp, selectRest, hover, notice, start, openWizard, setView, openSheet, ctx };
+  function start() { renderRail(); renderTopbar(); restoreActs(); window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); }); if (profile) applyProfile(); else openWizard(1); onHash(); frame(true); }
+  return { attachMap, frame, selectTruck, selectTrailer, selectSp, selectRest, hover, notice, start, openWizard, setView, openSheet, runAction, ctx };
 }

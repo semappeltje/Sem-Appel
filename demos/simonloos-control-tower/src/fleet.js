@@ -21,7 +21,7 @@ export const TRT = {
 };
 export const TRST = {
   gekoppeld: { n: 'Gekoppeld', color: '#16A34A' }, klaar: { n: 'Klaar voor vertrek', color: '#0E7490' }, geladen: { n: 'Geladen bij klant', color: '#2563EB' },
-  wacht: { n: 'Wacht op ophalen', color: '#D97706' }, leeg: { n: 'Leeg op terrein', color: '#9CA3AF' }, onderhoud: { n: 'In onderhoud', color: '#DC2626' },
+  wacht: { n: 'Wacht op ophalen', color: '#D97706' }, ophalen: { n: 'Wordt opgehaald', color: '#7C3AED' }, leeg: { n: 'Leeg op terrein', color: '#9CA3AF' }, onderhoud: { n: 'In onderhoud', color: '#DC2626' },
 };
 const TRMIX = { winkel: [['koel', 45], ['vries', 15], ['droog', 28], ['city', 12]], netwerk: [['droog', 45], ['huif', 20], ['koel', 20], ['lzv', 15]], bulk: [['silo', 100]], dranken: [['drank', 70], ['huif', 30]] };
 const TRRATIO = { winkel: 1.6, netwerk: 1.45, bulk: 1.15, dranken: 1.3 };
@@ -243,17 +243,20 @@ export function createFleet() {
     if (seg.k === 'drive') { const f = (rel - seg.t0) / (seg.t1 - seg.t0); km = seg.km0 + (seg.km1 - seg.km0) * f; pos = posAt(seg.route.path, km); st = seg.delay > 0 && !t.delayResolved ? 'vertraagd' : 'onderweg'; }
     else if (seg.k === 'stop') { pos = posAt(seg.route.path, seg.km0); st = 'klant'; }
     else if (seg.k === 'pauze') { pos = seg.route ? posAt(seg.route.path, seg.km0) : yard(); if (!seg.route) { const prev = t.plan[si - 1]; if (prev && prev.route) pos = posAt(prev.route.path, prev.km1); } st = 'pauze'; }
+    else if (seg.k === 'laden' && seg.route) { pos = posAt(seg.route.path, seg.km0); st = 'pauze'; }
     else { pos = yard(); st = 'terrein'; }
     // rijtijd sinds de laatste pauze of het terrein; km sinds de laatste lading
     let drive = 0, kmSince = 0;
     for (let i = si; i >= 0; i--) { const s = t.plan[i]; if (i < si && (s.k === 'pauze' || s.k === 'terrein' || s.k === 'laden' || s.k === 'koppel' || s.k === 'ontkoppel')) break; if (s.k === 'drive') { const end = i === si ? rel : s.t1; drive += Math.max(0, end - s.t0) * (s.t1 - s.t0 - (s.delay || 0)) / (s.t1 - s.t0); } }
-    for (let i = si; i >= 0; i--) { const s = t.plan[i]; if (i < si && (s.k === 'laden' || (s.k === 'terrein' && i > 0))) break; if (s.k === 'drive') kmSince += (i === si ? km - s.km0 : s.km1 - s.km0); }
+    let credit = 0;
+    for (let i = si; i >= 0; i--) { const s = t.plan[i]; if (i < si && s.k === 'laden' && s.partial) { credit += s.partial / 100 * t.range; continue; } if (i < si && (s.k === 'laden' || (s.k === 'terrein' && i > 0))) break; if (s.k === 'drive') kmSince += (i === si ? km - s.km0 : s.km1 - s.km0); }
+    kmSince = Math.max(0, kmSince - credit);
     const soc = Math.max(3, 100 - kmSince / t.range * 100 * (t.ev ? 1 : 0.55));
     // volgende stop
     let next = null;
     for (let i = si; i < t.plan.length; i++) {
       const s = t.plan[i];
-      if (s.k === 'stop' && i > si) { const d = t.plan[i - 1]; const dl = d && d.k === 'drive' ? d.delay || 0 : 0; next = { name: s.stop, eta: t.dayStart + s.t0 - (t.delayResolved ? dl : 0), planned: t.dayStart + s.t0 - dl, win: d && d.win ? [t.dayStart + d.win[0], t.dayStart + d.win[1]] : null, delay: t.delayResolved ? 0 : dl, kmLeft: d && d.k === 'drive' ? Math.max(0, d.km1 - km) : 0, swap: s.swap }; break; }
+      if (s.k === 'stop' && i > si) { const d = t.plan[i - 1]; const dl = d && d.k === 'drive' ? d.delay || 0 : 0; next = { name: s.stop, eta: t.dayStart + s.t0 - (t.delayResolved ? dl : 0), planned: t.dayStart + s.t0 - dl, win: d && d.win ? [t.dayStart + d.win[0], t.dayStart + d.win[1]] : null, delay: t.delayResolved ? 0 : dl, kmLeft: d && d.k === 'drive' ? Math.max(0, d.km1 - km) : 0, swap: s.swap, pickup: s.pickup || null }; break; }
       if ((s.k === 'ontkoppel' || s.k === 'laden' || (s.k === 'terrein' && i > si)) && i > si) { const dl = seg.k === 'drive' && !t.delayResolved ? seg.delay || 0 : 0; next = { name: `Terug ${t.base.n}`, eta: t.dayStart + s.t0 - (seg.k === 'drive' && t.delayResolved ? seg.delay || 0 : 0), planned: t.dayStart + s.t0 - (seg.k === 'drive' ? seg.delay || 0 : 0), win: null, delay: dl, kmLeft: seg.k === 'drive' ? Math.max(0, seg.km1 - km) : 0, home: true, volgende: t.diensten.find(d => d.rel0 > s.t0) || null }; break; }
     }
     const dienst = seg.d === null || seg.d === undefined ? null : t.diensten[seg.d];
@@ -266,8 +269,10 @@ export function createFleet() {
     const Td = ((T % 1440) + 1440) % 1440;
     let ev = null, at = Td;
     for (const cand of [Td, Td + 1440]) { for (const e of tr.events) if (e.a <= cand && cand < e.b) { ev = e; at = cand; break; } if (ev) break; }
-    if (ev && ev.k === 'coupled') { const s = stateAt(ev.vehicle, T); return { st: 'gekoppeld', pos: s.pos, vehicle: ev.vehicle, since: ev.a, lading: ev.lading, loaded: !!ev.lading, place: null, moving: s.st === 'onderweg' || s.st === 'vertraagd', vs: s }; }
-    if (ev && ev.k === 'site') { const loaded = ev.loaded && at < ev.unloadAt; if (ev.place.yard) return { st: loaded ? 'klaar' : 'leeg', pos: { lon: ev.place.lon, lat: ev.place.lat, bearing: 0 }, vehicle: null, since: ev.a, lading: loaded ? ev.lading : null, loaded, place: ev.place.name, vs: null }; return { st: loaded ? 'geladen' : 'wacht', pos: { lon: ev.place.lon, lat: ev.place.lat, bearing: 0 }, vehicle: null, since: ev.a, lading: loaded ? ev.lading || tr.lading : null, loaded, place: ev.place.name, wait: loaded ? 0 : at - ev.unloadAt, unloadAt: ev.unloadAt, pickup: ev.pickup, late: !loaded && ev.pickup !== undefined && at > ev.pickup + 60, vs: null }; }
+    if (ev && ev.k === 'coupled') { const s = stateAt(ev.vehicle, T); return { st: 'gekoppeld', pos: s.pos, vehicle: ev.vehicle, since: ev.a, lading: ev.lading, loaded: !!ev.lading, place: null, moving: s.st === 'onderweg' || s.st === 'vertraagd', vs: s, planned: !!ev.planned }; }
+    if (ev && ev.k === 'site') { const loaded = ev.loaded && at < ev.unloadAt; if (ev.place.yard) return { st: loaded ? 'klaar' : 'leeg', pos: { lon: ev.place.lon, lat: ev.place.lat, bearing: 0 }, vehicle: null, since: ev.a, lading: loaded ? ev.lading : null, loaded, place: ev.place.name, vs: null }; const o = { st: loaded ? 'geladen' : 'wacht', pos: { lon: ev.place.lon, lat: ev.place.lat, bearing: 0 }, vehicle: null, since: ev.a, lading: loaded ? ev.lading || tr.lading : null, loaded, place: ev.place.name, wait: loaded ? 0 : at - ev.unloadAt, unloadAt: ev.unloadAt, pickup: ev.pickup, late: !loaded && ev.pickup !== undefined && at > ev.pickup + 60, vs: null };
+      if (!loaded && tr.pickupBy && at < tr.pickupBy.at) { o.st = 'ophalen'; o.late = false; o.pickupBy = tr.pickupBy; }
+      return o; }
     const pos = { lon: tr.base.lon + ((tr.id.charCodeAt(3) * 7 + tr.id.charCodeAt(5)) % 13 - 6) * 0.0006, lat: tr.base.lat - 0.0012 - ((tr.id.charCodeAt(4) * 3) % 5) * 0.0004, bearing: 0 };
     if (tr.onderhoud) return { st: 'onderhoud', pos, vehicle: null, since: 0, lading: null, loaded: false, place: `werkplaats ${tr.base.n}`, vs: null };
     return { st: tr.yardLoaded ? 'klaar' : 'leeg', pos, vehicle: null, since: 0, lading: tr.yardLoaded ? tr.lading : null, loaded: tr.yardLoaded, place: `terrein ${tr.base.n}`, vs: null };
@@ -283,7 +288,7 @@ export function createFleet() {
   function blocks(t) {
     return t.plan.filter(s => s.t1 > s.t0 && !(s.k === 'terrein' && s.t1 >= 1440)).map(s => ({
       a: t.dayStart + s.t0, b: t.dayStart + s.t1, k: s.k, d: s.d, tr: s.tr, swap: s.swap || null,
-      label: s.k === 'drive' ? `→ ${s.route.marks[s.idx].name}` : s.k === 'stop' ? s.stop : s.k === 'pauze' ? 'Pauze' : s.k === 'laden' ? 'Laden accu' : s.k === 'koppel' ? `Koppelen ${s.tr.id}` : s.k === 'ontkoppel' ? `Afkoppelen ${s.tr.id}` : 'Terrein',
+      label: s.k === 'drive' ? `→ ${s.route.marks[s.idx].name}` : s.k === 'stop' ? s.stop : s.k === 'pauze' ? (s.at ? `Pauze · ${s.at}` : 'Pauze') : s.k === 'laden' ? (s.at ? `Laden · ${s.at}` : 'Laden accu') : s.k === 'koppel' ? `Koppelen ${s.tr.id}` : s.k === 'ontkoppel' ? `Afkoppelen ${s.tr.id}` : 'Terrein', ingevoegd: !!s.ingevoegd, pickup: s.pickup || null,
       delay: t.delayResolved ? 0 : (s.delay || 0), win: s.win,
     }));
   }
@@ -293,12 +298,158 @@ export function createFleet() {
     const out = [];
     for (const t of trucks) {
       if (t.base !== sp) continue;
-      for (const s of t.plan) { if (s.k !== 'drive' || s.km0 !== 0) continue; const at = t.dayStart + s.t0; const dd = ((at - T) % 1440 + 1440) % 1440; if (dd <= horizon) out.push({ t, at: T + dd, dest: s.route.marks[s.idx].name, dock: (t.id.charCodeAt(3) % 8) + 1, tr: s.tr, driver: s.d === null ? '' : t.diensten[s.d].driver, dienst: s.d === null ? null : t.diensten[s.d] }); }
+      for (const s of t.plan) { if (s.k !== 'drive' || s.km0 !== 0 || s.mid) continue; const at = t.dayStart + s.t0; const dd = ((at - T) % 1440 + 1440) % 1440; if (dd <= horizon) out.push({ t, at: T + dd, dest: s.route.marks[s.idx].name, dock: (t.id.charCodeAt(3) % 8) + 1, tr: s.tr, driver: s.d === null ? '' : t.diensten[s.d].driver, dienst: s.d === null ? null : t.diensten[s.d] }); }
     }
     return out.sort((a, b) => a.at - b.at);
+  }
+  // ---------- acties van de planner (deterministisch, zonder toeval): het plan van een voertuig aanpassen ----------
+  // Tijden in minuten vanaf dayStart van het voertuig; segmenten blijven aaneengesloten. Een verschuiving wordt
+  // opgevangen door lege tijd op het terrein (d === null), zodat een volgende dienst op tijd blijft als dat kan.
+  const absT = (t, rel) => t.dayStart + rel;
+  function refreshDiensten(t) {
+    const P = t.plan;
+    for (const d of t.diensten) { const segs = P.filter(x => x.d === d.i); if (!segs.length) continue; d.t0 = segs[0].t0; d.t1 = segs[segs.length - 1].t1; d.rel0 = d.t0; d.start = t.dayStart + d.t0; d.end = t.dayStart + d.t1; }
+    t.shiftEnd = t.diensten.length ? t.diensten[t.diensten.length - 1].t1 : 0;
+    t.routes = t.diensten.flatMap(d => d.routes);
+  }
+  function shiftAfter(t, idx, delta) {
+    const P = t.plan; if (!delta || idx >= P.length - 1) { refreshDiensten(t); return; }
+    const oldT0 = P.map(x => x.t0); const oldA = absT(t, P[idx].t1 - delta);
+    for (let i = idx + 1; i < P.length; i++) { P[i].t0 += delta; P[i].t1 += delta; }
+    let rest = delta;
+    for (let i = idx + 1; i < P.length && rest > 0; i++) { const x = P[i]; if (x.d !== null || x.k !== 'terrein') continue; const room = Math.max(0, (x.t1 - x.t0) - 5); const take = Math.min(room, rest); if (take > 0) { x.t1 -= take; for (let j = i + 1; j < P.length; j++) { P[j].t0 -= take; P[j].t1 -= take; } rest -= take; } }
+    const last = P[P.length - 1]; last.t1 = Math.max(1440, last.t0 + 1);
+    // opleggergebeurtenissen van dit voertuig schuiven mee met het segment waar ze bij horen
+    const deltaAt = X => { const rel = X - t.dayStart; let k = -1; for (let i = 0; i < oldT0.length; i++) if (oldT0[i] <= rel + 1e-6) k = i; return k < 0 ? 0 : P[k].t0 - oldT0[k]; };
+    for (const tr of trailers) for (const e of tr.events) { if (e.by !== t || e.a < oldA) continue; const da = deltaAt(e.a); if (e.k === 'site') { e.a += da; if (e.b !== Infinity) e.b += da; e.unloadAt += da; e.pickup += da; } else { const db = e.b === Infinity ? 0 : deltaAt(e.b); e.a += da; if (e.b !== Infinity) e.b += db; } }
+    refreshDiensten(t);
+  }
+  // km langs het pad (tussen kmFrom en kmTo) dat het dichtst bij een punt ligt; null als dat verder dan maxKm is
+  function kmNear(path, kmFrom, kmTo, lon, lat, maxKm) {
+    let best = null, bd = Infinity; const { pts, cum } = path;
+    for (let i = 0; i < pts.length; i++) { if (cum[i] < kmFrom || cum[i] > kmTo) continue; const d = Math.hypot((pts[i][0] - lon) * 68, (pts[i][1] - lat) * 111); if (d < bd) { bd = d; best = cum[i]; } }
+    return bd <= maxKm ? best : null;
+  }
+  // Knip het huidige rijsegment op km kmP (vanaf nu) en voeg daar blokken in; in een ander segment: invoegen erna.
+  function insertSegs(t, T, kmP, make) {
+    const s = stateAt(t, T); const seg = s.seg; const si = s.si; const P = t.plan;
+    let at = seg.t1, km = seg.km1 || 0, route = seg.route || null;
+    if (seg.k === 'drive') {
+      const span = seg.km1 - seg.km0 || 1e-6; const kmX = Math.min(seg.km1, Math.max(s.km, kmP === null ? s.km : kmP)); const tX = seg.t0 + (kmX - seg.km0) / span * (seg.t1 - seg.t0);
+      if (kmX < seg.km1 - 0.05) { const tail = { ...seg, t0: tX, km0: kmX }; seg.t1 = tX; seg.km1 = kmX; seg.win = null; seg.delay = 0; P.splice(si + 1, 0, tail); }
+      at = tX; km = kmX; route = seg.route;
+    }
+    const segs = make({ at, km, route, d: seg.d === undefined ? null : seg.d, tr: seg.tr || null });
+    let tm = at; for (const x of segs) { x.t0 = tm; x.t1 = tm + x.dur; tm += x.dur; delete x.dur; x.ingevoegd = true; }
+    P.splice(si + 1, 0, ...segs);
+    shiftAfter(t, si + segs.length, tm - at);
+    return { at: absT(t, at), end: absT(t, tm), segs };
+  }
+  // Pauze van 45 minuten op een pauzeplek langs de route (binnen 7 km van de route), anders binnen 8 km
+  function insertPause(t, T, place) {
+    const s = stateAt(t, T); let kmP = null, atPlace = false;
+    if (s.seg.k === 'drive' && place) { kmP = kmNear(s.seg.route.path, s.km, s.seg.km1, place.lon, place.lat, 7); atPlace = kmP !== null; }
+    if (s.seg.k === 'drive' && kmP === null) kmP = Math.min(s.seg.km1, s.km + 8);
+    const r = insertSegs(t, T, kmP, ({ km, route, d, tr }) => [{ k: 'pauze', dur: 45, km0: km, km1: km, route, d, tr, at: atPlace ? place.n : null }]);
+    t.breakPlanned = true; return r;
+  }
+  // Snelladen van 25 minuten (ongeveer 35 procent erbij) bij een laadpunt langs de route, anders meteen
+  function insertCharge(t, T, sp) {
+    const s = stateAt(t, T); let kmP = null, atPlace = false;
+    if (s.seg.k === 'drive' && sp) { kmP = kmNear(s.seg.route.path, s.km, s.seg.km1, sp.lon, sp.lat, 7); atPlace = kmP !== null; }
+    if (s.seg.k === 'drive' && kmP === null) kmP = Math.min(s.seg.km1, s.km + 3);
+    const r = insertSegs(t, T, kmP, ({ km, route, d, tr }) => [{ k: 'laden', dur: 25, km0: km, km1: km, route, d, tr, partial: 35, at: atPlace ? sp.n : null }]);
+    t.chargePlanned = true; return r;
+  }
+  // Een volgende dienst schuift op (minuten); de lege tijd ervoor wordt langer
+  function shiftDienst(t, di, minutes) {
+    const d = t.diensten[di]; if (!d || minutes <= 0) return null; const P = t.plan; const i0 = P.findIndex(x => x.d === d.i); if (i0 < 1) return null;
+    const oldA = absT(t, P[i0].t0);
+    for (let i = i0; i < P.length; i++) { P[i].t0 += minutes; P[i].t1 += minutes; }
+    const gap = P[i0 - 1]; if (gap.d === null) gap.t1 += minutes;
+    const last = P[P.length - 1]; last.t1 = Math.max(1440, last.t0 + 1);
+    for (const tr of trailers) for (const e of tr.events) { if (e.by !== t || e.a < oldA) continue; e.a += minutes; if (e.b !== Infinity) e.b += minutes; if (e.k === 'site') { e.unloadAt += minutes; e.pickup += minutes; } }
+    d.shifted = (d.shifted || 0) + minutes; t.delayResolved = true; refreshDiensten(t); return d;
+  }
+  // Het tijdvenster van de volgende stop verruimen tot de ETA (de klant is geinformeerd)
+  function acceptEta(t, T) {
+    const s = stateAt(t, T); const P = t.plan;
+    for (let i = s.si; i < P.length; i++) { const x = P[i]; if (x.k === 'drive' && x.win) { if (x.t1 > x.win[1]) x.win = [x.win[0], Math.ceil(x.t1 / 5) * 5]; x.winMoved = true; break; } if (x.k === 'stop' && i > s.si) break; }
+    t.delayResolved = true;
+  }
+  const mkRoute = (a, b, nameA, nameB, placeA, placeB) => { const ids = shortestPath(a, b); const path = buildPath(ids); return { seq: [placeA, placeB], path, marks: [{ place: placeA, km: 0, name: nameA }, { place: placeB, km: path.total, name: nameB }], total: path.total, detour: true }; };
+  // Een trekker haalt een losse oplegger op: omrijden vanaf de huidige positie (solo op de thuisrit) of vanaf het
+  // terrein (reserve met een vrije chauffeur). De oplegger krijgt de status "wordt opgehaald" tot de koppeling.
+  function pickupDetour(t, tr, T, dienstInfo) {
+    const ts = trailerStateAt(tr, T); if (!ts.place || ts.st === 'gekoppeld' || ts.st === 'onderhoud' || ts.vs) return null;
+    const trNode = nearestNode(ts.pos.lon, ts.pos.lat); const stopPlace = { name: ts.place, lon: ts.pos.lon, lat: ts.pos.lat, node: trNode };
+    const home = t.base; const R2 = mkRoute(trNode, home.node, ts.place, home.n, stopPlace, home); const d2 = Math.max(4, R2.total / t.speed * 60);
+    const P = t.plan; let r;
+    if (t.vandaag === 'reserve' || !t.diensten.length) {
+      const R1 = mkRoute(home.node, trNode, home.n, `${ts.place} (oplegger ophalen)`, home, stopPlace); const d1 = Math.max(4, R1.total / t.speed * 60);
+      const rel = ((T - t.dayStart) % 1440 + 1440) % 1440;
+      const d = { i: 0, start: t.dayStart + rel, driver: dienstInfo.driver, person: dienstInfo.person, routes: [R1, R2], delayLeg: -1, rel0: rel, t, ophaal: tr.id };
+      const end = rel + d1 + 18 + d2;
+      t.plan = [
+        { k: 'terrein', t0: 0, t1: rel, d: null, tr: null },
+        { k: 'drive', t0: rel, t1: rel + d1, km0: 0, km1: R1.total, delay: 0, route: R1, idx: 1, win: null, d: 0, tr: null, range: R1.path, ingevoegd: true },
+        { k: 'stop', t0: rel + d1, t1: rel + d1 + 10, km0: R1.total, km1: R1.total, stop: `${ts.place} · ${tr.id} koppelen`, route: R1, idx: 1, d: 0, tr, pickup: tr, place: stopPlace, ingevoegd: true },
+        { k: 'drive', t0: rel + d1 + 10, t1: rel + d1 + 10 + d2, km0: 0, km1: R2.total, delay: 0, route: R2, idx: 1, win: null, d: 0, tr, range: R2.path, ingevoegd: true, mid: true },
+        { k: 'ontkoppel', t0: rel + d1 + 10 + d2, t1: end, d: 0, tr, ev: { k: 'ontkoppel', tr }, ingevoegd: true },
+        { k: 'terrein', t0: end, t1: Math.max(1440, end + 1), d: null, tr: null },
+      ];
+      t.diensten = [d]; t.vandaag = 'inzet'; t.driver = d.driver; t.shiftStart = rel; refreshDiensten(t);
+      r = { arrive: t.dayStart + rel + d1, end: t.dayStart + end, km: R1.total + R2.total, dienst: d, T };
+    } else {
+      const s = stateAt(t, T); const seg = s.seg; const cut = s.si; const rel = s.rel; const di = seg.d === undefined ? null : seg.d;
+      const fromNode = nearestNode(s.pos.lon, s.pos.lat);
+      const R1 = mkRoute(fromNode, trNode, 'onderweg', `${ts.place} (oplegger ophalen)`, { name: 'onderweg', lon: s.pos.lon, lat: s.pos.lat }, stopPlace); const d1 = Math.max(4, R1.total / t.speed * 60);
+      let at = rel, removed = 0;
+      if (seg.k === 'drive') { removed = seg.t1 - rel; seg.t1 = rel; seg.km1 = s.km; seg.win = null; seg.delay = 0; } else at = seg.t1;
+      // de rest van de solo-thuisrit vervalt (rijden en pauzes tot het volgende blok op het terrein)
+      let j = cut + 1; while (j < P.length && (P[j].k === 'drive' || P[j].k === 'pauze') && !P[j].tr && P[j].d === di) { removed += P[j].t1 - P[j].t0; j++; }
+      P.splice(cut + 1, j - cut - 1);
+      const segs = [
+        { k: 'drive', t0: at, t1: at + d1, km0: 0, km1: R1.total, delay: 0, route: R1, idx: 1, win: null, d: di, tr: null, range: R1.path, ingevoegd: true, mid: true },
+        { k: 'stop', t0: at + d1, t1: at + d1 + 10, km0: R1.total, km1: R1.total, stop: `${ts.place} · ${tr.id} koppelen`, route: R1, idx: 1, d: di, tr, pickup: tr, place: stopPlace, ingevoegd: true },
+        { k: 'drive', t0: at + d1 + 10, t1: at + d1 + 10 + d2, km0: 0, km1: R2.total, delay: 0, route: R2, idx: 1, win: null, d: di, tr, range: R2.path, ingevoegd: true, mid: true },
+        { k: 'ontkoppel', t0: at + d1 + 10 + d2, t1: at + d1 + 18 + d2, d: di, tr, ev: { k: 'ontkoppel', tr }, ingevoegd: true },
+      ];
+      P.splice(cut + 1, 0, ...segs);
+      shiftAfter(t, cut + segs.length, (d1 + 18 + d2) - removed);
+      if (di !== null && t.diensten[di]) { t.diensten[di].routes = [...t.diensten[di].routes, R2]; t.diensten[di].ophaal = tr.id; }
+      refreshDiensten(t);
+      r = { arrive: t.dayStart + at + d1, end: t.dayStart + at + d1 + 18 + d2, km: R1.total + R2.total, dienst: di !== null ? t.diensten[di] : null, T };
+    }
+    // oplegger: het wachten eindigt bij aankomst, dan gekoppeld achter dit voertuig tot het afkoppelen op het terrein
+    // (tijden in hetzelfde dagvenster als de lopende gebeurtenis van de oplegger)
+    const Td = ((T % 1440) + 1440) % 1440; let ev = null, at = Td;
+    for (const cand of [Td, Td + 1440]) { for (const e of tr.events) if (e.k === 'site' && e.a <= cand && cand < e.b) { ev = e; at = cand; break; } if (ev) break; }
+    const travel = ((r.arrive - T) % 1440 + 1440) % 1440; const total = r.end - r.arrive;
+    const a = at + travel, b = at + travel + total - 8;
+    if (ev) ev.b = a + 10;
+    tr.events.push({ k: 'coupled', a: a + 10, b, vehicle: t, loaded: false, lading: null, by: t, planned: true }); tr.events.sort((x, y) => x.a - y.a);
+    tr.pickupBy = { t, at: a + 10, eta: a }; tr.pickupPlanned = true; tr.busyUntil = b;
+    return r;
+  }
+  // Storing: de volgende dienst van dit voertuig gaat naar een reservevoertuig van dezelfde standplaats en soort
+  function moveDienst(t, d, r) {
+    if (!d || !r || r.vandaag !== 'reserve' || d.i === 0) return null;
+    const P = t.plan; const segs = P.filter(x => x.d === d.i); if (!segs.length) return null;
+    const i0 = P.indexOf(segs[0]); const before = P.slice(0, i0); while (before.length && before[before.length - 1].d === null) before.pop();
+    const end0 = before.length ? before[before.length - 1].t1 : 0; const back = t.ev ? 60 : 25;
+    t.plan = [...before, { k: t.ev ? 'laden' : 'terrein', t0: end0, t1: end0 + back, d: null, tr: null }, { k: 'terrein', t0: end0 + back, t1: Math.max(1440, end0 + back + 1), d: null, tr: null }];
+    t.diensten = t.diensten.filter(x => x !== d); refreshDiensten(t); t.reserveFor = { d, r };
+    // het reservevoertuig krijgt dezelfde dagbasis en het plan van die dienst
+    r.dayStart = t.dayStart; for (const x of segs) x.d = 0; d.i = 0; d.t = r; r.diensten = [d];
+    const e1 = segs[segs.length - 1].t1;
+    r.plan = [{ k: 'terrein', t0: 0, t1: segs[0].t0, d: null, tr: null }, ...segs, { k: r.ev ? 'laden' : 'terrein', t0: e1, t1: e1 + back, d: null, tr: null }, { k: 'terrein', t0: e1 + back, t1: Math.max(1440, e1 + back + 1), d: null, tr: null }];
+    r.vandaag = 'inzet'; r.driver = d.driver; r.replaces = { t, d }; r.shiftStart = segs[0].t0; refreshDiensten(r);
+    for (const tr of trailers) for (const e of tr.events) if (e.by === t && e.a >= t.dayStart + segs[0].t0 - 1e-6) { e.by = r; if (e.vehicle === t) e.vehicle = r; }
+    return d;
   }
   const trailersOf = sp => trailerPool.get(sp.n) || [];
   const dienstenOf = t => t.diensten;
 
-  return { trucks, byId, trailers, trailerById, trailersOf, driverPool, stateAt, trailerStateAt, trailerTemp, blocks, departures, dienstenOf, ST, DIV, KIND, TRT, TRST, laadpunten };
+  return { trucks, byId, trailers, trailerById, trailersOf, driverPool, stateAt, trailerStateAt, trailerTemp, blocks, departures, dienstenOf, insertPause, insertCharge, shiftDienst, acceptEta, pickupDetour, moveDienst, ST, DIV, KIND, TRT, TRST, laadpunten };
 }
