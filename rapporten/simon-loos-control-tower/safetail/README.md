@@ -10,17 +10,18 @@ mag pushen, staat die tak hier als git-bundel: `safetail-control-tower.bundle`.
 
 ```
 cd <pad naar de website-repo>
-git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower:ronde10/control-tower
-git checkout ronde10/control-tower
+git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-32:ronde10/control-tower-32
+git checkout ronde10/control-tower-32
 npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
 git push -u origin ronde10/control-tower
 ```
 
-De tak `ronde10/control-tower` staat inmiddels op origin (de websitesessie heeft de eerdere
-bundel opgehaald en met `setup-astro-site` samengevoegd, commit 158fc6a). Deze bundel bouwt
-daarop voort en bevat twee nieuwe commits: 405e494 (versie 3.1: bundel, pagina en docs) en
-de commit met de zes punten uit de Fable-review van de tab (bundel en meetbon):
-`git fetch <bundel> ronde10/control-tower` werkt in een kopie die 158fc6a al heeft. Daarna
+De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-review) heeft
+de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Deze bundel
+bevat de tak `ronde10/control-tower-32`: een commit boven 1e5f201 met de drie punten uit
+de deltareview (topbalk in het kader van 1136 px, terug naar de kaart, schakelaar online
+kaartlaag) en de meetbon. `git fetch <bundel> ronde10/control-tower-32` werkt in een kopie
+die 1e5f201 al heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
 
@@ -53,8 +54,9 @@ en f939ca9 zijn versie 3.1: het nieuwe ontwerp (ontwerpsysteem, rustige kaart, m
 weergaven, mobiele opzet) en de verbeterde werking (voorstellen die het plan aanpassen,
 URL's voor elke weergave, meldingen met geheugen, panelen, planbordfilters, aftelling,
 zoekpalet). Commit 7594cae verwerkt de zes punten uit de Fable-review van de SafeTail-tab
-(volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen).
-De losse versie (`dist/index.html`, het artifact) is dezelfde app.
+(volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen);
+commit 92b17b1 de drie punten uit de deltareview (topbalk in een smal kader, terugknop naar
+de kaart, schakelaar van de online kaartlaag). De losse versie (`dist/index.html`, het artifact) is dezelfde app.
 
 ## Gecontroleerd
 
