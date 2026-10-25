@@ -251,9 +251,28 @@ dag (vertrek, aankomst, wachten, lossen, koppelen, pauze, laden) en `fleet.pool`
 procent van de ritten per standplaats per dag, elk met een reden (ziek, uitval voertuig, extra rit klant, nieuw uit
 OTM5); 's middags komen de ritten van morgen erbij (`fleet.poolAt(T)`). `fleet.dagcijfers()` geeft de kerngetallen.
 
+Elke standplaats heeft afdelingen (`sp.afdelingen`, zoals Google Maps de gebouwen van een bedrijf toont): de loods of het
+warehouse (met de naam van het DC als dat er staat), de docks ("Docks 1 tot 30"), de poort, de opleggers en het
+laadplein, en waar de vacature het noemt ook het kantoor, de garage en de wasstraat (Wognum: hoofdkantoor, warehouse,
+garage en wasstraat). Wat er is, komt uit de vacatures (`bron: 'vacature'`); welk gebouw welke functie heeft, staat niet in
+open data en is afgeleid uit grootte, vorm en ligging (`bron: 'afgeleid'`; zie `src/data/BRONNEN.md`).
+
+De vraagkant van de planning is gesimuleerd (`src/inzet.js`, `src/voorkeuren.js`, `src/data/charters.json`). Elke rit in de
+pool heeft een prognose: de kans op invulling en op een vertrek binnen het venster, uit acht weken gesimuleerde historie per
+standplaats, divisie, dienstdeel en weekdag (`prognose` met zijn basis; `fleet.poolHistorie(standplaats)` geeft de reeksen
+voor een grafiek), en een urgentie, de minuten tot het laadvenster (`fleet.poolAt(T)` rekent beide vanaf T). Elke chauffeur
+heeft voorkeuren (divisies, dagdelen, weekend, regio, klanten, uren, extra diensten) en een tevredenheid uit de roosterfit
+(`fleet.voorkeurenVan`, `fleet.tevredenheid`, `fleet.past`). De flexibele schil: 15 verzonnen charters met contactpersoon,
+nummer, opleggers, capaciteit, tarief en betrouwbaarheid (`fleet.CHARTERS`) en 76 zzp'ers, weekendchauffeurs en
+oproepkrachten (`fleet.OPROEP`). `fleet.kandidaten(rit, { T, people, toegewezen })` geeft per open rit wie hem kan rijden:
+eerst eigen chauffeurs met uren over (rij- en rusttijden getoetst), dan oproepkrachten, dan charters met de juiste
+oplegger, elk met redenen in gewone taal, uren, kosten (schatting) en waarschuwingen. `fleet.wijsToe(rit, kandidaat)`
+verandert niets: het geeft het blok voor het planbord, een regel voor het logboek en het bericht aan de kandidaat. Namen,
+nummers (06 9…, 0229 0…) en e-mailadressen (.example) zijn fictief; tarieven en kansen zijn schattingen.
+
 Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
 diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen, wachttijden, de indeling van de docks,
-de open ritten in de pool,
+de open ritten in de pool en hun historie, voorkeuren en tevredenheid van chauffeurs, charters en oproepkrachten,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
 en beoordelingen. Werkgebied, rol, thema, opgeslagen weergaven, overgenomen lostijden,
 eigen beoordelingen, de overdrachtstekst en de acties van vandaag (afgehandelde en
@@ -269,10 +288,11 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan i
 - `src/tables.js`: tabellen voertuigen, opleggers en mensen, lostijden, laden, pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
+- `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd)
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
-- `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein, parkeerrijen en docks), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `BRONNEN.md`
-- `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks)
+- `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein, parkeerrijen, docks en afdelingen), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `charters.json` (verzonnen charters), `BRONNEN.md`
+- `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool), van de afdelingen en van de vraagkant (prognose, historie, voorkeuren, charters en oproepkrachten zonder echte namen, kandidaten, toewijzen); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks, afdelingen, charters)
 - `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)
 - `tools/`: dataverwerking (Overture), `artifact.cjs` en `sync-safetail.mjs` (de bundel naar de SafeTail-repo)

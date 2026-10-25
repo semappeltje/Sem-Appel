@@ -12,8 +12,13 @@ import { decode } from './roads.js';
 // (parkeerrijen: n plekken van lon0/lat0 tot lon1/lat1, voertuigen met de neus in de koers), formules (winkelritten),
 // laad (id van een DC waar de winkelritten eerst laden), pendel (id van een DC waar de helft van de winkelritten als pendel heen gaat),
 // docks (aantal laaddocks, schatting) en dockPlek [[lon, lat, koers], ...] (dock 1, 2, ...: de deur in de gevel van de hal en de
-// richting waarin een voertuig aan dat dock staat, graden vanaf noord met de klok mee; tools/ct4/docks.py).
+// richting waarin een voertuig aan dat dock staat, graden vanaf noord met de klok mee; tools/ct4/docks.py),
+// afdelingen [{ naam, soort, p: [lon, lat], gebouw?, bron }] (wat er op het terrein staat, zoals Google Maps de gebouwen van
+// een bedrijf toont; soort 'loods' | 'kantoor' | 'garage' | 'wasstraat' | 'laadplein' | 'opleggers' | 'docks' | 'poort';
+// gebouw: index in de gebouwen van de standplaats (laadGebouwen()[sp.n], alleen d: 1); bron 'vacature' als de vacaturetekst
+// of de notitie de afdeling noemt, anders 'afgeleid'; welk gebouw welke functie heeft is altijd afgeleid; tools/ct4/afdelingen.py).
 export const SP = P.SP;
+export const AFDELINGSOORTEN = ['loods', 'kantoor', 'garage', 'wasstraat', 'laadplein', 'opleggers', 'docks', 'poort'];
 export const TOWNS = P.TOWNS;    // { n, lat, lon, big }
 export const CITIES = P.CITIES;  // { n, lat, lon, r } r = 1 groot ... 4 dorp
 // Winkels per formule: { id, formule, naam, plaats, lon, lat, node, eiland? } (eiland: geen wegverbinding, Waddeneilanden).

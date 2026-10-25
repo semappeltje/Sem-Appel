@@ -131,6 +131,8 @@ open(f'{D}/buildings.json', 'w').write(json.dumps(BO, separators=(',', ':')))
 import os, subprocess
 # docks per standplaats (aantal en plek in de gevel; vervallen parkeerplekken voor de docks): na places.json en buildings.json
 subprocess.run([sys.executable, '-I', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'docks.py'), D], check=True, stdout=subprocess.DEVNULL)
+# afdelingen per standplaats (loods, kantoor, garage, wasstraat, laadplein, opleggers, docks, poort): na de docks
+subprocess.run([sys.executable, '-I', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'afdelingen.py'), D], check=True, stdout=subprocess.DEVNULL)
 for f in ('places.json', 'klanten.json', 'toegang.json', 'graph.json', 'buildings.json'):
     print(f, os.path.getsize(f'{D}/{f}') // 1024, 'kB')
 print('winkels', len(stores), dict(collections.Counter(s['formule'] for s in stores)), 'eiland', eil, '| dcs', len(dcs), dict(collections.Counter(d['soort'] for d in dcs)), '| bezorg', len(bz))

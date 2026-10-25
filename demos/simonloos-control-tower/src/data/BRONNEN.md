@@ -154,6 +154,59 @@ Bestand 2.407 kB; wordt alleen dynamisch geladen (`src/buildings.js`, `laadGebou
 
 Elke standplaats heeft laaddocks in de gevel van zijn hoofdgebouw (de hal uit de gebouwen hierboven): 262 docks, van 4 tot 30 per standplaats. Het aantal is een schatting: de hub (Wognum) 30, de twee warehouses (Geldermalsen, Tiel) 16, een depot een dock per zes voertuigen plus een (3 tot 9). De plek: langs de gevels van de hal die op vrije terreinruimte uitkijken (een strook van 28 m voor de gevel binnen het terrein en buiten andere gebouwen), deuren 4,5 m uit elkaar, de beste gevel eerst; voor elke deur past een hele combinatie op het terrein. `dockPlek[i]` is `[lon, lat, koers]`: de deur van dock i + 1 en de richting waarin een voertuig aan dat dock staat (graden vanaf noord). Parkeerplekken in de strook direct voor de docks (20 m) zijn vervallen (42 standplaatsen nagelopen). `tools/ct4/docks.py`, aangeroepen door `build_data.py`.
 
+## Afdelingen (`afdelingen` in places.json)
+
+Per standplaats wat er op het terrein staat, zoals Google Maps de gebouwen van een bedrijf toont: 240 afdelingen bij 42 standplaatsen, 114 met een eigen gebouw uit `buildings.json` (`gebouw`, alleen gebouwen op het terrein, `d: 1`). Wat er is, komt uit de vacatureteksten en de notitie van de standplaats (`bron: 'vacature'`, 32 afdelingen; de zinnen staan in `tools/ct4/afdelingen.py`). Algemene teksten tellen niet mee: het menu van de site, "van dock naar dock", "distributiecentra, fabrieken en warehouses" en tankstations als klant. Uit de vacatures:
+
+- Wognum: Warehouse, Hoofdkantoor, Garage en werkplaats, Wasstraat
+- Zaandam: AH DC Zaandam
+- Oss: Plus DC Oss, Kantoor
+- Zwolle: AH DC Zwolle
+- Geldermalsen: Warehouse, Garage en werkplaats
+- Tiel: Warehouse en crossdock, Docks 1 tot 16
+- Barneveld: Plus diepvries-DC Barneveld, Laadplein
+- Raalte: Jumbo DC Raalte
+- Waalwijk: SPAR DC Waalwijk, Docks 1 tot 6, Kantoor
+- Nieuwegein: AH DC Nieuwegein
+- Almere: Lidl DC Almere
+- Waddinxveen: Lidl DC Waddinxveen
+- Pijnacker (Delfgauw): AH DC Pijnacker
+- Opmeer: Garage en truckspuiterij
+- Etten-Leur: Lidl DC Etten-Leur
+- Alkmaar: Vomar DC Alkmaar
+- Tilburg: AH DC Tilburg
+- Hoogeveen: AH diepvries-DC Hoogeveen
+- Avenhorn: Kantoor
+- Beilen: Jumbo DC Beilen
+- Bleiswijk: Jumbo DC Bleiswijk
+- Oosterhout: Lidl DC Oosterhout
+- Weert: Lidl DC Weert
+
+Welk gebouw welke functie heeft, staat niet in open data; dat is afgeleid (`bron: 'afgeleid'` voor wat de vacatures niet noemen, de plek is bij elke afdeling afgeleid):
+
+- loods: het hoofdgebouw op het adres (de hal, bijna altijd het grootste gebouw op het terrein), met de naam van het DC dat er volgens `klanten.json` staat, "Warehouse" als de notitie dat zegt, anders "Loods"; een tweede grote hal (vanaf 5.000 m² en 40 % van de hoofdhal) is ook een loods;
+- kantoor: een klein gebouw (40 tot 3.000 m², minstens 2,5 m hoog, niet langer dan drie keer de breedte) dicht bij de poort (binnen 120 m); noemt de vacature het kantoor, dan eerst een gebouw vanaf 150 m² binnen 250 m van de poort, en zonder geschikt gebouw een punt in de hal aan de kant van de poort;
+- wasstraat: een smal lang gebouw (4,5 tot 16 m breed, minstens 18 m lang, minstens twee keer zo lang als breed); garage: het grootste overgebleven middelgrote gebouw (vanaf 150 m², minstens 10 m breed); beide alleen waar de vacature ze noemt;
+- docks: het midden van de deuren van een rij docks in de gevel ("Docks 1 tot 30"; zie Docks hierboven); poort: het eind van de toegangsroute (`poort`);
+- opleggers: de parkeerplekken achteraan in de rijen, waar de app de opleggers zet; laadplein: de laadpunten van de standplaats (hub 24, warehouse 12, depot 4) aan het begin van de rijen, waar de voertuigen staan. De vacature in Barneveld noemt een laadplein waar geladen wordt (laadcoördinator); dat telt als bron, de plek is die van de laadpunten.
+
+Elk punt ligt op het terrein of binnen 40 m ervan (een poort ligt soms net buiten het getekende terrein); `tests/data-check.mjs` controleert dat, en dat Wognum een kantoor, loods, garage en wasstraat heeft.
+
+## Gesimuleerd: historie, charters, oproepkrachten, voorkeuren (de vraagkant van de planning)
+
+Een planner begint bij de ritten die open staan en de mensen die ze kunnen rijden. Dat deel is volledig gesimuleerd, deterministisch met een vaste seed, en overal als gesimuleerd of schatting gemarkeerd (`gesimuleerd: true`, `schatting: true`). Niets hieronder is een echt bedrijf, een echte persoon of een echt nummer.
+
+- **Historie en prognose** (`src/fleet.js`, `poolHistorie`, `prognose` op elke poolrit): acht weken open ritten per standplaats (rond 6.000), elk met divisie, reden, dienstdeel, doorlooptijd van bekend tot het venster en de afloop: een eigen chauffeur, een oproepkracht, een charter, of open gebleven (een extra rit die de klant terugkrijgt of die naar de volgende dag gaat). Aannames (schatting): ongeveer 86 procent wordt ingevuld en 15 procent daarvan vertrekt te laat; hoe korter dag, hoe minder lukt en hoe vaker te laat; maandag meer ziekmeldingen, zondag minder ritten; 's nachts minder (een planner heeft 15 tot 25 trucks, Slimste; 's nachts zijn er minder planners en chauffeurs om te bellen); in het weekend vullen oproepkrachten meer, 's nachts en bij netwerk en bulk de charters; een grote standplaats heeft meer reserve.
+- **De kans op invulling** van een open rit: per doorlooptijd (minder dan een uur, een tot twee, twee tot zes, zes tot vijftien uur, langer) de kans over alle open ritten, maal het deel dat bij vergelijkbare ritten werd ingevuld tegen wat je bij hun doorlooptijden zou verwachten (indirect gestandaardiseerd, met demping). Vergelijkbaar is de kleinste groep met minstens 12 ritten: standplaats, divisie, dienstdeel en weekdag, dan zonder weekdag, zonder dienstdeel, de regio, de divisie. `opTijd` is op dezelfde manier de kans op een vertrek binnen het venster. `poolAt(T)` rekent de kans vanaf T: hoe dichter bij het venster, hoe lager. In het echt is de historie een export uit het TMS (rit, venster, moment bekend, moment ingevuld, door wie) plus het vertrek uit de boordcomputer; de rekensom blijft dezelfde.
+- **Voorkeuren en tevredenheid** (`src/voorkeuren.js`): per chauffeur divisies, dagdelen, weekend, regio, klanten, maximaal aantal uren per week, extra diensten (graag, soms, nee) en een opmerking, deterministisch uit de id. De tevredenheid (1 tot 10) volgt uit de roosterfit (het deel van de laatste diensten dat bij de voorkeur paste), wijzigingen kort voor vertrek en korte rust: de klachten van chauffeurs op Indeed (3,1 van 5 bij 101 reviews: planning, afspraken niet nagekomen, korte rusttijden, geen inspraak; onderzoeksmemo, gelezen). De mediaan ligt rond 6,5. In het echt komen voorkeuren uit een formulier of de chauffeursapp, met toestemming, en de tevredenheid uit een korte vraag in de app; een beeld per persoon alleen na afspraken met de ondernemingsraad (signaal).
+- **Charters** (`src/data/charters.json`, gemaakt door `tools/ct4/charters.py`): 15 verzonnen vervoerders als flexibele schil, 4 in Noord-Holland, 3 in Randstad Zuid, 3 in Oost, 2 in Noord, 3 in Zuid. Namen van planten en vogels, zodat ze niet op een bestaand bedrijf lijken; gecontroleerd tegen klanten.json en de naam Simon Loos, niet nagekeken in het KvK-register. De plaats is echt (voor de afstand). Opleggers die ze trekken of leveren, capaciteit, tarief per uur en per km, betrouwbaarheid (op tijd, ritten, annuleringen in acht weken) en beschikbaarheid vandaag en morgen zijn schattingen.
+- **Oproepkrachten** (`OPROEP` in `src/inzet.js`): 76 zzp'ers, weekendchauffeurs en oproepkrachten, ongeveer een op de zestien voertuigen per standplaats, met verzonnen namen (niet gelijk aan een eigen chauffeur), rijbewijs, code 95, beschikbaarheid per weekdag en dagdeel, tarief, voorkeuren, laatste inzet en betrouwbaarheid.
+- **Nummers en adressen**: mobiel 06 9… (de reeks 069 is nog niet opengesteld voor uitgifte; ACM, Monitor nummeruitgifte 2018; nakijken in het nummerregister), vast 0229 0… (een abonneenummer begint niet met een 0, dat is het voorvoegsel van het netnummer), e-mail op .example (gereserveerd voor voorbeelden, RFC 2606). Geen van deze nummers of adressen bereikt iemand.
+- **Kandidaten** (`fleet.kandidaten`, regels in `src/inzet.js`): eerst eigen chauffeurs, dan oproepkrachten, dan charters met de juiste oplegger. Een eigen chauffeur rijdt een open rit op een vrije dag of voor of na de eigen dienst, als de werkdag hoogstens 13 uur blijft (15 met een verkorte rust van 9 uur), hoogstens 9 uur rijden (10 met een verlenging, twee keer per week), met 11 uur rust tot de volgende dienst (9 verkort, drie keer per week) en hoogstens 60 uur per week (EU 561/2006 en Arbeidstijdenbesluit vervoer; het rooster van morgen is dat van vandaag, een aanname). Wie vandaag geen dienst heeft, is vrij, met vakantie, ziek of heeft een rustdag (gesimuleerd). Een oproepkracht mag een oproep binnen vier dagen weigeren (Wet arbeidsmarkt in balans; de cao kan dat tot 24 uur inkorten): dat staat als signaal bij de kandidaat, het is geen juridisch advies. Wie je belt, neemt niet altijd op: 's nachts de helft, vroeg in de ochtend driekwart, overdag 90 procent (schatting; wie op dienst is, bereik je via de boordcomputer). Kosten zijn schattingen: een eigen chauffeur het uurloon uit de persoonsgegevens (anders 33 euro per uur), maal 1,3 bij overuren en 1,5 op een vrije dag of in het weekend, plus 55 cent per km (diesel, elektrisch 35); een oproepkracht 36 tot 47 euro per uur en een zzp'er 47 tot 56; een charter 47 tot 60 euro per uur plus 52 tot 72 cent per km, met eigen trekker en chauffeur.
+- **Toewijzen** (`fleet.wijsToe`) verandert niets: het geeft het blok voor het planbord, een regel voor het logboek en het bericht aan de kandidaat; de interface bewaart de toewijzing.
+
+Wat er nodig is om dit met echte data te laten draaien: een export van acht tot twaalf weken open ritten met hun afloop uit het TMS en de boordcomputer, de lijsten van oproepkrachten en charters met tarieven en afspraken, de roosters en uren (tachograaf) van de chauffeurs, en voorkeuren die chauffeurs zelf opgeven. `tests/data-check.mjs` controleert de vormen, dat er geen echte namen in de charters en oproepkrachten staan, en dat elke open rit minstens drie kandidaten heeft.
+
 ## Wegnummers en straatnamen (`roads_display.json`, veld `lab`)
 
 Per lijn het wegnummer (`routes.ref` uit Overture: A-, N- en S-nummers, over de grens ook A-, N-, R- en B-wegen; zonder route een A- of N-nummer uit de naam) en de straatnaam (`names.primary`). Alleen lijnen van minstens 300 m, geen afritten; namen bij N-wegen, secundaire wegen en tertiaire wegen in bebouwd gebied (Natural Earth). Een waarde moet minstens de helft van de lijn dekken. Gelabeld: 14.659 kanten van de graaf, 5.592 secundaire en 6.277 tertiaire lijnen; 7.796 verschillende teksten.
@@ -166,6 +219,8 @@ Per lijn het wegnummer (`routes.ref` uit Overture: A-, N- en S-nummers, over de 
 - Welke winkels, DC's en fabrieken een standplaats op een dag bedient, is gesimuleerd (vaste seed); de plekken zelf zijn echt.
 - Hoogtes van gebouwen zonder `height` of verdiepingen zijn 6 m.
 - Docks: aantal en plek zijn een schatting (zie hierboven); welke docks een standplaats echt heeft, staat niet in open data.
+- Afdelingen: welk gebouw het kantoor, de garage of de wasstraat is, is afgeleid uit grootte, vorm en ligging (zie hierboven).
+- De vraagkant (historie, prognose, voorkeuren, tevredenheid, charters, oproepkrachten, kandidaten, kosten) is gesimuleerd; zie "Gesimuleerd" hierboven.
 - De dag zelf (in `src/fleet.js`) is geijkt op de cijfers uit het onderzoeksmemo (rapporten/simon-loos-control-tower, §1.4): winkeldiensten van 8,5 tot 11 uur met 45 tot 60 procent rijden (Slimste, vacatureteksten), een tweede dienst voor een kwart tot een derde van de vloot, wachten bij DC's en winkels van 35 tot 60 minuten per truck per dag (Slimste), pauzes volgens EU-verordening 561/2006 en het Arbeidstijdenbesluit vervoer, en de AH-ritten van morgen die 's middags via OTM5 binnenkomen. De wachttijd per soort plek en dagdeel, de lostijden en de rijsnelheden zijn schattingen.
 
 ## Werkwijze (`tools/ct4/`)
@@ -178,5 +233,7 @@ Volgorde, met een werkmap buiten de repo voor de parquet-bestanden:
 4. `terrain.py`: terrein, parkeerrijen en gebouwen; `graph_rebuild.py`: de routeergraaf nagebouwd met connectors; `access.py` en `apply_splits.py`: toegangsroutes en gesplitste kanten; `labels.py`: wegnummers en straatnamen.
 5. `build_data.py`: schrijft places.json, klanten.json, toegang.json, graph.json en buildings.json. Controle: `tests/data-check.mjs`; plaatjes per plek: `qa_draw.py`.
 6. `docks.py` (door `build_data.py` aangeroepen, ook los te draaien): docks en hun plek per standplaats in places.json; met een tweede argument een plaatje per standplaats.
+7. `afdelingen.py` (door `build_data.py` aangeroepen na `docks.py`): de afdelingen per standplaats in places.json; met een tweede argument een plaatje per standplaats.
+8. `charters.py` (los, deterministisch): de verzonnen charters in `charters.json`.
 
-Bestandsgroottes: places.json 130 kB, klanten.json 593 kB, toegang.json 342 kB, graph.json 3.915 kB, roads_display.json 2.350 kB, buildings.json 2.407 kB.
+Bestandsgroottes: places.json 151 kB, klanten.json 593 kB, toegang.json 342 kB, graph.json 3.915 kB, roads_display.json 2.350 kB, buildings.json 2.407 kB, charters.json 9 kB.

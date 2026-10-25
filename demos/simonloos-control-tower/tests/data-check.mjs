@@ -14,6 +14,11 @@
 // een derde op het terrein; EU 561 (4,5 uur rijden, dan 45 of 15 + 30 minuten pauze; 9 of 10 uur rijden per dienst) en
 // de accu; wachttijd (35 tot 60 minuten per truck per dag); docks zonder overlap en gelijk op hal-scherm en dockplanning;
 // gebeurtenissen per voertuig op volgorde; de pool met 2 tot 5 procent van de ritten per dag, nooit leeg, nooit vol.
+// Afdelingen per standplaats (loods, kantoor, garage, wasstraat, laadplein, opleggers, docks, poort): vorm, op of binnen 40 m van
+// het terrein, gebouwen met d: 1, elke standplaats minstens loods, docks, poort en opleggers, Wognum ook kantoor, garage en wasstraat.
+// De vraagkant (gesimuleerd): elke poolrit een prognose en urgentie, de historie sluitend, elke chauffeur voorkeuren en een
+// tevredenheid, charters en oproepkrachten met hun velden en zonder echte namen (Simon Loos, Jumbo, Albert Heijn, klanten.json),
+// voor elke poolrit minstens drie kandidaten met een eigen chauffeur of oproepkracht, en toewijzen dat niets verandert.
 import { createRequire } from 'node:module';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -47,6 +52,41 @@ check(kSize < 600 * 1024, `klanten.json ${Math.round(kSize / 1024)} kB (< 600 kB
 check(bSize < 2.5 * 1024 * 1024, `buildings.json ${Math.round(bSize / 1024)} kB (< 2,5 MB)`);
 const appSrc = ['main.js', 'map.js', 'ui.js', 'views.js', 'fleet.js', 'places.js', 'roads.js', 'tables.js', 'sheets.js', 'people.js'].map(f => { try { return readFileSync(path.join(app, 'src', f), 'utf8'); } catch { return ''; } }).join('\n');
 check(!/^\s*import[^;]*from\s*['"]\.\/(buildings\.js|data\/buildings\.json)['"]/m.test(appSrc), 'buildings.js en buildings.json worden nergens statisch geïmporteerd');
+// afdelingen per standplaats (tools/ct4/afdelingen.py): vorm, op of naast het terrein, gebouwen met d: 1, docks compleet
+const BLD = data('buildings.json');
+const SOORT = new Set(['loods', 'kantoor', 'garage', 'wasstraat', 'laadplein', 'opleggers', 'docks', 'poort']);
+const afdFout = [], afdVer = [], afdGebouw = [], afdMist = [], afdDocks = [];
+for (const s of SP) {
+  const A = s.afdelingen;
+  if (!Array.isArray(A) || !A.length) { afdFout.push(`${s.n}: geen afdelingen`); continue; }
+  for (const a of A) {
+    if (!(typeof a.naam === 'string' && a.naam && SOORT.has(a.soort) && Array.isArray(a.p) && a.p.length === 2 && a.p.every(Number.isFinite) && (a.bron === 'vacature' || a.bron === 'afgeleid'))) afdFout.push(`${s.n}: ${JSON.stringify(a).slice(0, 80)}`);
+    else if (distRing(a.p, s.terrein) > 40) afdVer.push(`${s.n}: ${a.naam} ${Math.round(distRing(a.p, s.terrein))} m`);
+    if (a.gebouw !== undefined) { const b = (BLD[s.n] || [])[a.gebouw]; if (!Number.isInteger(a.gebouw) || !b || b.d !== 1) afdGebouw.push(`${s.n}: ${a.naam} #${a.gebouw}`); }
+  }
+  const heeft = new Set(A.map(a => a.soort));
+  for (const k of ['loods', 'docks', 'poort', 'opleggers']) if (!heeft.has(k)) afdMist.push(`${s.n}: ${k}`);
+  const nrs = new Set(); for (const a of A) if (a.soort === 'docks') { const m = a.naam.match(/^Docks? (\d+)(?: tot (\d+))?$/); if (m) for (let k = +m[1]; k <= +(m[2] || m[1]); k++) nrs.add(k); }
+  if (nrs.size !== s.docks || ![...nrs].every(k => k >= 1 && k <= s.docks)) afdDocks.push(`${s.n}: ${nrs.size} van ${s.docks}`);
+}
+check(!afdFout.length, `elke standplaats heeft afdelingen met naam, soort, punt en bron (${SP.reduce((n, s) => n + (s.afdelingen || []).length, 0)} afdelingen)${afdFout.length ? ': ' + afdFout.slice(0, 3).join('; ') : ''}`);
+check(!afdVer.length, `elk afdelingspunt ligt op het terrein of binnen 40 m ervan${afdVer.length ? ': ' + afdVer.slice(0, 3).join('; ') : ''}`);
+check(!afdGebouw.length, `elk gebouw van een afdeling bestaat en staat op het terrein (d: 1)${afdGebouw.length ? ': ' + afdGebouw.slice(0, 3).join('; ') : ''}`);
+check(!afdMist.length && !afdDocks.length, `elke standplaats heeft een loods, docks (alle nummers), een poort en opleggers${afdMist.concat(afdDocks).length ? ': ' + afdMist.concat(afdDocks).slice(0, 4).join('; ') : ''}`);
+const wog = new Set((SP.find(s => s.n === 'Wognum').afdelingen || []).map(a => a.soort));
+check(['kantoor', 'loods', 'garage', 'wasstraat'].every(k => wog.has(k)) && wog.size >= 7, `Wognum: ${[...wog].join(', ')} (kantoor, loods, garage en wasstraat uit de vacature)`);
+// de flexibele schil (gesimuleerd): charters.json met verzonnen namen, fictieve nummers en e-mail op .example
+const CHL = (data('charters.json').charters) || [];
+const REG = new Set(SP.map(s => s.regio));
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ECHT = [...new Set(['Simon Loos', 'Jumbo', 'Albert Heijn', ...K.stores.flatMap(s => [s.formule, s.naam]), ...K.dcs.flatMap(d => [d.formule, d.naam])])].filter(Boolean).map(n => [n, new RegExp(`(^|[^\\p{L}])${escRe(n)}($|[^\\p{L}])`, 'iu')]);
+const echtIn = s => ECHT.filter(([, re]) => re.test(String(s || ''))).map(([n]) => n);
+const chVorm = CHL.every(c => /^CH-\d\d$/.test(c.id) && c.naam && c.plaats && REG.has(c.regio) && Number.isFinite(c.lon) && Number.isFinite(c.lat) && /^(06 9\d \d\d \d\d \d\d|0229 0\d \d\d \d\d)$/.test(c.tel) && /^[a-z0-9.-]+@[a-z0-9-]+\.example$/.test(c.email) && c.contactpersoon
+  && Array.isArray(c.opleggers) && c.opleggers.length && Array.isArray(c.voertuigen) && c.capaciteit && c.capaciteit.trekkers > 0 && c.capaciteit.perDag > 0 && c.tarief && c.tarief.schatting === true && c.tarief.perKm > 0 && c.tarief.perUur > 0
+  && c.betrouwbaarheid && c.betrouwbaarheid.opTijd > 0 && c.betrouwbaarheid.opTijd <= 100 && Number.isInteger(c.betrouwbaarheid.ritten) && Number.isInteger(c.betrouwbaarheid.annuleringen) && c.beschikbaar && Number.isInteger(c.beschikbaar.vandaag) && Number.isInteger(c.beschikbaar.morgen) && c.gesimuleerd === true);
+const chEcht = CHL.flatMap(c => [c.naam, c.contactpersoon, c.email.split('@')[1].replace(/\.example$/, '').replace(/-/g, ' ')].flatMap(s => echtIn(s).map(n => `${c.id}: ${n}`)));
+check(CHL.length >= 12 && CHL.length <= 16 && chVorm && new Set(CHL.map(c => c.id)).size === CHL.length && new Set(CHL.map(c => c.tel)).size === CHL.length && [...REG].every(r => CHL.some(c => c.regio === r)), `charters: ${CHL.length} verzonnen vervoerders in alle ${REG.size} regio's, met contactpersoon, fictief nummer (06 9…, 0229 0…), e-mail op .example, opleggers, capaciteit, tarief (schatting) en betrouwbaarheid`);
+check(!chEcht.length && !/simon\s*loos/i.test(readFileSync(path.join(app, 'src/data/charters.json'), 'utf8')), `geen echte namen in charters.json (Simon Loos, Jumbo, Albert Heijn, de winkels, formules en DC's uit klanten.json)${chEcht.length ? ': ' + chEcht.slice(0, 3).join('; ') : ''}`);
 
 // ---------- in de browser ----------
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -177,9 +217,78 @@ check(rest.evN > 20000 && !rest.evFout && rest.vert === rest.aank && rest.losS =
 const pv = rest.vandaag / rest.ritten * 100, pm = rest.morgen / rest.ritten * 100;
 check(rest.pvorm && pv >= 2 && pv <= 5 && pm >= 2 && pm <= 5 && !rest.morgenLaat, `pool: ${rest.vandaag} ritten vandaag (${pv.toFixed(1)} %), ${rest.morgen} voor morgen (${pm.toFixed(1)} %, 's middags bekend) bij ${rest.ritten} ritten`);
 check(!rest.leeg && rest.maxZicht <= rest.ritten * 0.06, `pool nooit leeg (elke standplaats elk kwartier minstens één rit) en nooit vol (hoogstens ${rest.maxZicht} tegelijk)`);
+// ---------- de vraagkant: prognose, historie, voorkeuren, de flexibele schil, kandidaten (ronde 3b) ----------
+const vraag = await page.evaluate(() => {
+  const f = window.SLCT.fleet, people = window.SLCT.people; const SPn = [...new Set(f.trucks.map(t => t.base.n))];
+  const off = p => (p.dag === 'morgen' ? 1440 : 0);
+  const goedP = x => x && x.kans >= 0 && x.kans <= 1 && x.opTijd >= 0 && x.opTijd <= x.kans + 1e-9 && typeof x.tekst === 'string' && x.tekst && typeof x.uitleg === 'string' && x.basis && x.basis.weken === 8 && x.basis.n >= 1 && x.basis.ingevuld <= x.basis.n && x.basis.eigen + x.basis.oproep + x.basis.charter === x.basis.ingevuld && x.basis.teLaat <= x.basis.ingevuld;
+  let progFout = 0, urgFout = 0, liveFout = 0, live = 0;
+  for (const p of f.pool) { if (!goedP(p.prognose)) progFout++; if (typeof p.urgentie !== 'number' || p.urgentie !== p.venster[0] + off(p) - p.bekend) urgFout++; }
+  for (let T = 0; T < 1440; T += 60) for (const x of f.poolAt(T)) { live++; if (!goedP(x.prognose) || x.urgentie !== x.venster[0] + off(x) - T) liveFout++; }
+  const kansen = f.pool.map(p => p.prognose.kans);
+  // historie per standplaats en samen
+  let histFout = 0, somN = 0;
+  for (const sp of SPn) {
+    const H = f.poolHistorie(sp); somN += H.totaal.n; const som = L => L.reduce((a, d) => a + d.n, 0);
+    if (H.dagen.length !== 56 || H.perWeek.length !== 8 || som(H.dagen) !== H.totaal.n || som(H.perWeek) !== H.totaal.n || som(Object.values(H.perDagdeel)) !== H.totaal.n || som(Object.values(H.perWeekdag)) !== H.totaal.n
+      || H.totaal.ingevuld + H.totaal.open !== H.totaal.n || H.totaal.eigen + H.totaal.oproep + H.totaal.charter !== H.totaal.ingevuld || !H.totaal.n || H.ritten.length !== H.totaal.n) histFout++;
+  }
+  const Hall = f.poolHistorie();
+  // voorkeuren en tevredenheid van elke chauffeur
+  const DIVS = new Set(Object.keys(f.DIV)), DD = new Set(['vroeg', 'dag', 'avond', 'nacht']), TR = new Set(['stijgt', 'gelijk', 'daalt']);
+  let vkFout = 0, tvFout = 0; const scores = [];
+  for (const p of people.persons) {
+    const v = f.voorkeurenVan(p.id, undefined, p);
+    if (!(v.divisies.length && v.divisies.every(d => DIVS.has(d)) && v.dagdelen.length && v.dagdelen.every(d => DD.has(d)) && typeof v.weekend === 'boolean' && v.regio.length && v.maxUren >= 24 && Array.isArray(v.klanten) && ['graag', 'soms', 'nee'].includes(v.extra) && typeof v.opmerking === 'string')) vkFout++;
+    const t = f.tevredenheid(p.id, undefined, p);
+    if (!(t.score >= 1 && t.score <= 10 && TR.has(t.trend) && t.roosterfit >= 0 && t.roosterfit <= 1 && Array.isArray(t.laatsteRitten) && t.laatsteRitten.length && t.laatsteRitten.every(r => /^\d{4}-\d\d-\d\d$/.test(r.datum) && typeof r.rit === 'string' && typeof r.past === 'boolean'))) tvFout++;
+    scores.push(t.score);
+  }
+  scores.sort((a, b) => a - b);
+  // oproepkrachten
+  const OP = f.OPROEP, CH = f.CHARTERS; const eigenNamen = new Set(people.persons.map(p => p.name));
+  const opVorm = OP.every(o => /^OP-\d{3}$/.test(o.id) && o.naam && ['zzp', 'weekend', 'oproep'].includes(o.soort) && SPn.includes(o.standplaats) && /^06 9\d \d\d \d\d \d\d$/.test(o.tel) && Array.isArray(o.rijbewijs) && o.rijbewijs.length
+    && (o.code95Tot === null || /^\d{4}-\d\d-\d\d$/.test(o.code95Tot)) && ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].every(d => Array.isArray(o.beschikbaarheid[d]) && o.beschikbaarheid[d].every(x => DD.has(x))) && Object.values(o.beschikbaarheid).some(a => a.length)
+    && o.tarief && o.tarief.schatting === true && o.tarief.perUur > 0 && o.voorkeuren && o.voorkeuren.divisies.length && /^\d{4}-\d\d-\d\d$/.test(o.laatsteInzet) && o.betrouwbaarheid && o.betrouwbaarheid.opTijd > 0 && o.gesimuleerd === true);
+  // kandidaten voor elke poolrit
+  let minK = 99, zonder = 0, volgFout = 0, kFout = 0, naamFout = 0, oplFout = 0; const per = { eigen: 0, oproep: 0, charter: 0 };
+  const W = new Set(Object.keys(f.WAARSCHUWINGEN)); const ord = { eigen: 0, oproep: 1, charter: 2 };
+  for (const p of f.pool) {
+    const K = f.kandidaten(p, { people });
+    minK = Math.min(minK, K.length);
+    if (!K.some(k => (k.soort === 'eigen' || k.soort === 'oproep') && k.beschikbaar)) zonder++;
+    for (let i = 1; i < K.length; i++) if (ord[K[i].soort] < ord[K[i - 1].soort]) volgFout++;
+    for (const k of K) {
+      per[k.soort]++;
+      if (!(k.id && k.naam && k.score >= 0 && k.score <= 1 && k.kans >= 0 && k.kans <= 1 && Array.isArray(k.redenen) && k.redenen.length && k.redenen.every(r => typeof r === 'string' && r) && k.kosten && k.kosten.bedrag > 0 && k.kosten.schatting === true && k.uren && 'gereden' in k.uren && 'over' in k.uren && typeof k.beschikbaar === 'boolean' && Array.isArray(k.waarschuwingen) && k.waarschuwingen.every(w => W.has(w)))) kFout++;
+      if (k.soort === 'eigen') { const q = people.byId.get(k.id); if (!q || q.name !== k.naam || q.base.n !== p.sp) naamFout++; }
+      if (k.soort === 'charter') { const c = CH.find(x => x.id === k.id); if (!c || (p.soort === 'trekker' && p.oplegger && !c.opleggers.includes(p.oplegger))) oplFout++; }
+    }
+  }
+  // toewijzen is puur: vloot, pool en kandidaten blijven gelijk; wie toegewezen is, staat niet bij een rit die tegelijk loopt
+  const p0 = f.pool.find(p => p.dag === 'vandaag') || f.pool[0]; const K0 = f.kandidaten(p0, { people });
+  const foto = () => JSON.stringify([f.pool.map(p => [p.id, p.prognose.kans, p.urgentie]), K0, f.trucks.map(t => t.plan.length + ':' + t.shiftEnd), f.OPROEP.length, f.CHARTERS.map(c => c.beschikbaar)]);
+  const voor = foto(); const uit = K0.map(k => f.wijsToe(p0, k)); const na = foto();
+  const toeVorm = uit.every((u, i) => u && u.segment && u.segment.a < u.segment.b && u.segment.rit === p0.id && u.segment.wie.id === K0[i].id && typeof u.log.tekst === 'string' && u.log.tekst.includes(p0.id) && typeof u.bericht.tekst === 'string' && u.bericht.tekst.length > 40);
+  const p1 = f.pool.find(p => p !== p0 && p.sp === p0.sp && p.dag === p0.dag && p.venster[0] < p0.venster[0] + p0.duur && p0.venster[0] < p.venster[0] + p.duur);
+  const dubbel = p1 ? f.kandidaten(p1, { people, toegewezen: [uit[0]] }).some(k => k.id === K0[0].id) : false;
+  return { progFout, urgFout, liveFout, live, kMin: Math.min(...kansen), kMax: Math.max(...kansen), histFout, somN, allN: Hall.totaal.n, allKans: Hall.totaal.kans, vkFout, tvFout, personen: people.persons.length, sMed: scores[scores.length >> 1],
+    nOP: OP.length, opVorm, opNamen: OP.map(o => o.naam), opSoort: OP.reduce((a, o) => (a[o.soort] = (a[o.soort] || 0) + 1, a), {}), eigenDubbel: OP.filter(o => eigenNamen.has(o.naam)).map(o => o.naam), dubbeleTel: OP.length - new Set(OP.map(o => o.tel)).size,
+    minK, zonder, volgFout, kFout, naamFout, oplFout, per, puur: voor === na, toeVorm, dubbel, p1: !!p1, pool: f.pool.length,
+    fp: JSON.stringify(f.pool.map(p => [p.id, p.prognose.kans, f.kandidaten(p).slice(0, 3).map(k => k.id)])) };
+});
+check(!vraag.progFout && !vraag.urgFout && !vraag.liveFout && vraag.kMin < 0.85 && vraag.kMax >= 0.85, `pool: elke rit heeft een prognose (kans ${vraag.kMin} tot ${vraag.kMax}, opTijd, tekst, basis van 8 weken) en urgentie; poolAt(T) rekent ze vanaf T (${vraag.live} keer)`);
+check(!vraag.histFout && vraag.somN === vraag.allN && vraag.allKans >= 0.75 && vraag.allKans <= 0.95, `historie: ${vraag.allN} open ritten in 8 weken (56 dagen, 8 weken, per dagdeel en weekdag sluitend), ${Math.round(vraag.allKans * 100)} % ingevuld`);
+check(!vraag.vkFout && !vraag.tvFout && vraag.sMed >= 5 && vraag.sMed <= 8, `elke chauffeur (${vraag.personen}) heeft voorkeuren en een tevredenheid (mediaan ${String(vraag.sMed).replace('.', ',')})`);
+const opEcht = vraag.opNamen.flatMap(n => echtIn(n).map(x => `${n}: ${x}`));
+check(vraag.nOP >= 60 && vraag.nOP <= 90 && vraag.opVorm && !vraag.dubbeleTel && !opEcht.length && !vraag.eigenDubbel.length, `oproepkrachten: ${vraag.nOP} (${Object.entries(vraag.opSoort).map(([k, v]) => `${v} ${k}`).join(', ')}), met de velden, fictief 06 9…-nummer, geen echte namen en geen naam van een eigen chauffeur${opEcht.length ? ': ' + opEcht.slice(0, 3).join('; ') : ''}${vraag.eigenDubbel.length ? ': ' + vraag.eigenDubbel.slice(0, 3).join(', ') : ''}`);
+check(vraag.minK >= 3 && !vraag.zonder && !vraag.volgFout && !vraag.kFout && !vraag.naamFout && !vraag.oplFout, `kandidaten: elke poolrit (${vraag.pool}) minstens ${vraag.minK}, met een eigen chauffeur of oproepkracht, eerst eigen, dan oproep, dan charter (${vraag.per.eigen} / ${vraag.per.oproep} / ${vraag.per.charter}); id's gelijk aan people.js, charters met de juiste oplegger`);
+check(vraag.puur && vraag.toeVorm && !vraag.dubbel, `wijsToe verandert niets en geeft een planblok, een logregel en een bericht; wie toegewezen is, valt af bij een rit die tegelijk loopt${vraag.p1 ? '' : ' (geen overlappende rit gevonden)'}`);
 await load();
 const fp2 = await page.evaluate(() => { const f = window.SLCT.fleet; return f.trucks.map(t => (t.routes || []).map(r => Math.round(r.total * 10) + r.marks.map(m => m.name).join('|')).join('/')).join(';'); });
 check(fp2 === stats.fp, 'dezelfde seed geeft na een herlaad precies dezelfde ritten');
+const fpVraag = await page.evaluate(() => { const f = window.SLCT.fleet; return JSON.stringify(f.pool.map(p => [p.id, p.prognose.kans, f.kandidaten(p).slice(0, 3).map(k => k.id)])); });
+check(fpVraag === vraag.fp, 'en dezelfde prognoses en kandidaten');
 check(!errors.length, `geen paginafouten${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 await browser.close();
 console.log(fail ? `\n${fail} FOUT(EN)` : '\nalles in orde');
