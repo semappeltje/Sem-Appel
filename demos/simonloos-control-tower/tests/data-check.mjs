@@ -19,6 +19,8 @@
 // De vraagkant (gesimuleerd): elke poolrit een prognose en urgentie, de historie sluitend, elke chauffeur voorkeuren en een
 // tevredenheid, charters en oproepkrachten met hun velden en zonder echte namen (Simon Loos, Jumbo, Albert Heijn, klanten.json),
 // voor elke poolrit minstens drie kandidaten met een eigen chauffeur of oproepkracht, en toewijzen dat niets verandert.
+// De oefendag (?scenario=druk): de vier verstoringen zoals beschreven (ziek, file, dock, koeling), de plannen nog steeds
+// aaneengesloten en zonder dockoverlap, elke keer hetzelfde; en daarna de gewone dag precies gelijk (vingerafdruk).
 import { createRequire } from 'node:module';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -289,6 +291,43 @@ const fp2 = await page.evaluate(() => { const f = window.SLCT.fleet; return f.tr
 check(fp2 === stats.fp, 'dezelfde seed geeft na een herlaad precies dezelfde ritten');
 const fpVraag = await page.evaluate(() => { const f = window.SLCT.fleet; return JSON.stringify(f.pool.map(p => [p.id, p.prognose.kans, f.kandidaten(p).slice(0, 3).map(k => k.id)])); });
 check(fpVraag === vraag.fp, 'en dezelfde prognoses en kandidaten');
+// ---------- de oefendag (?scenario=druk): vast, zoals beschreven, en de gewone dag blijft precies gelijk ----------
+// De gewone dag hierboven is zonder oefendag gemeten (dezelfde aantallen als voor de oefendag er was). Hier: de vingerafdruk
+// van het hele plan (elk segment met tijden, dock en vertraging, en de pool), dan de oefendag, dan weer de gewone dag.
+const planVinger = () => page.evaluate(() => { const f = window.SLCT.fleet; let h = 2166136261; const add = s => { for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); }; for (const t of f.trucks) add(`${t.id}${t.dayStart}${t.plan.map(s => `${s.k}${Math.round(s.t0 * 100)}${Math.round(s.t1 * 100)}${s.dock || ''}${s.delay || ''}${s.win ? s.win.join('/') : ''}`).join(',')}`); add(f.pool.map(p => `${p.id}${p.venster.join('/')}`).join(',')); return `${h >>> 0}|${f.trucks.reduce((n, t) => n + t.diensten.length, 0)}|${f.pool.length}|${f.scenario ? f.scenario.id : '-'}`; });
+const gewoon1 = await planVinger();
+const oefUrl = url + (url.includes('?') ? '&' : '?') + 'scenario=druk';
+await page.goto(oefUrl, { waitUntil: 'load' }); await page.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 120000 });
+const oef = await page.evaluate(() => {
+  const f = window.SLCT.fleet; const sc = f.scenario; const V = s => (sc ? sc.verstoringen.find(v => v.soort === s) : null) || {};
+  const files = []; let gaten = 0, overlap = 0, evFout = 0, vert = 0, aank = 0, nietOpGepland = 0;
+  for (const t of f.trucks) {
+    for (let i = 1; i < t.plan.length; i++) if (Math.abs(t.plan[i].t0 - t.plan[i - 1].t1) > 1e-6) gaten++;
+    for (const s of t.plan) { if (s.file) files.push({ min: s.file, om: s.fileOm, base: t.base.n }); if (s.k === 'drive' && s.gepland !== undefined && !(t.dayStart + s.t1 > s.gepland - 1e-6)) nietOpGepland++; }
+    const E = f.eventsOf(t.id); for (let i = 0; i < E.length; i++) { if (i && E[i - 1].t > E[i].t) evFout++; if (E[i].soort === 'vertrek') vert++; if (E[i].soort === 'aankomst') aank++; }
+  }
+  const raak = (x, y) => [-1440, 0, 1440].some(o => x[0] + o < y[1] && y[0] < x[1] + o);
+  for (const sp of [...new Set(f.trucks.map(t => t.base.n))]) for (const row of f.dockPlan(sp)) { const iv = row.blokken.map(b => [((b.t0 % 1440) + 1440) % 1440, ((b.t0 % 1440) + 1440) % 1440 + (b.t1 - b.t0)]); for (let i = 0; i < iv.length; i++) for (let j = i + 1; j < iv.length; j++) if (raak(iv[i], iv[j])) overlap++; }
+  const d = V('dock'); const row = d.dock ? f.dockPlan('Wognum').find(r => r.dock === d.dock) : null; const inDock = row ? row.blokken.filter(b => raak([((b.t0 % 1440) + 1440) % 1440, ((b.t0 % 1440) + 1440) % 1440 + (b.t1 - b.t0)], [420, 660])).length : -1;
+  const ziek = f.pool.filter(p => p.reden === 'ziek' && p.oefendag); const zr = V('ziek');
+  const zieken = (zr.diensten || []).map(x => f.trucks.find(t => t.id === x.voertuig));
+  const kz = V('koeling'); const tr = kz.oplegger ? f.trailerById.get(kz.oplegger) : null;
+  return { id: sc && sc.id, soorten: sc ? sc.verstoringen.map(v => v.soort).join(',') : '', files: files.length, fMin: Math.min(...files.map(x => x.min)), fMax: Math.max(...files.map(x => x.min)), fOm: files.every(x => x.om >= 390 && x.om <= 525), fWognum: files.filter(x => x.base === 'Wognum').length,
+    gaten, overlap, evFout, vert, aank, nietOpGepland, dock: d.dock, verzet: d.verzet, inDock, ziek: ziek.length, ziekVorm: ziek.every(p => /^P-8\d{3}$/.test(p.id) && p.bekend === 270 && p.dag === 'vandaag' && p.stops.length && p.prognose && p.venster[1] > p.venster[0]), zrN: (zr.ritten || []).length, zieken: zieken.every(t => t && !t.plan.some(s => s.d !== null && s.d !== undefined && s.k === 'koppel' && t.dayStart + s.t0 >= 315 && t.dayStart + s.t0 <= 390)),
+    koel: !!(tr && tr.storing && tr.type === 'koel' && f.trailerTemp(tr, 480) > 4) };
+});
+check(oef.id === 'druk' && oef.soorten === 'ziek,file,dock,koeling', `oefendag: ${oef.soorten}`);
+check(oef.ziek === oef.zrN && oef.ziek >= 2 && oef.ziekVorm && oef.zieken, `ziek om 04:30: ${oef.ziek} ritten van twee diensten van Wognum bij de open ritten (P-8001 en verder, bekend 04:30), die diensten zijn van hun voertuig af`);
+check(oef.files >= 20 && oef.fMin >= 25 && oef.fMax <= 40 && oef.fOm && !oef.nietOpGepland, `file op de A7: ${oef.files} ritten (${oef.fWognum} van Wognum) ${oef.fMin} tot ${oef.fMax} min later, alle tussen 06:30 en 08:45 het vak in; de stops erna houden hun geplande aankomst (gepland)`);
+check(oef.dock && oef.inDock === 0 && oef.verzet > 0, `dock ${oef.dock} van Wognum buiten gebruik van 07:00 tot 11:00: geen blok in die uren, ${oef.verzet} blokken naar een ander dock`);
+check(oef.koel, 'koelstoring op een koeloplegger van Wognum (temperatuur boven het doel)');
+check(!oef.gaten && !oef.overlap && !oef.evFout && oef.vert === oef.aank, `oefendag: plannen aaneengesloten (${oef.gaten} gaten), docks zonder overlap (${oef.overlap}), gebeurtenissen op volgorde (${oef.evFout}), vertrek = aankomst (${oef.vert})`);
+const oefV1 = await planVinger(); await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 120000 });
+const oefV2 = await planVinger();
+check(oefV1 === oefV2 && oefV1 !== gewoon1, `de oefendag loopt elke keer hetzelfde (${oefV1.split('|')[0]}) en is een andere dag dan de gewone (${gewoon1.split('|')[0]})`);
+await load();
+const gewoon2 = await planVinger();
+check(gewoon2 === gewoon1, `na de oefendag is de gewone dag precies gelijk (vingerafdruk ${gewoon2.split('|')[0]}, ${gewoon2.split('|')[1]} diensten, ${gewoon2.split('|')[2]} open ritten)`);
 check(!errors.length, `geen paginafouten${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
 await browser.close();
 console.log(fail ? `\n${fail} FOUT(EN)` : '\nalles in orde');

@@ -16,6 +16,14 @@ const cfg = { tiles: root.dataset.tiles !== 'off', embedded: 'embedded' in root.
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* geen opslag */ } } };
 const theme = store.get('sl-theme') === 'dark' ? 'dark' : 'light';
 root.dataset.theme = theme;
+// De oefendag (src/oefendag.js): ?scenario=druk in de adresbalk, anders de schakelaar onder Instellingen (sl-oefendag);
+// ?scenario=gewoon zet hem voor deze keer uit. Standaard uit. Op de oefendag bewaart de app de acties van de dag apart
+// (sl-acties-oefendag), zodat de gewone dag en zijn acties precies blijven zoals ze waren.
+const scenarioUrl = (() => { try { return new URLSearchParams(location.search).get('scenario'); } catch { return null; } })();
+const scenario = scenarioUrl === 'druk' ? 'druk' : scenarioUrl === 'gewoon' ? null : store.get('sl-oefendag') === 'druk' ? 'druk' : null;
+if (scenario) root.dataset.oefendag = scenario;
+const OEF_ACTIES = 'sl-acties-oefendag';
+const appStore = scenario ? { get: k => store.get(k === 'sl-acties' ? OEF_ACTIES : k), set: (k, v) => store.set(k === 'sl-acties' ? OEF_ACTIES : k, v) } : store;
 
 const now = new Date(); const simTime = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
 const state = { simTime, speed: 12, theme, playing: true };
@@ -49,14 +57,14 @@ const mapApi = createMap('map', {
 const loadMsg = document.getElementById('loadMsg');
 setTimeout(() => {
   const t0 = performance.now();
-  const fleet = createFleet();
+  const fleet = createFleet(scenario ? { scenario } : {});
   const people = createPeople(fleet);
   const rest = createRest(store);
   const lostijden = createLostijden(fleet, store);
-  const ui = createUI(fleet, state, store, { people, rest, lostijden, root, embedded: cfg.embedded });
+  const ui = createUI(fleet, state, appStore, { people, rest, lostijden, root, embedded: cfg.embedded });
   ui.attachMap(mapApi);
-  window.SLCT = { ui, fleet, people, rest, lostijden, state, map: mapApi, cfg };
-  if (loadMsg) loadMsg.textContent = `${fleet.trucks.length} voertuigen, ${fleet.trailers.length} opleggers en ${people.persons.length} chauffeurs staan klaar (${Math.round(performance.now() - t0)} ms).`;
+  window.SLCT = { ui, fleet, people, rest, lostijden, state, map: mapApi, cfg, scenario, scenarioUrl };
+  if (loadMsg) loadMsg.textContent = `${fleet.trucks.length} voertuigen, ${fleet.trailers.length} opleggers en ${people.persons.length} chauffeurs staan klaar (${Math.round(performance.now() - t0)} ms).${fleet.scenario ? ` ${fleet.scenario.naam} (gesimuleerd).` : ''}`;
   document.getElementById('loading').hidden = true;
   ui.start();
   // De klok loopt per beeld; elke 0,12 s rekent ui.frame() een stap (de kaart rijdt daartussen vloeiend door). De eerste

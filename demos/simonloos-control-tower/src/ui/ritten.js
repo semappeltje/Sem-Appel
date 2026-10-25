@@ -56,6 +56,10 @@ export function createRitten(fleet) {
     const t = r.t; const T0 = t.dayStart; const drives = r.segs.filter(x => x.s.k === 'drive');
     const first = drives[0] || r.segs[0]; const last = drives[drives.length - 1] || r.segs[r.segs.length - 1];
     r.dep = T0 + first.s.t0; r.depPlan = r.dep - first.cum; r.end = T0 + last.s.t1; r.endPlan = r.end - (last.cum + (last.s.k === 'drive' && !t.delayResolved ? last.s.delay || 0 : 0));
+    // oefendag: schoof een vertraging het plan op (gepland op het rijstuk, fleet.js), dan liggen vertrek en terugkomst waar
+    // het plan ze had, zoals in fleet.stopStand; een langere wachttijd aan het dock telt dan ook mee
+    if (!t.delayResolved && first.s.k === 'drive' && first.s.gepland !== undefined) r.depPlan = first.s.gepland - (first.s.t1 - first.s.t0 - (first.s.delay || 0));
+    if (!t.delayResolved && last.s.k === 'drive' && last.s.gepland !== undefined) r.endPlan = last.s.gepland;
     r.km = drives.reduce((a, x) => a + Math.max(0, (x.s.km1 || 0) - (x.s.km0 || 0)), 0);
     r.dienst = r.d !== null && r.d !== undefined ? t.diensten[r.d] || null : null;
     r.driver = r.dienst ? r.dienst.driver : ''; r.person = r.dienst ? r.dienst.person : null;
@@ -66,9 +70,13 @@ export function createRitten(fleet) {
       const x = r.segs[k]; if (x.s.k !== 'stop') continue;
       const prevDrive = [...r.segs.slice(0, k)].reverse().find(y => y.s.k === 'drive');
       const dl = prevDrive ? prevDrive.cum + (!t.delayResolved ? prevDrive.s.delay || 0 : 0) : x.cum;
-      const win = prevDrive && prevDrive.s.win ? effWin([T0 + prevDrive.s.win[0], T0 + prevDrive.s.win[1]], T0 + x.s.t0 - (prevDrive.s.delay || 0)) : null;
+      // gepland: de geplande aankomst als een eerdere vertraging het plan opschoof (oefendag; fleet.js)
+      const g = prevDrive && prevDrive.s.gepland !== undefined ? prevDrive.s.gepland : null;
+      // op de oefendag (gepland, of een file op dit stuk) is de geplande aankomst die waar het venster op ligt (fleet.stopStand)
+      const oef = !t.delayResolved && !!prevDrive && (g !== null || !!prevDrive.s.file);
+      const win = prevDrive && prevDrive.s.win ? effWin([T0 + prevDrive.s.win[0], T0 + prevDrive.s.win[1]], g !== null ? g : T0 + x.s.t0 - (prevDrive.s.delay || 0)) : null;
       const mark = x.s.route && x.s.route.marks ? x.s.route.marks[x.s.idx] : null;
-      r.stops.push({ seg: x.s, i: x.i, name: x.s.stop, arr: T0 + x.s.t0, dep: T0 + x.s.t1, plan: T0 + x.s.t0 - dl, win, winMoved: !!(prevDrive && prevDrive.s.winMoved) || !!(win && win.moved), swap: x.s.swap || null, pickup: x.s.pickup || null, mark, place: x.s.place || (mark && mark.place) || null, ingevoegd: !!x.s.ingevoegd });
+      r.stops.push({ seg: x.s, i: x.i, name: x.s.stop, arr: T0 + x.s.t0, dep: T0 + x.s.t1, plan: oef ? (g !== null ? g : T0 + x.s.t0 - (prevDrive.s.delay || 0)) : T0 + x.s.t0 - dl, win, winMoved: !!(prevDrive && prevDrive.s.winMoved) || !!(win && win.moved), swap: x.s.swap || null, pickup: x.s.pickup || null, mark, place: x.s.place || (mark && mark.place) || null, ingevoegd: !!x.s.ingevoegd });
     }
     r.inserted = r.segs.filter(x => x.s.ingevoegd && (x.s.k === 'pauze' || x.s.k === 'laden')).map(x => ({ k: x.s.k, a: T0 + x.s.t0, b: T0 + x.s.t1, at: x.s.at || null }));
     const firstStop = r.stops.find(x => !x.pickup) || r.stops[0];
@@ -85,7 +93,7 @@ export function createRitten(fleet) {
     // rel van T in het dagplan van het voertuig (zelfde regel als fleet.stateAt)
     const rel = (((T - t.dayStart) % 1440) + 1440) % 1440; const at = t.dayStart + rel;
     let st, cur = null, si = s ? s.si : -1;
-    if (s && si >= r.i0 && si <= r.i1 && at >= r.dep) { cur = t.plan[si]; st = cur.k === 'drive' ? (cur.delay > 0 && !t.delayResolved ? 'vertraagd' : 'onderweg') : cur.k === 'stop' ? 'klant' : cur.k === 'pauze' || cur.k === 'laden' ? 'pauze' : at >= r.end ? 'afgerond' : 'onderweg'; }
+    if (s && si >= r.i0 && si <= r.i1 && at >= r.dep) { cur = t.plan[si]; st = cur.k === 'drive' ? ((cur.delay > 0 || (cur.gepland !== undefined && t.dayStart + cur.t1 > cur.gepland + 0.5)) && !t.delayResolved ? 'vertraagd' : 'onderweg') : cur.k === 'stop' ? 'klant' : cur.k === 'pauze' || cur.k === 'laden' ? 'pauze' : at >= r.end ? 'afgerond' : 'onderweg'; }
     else st = at < r.dep ? 'gepland' : 'afgerond';
     if (st !== 'gepland' && st !== 'afgerond' && at >= r.end) st = 'afgerond';
     const done = r.stops.filter(x => x.dep <= at).length;
@@ -237,7 +245,7 @@ export function ritPage(ctx, id) {
     const z = ctx.Z.list().find(x => x.kind === 'Vertraging' && x.rit === r.id && x.present && !x.done); const p = z && ctx.voorstelVoor(z.key);
     const aank = naar ? `${at >= naar.arr ? 'Aangekomen' : 'Verwacht'} bij ${naar.name} om ${hhmm(naar.arr)}${naar.win ? `, venster tot ${hhmm(naar.win[1])}: ${laat > 0 ? `${laat} min te laat` : 'binnen het venster'}` : ''}.` : `Terug op ${t.base.n} om ${hhmm(r.end)}.`;
     vtHtml = `<div class="pg-sec"><h2>Vertraging <span class="sub">waar hij ontstond</span></h2>
-      <div class="note ${laat > 0 ? 'bad' : 'warn'} vt-plek">${ic('route', 16)}<div><b>+${Math.round(vSeg.delay)} min op weg van ${esc(van ? van.name : t.base.n)} naar ${esc(naar ? naar.name : `${t.base.n}`)}</b><span>Dit stuk ${at >= a1 ? "liep" : "loopt"} van ${hhmm(a0)} tot ${hhmm(a1)}. ${esc(aank)}</span><span class="hint">Gesimuleerd: de oorzaak (file, werk aan de weg) staat niet in de data; met echte ritten komt die uit de boordcomputer.</span></div></div>
+      <div class="note ${laat > 0 ? 'bad' : 'warn'} vt-plek">${ic('route', 16)}<div><b>+${Math.round(vSeg.delay)} min op weg van ${esc(van ? van.name : t.base.n)} naar ${esc(naar ? naar.name : `${t.base.n}`)}</b><span>Dit stuk ${at >= a1 ? "liep" : "loopt"} van ${hhmm(a0)} tot ${hhmm(a1)}. ${esc(aank)}</span><span class="hint">${vSeg.oorzaak ? `Oorzaak: ${esc(vSeg.oorzaak)} (oefendag, gesimuleerd); met echte ritten komt die uit NDW of de boordcomputer.` : 'Gesimuleerd: de oorzaak (file, werk aan de weg) staat niet in de data; met echte ritten komt die uit de boordcomputer.'}</span></div></div>
       ${p ? `<section class="prop focus" aria-label="Voorstel van de assistent"><div class="prop-h">${ic('spark', 15)}Voorstel van de assistent · ${esc(p.kort)}</div><p>${esc(p.action)}</p>${p.effect && p.effect.length ? `<ul class="eff">${p.effect.map(x => `<li class="${x.cls || ''}">${esc(x.t)}</li>`).join('')}</ul>` : ''}${ctx.can('act') ? `<div class="prop-a"><button class="btn sm pri" type="button" data-pastoe="${esc(p.id)}">${ic('check', 14)}Pas toe</button>${z ? `<button class="btn sm ghost" type="button" data-open="melding/${esc(z.id)}">Open de melding</button>` : ''}</div>` : ''}</section>` : z ? `<p class="hint">Geen voorstel: de assistent vindt geen vrij voertuig of reserve dichtbij. <button class="lnk" type="button" data-open="melding/${esc(z.id)}">Open de melding</button></p>` : ''}
     </div>`;
   }

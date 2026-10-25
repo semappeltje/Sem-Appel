@@ -17,7 +17,7 @@ import { renderOverzicht } from './ui/overzicht.js';
 import { createNav, VIEWS, VIEW_NAME, KEYS } from './ui/nav.js';
 import { createSearch } from './ui/zoek.js';
 import * as K from './ui/kaart.js';
-import { proposals, assistPanel, bindAssist } from './ui/assistent.js';
+import { proposals, assistPanel, bindAssist, ritNaar } from './ui/assistent.js';
 import { renderRapporten } from './ui/rapporten.js';
 import { renderInstellingen } from './ui/instellingen.js';
 import { renderStandplaatsen, renderHal, renderKlant } from './views.js';
@@ -110,6 +110,11 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       else if (a.k === 'laden' && t) r = fleet.insertCharge(t, a.T, a.sp ? SP.find(s => s.n === a.sp) : null);
       else if (a.k === 'schuif' && t) r = fleet.shiftDienst(t, a.d, a.min);
       else if (a.k === 'eta' && t) { fleet.acceptEta(t, a.T); if (a.helper) { const h = fleet.byId.get(a.helper); if (h) h.helping = t.id; } }
+      // vertraging: de klanten krijgen de nieuwe ETA (elke stop die nu na zijn venster aankomt), of een rit gaat op de
+      // geplande tijd naar een ander voertuig met een gekozen chauffeur; dock buiten gebruik: de chauffeur weet het nieuwe dock
+      else if (a.k === 'klantEta' && t) r = fleet.klantEta(t, a.T);
+      else if (a.k === 'ritNaar') { const rit = R.get(a.rit); const B = fleet.byId.get(a.naar); r = rit && B ? ritNaar(ctx, rit, B, a.start, a.wie || null) : { ok: false, tekst: 'Rit of voertuig bestaat niet meer.' }; }
+      else if (a.k === 'dockBericht' && t) r = fleet.dockGemeld(t, a.T);
       else if (a.k === 'ophalen' && t && tr) { const p = a.person ? people.byId.get(a.person) : null; r = fleet.pickupDetour(t, tr, a.T, { driver: p ? p.name : '', person: p }); if (r && p && r.dienst && r.dienst.person === p) p.dienst = { t, d: r.dienst }; }
       else if (a.k === 'werkorder' && t) { t.workorder = { at: a.T, what: t.storing, gepland: a.gepland || '' }; if (a.reserve) { const r2 = fleet.byId.get(a.reserve); const d = t.diensten.find(x => x.i === a.dienst); const moved = r2 && d ? fleet.moveDienst(t, d, r2) : null; if (moved && moved.person) moved.person.dienst = { t: r2, d: moved }; } }
       else if ((a.k === 'koeling' || a.k === 'trworkorder') && tr) tr.workorder = { at: a.T, what: tr.storing };
@@ -122,20 +127,23 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
         if (a.k === 'toewijs' && r && r.ok && r.t) { const item = pool(ctx).find(x => x.id === a.id); if (item && item._route) R.naam(item._route, `R-${item.id}`); }
       }
     } catch (err) { console.warn('actie niet uitgevoerd', a, err); r = { ok: false, tekst: 'Dat lukte niet.' }; }
-    if (live && !(['verplaats', 'pool', 'toewijs', 'charter', 'terug'].includes(a.k) && !(r && r.ok))) { A.acts.actions.push(a); A.save(); }
+    if (live && !(['verplaats', 'pool', 'toewijs', 'charter', 'terug', 'ritNaar'].includes(a.k) && !(r && r.ok))) { A.acts.actions.push(a); A.save(); }
     R.bump(); vcache = null;
     return r;
   }
+  // Een voorstel toepassen: zijn acties op volgorde (een voorstel kan er meer hebben: een rit naar een ander voertuig en dan
+  // de klanten van de rest de nieuwe ETA), de berichten aan de chauffeurs, en het bericht aan de klant in het logboek.
   function applyProposal(p) {
     if (!can('act')) { L.toast('Alleen planners en regiomanagers passen voorstellen toe.', { icon: 'lock' }); return; }
-    const r = runAction({ ...p.act, T: state.simTime }, true);
-    if (p.msg) { const m = p.msg(r); if (m && m[0]) sendMsg(m[0], m[1], true, true); }
-    A.acts.applied.push({ id: p.id, kind: p.kind, title: p.title, action: p.action, sev: p.sev, T: state.simTime, key: p.key }); A.save();
+    let r = null; for (const a of p.acts || [p.act]) { const x = runAction({ ...a, T: state.simTime }, true); if (r === null || (x && x.ok)) r = x; }
+    if (p.msg) { const m = p.msg(r); const L2 = m && Array.isArray(m[0]) ? m : [m]; for (const x of L2) if (x && x[0]) sendMsg(x[0], x[1], true, true); }
+    A.acts.applied.push({ id: p.id, kind: p.kind, title: p.title, action: p.action, sev: p.sev, T: state.simTime, key: p.key, winst: p.winst ? { soort: p.winst.soort, min: p.winst.min || 0 } : null }); A.save();
     Z.markApplied(p.key, p);
-    A.log(`paste een voorstel toe bij ${p.kind.toLowerCase()} ${p.t ? p.t.id : p.tr ? p.tr.id : ''}: ${p.kort.toLowerCase()}`, { zaak: p.key, t: p.t ? p.t.id : null });
+    A.log(`paste een voorstel toe bij ${p.kind.toLowerCase()} ${p.t ? p.t.id : p.tr ? p.tr.id : ''}: ${p.kort.toLowerCase()}${p.winst && p.winst.min ? ` (${p.winst.min} min winst)` : ''}`, { zaak: p.key, t: p.t ? p.t.id : null });
+    for (const b of p.berichten || []) A.log(`gaf ${b.aan} de nieuwe ETA door: "${b.tekst}"`, { zaak: p.key, t: p.t ? p.t.id : null });
     if (p.t) feed.unshift({ T: state.simTime, t: p.t, txt: `voorstel toegepast: ${p.kort.toLowerCase()}`, sev: 'ok' });
     frame(true); refreshAll();
-    L.toast(`Toegepast: ${p.kort}.${p.t ? ` ${p.t.id} heeft een bericht gekregen.` : ''}`, { icon: 'check' });
+    L.toast(`Toegepast: ${p.kort}.${p.winst && p.winst.min ? ` ${p.winst.min} min winst.` : ''}${p.t ? ` ${p.t.id} heeft een bericht gekregen.` : ''}`, { icon: 'check' });
   }
   function restoreActs() {
     for (const [id, L2] of Object.entries(A.acts.msgs)) { const t = fleet.byId.get(id); if (t && Array.isArray(L2)) { t.msgs = L2; msgCount += L2.filter(m => m.me).length; } }
@@ -202,9 +210,12 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     for (const t of fleet.trucks) {
       const s = stAt(t, T); S.set(t.id, s);
       const sc = inScope(t); const p = prevSt.get(t.id); if (p && p !== s.st && sc && !jumped) pushEvent(t, s, p); prevSt.set(t.id, s.st);
-      // uitzonderingen: voor alle voertuigen (de zaken houden ook buiten het werkgebied hun toestand)
-      if (s.st === 'vertraagd' && s.next && !s.next.home) ex.push({ key: rk('V', t), sev: 'bad', kind: 'Vertraging', t, text: `${s.next.name}: ETA ${hhmm(s.next.eta)}${s.next.win ? `, venster tot ${hhmm(s.next.win[1])}` : ''} (+${s.next.delay} min)`, data: { delay: s.next.delay, missed: !!(s.next.win && s.next.eta > s.next.win[1]) } });
-      else if (s.st === 'vertraagd' && s.next && s.next.home && s.next.volgende) ex.push({ key: rk('V', t), sev: 'warn', kind: 'Vertraging', t, text: `terug op ${t.base.n} om ${hhmm(s.next.eta)} (+${s.next.delay} min); dienst ${s.next.volgende.i + 1} van ${s.next.volgende.driver} start ${hhmm(s.next.volgende.start)}`, data: { delay: s.next.delay } });
+      // uitzonderingen: voor alle voertuigen (de zaken houden ook buiten het werkgebied hun toestand). Een vertraging is pas
+      // een zaak als een stop daardoor na zijn venster aankomt (fleet.vertraging); binnen het venster vraagt het niets.
+      const vt = fleet.vertraging(t, T, s);
+      if (vt) { const e = vt.eerste; const n = vt.laat.length - 1; ex.push({ key: rk('V', t), sev: 'bad', kind: 'Vertraging', t, text: `${e.naam}: ETA ${hhmm(e.eta)}, venster tot ${hhmm(e.venster[1])}, ${e.laat} min te laat${n ? ` (en ${n} ${n === 1 ? 'stop' : 'stops'} meer)` : ''}`, data: { delay: vt.achter, missed: true, laat: e.laat, n: vt.laat.length, oorzaak: vt.oorzaak } }); }
+      const dw = fleet.dockWissel(t, T);
+      if (dw) ex.push({ key: rk('D', t), sev: 'warn', kind: 'Dock', t, text: `dock ${dw.oud} buiten gebruik; ${dw.soort === 'aankomst' ? 'afkoppelen' : dw.soort === 'laden' ? 'laden' : 'koppelen'} om ${hhmm(dw.a)} aan dock ${dw.nieuw}`, data: { dock: dw.nieuw, oud: dw.oud, om: dw.a } });
       if ((s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240 && !t.breakPlanned) { const left = Math.max(0, 270 - Math.floor(s.drive)); ex.push({ key: rk('R', t), sev: 'warn', kind: 'Rijtijd', t, text: `${s.driver || t.id}: ${fmtDrive(s.drive)} van 4:30 rijtijd, pauze binnen ${left} min`, data: { left } }); }
       if (t.ev && s.soc < 20 && s.st !== 'terrein' && !t.chargePlanned) ex.push({ key: rk('A', t), sev: 'warn', kind: 'Accu', t, text: `Accu ${Math.round(s.soc)} % · ${Math.round(t.range * s.soc / 100)} km bereik · ${s.next ? s.next.name : t.base.n}`, data: { soc: s.soc } });
       if (t.storing && s.st !== 'terrein' && !t.workorder) ex.push({ key: rk('T', t), sev: 'bad', kind: 'Techniek', t, text: t.storing, data: {} });

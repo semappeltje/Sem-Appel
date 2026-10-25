@@ -42,6 +42,7 @@ export function createNav(ctx) {
       <div class="top-r"><div class="zoek" id="zoek" role="search"></div><span class="vsep"></span>
         <button class="tbtn" type="button" id="wgBtn" aria-haspopup="true" aria-expanded="false" title="Werkgebied en opgeslagen weergaven">${ic('pin', 16)}<span class="tx">${esc(ctx.scopeLabel())}</span>${ic('chevd', 14, 'chev')}</button>
         <button class="tbtn" type="button" id="roleBtn" aria-haspopup="true" aria-expanded="false" title="Bekijk als">${ic('idcard', 16)}<span class="tx opt">${esc(rn)}</span>${ic('chevd', 14, 'chev')}</button>
+        ${ctx.fleet.scenario ? `<button class="badge b-info" type="button" id="oefenChip" data-open="view:instellingen" title="${esc(ctx.fleet.scenario.naam)}: alles is gesimuleerd. Uitzetten onder Instellingen.">${ic('activity', 13)}${esc(ctx.fleet.scenario.kort)}</button>` : ''}
         <button class="clock ${st.playing ? '' : 'paused'}" type="button" id="clockBtn" aria-haspopup="true" aria-expanded="false" title="Simulatie: tijd en snelheid"><i aria-hidden="true"></i><b id="clock">${hhmm(st.simTime)}</b><small class="tx opt">${st.playing ? `${st.speed}×` : 'pauze'}</small></button>
         <span class="vsep"></span>
         <button class="ib ${ctx.panelMode() === 'assist' && ctx.panelOpen() ? 'on' : ''}" type="button" id="assistBtn" title="Assistent (a)" aria-label="Assistent">${ic('spark', 18)}</button>

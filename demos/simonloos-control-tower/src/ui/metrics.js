@@ -11,8 +11,9 @@ export function createMetrics(ctx) {
       const L = []; const P = t.plan;
       for (let i = 0; i < P.length; i++) {
         const s = P[i]; if (s.k !== 'stop') continue; const d = P[i - 1]; const mark = s.route && s.route.marks ? s.route.marks[s.idx] : null;
-        // venster zoals de planner het ziet (effWin): een stop is te laat als hij na het einde daarvan aankomt
-        const w = d && d.k === 'drive' && d.win ? effWin(d.win, s.t0 - (d.delay || 0)) : null;
+        // venster zoals de planner het ziet (effWin): een stop is te laat als hij na het einde daarvan aankomt; de geplande
+        // aankomst is die zonder vertraging (gepland als een eerdere vertraging het plan opschoof, op de oefendag)
+        const w = d && d.k === 'drive' && d.win ? effWin(d.win, d.gepland !== undefined ? d.gepland - t.dayStart : s.t0 - (d.delay || 0)) : null;
         L.push({ t0: s.t0, t1: s.t1, w1: w ? w[1] : null, klant: s.pickup ? null : klantNaam(s.stop, t, mark), sp: t.base.n });
       }
       idx.set(t, L);
@@ -23,12 +24,15 @@ export function createMetrics(ctx) {
   function stAt(t, T) {
     const rel = relOf(t, T); const P = t.plan; let seg = P[P.length - 1];
     for (let i = 0; i < P.length; i++) { const s = P[i]; if (rel >= s.t0 && rel < s.t1) { seg = s; break; } }
-    const st = seg.k === 'drive' ? (seg.delay > 0 && !t.delayResolved ? 'vertraagd' : 'onderweg') : seg.k === 'stop' ? 'klant' : seg.k === 'pauze' || (seg.k === 'laden' && seg.route) ? 'pauze' : 'terrein';
+    // Zoals fleet.stateAt.
+    const achter = seg.delay > 0 || (seg.gepland !== undefined && t.dayStart + seg.t1 > seg.gepland + 0.5);
+    const st = seg.k === 'drive' ? (achter && !t.delayResolved ? 'vertraagd' : 'onderweg') : seg.k === 'stop' ? 'klant' : seg.k === 'pauze' || (seg.k === 'laden' && seg.route) ? 'pauze' : 'terrein';
     return { st, laden: seg.k === 'laden' };
   }
   // stops van vandaag (sinds middernacht) tot T: aantal en hoeveel na het tijdvenster aankwamen; een stop telt mee zodra de
-  // wagen er weer weg is. Een stop na middernacht van de vorige cyclus (nachtrit) hoort bij vandaag.
-  const doneBy = (t, x, T) => { const a = t.dayStart + x.t1; return a <= T || (a >= 1440 && a - 1440 <= T); };
+  // wagen er aankomt (dan is bekend of hij binnen het venster was, ook als het lossen nog duurt). Een stop na middernacht
+  // van de vorige cyclus (nachtrit) hoort bij vandaag.
+  const doneBy = (t, x, T) => { const a = t.dayStart + x.t0; return a <= T || (a >= 1440 && a - 1440 <= T); };
   function stopsTill(t, T) { let n = 0, late = 0; for (const x of index().get(t) || []) { if (x.klant === null || !doneBy(t, x, T)) continue; n++; if (x.w1 !== null && x.t0 > x.w1 + 0.5) late++; } return { n, late }; }
   function sample(T, trucks, trailers) {
     index(); const o = { onderweg: 0, vertraagd: 0, klant: 0, pauze: 0, terrein: 0, laden: 0, stops: 0, late: 0, wacht: 0, wachtLaat: 0 };

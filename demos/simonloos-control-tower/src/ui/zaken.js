@@ -11,6 +11,8 @@ import { esc, ic, fmt, hhmm, day, durTxt, plate, meter, kv, on, zBadge, ZST, SOO
 import { TRT } from '../fleet.js';
 import { createTable } from './table.js';
 import * as IP from './inplannen.js';
+import { kandidaten as plekKandidaten, ritInvoer } from './planwijzig.js';
+import { berichtHtml } from './assistent.js';
 
 // gebeurtenissen van fleet.eventsOf in een zin (met dock, oplegger, wachttijd en wat er geladen wordt)
 const bij = e => (e.bij ? ` bij ${e.bij}` : e.naam && e.naam !== 'onderweg' ? ` bij ${e.naam}` : '');
@@ -36,7 +38,9 @@ export function createZaken(ctx) {
     if (o.tr) { const s = fleet.trailerStateAt(o.tr, T); return o.kind === 'Koeling' ? !!o.tr.storing && (s.st === 'gekoppeld' || s.st === 'geladen') : !!s.late; }
     if (o.rit && ritBij(o.t, T) !== o.rit) return false;
     const s = fleet.stateAt(o.t, T);
-    if (o.kind === 'Vertraging') return s.st === 'vertraagd';
+    // een vertraging is een zaak zolang een stop daardoor na zijn venster aankomt (fleet.vertraging, zoals ui.frame)
+    if (o.kind === 'Vertraging') return !!fleet.vertraging(o.t, T, s);
+    if (o.kind === 'Dock') return !!fleet.dockWissel(o.t, T);
     if (o.kind === 'Rijtijd') return (s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240;
     if (o.kind === 'Accu') return o.t.ev && s.soc < 20 && s.st !== 'terrein';
     if (o.kind === 'Techniek') return !!o.t.storing && s.st !== 'terrein';
@@ -56,7 +60,8 @@ export function createZaken(ctx) {
   let hist = new Map(), histT = -1, histBusy = false;
   const truckKinds = (t, T) => {
     const s = fleet.stateAt(t, T); const k = [];
-    if (s.st === 'vertraagd' && s.next && (!s.next.home || s.next.volgende)) k.push('V');
+    if (fleet.vertraging(t, T, s)) k.push('V');
+    if (t.dockWissel && fleet.dockWissel(t, T)) k.push('D');
     if ((s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240 && !t.breakPlanned) k.push('R');
     if (t.ev && s.soc < 20 && s.st !== 'terrein' && !t.chargePlanned) k.push('A');
     if (t.storing && s.st !== 'terrein' && !t.workorder) k.push('T');
@@ -69,9 +74,10 @@ export function createZaken(ctx) {
     return k;
   };
   function histText(L, o, T) {
+    if (L === 'D') { const w = fleet.dockWissel(o, T); return w ? `dock ${w.oud} buiten gebruik; ${w.soort === 'aankomst' ? 'afkoppelen' : 'koppelen'} om ${hhmm(w.a)} aan dock ${w.nieuw}` : 'dock buiten gebruik'; }
     if (L === 'V' || L === 'R' || L === 'A') {
       const s = fleet.stateAt(o, T);
-      if (L === 'V') return s.next ? `${s.next.home ? `terug op ${o.base.n}` : s.next.name}: +${s.next.delay || 0} min vertraging` : 'rit met vertraging';
+      if (L === 'V') { const v = fleet.vertraging(o, T, s); return v ? `${v.eerste.naam}: ${v.eerste.laat} min na het venster${v.laat.length > 1 ? ` (en ${v.laat.length - 1} ${v.laat.length === 2 ? 'stop' : 'stops'} meer)` : ''}` : 'rit met vertraging'; }
       if (L === 'R') return `${s.driver || o.id}: ${fmtDrive(s.drive)} van 4:30 rijtijd zonder geplande pauze`;
       return `Accu ${Math.round(s.soc)} % · ${Math.round(o.range * s.soc / 100)} km bereik`;
     }
@@ -111,6 +117,7 @@ export function createZaken(ctx) {
     if (kind === 'Accu') return Math.max(0, Math.min(1, (20 - (d.soc || 20)) / 20));
     if (kind === 'Koeling') return 1;
     if (kind === 'Oplegger') return Math.min(1, (d.late || 0) / 360);
+    if (kind === 'Dock') return 0.3;
     return 0.5;
   }
 
@@ -143,7 +150,7 @@ export function createZaken(ctx) {
       const e = present ? byKey.get(key) : null; const status = statusOf(r, present, T);
       const t = o.t || (e && e.t) || null; const base = o.tr ? o.tr.base : t ? t.base : null; if (!base) continue;
       const since = r.since !== undefined ? r.since : r.first; const age = Math.max(0, day(T - since)); const norm = A.settings.norm(o.kind);
-      const sev = e ? e.sev : (o.kind === 'Rijtijd' || o.kind === 'Accu' || o.kind === 'Oplegger' ? 'warn' : 'bad');
+      const sev = e ? e.sev : (o.kind === 'Rijtijd' || o.kind === 'Accu' || o.kind === 'Oplegger' || o.kind === 'Dock' ? 'warn' : 'bad');
       const imp = impactOf(o.kind, e && e.data);
       const z = kort(o, {
         key, id: zaakId(key), kind: o.kind, sev, t: o.tr ? (e && e.t && e.t.kind ? e.t : null) : t, tr: o.tr, obj: o.id, base, spn: base.n, div: o.tr ? o.tr.div : t.div,
@@ -164,7 +171,7 @@ export function createZaken(ctx) {
       const r0 = A.acts.handled[key]; if (r0 && r0.first !== undefined && r0.first !== null) continue;
       const o = objOf(key); if (!o.t && !o.tr) continue; const t = o.t; const base = o.tr ? o.tr.base : t.base;
       out.push(kort(o, {
-        key, id: zaakId(key), kind: o.kind, sev: o.kind === 'Rijtijd' || o.kind === 'Accu' || o.kind === 'Oplegger' ? 'warn' : 'bad', t: o.tr ? null : t, tr: o.tr, obj: o.id, base, spn: base.n, div: o.tr ? o.tr.div : t.div,
+        key, id: zaakId(key), kind: o.kind, sev: o.kind === 'Rijtijd' || o.kind === 'Accu' || o.kind === 'Oplegger' || o.kind === 'Dock' ? 'warn' : 'bad', t: o.tr ? null : t, tr: o.tr, obj: o.id, base, spn: base.n, div: o.tr ? o.tr.div : t.div,
         present: false, status: 'opgelost', open: false, who: '', until: 0, wachtOp: '', done: false, first: h.first, since: h.first, closedAt: h.closedAt, closedBy: 'vanzelf', age: Math.max(0, h.closedAt - h.first), norm: A.settings.norm(o.kind), sla: 0, text: h.text, data: null, rec: { log: [], notes: [] }, imp: 0, notes: [], driver: h.driver || '', prio: 'laag', urgency: 0, hist: true,
       }));
     }
@@ -378,6 +385,8 @@ function bindBord(ctx, el) {
 // Kop met naam en status, de statusbalk (klik een stap om de status te zetten), slimme knoppen naar wat erbij hoort,
 // de drie getallen die ertoe doen, dan de voorstellen en onderaan het logboek.
 const vsCache = new Map();
+// de geplande begintijd van een rit die door een eerdere vertraging opschoof (gepland op zijn eerste rijstuk), anders null
+function geplandeStart(t, r) { const P = t.plan; for (let i = r.i0; i <= r.i1; i++) { const x = P[i]; if (x && x.k === 'drive' && x.gepland !== undefined) { const schuif = t.dayStart + x.t1 - (x.delay || 0) - x.gepland; return schuif >= 1 ? t.dayStart + P[r.i0].t0 - schuif : null; } } return null; }
 // de ritten van het voertuig die door de zaak in gevaar komen, met de beste plek elders (getoetst met toets.js)
 function ritVoorstellen(ctx, z) {
   const t = z.t; if (!t || !(z.open || z.status === 'wacht') || !ctx.can('act')) return [];
@@ -389,7 +398,14 @@ function ritVoorstellen(ctx, z) {
   else if (z.kind === 'Accu') L = gepland.slice(0, 1);
   L = L.slice(0, 2); if (!L.length) return [];
   const sig = `${z.key}|${ctx.R.ver()}|${Math.floor(T / 5)}`; const c = vsCache.get(sig); if (c) return c;
-  const out = L.map(r => ({ r, k: IP.besteVoor(ctx, r) })).filter(x => x.k);
+  // een rit die door een vertraging opschoof, zoekt een plek op zijn geplande tijd (dan wint hij die minuten terug), en niet
+  // op het voertuig dat de assistent al voorstelt (zodat dit een echt alternatief is)
+  const p = ctx.voorstelVoor(z.key); const al = p && p.act && p.act.naar;
+  const out = L.map(r => {
+    const g = z.kind === 'Vertraging' ? geplandeStart(t, r) : null; if (g === null) return { r, k: IP.besteVoor(ctx, r) };
+    const start = Math.max(g, Math.ceil((T + 20) / 5) * 5); let K = []; try { K = plekKandidaten(ctx, ritInvoer(r), { zonder: r, start, max: 6 }); } catch { K = []; }
+    return { r, k: K.find(k => k.uitslag.ok && k.t !== t && k.t.id !== al) || null };
+  }).filter(x => x.k);
   if (vsCache.size > 40) vsCache.clear(); vsCache.set(sig, out); return out;
 }
 export function zaakPage(ctx, id) {
@@ -400,7 +416,12 @@ export function zaakPage(ctx, id) {
   const zr0 = z.rit ? ctx.R.get(z.rit) : null; const gepland = r => ctx.R.stateOf(r, T, ctx.S).st === 'gepland';
   const zrit = zr0 && gepland(zr0) ? zr0 : t ? ctx.R.ofTruck(t).find(r => r !== zr0 && gepland(r)) || null : null;
   let k3 = [];
-  if (z.kind === 'Vertraging') k3 = [['ETA', s && s.next ? hhmm(s.next.eta) : '–', s && s.next ? esc(s.next.name) : ''], ['Afwijking', d.delay ? `+${d.delay} <em>min</em>` : '–', s && s.next && s.next.win ? `venster ${hhmm(s.next.win[0])}–${hhmm(s.next.win[1])}` : 'geen venster'], ['Status', s ? ctx.VST[s.st].n : '–', t ? esc(t.base.n) : '']];
+  const vt = z.kind === 'Vertraging' && t ? ctx.fleet.vertraging(t, T) : null; const dw = z.kind === 'Dock' && t ? ctx.fleet.dockWissel(t, T) : null;
+  // ligt de eerste stop die te laat komt in een volgende rit, dan staat die rit erbij (de zaak hoort bij de rit van nu)
+  const vtRit = vt ? (ctx.R.ofTruck(t).find(r => vt.eerste.i >= r.i0 && vt.eerste.i <= r.i1) || {}).id || null : null;
+  if (vt) k3 = [['ETA', hhmm(vt.eerste.eta), `${esc(vt.eerste.naam)}${vtRit && vtRit !== z.rit ? ` · rit ${esc(vtRit)}` : ''}`], ['Te laat', `${vt.eerste.laat} <em>min</em>`, `venster ${hhmm(vt.eerste.venster[0])}–${hhmm(vt.eerste.venster[1])}`], ['Achter op plan', `+${vt.achter} <em>min</em>`, `${vt.laat.length} ${vt.laat.length === 1 ? 'stop' : 'stops'} na het venster`]];
+  else if (z.kind === 'Vertraging') k3 = [['ETA', s && s.next ? hhmm(s.next.eta) : '–', s && s.next ? esc(s.next.name) : ''], ['Afwijking', d.delay ? `+${d.delay} <em>min</em>` : '–', s && s.next && s.next.win ? `venster ${hhmm(s.next.win[0])}–${hhmm(s.next.win[1])}` : 'geen venster'], ['Status', s ? ctx.VST[s.st].n : '–', t ? esc(t.base.n) : '']];
+  else if (z.kind === 'Dock') k3 = [['Nieuw dock', dw ? `${dw.nieuw}` : d.dock ? `${d.dock}` : '–', dw ? `was dock ${dw.oud}` : ''], ['Om', dw ? hhmm(dw.a) : d.om ? hhmm(d.om) : '–', dw ? (dw.soort === 'aankomst' ? 'afkoppelen' : 'koppelen') : ''], ['Buiten gebruik', dw ? `tot ${hhmm(dw.tot)}` : '–', dw ? esc(dw.reden || '') : '']];
   else if (z.kind === 'Rijtijd') k3 = [['Rijtijd', s ? `${fmtDrive(s.drive)} <em>/ 4:30</em>` : '–', 'sinds de laatste pauze'], ['Pauze uiterlijk', s ? hhmm(T + Math.max(0, 270 - s.drive)) : '–', s ? `over ${durTxt(Math.max(0, 270 - s.drive))}` : ''], ['Volgende stop', s && s.next ? hhmm(s.next.eta) : '–', s && s.next ? esc(s.next.name) : '']];
   else if (z.kind === 'Accu') k3 = [['Accu', s ? `${Math.round(s.soc)} <em>%</em>` : '–', t ? `${Math.round(t.range * (s ? s.soc : 0) / 100)} km bereik` : ''], ['Volgende stop', s && s.next ? hhmm(s.next.eta) : '–', s && s.next ? esc(s.next.name) : ''], ['Nog te rijden', s && s.next ? `${nl1(s.next.kmLeft)} <em>km</em>` : '–', 'tot de volgende stop']];
   else if (z.kind === 'Techniek') k3 = [['Storing', 'Boordcomputer', esc(t ? t.storing || '' : '')], ['Status', s ? ctx.VST[s.st].n : '–', s && s.next ? `volgende: ${esc(s.next.name)}` : ''], ['Volgende dienst', t && t.diensten.find(x => x.start > T) ? hhmm(t.diensten.find(x => x.start > T).start) : 'geen', t && t.diensten.find(x => x.start > T) ? esc(t.diensten.find(x => x.start > T).driver) : 'vandaag niet meer']];
@@ -411,7 +432,7 @@ export function zaakPage(ctx, id) {
   const tl = ctx.Z.timeline(z).map(e => `<li class="tli ${e.kind === 'act' || e.kind === 'note' ? 'act' : e.kind === 'veh' ? 'veh' : 'done'}"><time>${hhmm(e.T)}</time><div class="tl-c"><b>${esc(e.txt)}</b>${e.sub ? `<span>${esc(e.sub)}</span>` : ''}</div></li>`).join('');
   // voorstellen: de assistent (met het effect) en per rit in gevaar de beste plek elders
   const effect = p && p.effect && p.effect.length ? `<ul class="eff">${p.effect.map(x => `<li class="${x.cls || ''}">${esc(x.t)}</li>`).join('')}</ul>` : '';
-  const assist = p ? `<section class="prop focus" aria-label="Voorstel van de assistent"><div class="prop-h">${ic('spark', 15)}Voorstel van de assistent · ${esc(p.kort)}</div><p>${esc(p.action)}</p>${effect}<details><summary>Waarom dit voorstel</summary><div>${esc(p.why)}</div></details><div class="prop-a">${can ? `<button class="btn pri" type="button" data-pastoe="${esc(p.id)}" id="zaakPasToe">${ic('check', 15)}Pas toe</button>` : '<span class="hint">Alleen planners en regiomanagers passen voorstellen toe.</span>'}<span class="hint">Het plan verandert echt: dagplan, ETA's en het vertrekbord schuiven mee, de chauffeur krijgt een bericht.</span></div></section>`
+  const assist = p ? `<section class="prop focus" aria-label="Voorstel van de assistent"><div class="prop-h">${ic('spark', 15)}Voorstel van de assistent · ${esc(p.kort)}</div><p>${esc(p.action)}</p>${effect}${berichtHtml(p)}<details><summary>Waarom dit voorstel</summary><div>${esc(p.why)}</div></details><div class="prop-a">${can ? `<button class="btn pri" type="button" data-pastoe="${esc(p.id)}" id="zaakPasToe">${ic('check', 15)}Pas toe</button>` : '<span class="hint">Alleen planners en regiomanagers passen voorstellen toe.</span>'}<span class="hint">${esc(p.hint || 'Het plan verandert echt: dagplan, ETA\'s en het vertrekbord schuiven mee, de chauffeur krijgt een bericht.')}</span></div></section>`
     : z.rec.applied ? `<section class="prop done"><div class="prop-h">${ic('okc', 15)}Voorstel toegepast</div><p>${esc(z.rec.applied)}</p></section>` : '';
   const RV = ritVoorstellen(ctx, z);
   const ritVs = RV.map(({ r, k }, i) => { const lo = k.uitslag.regels.filter(x => x.ernst === 'let op').slice(0, 2); return `<section class="prop" aria-label="Rit ${esc(r.id)} elders"><div class="prop-h">${ic('target', 15)}Waar past rit ${esc(r.id)}?</div><p>${k.nieuw ? `Op <b>${esc(k.t.id)}</b> als nieuwe dienst met ${esc(k.wie || 'een reservechauffeur')}` : `Op <b>${esc(k.t.id)}</b> in de dienst van ${esc(k.wie)}`}, vertrek ${hhmm(k.start)}. ${esc(r.klant)} · ${esc(r.dest.slice(0, 2).join(', '))}.</p><p class="eff1">${IP.effectHtml(k.uitslag)}</p>${lo.length ? `<ul class="wp-r">${lo.map(x => `<li class="twarn">${ic('alert', 13)}${esc(x.tekst)}</li>`).join('')}</ul>` : ''}<div class="prop-a"><button class="btn ${p ? '' : 'pri'}" type="button" data-zkies="${i}">${ic('swap', 15)}Zet hier</button><button class="btn ghost" type="button" data-zwaar="${esc(r.id)}">Andere plekken</button><span class="hint">Getoetst op overlap, venster, rijtijd, rust, accu, oplegger en dock.</span></div></section>`; }).join('');

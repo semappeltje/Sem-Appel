@@ -128,6 +128,7 @@ node tests/3d-check.mjs http://127.0.0.1:8774/index.html      # de 3D-wereld
 node tests/portretten-check.mjs http://127.0.0.1:8774/index.html  # de beelden van voertuigen en opleggers (foto of render)
 node tests/open-ritten-check.mjs http://127.0.0.1:8774/index.html # de vraagkant op de data, bellen zonder tel:, de Assistent door de echte serverfunctie
 node tests/assistent-check.mjs                                # de serverfunctie van de Assistent, zonder browser
+node tests/voorstel-check.mjs http://127.0.0.1:8774/index.html # voorstellen met winst, Op tijd bij aankomst, vertrek per kandidaat, de oefendag
 node tests/otm5-check.mjs                                     # de vertaling naar en van OTM5 (zie src/otm5.js)
 ```
 
@@ -155,7 +156,11 @@ Toewijzen werkt voor alle drie de groepen hetzelfde: de vraag gaat uit (een eige
 hem op de boordcomputer; bij een oproepkracht of charter staat het bericht klaar om te kopiëren, te mailen of voor te
 lezen), de rit staat gearceerd op het planbord, en "Ja, bevestigd" of "Kan niet" maakt het af. Een rit van vandaag
 komt op het vrije voertuig dat de data kiest, in een eigen dienst; een charter, een rit van morgen of een rit zonder
-vrij voertuig krijgt een eigen rij. Loopt het venster al, dan vertrekt de rit een kwartier na de vraag.
+vrij voertuig krijgt een eigen rij. Het vertrek hangt af van wie rijdt (`aanrij` en `vertrek` op elke kandidaat, schatting):
+wie thuis is, moet eerst naar de standplaats (35 tot 65 minuten, vast per persoon; een oproepkracht van een standplaats
+verderop rijdt die afstand erbij), een eigen chauffeur die na zijn dienst rijdt vertrekt na die dienst en het koppelen, een
+charter rijdt van zijn eigen plaats. Loopt het venster al, dan vertrekt de rit zodra die kandidaat er kan zijn; het blok op
+het planbord en het bericht hebben die tijd, en de kandidaat krijgt de waarschuwing aanrijtijd.
 
 Rusttijd: de cao beroepsgoederenvervoer is strenger dan EU 561/2006. EU 561 staat drie keer 9 uur verkorte rust toe
 tussen twee weekrusten; de cao hoogstens drie keer 10 uur, verder 11 uur (Staatscourant 2026, nr. 7211; status zoek,
@@ -171,6 +176,49 @@ ingevuld; OTM5, zie `src/otm5.js` en `rapporten/simon-loos-control-tower/echte-d
 boordcomputer, het rooster en de uren uit het roostersysteem (voor rij- en rusttijd en de weekuren), de flexibele
 schil uit de inhuur (charters met tarief en beschikbaarheid, oproepkrachten met hun beschikbaarheid), en voorkeuren
 uit een chauffeursapp (vrijwillig). De functies hierboven rekenen dan ongewijzigd op die records.
+
+## Vertragingen, voorstellen met winst en de oefendag
+
+**Een vertraging is een zaak als een stop daardoor na zijn venster aankomt** (`fleet.vertraging(t, T)`): het voertuig
+loopt nu achter op het plan (het rijdt een stuk met vertraging, of een eerdere vertraging schoof de rest van zijn plan
+op) en een stop in deze dienst of de volgende komt na het einde van zijn venster. Een vertraging op een stuk dat nog
+moet komen, telt niet (die weet de planner nog niet); binnen het venster vraagt het niets. De zaak noemt de eerste stop
+die te laat komt, hoeveel minuten, en hoeveel stops er nog meer te laat komen. Aan het eind van een rit is de volgende
+stop de standplaats, ook als het voertuig daar eerst pauzeert of de volgende oplegger koppelt.
+
+**Elk voorstel heeft winst, gerekend met de simulatie zelf.** De assistent voert het voorstel op proef uit
+(`fleet.proef`: dezelfde functies als Toepassen, daarna wordt alles teruggezet) en leest de ETA van elke geraakte stop
+voor en na. Bij een vertraging:
+
+- Volgende rit naar een ander voertuig: een rit die door de vertraging later vertrekt en nog niet begon, gaat op de
+  geplande tijd naar een vrij voertuig van de standplaats met een vrije chauffeur (vandaag vrij, getoetst op overlap,
+  venster, rijtijd, rust, accu, oplegger en dock; vertrek niet eerder dan de chauffeur er van huis kan zijn). Het effect
+  per stop: "AH Nibbixwoud 12:38 in plaats van 13:14 (36 min winst), venster gehaald" (oefendag, 07:30). De klanten van
+  de rit die het voertuig nu rijdt, krijgen in hetzelfde voorstel de nieuwe ETA.
+- Nieuwe ETA aan de klant: als niets eerder kan (de lading zit in de wagen), krijgt elke klant die te laat bediend wordt
+  de nieuwe ETA met een volg-link en een bericht ("Je levering van vandaag komt later: rond 07:52 in plaats van uiterlijk
+  07:30, door een file op de A7 tussen Hoorn en Purmerend."); het venster gaat mee (`fleet.klantEta`).
+
+Een voorstel zonder winst komt niet in de lijst. De andere soorten noemen wat ze opleveren (`winst`: geen overtreding van
+de rijtijd, genoeg accu, de lading blijft koel, de winkel heeft zijn plek terug). Toepassen voert de acties op volgorde
+uit (`p.acts`; bewaard en na herladen opnieuw uitgevoerd) en geeft dezelfde ETA's als beloofd; `tests/voorstel-check.mjs`
+controleert dat op een gewone dag en op de oefendag.
+
+**Op tijd telt bij aankomst**: een stop telt mee zodra de wagen er aankomt (dan is bekend of hij binnen het venster was),
+niet pas als hij weer weg is (`src/ui/metrics.js`).
+
+**De oefendag** (`?scenario=druk` in de adresbalk, of Instellingen, "Oefendag: een drukke dag"; standaard uit, bewaard in
+`sl-oefendag`; `?scenario=gewoon` zet hem voor één keer uit). Een vaste drukke dag bovenop de gewone, elke keer hetzelfde
+(`src/oefendag.js`, toegepast aan het eind van `createFleet`, zodat de rest gelijk blijft): twee chauffeurs van Wognum
+melden zich om 04:30 ziek (hun ritten staan bij de open ritten, met reden ziek), een file op de A7 tussen Hoorn en
+Purmerend richting Purmerend van 06:30 tot 08:45 (elke rit die daar dan rijdt 25 tot 40 minuten later, midden in de file
+het langst; de vensters van de klanten blijven staan, dus de stops erna komen echt te laat), het drukste dock van Wognum
+buiten gebruik van 07:00 tot 11:00 (de blokken gaan naar een ander dock; de chauffeur krijgt een zaak "Dock" met het
+voorstel het nieuwe dock door te geven) en een koelstoring op een koeloplegger van Wognum. Een chip "Oefendag" in de
+topbalk; alles is gesimuleerd. De acties op de oefendag staan apart (`sl-acties-oefendag`), zodat de gewone dag precies
+blijft zoals hij was. Wat er gebeurde, met de aantallen, staat in `fleet.scenario`. De vorm is die van echte meldingen
+(een file uit NDW, een ziekmelding uit het rooster, een dock uit de hal, een koelstoring uit de telematica), zodat een
+echte bron hem later kan vullen.
 
 ## Assistent met de Claude API
 

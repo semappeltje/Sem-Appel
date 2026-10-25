@@ -12,7 +12,26 @@ const KEYS = {
   'sl-acties': 'Acties van vandaag: zaken, notities, toegepaste voorstellen, berichten, logboek', 'sl-views': 'Opgeslagen weergaven', 'sl-instellingen': 'Je naam en meldingsnormen',
   'sl-kolommen': 'Gekozen kolommen per tabel', 'sl-lostijden': 'Overgenomen lostijden', 'sl-rest': 'Je beoordelingen van pauzeplekken', 'sl-overdracht': 'Overdracht naar de volgende dienst',
   'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter, dimmen en bezorgbussen op de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-tabelweergaven': 'Opgeslagen weergaven per tabel', 'sl-meldweergave': 'Meldingen als lijst of als bord', 'sl-pbhint': 'Uitleg bij het planbord gelezen', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
+  'sl-oefendag': 'Oefendag aan of uit', 'sl-acties-oefendag': 'Acties op de oefendag: zaken, notities, toegepaste voorstellen, berichten, logboek (apart van de gewone dag)',
 };
+// ---------- oefendag: een vaste drukke dag om mee te oefenen (src/oefendag.js, fleet.scenario) ----------
+// Aan of uit vraagt een herlaad: de dag wordt bij het laden opgebouwd. ?scenario=druk in de adresbalk zet hem ook aan (en
+// ?scenario=gewoon uit); de schakelaar haalt dat uit de adresbalk, zodat herladen doet wat je koos.
+const KLOK = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m) % 60).padStart(2, '0')}`;
+function oefendagRegels(sc) {
+  return sc.verstoringen.map(v => {
+    if (v.soort === 'ziek') return ['Ziekmeldingen', `${v.diensten.length} chauffeurs van ${v.standplaats} om ${KLOK(v.om)}; ${v.ritten.length} ${v.ritten.length === 1 ? 'rit staat' : 'ritten staan'} bij de open ritten`];
+    if (v.soort === 'file') return ['File', `${v.weg} tussen Hoorn en Purmerend, richting Purmerend, ${KLOK(v.van)} tot ${KLOK(v.tot)}: ${v.ritten} ${v.ritten === 1 ? 'rit' : 'ritten'} ${v.minuten && v.minuten.length ? `${Math.min(...v.minuten)} tot ${Math.max(...v.minuten)}` : `${v.vertraging[0]} tot ${v.vertraging[1]}`} min later`];
+    if (v.soort === 'dock') return ['Dock', v.dock ? `dock ${v.dock} van ${v.standplaats} buiten gebruik van ${KLOK(v.van)} tot ${KLOK(v.tot)} (${v.reden}); ${v.verzet} ${v.verzet === 1 ? 'blok' : 'blokken'} naar een ander dock` : 'geen dock gevonden'];
+    if (v.soort === 'koeling') return ['Koeling', v.oplegger ? `${v.oplegger}${v.voertuig ? ` achter ${v.voertuig}` : ''}: koelunit haalt het doel niet (${v.temp} °C)` : 'geen koeloplegger gevonden'];
+    return [v.soort, v.tekst || ''];
+  });
+}
+function zetOefendag(aan) {
+  try { if (aan) localStorage.setItem('sl-oefendag', 'druk'); else localStorage.removeItem('sl-oefendag'); } catch { /* geen opslag */ }
+  try { const u = new URL(location.href); if (u.searchParams.has('scenario')) { u.searchParams.delete('scenario'); history.replaceState(null, '', u.toString()); } } catch { /* adres blijft */ }
+  location.reload();
+}
 function stored(store) { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sl-')) out.push([k, (localStorage.getItem(k) || '').length]); } } catch { /* geen opslag */ } return out.sort((a, b) => a[0].localeCompare(b[0])); }
 const kb = n => n < 1024 ? `${n} tekens` : `${(n / 1024).toFixed(1).replace('.', ',')} kB`;
 
@@ -44,6 +63,10 @@ export function renderInstellingen(ctx, el) {
       ${tg('setRest', ctx.restOnMap(), 'Pauzeplekken', 'De 48 pauzeplekken langs het snelwegennet.')}
       ${tg('setDim', ctx.F.dim, 'Andere standplaatsen gedimd', 'Als je werkgebied één standplaats is, de rest als stippen.')}
     </div></section>
+    <section class="card" aria-labelledby="setOefenH" data-sec="oefendag"><div class="card-h"><h2 id="setOefenH">Oefendag</h2><span class="sub">gesimuleerd</span></div><div class="card-b">
+      ${tg('setOefen', !!ctx.fleet.scenario, 'Oefendag: een drukke dag', 'Een vaste drukke dag om mee te oefenen: twee zieke chauffeurs om 04:30, een file op de A7, een dock buiten gebruik en een koelstoring. Elke keer hetzelfde. De app laadt opnieuw; de gewone dag en je acties daarop blijven zoals ze waren.')}
+      ${ctx.fleet.scenario ? `<table class="tbl plain compact" aria-label="Wat er op de oefendag gebeurt"><tbody>${oefendagRegels(ctx.fleet.scenario).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="wrap">${esc(v)}</td></tr>`).join('')}</tbody></table><p class="hint">Alles op de oefendag is gesimuleerd. Ook met ?scenario=druk in de adresbalk.</p>` : '<p class="hint">Uit: de gewone dag. Ook aan te zetten met ?scenario=druk in de adresbalk.</p>'}
+    </div></section>
     <section class="card" aria-labelledby="setOpslag"><div class="card-h"><h2 id="setOpslag">Bewaard in deze browser</h2><span class="sub">${L.length} ${L.length === 1 ? 'onderdeel' : 'onderdelen'} · ${kb(total)}</span></div><div class="card-b">
       ${L.length ? `<table class="tbl plain compact"><thead><tr><th>Wat</th><th class="r">Grootte</th><th class="r"></th></tr></thead><tbody>${L.map(([k, n]) => `<tr><td class="wrap">${esc(KEYS[k] || k)}<small style="display:block" class="mut">${esc(k)}</small></td><td class="r">${kb(n)}</td><td class="r"><button class="btn ghost xs" type="button" data-wis="${esc(k)}">Wis</button></td></tr>`).join('')}</tbody></table>` : '<p class="hint">Deze browser bewaart nog niets van de control tower.</p>'}
       <p class="hint">Alleen in deze browser, nergens anders. Wissen kan niet ongedaan worden gemaakt.</p>
@@ -66,6 +89,10 @@ export function renderInstellingen(ctx, el) {
     else if (id === 'setBus') ctx.setBussenOnMap(e.target.checked, true);
     else if (id === 'setRest') ctx.setRestOnMap(e.target.checked);
     else if (id === 'setDim') { ctx.F.dim = e.target.checked; ctx.frame(true); }
+    else if (id === 'setOefen') {
+      const aan = e.target.checked; e.target.checked = !aan;
+      ctx.L.confirm({ title: aan ? 'Oefendag aanzetten?' : 'Terug naar de gewone dag?', text: aan ? 'De app laadt opnieuw met een drukke dag (gesimuleerd): twee zieke chauffeurs, een file op de A7, een dock buiten gebruik en een koelstoring. Je acties op de gewone dag blijven bewaard.' : 'De app laadt opnieuw met de gewone dag. Je acties op de oefendag blijven apart bewaard.', ok: aan ? 'Oefendag aan' : 'Gewone dag' }).then(ok => { if (ok) zetOefendag(aan); });
+    }
     else if (e.target.dataset.norm) { S2.setNorm(e.target.dataset.norm, e.target.value); e.target.value = S2.norm(e.target.dataset.norm); ctx.refreshAll(false); ctx.L.toast(`Norm voor ${e.target.dataset.norm.toLowerCase()}: ${S2.norm(e.target.dataset.norm)} minuten.`, { icon: 'clock' }); }
   });
   on(el, 'click', '[data-thema]', (e, b) => { if ((ctx.theme() === 'dark') !== (b.dataset.thema === 'dark')) ctx.toggleTheme(); renderInstellingen(ctx, el); });

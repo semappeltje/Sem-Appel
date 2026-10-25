@@ -31,7 +31,7 @@ export const WAARSCHUWINGEN = {
   voertuig: 'Voertuig: geen vrij voertuig van deze soort op de standplaats',
   code95: 'Code 95 verloopt binnen 60 dagen',
   lzv: 'LZV-bevoegdheid nakijken',
-  aanrijtijd: 'Aanrijtijd: de charter is er pas na het begin van het venster',
+  aanrijtijd: 'Aanrijtijd: kan pas na het begin van het laadvenster vertrekken (eerst nog naar de standplaats)',
 };
 // Dezelfde waarschuwingen kort, voor een chip of het logboek.
 export const WAARSCHUWING_KORT = { rijtijd: 'rijtijd boven 9 uur', rust: 'verkorte rust', pauze: 'pauze inplannen', uren: 'boven de gewenste uren', accu: 'laden onderweg', voertuig: 'nog geen voertuig', code95: 'code 95 verloopt', lzv: 'LZV nakijken', aanrijtijd: 'na het begin van het venster' };
@@ -50,6 +50,29 @@ const OPROEPTERMIJN = 4 * 1440;
 // Bereikbaar als je belt (schatting): 's nachts neemt de helft op, vroeg in de ochtend driekwart, overdag bijna iedereen.
 // Wie op dienst is, bereik je via de boordcomputer; een grote charter heeft 's nachts een planner, een kleine niet.
 export const bereikbaar = T => { const m = ((T % 1440) + 1440) % 1440; return m < 300 ? 0.5 : m < 420 ? 0.75 : m < 1200 ? 0.9 : 0.8; };
+// Aanrijtijd (minuten, schatting): hoe lang het duurt voor een kandidaat met de rit kan vertrekken als je nu vraagt. Wie thuis
+// is, moet de vraag krijgen, reizen en inklokken: 35 tot 65 minuten, vast per persoon (de woonplaats staat niet in de data;
+// met echte data komt dit uit de reistijd van huis naar de standplaats). Een oproepkracht van een standplaats verderop rijdt
+// die afstand erbij. Een charter rijdt van zijn eigen plaats (70 km/u over 1,3 keer de afstand) plus een kwartier.
+const hash01 = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0) / 4294967295; };
+export const thuisMin = id => 35 + Math.round(hash01(`aanrij|${id}`) * 30);
+// Na de eigen dienst: wisselen en koppelen op het terrein.
+export const AANRIJ_KOPPELEN = 15;
+// Het vertrek van een rit voor een kandidaat (absolute minuten): niet voor het venster, niet voor hij er kan zijn, op vijf
+// minuten. Een rit van morgen vertrekt gewoon aan het begin van zijn venster.
+export function vertrekVan(ctx, aanrij, vanaf = -Infinity) {
+  if (ctx.dag === 'morgen') return ctx.a;
+  const kan = Math.max(ctx.T + aanrij, vanaf);
+  return kan > ctx.a + 0.5 ? Math.ceil(kan / 5) * 5 : ctx.a;
+}
+// De aanrijtijd voor een kandidaat van wie alleen soort en id bekend zijn (een bewaarde toewijzing waarvan de kandidaat
+// intussen niet meer in de lijst staat): eigen chauffeur of oproepkracht vanaf huis, een charter vanaf zijn plaats.
+export function aanrijVan(ctx, k) {
+  if (k && k.soort === 'charter') { const ch = CHARTERS.find(c => c.id === k.id); return ch ? Math.round(km(ch, ctx.sp) * 1.3 / 70 * 60 + 15) : 60; }
+  return thuisMin(k && k.id ? k.id : '');
+}
+// Een regel voor de kandidaat als het vertrek later is dan het begin van het venster
+const vertrekRegel = (ctx, vertrek, waarom) => (ctx.dag !== 'morgen' && vertrek > ctx.a + 0.5 ? `vertrekt op zijn vroegst om ${hhmm(vertrek)}: ${waarom} (schatting)` : null);
 
 // ---------- oproepkrachten: zzp'ers, weekendchauffeurs en oproepkrachten (gesimuleerd) ----------
 // Per standplaats ongeveer een op de zestien voertuigen, minstens één. Velden: { id, naam, soort, standplaats, regio, tel,
@@ -122,6 +145,9 @@ export function eigenKandidaat(c, ctx) {
   let gereden = 0, over = 540, toeslag = ctx.weekend ? TOESLAG.weekend : 1, kansJa, hoofd; const uren = ctx.uren;
   const D = c.dienst ? (ctx.dag === 'morgen' ? { ...c.dienst, start: c.dienst.start + 1440, end: c.dienst.end + 1440 } : c.dienst) : null;
   const vrijDag = !D;
+  // aanrijden: van huis, of (een rit na de eigen dienst, die nog loopt of nog moet komen) na die dienst en het koppelen
+  let aanrij = thuisMin(c.id), vanaf = -Infinity, waarom = `eerst ${aanrij} min van huis naar ${ctx.sp.n}`;
+  if (D && ctx.a >= D.end && ctx.dag !== 'morgen' && ctx.T < c.dienst.end) { aanrij = AANRIJ_KOPPELEN; vanaf = D.end + AANRIJ_KOPPELEN; waarom = `na de eigen dienst (klaar om ${hhmm(D.end)}) en het koppelen`; }
   if (!D) {
     const st = ctx.dag === 'morgen' ? c.statusMorgen : c.status; if (st !== 'vrij') return null;
     toeslag = Math.max(toeslag, TOESLAG.vrij);
@@ -149,8 +175,9 @@ export function eigenKandidaat(c, ctx) {
   if (week + ctx.uren > 60) return null;
   if (week + ctx.uren > weekMax) { W.push('uren'); kansJa *= 0.7; }
   if (!ctx.voertuig) W.push('voertuig'); else if (ctx.voertuig.accu) W.push('accu');
+  const vertrek = vertrekVan(ctx, aanrij, vanaf); const vr = vertrekRegel(ctx, vertrek, waarom); if (vr) W.push('aanrijtijd');
   kansJa = clamp(kansJa * (0.75 + 0.5 * p.score), 0.03, 0.95);
-  R.unshift(hoofd); R.push(...p.redenen.slice(0, 2), `${Math.round(week)} van de ${weekMax} gewenste uren deze week`);
+  R.unshift(hoofd); if (vr) R.splice(1, 0, vr); R.push(...p.redenen.slice(0, 2), `${Math.round(week)} van de ${weekMax} gewenste uren deze week`);
   const uurloon = c.uurloon || EIGEN_UUR; const kmK = ctx.voertuig ? ctx.voertuig.kmKost : KM_KOST.diesel;
   const bedrag = uren * uurloon * toeslag + kmKosten(ctx);
   // score: vooral de kans dat iemand ja zegt (daar zit de voorkeur al in), dan hoe goed de rit past, dan de waarschuwingen
@@ -159,7 +186,7 @@ export function eigenKandidaat(c, ctx) {
     soort: 'eigen', id: c.id, naam: c.naam, score: r2(score), kans: r2(kansJa), redenen: R,
     uren: { gereden: Math.round(gereden / 6) / 10, over: Math.round(over / 6) / 10, naRit: Math.round(Math.max(0, over - ctx.rijMin) / 6) / 10, week: Math.round(week * 2) / 2, weekMax },
     kosten: kosten(bedrag, `${uur(uren * 60)} x ${euro(uurloon)}${toeslag > 1 ? ` x ${String(toeslag).replace('.', ',')} (${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''})` : ''} + ${Math.round(ctx.km)} km x ${Math.round(kmK * 100)} cent`),
-    beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, gesimuleerd: true,
+    beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, aanrij, vertrek, gesimuleerd: true,
   };
 }
 
@@ -185,6 +212,9 @@ export function oproepKandidaat(o, ctx) {
   R.push(`${b.ja} % ja op een oproep, ${String(b.opTijd).replace('.', ',')} % op tijd (${b.ritten} ritten in 8 weken)`);
   if (o.soort !== 'zzp' && ctx.lead < OPROEPTERMIJN) { R.push('opgeroepen binnen 4 dagen: mag nee zeggen'); kansJa *= 0.9; }
   R.push(...p.redenen.slice(0, 2));
+  // aanrijden van huis, plus de afstand als hij bij een standplaats verderop staat ingeschreven (60 km/u over 1,3 keer)
+  const aanrij = thuisMin(o.id) + Math.round(afstand * 1.3); const vertrek = vertrekVan(ctx, aanrij);
+  const vr = vertrekRegel(ctx, vertrek, `eerst ${aanrij} min naar ${ctx.sp.n}`); if (vr) { W.push('aanrijtijd'); R.splice(1, 0, vr); }
   kansJa = clamp(kansJa, 0.03, 0.95);
   const bedrag = ctx.uren * o.tarief.perUur + kmKosten(ctx);
   const score = clamp(0.5 * kansJa + 0.2 * p.score + 0.15 * b.opTijd / 100 + 0.15 * (1 - 0.25 * W.length) - afstand / 400, 0, 1);
@@ -192,7 +222,7 @@ export function oproepKandidaat(o, ctx) {
     soort: 'oproep', id: o.id, naam: o.naam, sub: o.soort, score: r2(score), kans: r2(kansJa), redenen: R,
     uren: { gereden: 0, over: 9, naRit: Math.round(Math.max(0, 540 - ctx.rijMin) / 6) / 10, week: null, weekMax: o.voorkeuren.maxUren },
     kosten: kosten(bedrag, `${uur(ctx.uren * 60)} x ${euro(o.tarief.perUur)} (${o.tarief.soort}) + ${Math.round(ctx.km)} km eigen voertuig`),
-    tel: o.tel, beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, gesimuleerd: true,
+    tel: o.tel, beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, aanrij, vertrek, gesimuleerd: true,
   };
 }
 
@@ -224,7 +254,7 @@ export function charterKandidaat(ch, ctx) {
     soort: 'charter', id: ch.id, naam: ch.naam, score: r2(score), kans: r2(kansJa), redenen: R,
     uren: { gereden: null, over: null, naRit: null, week: null, weekMax: null },
     kosten: kosten(bedrag, `${uur(ctx.uren * 60)} x ${euro(ch.tarief.perUur)} + ${Math.round(ctx.km)} km x ${Math.round(ch.tarief.perKm * 100)} cent (charter, met trekker en chauffeur)`),
-    tel: ch.tel, email: ch.email, contactpersoon: ch.contactpersoon, beschikbaar, waarschuwingen: W, voertuig: null, gesimuleerd: true,
+    tel: ch.tel, email: ch.email, contactpersoon: ch.contactpersoon, beschikbaar, waarschuwingen: W, voertuig: null, aanrij, vertrek: vertrekVan(ctx, aanrij), gesimuleerd: true,
   };
 }
 
@@ -237,12 +267,15 @@ export function rangschik({ eigen = [], oproep = [], charter = [] }, max = {}) {
 }
 
 // Toewijzen (puur): het nieuwe blok voor het planbord, een regel voor het logboek en het bericht aan de kandidaat. Verandert
-// niets: de interface bewaart de toewijzing en geeft haar terug aan fleet.kandidaten (opts.toegewezen).
+// niets: de interface bewaart de toewijzing en geeft haar terug aan fleet.kandidaten (opts.toegewezen). Het blok begint bij
+// het vertrek van deze kandidaat (k.vertrek: het venster, of later als hij er dan nog niet kan zijn).
 export function toewijzing(ctx, k) {
   const { rit } = ctx; const off = ctx.dag === 'morgen' ? 1440 : 0;
   const eerste = rit.stops[0] ? rit.stops[0].name : rit.sp;
+  const a = typeof k.vertrek === 'number' && k.vertrek >= ctx.a ? k.vertrek : ctx.a; const b = a + (ctx.b - ctx.a); const later = a > ctx.a + 0.5;
+  const laden = later ? `Vertrek vanaf ${ctx.sp.n} om ${hhmm(a)}, zo snel als het kan (laadvenster ${hhmm(rit.venster[0])} tot ${hhmm(rit.venster[1])})` : `Laden in ${ctx.sp.n} tussen ${hhmm(rit.venster[0])} en ${hhmm(rit.venster[1])}`;
   const segment = {
-    a: ctx.a, b: ctx.b, t0: ctx.a, t1: ctx.b, k: 'rit', bron: 'pool', rit: rit.id, label: `${rit.id} · ${eerste}${rit.stops.length > 1 ? ` +${rit.stops.length - 1}` : ''}`,
+    a, b, t0: a, t1: b, k: 'rit', bron: 'pool', rit: rit.id, label: `${rit.id} · ${eerste}${rit.stops.length > 1 ? ` +${rit.stops.length - 1}` : ''}`,
     klant: rit.klant, venster: [rit.venster[0] + off, rit.venster[1] + off], vertraging: 0, dock: null, dockSoort: null, plek: null, wacht: 0, los: null, ingevoegd: true,
     sp: rit.sp, div: rit.div, dag: ctx.dag, km: rit.km, duur: rit.duur, rij: rit.rij, stops: rit.stops.map(s => s.name),
     wie: { soort: k.soort, id: k.id, naam: k.naam }, voertuig: k.voertuig || null, oplegger: rit.oplegger, kosten: k.kosten, waarschuwingen: k.waarschuwingen.slice(),
@@ -252,7 +285,7 @@ export function toewijzing(ctx, k) {
   const voornaam = (k.soort === 'charter' ? k.contactpersoon || '' : k.naam).split(' ')[0];
   const wat = rit.soort === 'trekker' && rit.oplegger ? `, ${OPLEGGER_NAAM[rit.oplegger]}` : '';
   const tekst = k.soort === 'charter'
-    ? `Hallo ${voornaam}, hebben jullie ${ctx.dag} een ${rit.soort === 'bakwagen' ? 'bakwagen' : 'trekker'} voor een rit vanaf Simon Loos ${ctx.sp.n}${wat}? Laden tussen ${hhmm(rit.venster[0])} en ${hhmm(rit.venster[1])}, ongeveer ${Math.round(rit.km)} km, ${rit.stops.length} ${rit.stops.length === 1 ? 'stop' : 'stops'}, terug rond ${hhmm(ctx.b)}. Graag een bevestiging met het kenteken en de naam van de chauffeur.`
-    : `Hoi ${voornaam}, kun je ${ctx.dag} rit ${rit.id} rijden? Laden in ${ctx.sp.n} tussen ${hhmm(rit.venster[0])} en ${hhmm(rit.venster[1])}${wat}, ${rit.stops.length} ${rit.stops.length === 1 ? 'stop' : 'stops'}, ongeveer ${Math.round(rit.km)} km, terug rond ${hhmm(ctx.b)}. Laat je even weten of het lukt?`;
+    ? `Hallo ${voornaam}, hebben jullie ${ctx.dag} een ${rit.soort === 'bakwagen' ? 'bakwagen' : 'trekker'} voor een rit vanaf Simon Loos ${ctx.sp.n}${wat}? ${laden}, ongeveer ${Math.round(rit.km)} km, ${rit.stops.length} ${rit.stops.length === 1 ? 'stop' : 'stops'}, terug rond ${hhmm(b)}. Graag een bevestiging met het kenteken en de naam van de chauffeur.`
+    : `Hoi ${voornaam}, kun je ${ctx.dag} rit ${rit.id} rijden? ${laden}${wat}, ${rit.stops.length} ${rit.stops.length === 1 ? 'stop' : 'stops'}, ongeveer ${Math.round(rit.km)} km, terug rond ${hhmm(b)}. Laat je even weten of het lukt?`;
   return { rit: rit.id, wie: segment.wie, segment, log, bericht: { aan: k.tel || null, naam: k.naam, kanaal: k.soort === 'charter' ? 'telefoon of e-mail' : 'app', tekst }, kosten: k.kosten, waarschuwingen: segment.waarschuwingen, gesimuleerd: true };
 }

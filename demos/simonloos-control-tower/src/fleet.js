@@ -14,10 +14,12 @@
 // diensten gebruikt vandaag een van de twee verlengingen per week tot 10 uur), en na 5 uur werk zonder pauze een pauze
 // (Arbeidstijdenbesluit vervoer). Elektrische voertuigen laden tussen ritten als de volgende rit niet meer in de accu past.
 import { SP, TOWNS, DIV, ST, laadpunten, WINKELS, DCS, BEZORG, dcById, winkelById, toegangVan, plekNaam, laadGebouwen, dockPos } from './places.js';
-import { nearestNode, shortestPath, buildPath, posAt, kmBetween, warmTree, connected, nodes as GN } from './roads.js';
+import { nearestNode, shortestPath, buildPath, posAt, kmBetween, warmTree, connected, nodes as GN, allEdges, edgeGeom } from './roads.js';
 // De vraagkant (open ritten, prognose, voorkeuren, de flexibele schil): src/voorkeuren.js en src/inzet.js, gesimuleerd.
 import { voorkeurenVan, tevredenheid, past, ritKenmerken, reeks, dienstdeel, weekdagVan, isoDag, WEEKDAGEN, WEEKDAG_NAAM, DIENSTDELEN, DIENSTDEEL_NAAM, SEED as VSEED } from './voorkeuren.js';
-import { CHARTERS, OPROEP, eigenKandidaat, oproepKandidaat, charterKandidaat, rangschik, toewijzing, WAARSCHUWINGEN, WAARSCHUWING_KORT, KM_KOST } from './inzet.js';
+import { CHARTERS, OPROEP, eigenKandidaat, oproepKandidaat, charterKandidaat, rangschik, toewijzing, WAARSCHUWINGEN, WAARSCHUWING_KORT, KM_KOST, aanrijVan } from './inzet.js';
+// De oefendag (opts.scenario, standaard uit): een vaste drukke dag bovenop de gewone, zie src/oefendag.js.
+import { oefendagVan } from './oefendag.js';
 
 let seed = 20261024; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const gen = s => () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };   // eigen reeks (pool)
@@ -542,6 +544,9 @@ export function createFleet(opts = {}) {
   for (const t of trucks) t.driver = t.diensten.length ? t.diensten[0].driver : '';
   const byId = new Map(trucks.map(t => [t.id, t])); const trailerById = new Map(trailers.map(tr => [tr.id, tr]));
 
+  // Loopt een rijstuk achter op het plan? Ja als het zelf vertraging heeft (delay), of als een vertraging eerder in de dienst
+  // het opschoof en de aankomst nu na de geplande aankomst ligt (gepland, alleen op de oefendag).
+  const achterOp = (t, s) => s.gepland !== undefined && t.dayStart + s.t1 > s.gepland + 0.5;
   // ---------- toestand van één voertuig op tijdstip T (minuten van de dag) ----------
   function stateAt(t, T) {
     const rel = (((T - t.dayStart) % 1440) + 1440) % 1440;
@@ -549,7 +554,7 @@ export function createFleet(opts = {}) {
     const seg = t.plan[si];
     let st, pos, km = 0, dock = null;
     const yard = () => slotPos(t.base, t.slot || 0, false);
-    if (seg.k === 'drive') { const f = (rel - seg.t0) / (seg.t1 - seg.t0); km = seg.km0 + (seg.km1 - seg.km0) * f; pos = posAt(seg.route.path, km); st = seg.delay > 0 && !t.delayResolved ? 'vertraagd' : 'onderweg'; }
+    if (seg.k === 'drive') { const f = (rel - seg.t0) / (seg.t1 - seg.t0); km = seg.km0 + (seg.km1 - seg.km0) * f; pos = posAt(seg.route.path, km); st = !t.delayResolved && (seg.delay > 0 || achterOp(t, seg)) ? 'vertraagd' : 'onderweg'; }
     else if (seg.k === 'stop') { pos = posAt(seg.route.path, seg.km0); st = 'klant'; }
     else if (seg.k === 'pauze') { pos = seg.route ? posAt(seg.route.path, seg.km0) : yard(); if (!seg.route) { const prev = t.plan[si - 1]; if (prev && prev.route && (prev.k === 'drive' || prev.k === 'stop')) pos = posAt(prev.route.path, prev.km1); } st = 'pauze'; }
     else if (seg.k === 'laden' && seg.route) { pos = posAt(seg.route.path, seg.km0); st = 'pauze'; }
@@ -573,12 +578,16 @@ export function createFleet(opts = {}) {
     for (let i = si; i >= 0; i--) { const s = t.plan[i]; if (i < si && s.k === 'laden' && s.partial) { credit += s.partial / 100 * t.range; continue; } if (i < si && (s.k === 'laden' || (s.k === 'terrein' && s.d === null && i > 0))) break; if (s.k === 'drive') kmSince += (i === si ? km - s.km0 : s.km1 - s.km0); }
     kmSince = Math.max(0, kmSince - credit);
     const soc = Math.max(3, 100 - kmSince / t.range * 100 * (t.ev ? 1 : 0.55));
-    // volgende stop
-    let next = null;
+    // volgende stop. Onderweg in een rit eindigt die op de standplaats: afkoppelen, het terrein, of laden, een pauze of het
+    // koppelen voor de volgende rit op het terrein (zonder route) is dan "terug". Gepland is de aankomst zonder vertraging;
+    // schoof een vertraging eerder in de dienst de rest van het plan op (oefendag), dan staat de geplande aankomst in
+    // gepland op het rijstuk ervoor, en de vertraging is de afstand tot die tijd.
+    let next = null; const opWeg = !!seg.route;
+    const thuis = s => s.k === 'ontkoppel' || s.k === 'terrein' || (s.k === 'laden' && !(opWeg && s.route)) || (opWeg && !s.route && (s.k === 'pauze' || s.k === 'koppel'));
     for (let i = si; i < t.plan.length; i++) {
       const s = t.plan[i];
-      if (s.k === 'stop' && i > si) { const d = t.plan[i - 1]; const dl = d && d.k === 'drive' ? d.delay || 0 : 0; next = { name: s.stop, eta: t.dayStart + s.t0 - (t.delayResolved ? dl : 0), planned: t.dayStart + s.t0 - dl, win: d && d.win ? [t.dayStart + d.win[0], t.dayStart + d.win[1]] : null, delay: t.delayResolved ? 0 : dl, kmLeft: d && d.k === 'drive' ? Math.max(0, d.km1 - km) : 0, swap: s.swap, pickup: s.pickup || null }; break; }
-      if ((s.k === 'ontkoppel' || s.k === 'laden' || (s.k === 'terrein' && i > si)) && i > si) { const dl = seg.k === 'drive' && !t.delayResolved ? seg.delay || 0 : 0; next = { name: `Terug ${t.base.n}`, eta: t.dayStart + s.t0 - (seg.k === 'drive' && t.delayResolved ? seg.delay || 0 : 0), planned: t.dayStart + s.t0 - (seg.k === 'drive' ? seg.delay || 0 : 0), win: null, delay: dl, kmLeft: seg.k === 'drive' ? Math.max(0, seg.km1 - km) : 0, home: true, volgende: t.diensten.find(d => d.rel0 > s.t0) || null }; break; }
+      if (s.k === 'stop' && i > si) { const d = t.plan[i - 1]; const dl = d && d.k === 'drive' ? d.delay || 0 : 0; const g = d && d.k === 'drive' && d.gepland !== undefined ? d.gepland : null; next = { name: s.stop, eta: t.dayStart + s.t0 - (t.delayResolved ? dl : 0), planned: g !== null ? g : t.dayStart + s.t0 - dl, win: d && d.win ? [t.dayStart + d.win[0], t.dayStart + d.win[1]] : null, delay: t.delayResolved ? 0 : g !== null ? Math.max(0, Math.round(t.dayStart + s.t0 - g)) : dl, kmLeft: d && d.k === 'drive' ? Math.max(0, d.km1 - km) : 0, swap: s.swap, pickup: s.pickup || null }; break; }
+      if (i > si && thuis(s)) { const d = t.plan[i - 1]; const g = d && d.k === 'drive' && d.gepland !== undefined ? d.gepland : null; const dl = seg.k === 'drive' && !t.delayResolved ? seg.delay || 0 : 0; next = { name: `Terug ${t.base.n}`, eta: t.dayStart + s.t0 - (seg.k === 'drive' && t.delayResolved ? seg.delay || 0 : 0), planned: g !== null ? g : t.dayStart + s.t0 - (seg.k === 'drive' ? seg.delay || 0 : 0), win: null, delay: t.delayResolved ? 0 : g !== null ? Math.max(0, Math.round(t.dayStart + s.t0 - g)) : dl, kmLeft: seg.k === 'drive' ? Math.max(0, seg.km1 - km) : 0, home: true, volgende: t.diensten.find(d2 => d2.rel0 > s.t0) || null }; break; }
     }
     // de eerstvolgende geplande pauze of laadbeurt in deze dienst (absolute minuten), en wachten bij een stop
     let pauzeOm = null;
@@ -606,7 +615,7 @@ export function createFleet(opts = {}) {
   // Temperatuur in een koel- of vriesoplegger (gesimuleerde telemetrie).
   function trailerTemp(tr, T) {
     const tt = TRT[tr.type]; if (!tt.temp) return null; const [a, b] = tt.temp; const mid = (a + b) / 2;
-    if (tr.storing) return -12 + Math.sin(T / 37) * 0.4;
+    if (tr.storing) return (tr.storingTemp !== undefined ? tr.storingTemp : -12) + Math.sin(T / 37) * 0.4;
     return +(mid + Math.sin(T / 23 + tr.id.length) * (b - a) * 0.4 + ((tr.id.charCodeAt(4) % 7) - 3) * 0.08).toFixed(1);
   }
 
@@ -680,10 +689,13 @@ export function createFleet(opts = {}) {
       else for (let j = i + 1; j < P.length && P[j].d === s.d && !P[j].dockSoort; j++) if (P[j].k === 'drive') { P[j].dock = s.dock; break; }
     }
   }
+  // docks buiten gebruik ({ sp, dock, van, tot, reden }, minuten van de dag): op de gewone dag geen, op de oefendag één
+  const dockBuiten = [];
   function plaatsDocks(sp, wie) {
     const n = sp.docks || 0; if (!n || !wie.length) return;
     const bezet = Array.from({ length: n }, () => []); const los = new Set(wie);
     for (const t of trucks) if (t.base === sp && !los.has(t)) for (const s of t.plan) if (s.dockSoort && s.dock && s.t1 > s.t0) bezet[s.dock - 1].push(ivVan(t, s));
+    for (const b of dockBuiten) if (b.sp === sp && b.dock >= 1 && b.dock <= n) bezet[b.dock - 1].push([b.van, b.tot]);
     const lijst = new Map(wie.map(t => [t, t.plan.filter(s => s.dockSoort && s.t1 > s.t0)])); const ptr = new Map(wie.map(t => [t, 0]));
     for (;;) {
       let bt = null, bs = null, ba = Infinity;
@@ -705,8 +717,10 @@ export function createFleet(opts = {}) {
   function dockPlan(sp) {
     const s = typeof sp === 'string' ? SP.find(x => x.n === sp) : sp; if (!s || !s.docks) return [];
     const rows = Array.from({ length: s.docks }, (_, i) => ({ dock: i + 1, blokken: [] }));
-    for (const t of trucks) { if (t.base !== s) continue; for (const x of t.plan) if (x.dockSoort && x.dock && x.t1 > x.t0) rows[x.dock - 1].blokken.push({ t0: t.dayStart + x.t0, t1: t.dayStart + x.t1, voertuig: t.id, rit: ritNr(t, x), soort: x.dockSoort, oplegger: x.tr ? x.tr.id : null }); }
+    for (const t of trucks) { if (t.base !== s) continue; for (const x of t.plan) if (x.dockSoort && x.dock && x.t1 > x.t0) rows[x.dock - 1].blokken.push({ t0: t.dayStart + x.t0, t1: t.dayStart + x.t1, voertuig: t.id, rit: ritNr(t, x), soort: x.dockSoort, oplegger: x.tr ? x.tr.id : null, ...(x.dockOud ? { dockOud: x.dockOud } : {}) }); }
     for (const row of rows) row.blokken.sort((a, b) => a.t0 - b.t0);
+    // een dock buiten gebruik (oefendag): { van, tot, reden } op de rij van dat dock
+    for (const b of dockBuiten) if (b.sp === s && rows[b.dock - 1]) (rows[b.dock - 1].buiten = rows[b.dock - 1].buiten || []).push({ van: b.van, tot: b.tot, reden: b.reden });
     return rows;
   }
 
@@ -764,6 +778,107 @@ export function createFleet(opts = {}) {
     for (let i = s.si; i < P.length; i++) { const x = P[i]; if (x.k === 'drive' && x.win) { if (x.t1 > x.win[1]) x.win = [x.win[0], Math.ceil(x.t1 / 5) * 5]; x.winMoved = true; break; } if (x.k === 'stop' && i > s.si) break; }
     t.delayResolved = true;
   }
+
+  // ---------- vertraging als zaak ----------
+  // Het tijdvenster zoals de planner het ziet, gelijk aan effWin in src/ui/base.js (houd die twee gelijk): vensters liggen op
+  // halve uren rond de geplande aankomst; valt die tot 10 minuten na het venster, dan schuift het venster 10 minuten op; ligt
+  // de geplande aankomst na een ingreep verder na het venster, dan is het venster met de klant verlegd.
+  const vensterEff = (win, plan) => { if (!win) return null; if (plan === undefined || plan === null || !(plan > win[1] + 0.01)) return win; if (plan <= win[1] + 10) return [win[0] + 10, win[1] + 10]; return [win[0], Math.ceil((plan - 0.01) / 5) * 5]; };
+  // Een stop zoals de planner hem ziet: aankomst (eta, absolute minuten), geplande aankomst, venster en minuten na het venster.
+  // j: de index van de stop in t.plan; toekomst: vertraging op stukken die nog moeten komen (die weet nog niemand).
+  function stopStand(t, j, toekomst = 0) {
+    const x = t.plan[j]; const d = t.plan[j - 1]; if (!x || x.k !== 'stop' || !d || d.k !== 'drive') return null;
+    const eta = t.dayStart + x.t0 - toekomst; const plan = d.gepland !== undefined ? d.gepland : t.dayStart + x.t0 - (d.delay || 0);
+    const venster = d.win ? vensterEff([t.dayStart + d.win[0], t.dayStart + d.win[1]], plan) : null;
+    return { i: j, seg: x, naam: x.stop, eta, plan, venster, laat: venster && eta > venster[1] + 0.5 ? Math.round(eta - venster[1]) : 0, route: x.route, idx: x.idx, dienst: x.d };
+  }
+  // De stops met een venster die nog komen, in deze dienst en de volgende (niet het ophalen van een oplegger).
+  function stopsVooruit(t, s) {
+    const P = t.plan; const out = []; let toekomst = 0; const d0 = s.seg.d; let volgende = null;
+    for (let j = s.si + 1; j < P.length; j++) {
+      const x = P[j];
+      if (x.d !== null && x.d !== undefined && x.d !== d0) { if (volgende === null) volgende = x.d; else if (x.d !== volgende) break; }
+      if (x.k === 'drive') toekomst += x.delay || 0;
+      else if (x.k === 'stop' && !x.pickup) { const st = stopStand(t, j, toekomst); if (st && st.venster) out.push(st); }
+    }
+    return out;
+  }
+  // Een vertraging is een zaak als het voertuig nu achter loopt op het plan (het rijdt een stuk met vertraging, of een
+  // eerdere vertraging schoof de rest van zijn plan op) en daardoor een stop na zijn venster aankomt, in deze dienst of de
+  // volgende. Een vertraging op een stuk dat nog moet komen, telt niet: die weet de planner nog niet. Binnen het venster
+  // vraagt het niets. Geeft null, of { achter (minuten achter op het plan), stops (alle stops die nog komen, met eta,
+  // plan, venster en laat), laat (de stops na hun venster), eerste, oorzaak (op de oefendag de file) }.
+  function vertraging(t, T, s0) {
+    if (t.delayResolved || !t.diensten.length) return null;
+    const s = s0 && s0.seg ? s0 : stateAt(t, T);
+    const opStuk = s.seg.k === 'drive' && (s.seg.delay || 0) > 0;
+    if (!opStuk && !t.uitloop) return null;
+    const L = stopsVooruit(t, s);
+    let achter = opStuk ? s.seg.delay : 0; for (const x of L) achter = Math.max(achter, x.eta - x.plan);
+    if (achter < 0.5) return null;
+    const laat = L.filter(x => x.laat > 0); if (!laat.length) return null;
+    let oorzaak = null; for (let j = s.si; j >= 0; j--) { const x = t.plan[j]; if (x.k === 'drive' && (x.delay || 0) > 0) { oorzaak = x.oorzaak || null; break; } }
+    return { achter: Math.round(achter), stops: L, laat, eerste: laat[0], oorzaak };
+  }
+  // De klanten krijgen de nieuwe ETA (een bericht met een volg-link): het venster van elke stop die nu na zijn venster
+  // aankomt, gaat tot die aankomst; daarna is de vertraging van dit voertuig afgehandeld, zoals bij acceptEta. Geeft de
+  // stops met de doorgegeven ETA.
+  function klantEta(t, T) {
+    const v = vertraging(t, T); const L = v ? v.laat : []; const out = [];
+    for (const x of L) {
+      const d = t.plan[x.i - 1]; const aan = t.plan[x.i].t0; if (!d || !d.win) continue;
+      out.push({ naam: x.naam, eta: t.dayStart + aan, venster: x.venster });
+      if (aan > d.win[1]) d.win = [d.win[0], Math.ceil(aan / 5) * 5]; d.winMoved = true;
+    }
+    t.delayResolved = true;
+    return { n: out.length, stops: out };
+  }
+  // De stand van een stop, gevonden op zijn rit (route) en volgnummer: op welk voertuig hij nu staat, met eta en venster.
+  function stopOp(wie, route, idx) {
+    for (const t of wie) { if (!t) continue; for (let j = 0; j < t.plan.length; j++) { const x = t.plan[j]; if (x.k === 'stop' && x.route === route && x.idx === idx) { const st = stopStand(t, j); return st ? { ...st, t } : null; } } }
+    return null;
+  }
+
+  // ---------- een ingreep op proef ----------
+  // Voert fn uit op de echte plannen en zet daarna alles terug zoals het was: de voertuigen in wie (hun velden, plan,
+  // diensten, segmenten en routes), alle opleggers met hun gebeurtenissen en de objecten in extra (bijvoorbeeld de
+  // chauffeurs van de standplaats uit people.js). Zo rekent een voorstel zijn effect met dezelfde functies als Toepassen,
+  // en is de beloofde winst gelijk aan wat Toepassen doet.
+  function proef(wie, fn, extra = []) {
+    const V = [...new Set(wie.filter(Boolean))];
+    const kopie = o => { const c = {}; for (const k of Object.keys(o)) c[k] = o[k]; return c; };
+    const zet = (o, c) => { for (const k of Object.keys(o)) if (!(k in c)) delete o[k]; Object.assign(o, c); };
+    const obj = [], arr = [];
+    for (const t of V) {
+      obj.push([t, kopie(t)]); arr.push([t.plan, t.plan.slice()], [t.diensten, t.diensten.slice()]); if (Array.isArray(t.routes)) arr.push([t.routes, t.routes.slice()]);
+      for (const s of t.plan) obj.push([s, kopie(s)]);
+      for (const d of t.diensten) { obj.push([d, kopie(d)]); if (Array.isArray(d.routes)) arr.push([d.routes, d.routes.slice()]); }
+    }
+    for (const tr of trailers) { arr.push([tr.events, tr.events.slice()]); obj.push([tr, kopie(tr)]); for (const e of tr.events) obj.push([e, kopie(e)]); }
+    for (const o of extra) if (o && typeof o === 'object') obj.push([o, kopie(o)]);
+    try { return fn(); } finally {
+      for (const [a, c] of arr) { a.length = 0; for (const x of c) a.push(x); }
+      for (const [o, c] of obj) zet(o, c);
+    }
+  }
+
+  // ---------- dock buiten gebruik (oefendag): wie het moet weten ----------
+  // Het eerstvolgende dockblok van t dat van een dock buiten gebruik naar een ander dock ging: vanaf het begin van de
+  // storing, tot twee uur vooruit en tot het blok begint; null als er geen is of als de chauffeur het al weet.
+  function dockWissel(t, T) {
+    if (!t.dockWissel) return null;
+    const m = ((T % 1440) + 1440) % 1440;
+    for (const s of t.plan) {
+      if (!s.dockOud || s.dockGemeld) continue;
+      const b = dockBuiten.find(x => x.sp === t.base && x.dock === s.dockOud); if (!b) continue;
+      const a = ((t.dayStart + s.t0) % 1440 + 1440) % 1440;
+      if (m < b.van || a < m || a - m > 120) continue;
+      return { seg: s, a: t.dayStart + s.t0, oud: s.dockOud, nieuw: s.dock, soort: s.dockSoort, tr: s.tr || null, tot: b.tot, reden: b.reden };
+    }
+    return null;
+  }
+  // de chauffeur weet het nieuwe dock (een bericht van de planner)
+  function dockGemeld(t, T) { const w = dockWissel(t, T); if (w) w.seg.dockGemeld = true; return w; }
   // Omrijden: over de graaf, en bij een standplaats of winkel ook over de toegangsroute tot de poort of de deur.
   const mkRoute = (a, b, nameA, nameB, placeA, placeB) => {
     const pa = placeA && placeA.node === a ? placeA : { ...placeA, node: a }, pb = placeB && placeB.node === b ? placeB : { ...placeB, node: b };
@@ -1098,6 +1213,8 @@ export function createFleet(opts = {}) {
   // rijtijd), de status als iemand vandaag vrij is (vrij, vakantie, ziek, rustdag; gesimuleerd), de uren deze week (schatting)
   // en de voorkeuren (voorkeuren.js, dezelfde als de interface met de persoon uit people.js krijgt).
   const persoonId = new Map(); { let k = 0; for (const s of SP) for (const n of driverPool.get(s.n).names) persoonId.set(`${n}|${s.n}`, `P-${String(++k).padStart(4, '0')}`); }
+  // wie zich vandaag ziek meldde (alleen op de oefendag; naam|standplaats)
+  const ziekVandaag = new Set();
   const dienstVanNaam = new Map(); for (const t of trucks) for (const d of t.diensten) dienstVanNaam.set(`${d.driver}|${t.base.n}`, { t, d });
   const WDI = WEEKDAGEN.indexOf(weekdagVan(VANDAAG));
   const chCache = new Map(); const peopleCache = new WeakMap();
@@ -1111,7 +1228,7 @@ export function createFleet(opts = {}) {
       const div = per ? per.div : x ? x.t.div : sp.div[i % sp.div.length];
       const dienst = x ? { start: x.d.start, end: x.d.end, rij: rijVan(x.t, x.d), maxRij: x.d.maxRij, voertuig: x.t.id } : null;
       const R = reeks(VSEED, id, 'status'); const u = R(), u2 = R(), u3 = R(), u4 = R();
-      const status = dienst ? 'dienst' : u < 0.62 ? 'vrij' : u < 0.74 ? 'vakantie' : u < 0.82 ? 'ziek' : 'rustdag';
+      const status = dienst ? 'dienst' : ziekVandaag.has(`${naam}|${sp.n}`) ? 'ziek' : u < 0.62 ? 'vrij' : u < 0.74 ? 'vakantie' : u < 0.82 ? 'ziek' : 'rustdag';
       const statusMorgen = dienst ? 'dienst' : status === 'vakantie' ? 'vakantie' : status === 'ziek' && u2 < 0.5 ? 'ziek' : u2 < 0.55 ? 'vrij' : 'ingeroosterd';
       const weekUren = Math.round((Math.min(WDI, 5) * (0.72 + 0.2 * u3) * (8.6 + 1.8 * u4) + (dienst ? (dienst.end - dienst.start) / 60 : 0)) * 2) / 2;
       const persoon = per || { base: sp, div, dienst: x ? { t: x.t, d: x.d } : null };
@@ -1157,7 +1274,21 @@ export function createFleet(opts = {}) {
   }
   // Toewijzen zonder iets te veranderen: { rit, wie, segment (blok voor het planbord, absolute minuten), log, bericht, kosten,
   // waarschuwingen }. De interface bewaart het en geeft het terug via opts.toegewezen (en de id via poolAt(T, zonder)).
-  function wijsToe(rit, kandidaat, opts = {}) { const ctx = ritCtx(rit, opts); return ctx && kandidaat ? toewijzing(ctx, kandidaat) : null; }
+  // Het vertrek hangt af van wie rijdt (de aanrijtijd, zie inzet.js): de kandidaat wordt op het moment van de vraag (opts.T)
+  // opnieuw gerekend, zodat een bewaarde toewijzing na herladen hetzelfde vertrek geeft. Staat hij niet meer in de lijst (al
+  // ergens anders toegewezen), dan de aanrijtijd van zijn soort.
+  function opnieuw(ctx, k, opts) {
+    if (k.soort === 'eigen') { const c = chauffeursVan(ctx.sp, opts.people).find(x => x.id === k.id); return c ? eigenKandidaat(c, ctx) : null; }
+    if (k.soort === 'oproep') { const o = OPROEP.find(x => x.id === k.id); return o ? oproepKandidaat(o, ctx) : null; }
+    if (k.soort === 'charter') { const c = CHARTERS.find(x => x.id === k.id); return c ? charterKandidaat(c, ctx) : null; }
+    return null;
+  }
+  function wijsToe(rit, kandidaat, opts = {}) {
+    const ctx = ritCtx(rit, opts); if (!ctx || !kandidaat) return null;
+    const vers = opnieuw(ctx, kandidaat, opts); const aanrij = vers && typeof vers.aanrij === 'number' ? vers.aanrij : aanrijVan(ctx, kandidaat);
+    const vertrek = vers && typeof vers.vertrek === 'number' ? vers.vertrek : ctx.dag === 'morgen' ? ctx.a : Math.max(ctx.a, Math.ceil((ctx.T + aanrij) / 5) * 5);
+    return toewijzing(ctx, { ...kandidaat, aanrij, vertrek });
+  }
 
   // ---------- kerngetallen van de dag (voor het rapport en tests/data-check.mjs) ----------
   function dagcijfers() {
@@ -1175,9 +1306,140 @@ export function createFleet(opts = {}) {
   const HIST = maakHistorie(); MODEL = maakModel(HIST);
   for (const p of pool) { poolById.set(p.id, p); p.urgentie = p.venster[0] + (p.dag === 'morgen' ? 1440 : 0) - p.bekend; p.prognose = prognoseVoor(p, p.urgentie); }
 
+  // ---------- de oefendag (opts.scenario): een vaste drukke dag bovenop de gewone ----------
+  // Alleen met een bekende oefendag (src/oefendag.js); zonder die optie gebeurt hier niets en is de dag de gewone. Pas na de
+  // gewone opbouw (plannen, docks, pool, historie), zodat alles wat niet geraakt wordt gelijk blijft. Geen toeval: elke keuze
+  // volgt uit vaste regels (tijden, afstanden, nummers en hash01 op een naam). Volgorde: eerst de ziekmeldingen (04:30),
+  // dan de file, dan het dock (de docks na de file opnieuw verdeeld), dan de koelunit.
+  // Een vertraging die het plan verder opschuift, zet op elk later rijstuk de geplande aankomst (gepland): de vensters van
+  // de klant schuiven niet mee, dus die stops komen echt te laat (zie vertraging en stopStand).
+  function vertraagStuk(t, i, D, oorzaak) {
+    const P = t.plan; const s = P[i]; const oud = new Map(); for (const x of P) if (x.k === 'drive' && x !== s) oud.set(x, t.dayStart + x.t1);
+    s.t1 += D; s.delay = (s.delay || 0) + D; s.file = (s.file || 0) + D; if (oorzaak) s.oorzaak = oorzaak;
+    shiftAfter(t, i, D); docksBijwerken(t);
+    // gepland is de aankomst waar het venster op ligt: de oude aankomst zonder de vertraging van dat stuk zelf (zoals t0 - delay)
+    for (const x of t.plan) { if (x.k !== 'drive' || !oud.has(x)) continue; const nu = t.dayStart + x.t1; if (nu > oud.get(x) + 0.5 && x.gepland === undefined) x.gepland = oud.get(x) - (x.delay || 0); }
+    t.uitloop = true;
+  }
+  // Een dienst gaat van het voertuig af (de chauffeur is ziek): zijn segmenten worden terrein, zijn koppelingen en wissels
+  // vervallen, de diensten erna schuiven in nummer op; zonder diensten is het voertuig vrij (reserve).
+  function haalDienstWeg(t, d) {
+    const segs = t.plan.filter(s => s.d === d.i); if (!segs.length) return;
+    const a = t.dayStart + segs[0].t0, b = t.dayStart + segs[segs.length - 1].t1;
+    for (const tr of trailers) { const n = tr.events.length; tr.events = tr.events.filter(e => !(e.by === t && e.a >= a - 1 && e.a <= b + 1)); if (tr.events.length !== n) tr.busyUntil = tr.events.reduce((m, e) => Math.max(m, e.k === 'site' ? Infinity : e.b), -1); }
+    const P = []; for (const s of t.plan) { const x = s.d === d.i ? { k: 'terrein', t0: s.t0, t1: s.t1, d: null, tr: null } : s; const p = P[P.length - 1]; if (p && p.k === 'terrein' && x.k === 'terrein' && p.d === null && x.d === null && !p.dockSoort && !x.dockSoort && !p.wachtDock && !x.wachtDock) p.t1 = x.t1; else P.push(x === s && s.d === null && s.k === 'terrein' ? { ...s } : x); }
+    const rest = t.diensten.filter(x => x !== d); const nr = new Map(rest.map((x, k) => [x.i, k]));
+    for (const s of P) if (s.d !== null && s.d !== undefined) s.d = nr.has(s.d) ? nr.get(s.d) : null;
+    rest.forEach((x, k) => { x.i = k; }); t.diensten = rest; t.plan = P;
+    refreshDiensten(t); t.driver = rest.length ? rest[0].driver : ''; if (!rest.length) t.vandaag = 'reserve';
+  }
+  function oefZiek(v) {
+    const sp = SP.find(s => s.n === v.standplaats); if (!sp) return { ritten: [], diensten: [] };
+    const kand = [];
+    for (const t of trucks) { if (t.base !== sp || t.kind !== 'trekker' || t.div !== 'winkel') continue; for (const d of t.diensten) if (d.i === 0 && d.start >= v.start[0] && d.start <= v.start[1]) kand.push({ t, d, h: hash01(`ziek|${t.id}|${d.driver}`) }); }
+    kand.sort((x, y) => x.h - y.h || x.t.idx - y.t.idx);
+    const gekozen = kand.slice(0, v.aantal); const ritten = [], diensten = [];
+    const wd = weekdagVan(VANDAAG);
+    for (const { t, d } of gekozen) {
+      ziekVandaag.add(`${d.driver}|${sp.n}`); dienstVanNaam.delete(`${d.driver}|${sp.n}`);
+      const P = t.plan;
+      for (const rt of d.routes) {
+        // de rit van koppelen (of laden aan het dock) tot afkoppelen (of retouren), met de tijden van het plan
+        const k = P.findIndex(s => s.route === rt); if (k < 0) continue;
+        let k0 = k; while (k0 > 0 && P[k0 - 1].d === d.i && (P[k0 - 1].ritRef === rt || P[k0 - 1].wachtDock)) k0--;
+        let k1 = k; for (let j = k; j < P.length && P[j].d === d.i; j++) { if (P[j].route === rt || P[j].ritRef === rt) k1 = j; else if (P[j].route || P[j].k === 'koppel') break; }
+        const a0 = t.dayStart + P[k0].t0, e0 = t.dayStart + P[k1].t1; const v0 = Math.round(a0 / 5) * 5;
+        const koppel = P.slice(k0, k1 + 1).find(s => s.k === 'koppel'); const eerste = rt.marks[1] && rt.marks[1].place;
+        const rij = P.slice(k0, k1 + 1).reduce((x, s) => x + (s.k === 'drive' ? s.t1 - s.t0 - (s.delay || 0) : 0), 0);
+        const p = {
+          id: `P-${8001 + ritten.length}`, sp: sp.n, div: t.div, klant: eerste && eerste.formule ? eerste.formule : sp.klant,
+          stops: rt.marks.slice(1, -1).map(m => ({ place: m.place, km: m.km, name: m.name, id: plekId(m.place) })),
+          venster: [v0, v0 + 60], duur: Math.round(e0 - a0), km: Math.round(rt.total * 10) / 10, oplegger: koppel && koppel.tr ? koppel.tr.type : null,
+          dag: 'vandaag', reden: 'ziek', bekend: v.om, soort: t.kind, route: rt, rij: Math.round(rij), dagdeel: dienstdeel(v0), weekdag: wd, weekend: wd === 'za' || wd === 'zo', datum: isoDag(VANDAAG),
+          regio: [...new Set([sp.regio, ...rt.marks.slice(1, -1).map(m => regioVan(m.place)).filter(Boolean)])], oefendag: true,
+        };
+        p.urgentie = p.venster[0] - p.bekend; p.prognose = prognoseVoor(p, p.urgentie);
+        pool.push(p); poolById.set(p.id, p); ritten.push(p.id);
+      }
+      diensten.push({ voertuig: t.id, persoon: persoonId.get(`${d.driver}|${sp.n}`) || null, start: d.start, ritten: d.routes.length });
+      haalDienstWeg(t, d);
+    }
+    return { ritten, diensten };
+  }
+  // De punten van de snelweg in het vak van de file (klasse 0, geen afrit), en of een rijstuk erdoor rijdt: waar het het vak
+  // inrijdt (als deel van het stuk) en of het naar het zuiden rijdt. Een kader per route houdt het snel.
+  const routeKader = new WeakMap();
+  const kaderVan = pts => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const p of pts) { if (p[0] < a) a = p[0]; if (p[1] < b) b = p[1]; if (p[0] > c) c = p[0]; if (p[1] > d) d = p[1]; } return [a, b, c, d]; };
+  const sleutel = p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`;
+  function doorVak(s, punten, kader) {
+    const path = s.route.path; let rk = routeKader.get(path); if (!rk) { rk = kaderVan(path.pts); routeKader.set(path, rk); }
+    if (rk[2] < kader[0] || rk[0] > kader[2] || rk[3] < kader[1] || rk[1] > kader[3]) return null;
+    const { pts, cum } = path; let i = 0, eerste = -1, laatste = -1;
+    let lo = 0, hi = cum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < s.km0 - 1e-6) lo = m + 1; else hi = m; } i = lo;
+    for (; i < pts.length && cum[i] <= s.km1 + 1e-6; i++) if (punten.has(sleutel(pts[i]))) { if (eerste < 0) eerste = i; laatste = i; }
+    if (eerste < 0 || laatste - eerste < 3) return null;
+    return { f: (cum[eerste] - s.km0) / Math.max(1e-6, s.km1 - s.km0), zuid: pts[laatste][1] < pts[eerste][1] };
+  }
+  function oefFile(v) {
+    const E = allEdges(); const punten = new Set(); const inVak = p => p[0] >= v.vak.lon[0] && p[0] <= v.vak.lon[1] && p[1] >= v.vak.lat[0] && p[1] <= v.vak.lat[1];
+    for (let i = 0; i < E.length; i++) { const e = E[i]; if (e[3] !== 0 || e[4] === 1 || !inVak(GN[e[0]]) || !inVak(GN[e[1]])) continue; for (const p of edgeGeom(i)) punten.add(sleutel(p)); }
+    const kader = kaderVan([...punten].map(k => k.split(',').map(Number)));
+    const mid = (v.van + v.tot) / 2, half = (v.tot - v.van) / 2; const geraakt = [];
+    for (const t of trucks) {
+      if (!t.diensten.length) continue;
+      for (let i = 0; i < t.plan.length; i++) {
+        const s = t.plan[i]; if (s.k !== 'drive' || !s.route) continue;
+        const pas = doorVak(s, punten, kader); if (!pas || (v.richting === 'zuid' && !pas.zuid) || (v.richting === 'noord' && pas.zuid)) continue;
+        const m = (((t.dayStart + s.t0 + pas.f * (s.t1 - s.t0 - (s.delay || 0))) % 1440) + 1440) % 1440; if (m < v.van || m > v.tot) continue;
+        // midden in de file het langst: 25 tot 40 minuten, vast per voertuig en stuk
+        const piek = Math.max(0, 1 - Math.abs(m - mid) / half); const [lo, hi] = v.vertraging;
+        const D = Math.round(Math.min(hi, Math.max(lo, lo + (hi - lo) * (0.6 * piek + 0.4 * hash01(`file|${t.id}|${i}`)))));
+        vertraagStuk(t, i, D, v.oorzaak); s.fileOm = Math.round(m); geraakt.push({ voertuig: t.id, standplaats: t.base.n, om: Math.round(m), min: D });
+      }
+    }
+    return { ritten: geraakt.length, voertuigen: new Set(geraakt.map(g => g.voertuig)).size, minuten: geraakt.map(g => g.min), geraakt };
+  }
+  function oefDock(v) {
+    const sp = SP.find(s => s.n === v.standplaats); if (!sp || !sp.docks) return {};
+    // het drukste dock in die uren (de meeste minuten bezet), bij gelijke stand het laagste nummer
+    let best = null; for (const row of dockPlan(sp)) { const min = row.blokken.reduce((a, k) => a + Math.max(0, Math.min(v.tot, k.t1) - Math.max(v.van, k.t0)), 0); if (!best || min > best.min) best = { dock: row.dock, min }; }
+    dockBuiten.push({ sp, dock: best.dock, van: v.van, tot: v.tot, reden: v.reden || 'buiten gebruik' });
+    // wie in die uren aan dat dock stond, krijgt een ander dock (of wacht tot er een vrij is)
+    const wie = trucks.filter(t => t.base === sp && t.plan.some(s => s.dockSoort && s.dock === best.dock && s.t1 > s.t0 && raakt(ivVan(t, s), [v.van, v.tot])));
+    const voor = new Map(), oud = new Map(); for (const t of wie) for (const s of t.plan) { if (s.dockSoort) voor.set(s, s.dock); if (s.k === 'drive') oud.set(s, t.dayStart + s.t1); }
+    plaatsDocks(sp, wie); for (const t of wie) dockRitten(t);
+    let verzet = 0, wacht = 0;
+    for (const t of wie) {
+      for (const s of t.plan) { if (s.dockSoort && voor.get(s) === best.dock && s.dock !== best.dock) { s.dockOud = best.dock; verzet++; t.dockWissel = true; } if (s.wachtDock && !voor.has(s)) wacht += s.t1 - s.t0; }
+      for (const x of t.plan) { if (x.k !== 'drive' || !oud.has(x)) continue; if (t.dayStart + x.t1 > oud.get(x) + 0.5) { if (x.gepland === undefined) x.gepland = oud.get(x) - (x.delay || 0); t.uitloop = true; } }
+    }
+    return { dock: best.dock, verzet, wachtMin: Math.round(wacht), voertuigen: wie.length };
+  }
+  function oefKoeling(v) {
+    const sp = SP.find(s => s.n === v.standplaats); const doel = TRT.koel.temp;
+    // de eerste koeloplegger (op nummer) die in die uren aan een winkelrit van de standplaats wordt gekoppeld
+    const L = trailers.filter(x => x.base === sp && x.type === 'koel' && !x.storing && x.events.some(e => e.k === 'coupled' && e.a >= v.van && e.a <= v.tot && e.vehicle && e.vehicle.div === 'winkel')).sort((a, b) => (a.id < b.id ? -1 : 1));
+    const tr = L[0]; if (!tr) return {};
+    tr.storing = `Koelunit haalt het doel niet: ${v.temp} °C bij doel ${doel[0]} tot ${doel[1]} °C`; tr.storingTemp = v.temp;
+    const e = tr.events.find(x => x.k === 'coupled' && x.a >= v.van && x.a <= v.tot);
+    return { oplegger: tr.id, voertuig: e && e.vehicle ? e.vehicle.id : null, om: e ? e.a : null };
+  }
+  function pasOefendagToe(def) {
+    const uit = { id: def.id, naam: def.naam, kort: def.kort, uitleg: def.uitleg, verstoringen: [] };
+    const doe = { ziek: oefZiek, file: oefFile, dock: oefDock, koeling: oefKoeling };
+    for (const soort of ['ziek', 'file', 'dock', 'koeling']) for (const v of def.verstoringen) if (v.soort === soort) uit.verstoringen.push({ ...v, ...doe[soort](v), gesimuleerd: true });
+    const plek = v => def.verstoringen.findIndex(x => x.id === v.id); uit.verstoringen.sort((a, b) => plek(a) - plek(b));
+    return uit;
+  }
+  const oefDef = opts.scenario ? oefendagVan(opts.scenario) : null;
+  const scenario = oefDef ? pasOefendagToe(oefDef) : null;
+
   return { trucks, byId, trailers, trailerById, trailersOf, routeBetween, laadGebouwen, driverPool, stateAt, trailerStateAt, trailerTemp, blocks, departures, dienstenOf, insertPause, insertCharge, shiftDienst, acceptEta, pickupDetour, moveDienst, ST, DIV, KIND, TRT, TRST, laadpunten,
     pool, poolAt, dockPlan, dockPos, eventsOf, wachtPerPlek, wachtVerwacht: (p, minuut) => { const x = plekVan(p); return x ? Math.round(wachtVerwacht(x, minuut) * 10) / 10 : null; }, dagcijfers,
     // de vraagkant (gesimuleerd): prognose en historie van de pool, kandidaten en toewijzen, de flexibele schil, voorkeuren
     urgentie: (p, T) => urgentieVan(p, T), prognose: (p, T) => prognoseVoor(p, urgentieVan(p, T)), poolHistorie, kandidaten, wijsToe,
-    CHARTERS, OPROEP, WAARSCHUWINGEN, WAARSCHUWING_KORT, voorkeurenVan, tevredenheid, past, vandaag: VANDAAG };
+    CHARTERS, OPROEP, WAARSCHUWINGEN, WAARSCHUWING_KORT, voorkeurenVan, tevredenheid, past, vandaag: VANDAAG,
+    // vertraging als zaak, de klant informeren, een ingreep op proef, de stand van een stop; de oefendag en zijn docks
+    vertraging, klantEta, proef, stopOp, vensterEff, dockWissel, dockGemeld, chauffeurs: (sp, people) => chauffeursVan(typeof sp === 'string' ? SP.find(s => s.n === sp) : sp, people),
+    scenario, docksBuiten: sp => dockBuiten.filter(b => !sp || b.sp === sp || b.sp.n === sp).map(b => ({ standplaats: b.sp.n, dock: b.dock, van: b.van, tot: b.tot, reden: b.reden })) };
 }

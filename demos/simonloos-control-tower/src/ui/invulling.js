@@ -184,9 +184,10 @@ export function voerActieUit(ctx, a) {
     const k = verrijk(ctx, a.wie || {}); if (!k.id || !k.soort) return { ok: false, tekst: 'Onbekende kandidaat.' };
     const uit = ctx.fleet.wijsToe(item, k, { T: a.T, people: ctx.people, toegewezen: toewijzingen(ctx) });
     if (!uit || !uit.segment) return { ok: false, tekst: 'Toewijzen lukte niet.' };
-    // loopt het venster al, dan vertrekt de rit zo snel als het kan (een kwartier na de vraag, op vijf minuten), niet in het
-    // verleden; de bewaarde kopie van het blok krijgt die tijden, zodat de data er de juiste overlap mee rekent
-    const v0 = uit.segment.a; const nu = Math.ceil(((a.T || 0) + 15) / 5) * 5; const a0 = item.dag === 'morgen' ? v0 : Math.max(v0, nu);
+    // het vertrek rekent de data per kandidaat (fleet.wijsToe: aanrijden van huis, na de eigen dienst, een charter vanaf zijn
+    // plaats; loopt het venster al, dan zo snel als hij er kan zijn), nooit in het verleden; de bewaarde kopie van het blok
+    // krijgt die tijden, zodat de data er de juiste overlap mee rekent
+    const v0 = uit.segment.a; const nu = Math.ceil((a.T || 0) / 5) * 5; const a0 = item.dag === 'morgen' ? v0 : Math.max(v0, nu);
     uit.segment = { ...uit.segment, a: a0, b: a0 + (uit.segment.b - v0), t0: a0, t1: a0 + (uit.segment.b - v0) };
     const s = uit.segment; let t = null;
     // vandaag met een vrij voertuig: de rit op dat voertuig, in een eigen dienst van wie rijdt (gearceerd tot de bevestiging)
