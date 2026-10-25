@@ -103,6 +103,11 @@ w('450 per plek (dichtbij eerst). Vereenvoudigd op 1 m, coordinaten op vijf deci
 w('verdiepingen x 3,2 m, anders 6 m (in veel landelijke gebieden ontbreekt de hoogte). Ondergrondse gebouwen niet.')
 w(f"Bestand {kb('buildings.json')}; wordt alleen dynamisch geladen (`src/buildings.js`, `laadGebouwen()`).")
 w('')
+w('## Docks (`docks` en `dockPlek` in places.json, schatting)')
+w('')
+dk = [s['docks'] for s in P['SP']]
+w(f"Elke standplaats heeft laaddocks in de gevel van zijn hoofdgebouw (de hal uit de gebouwen hierboven): {nl(sum(dk))} docks, van {min(dk)} tot {max(dk)} per standplaats. Het aantal is een schatting: de hub (Wognum) 30, de twee warehouses (Geldermalsen, Tiel) 16, een depot een dock per zes voertuigen plus een (3 tot 9). De plek: langs de gevels van de hal die op vrije terreinruimte uitkijken (een strook van 28 m voor de gevel binnen het terrein en buiten andere gebouwen), deuren 4,5 m uit elkaar, de beste gevel eerst; voor elke deur past een hele combinatie op het terrein. `dockPlek[i]` is `[lon, lat, koers]`: de deur van dock i + 1 en de richting waarin een voertuig aan dat dock staat (graden vanaf noord). Parkeerplekken in de strook direct voor de docks (20 m) zijn vervallen ({nl(sum(1 for s in P['SP']))} standplaatsen nagelopen). `tools/ct4/docks.py`, aangeroepen door `build_data.py`.")
+w('')
 w('## Wegnummers en straatnamen (`roads_display.json`, veld `lab`)')
 w('')
 lab = R['lab']
@@ -116,6 +121,8 @@ w(f"- Terreinen: {42 - rect} van de 42 komen uit het landgebruik (het echte bedr
 w('- Bezorgpunten zijn het midden van een woonstraat, geen klantadres.')
 w('- Welke winkels, DC\'s en fabrieken een standplaats op een dag bedient, is gesimuleerd (vaste seed); de plekken zelf zijn echt.')
 w('- Hoogtes van gebouwen zonder `height` of verdiepingen zijn 6 m.')
+w('- Docks: aantal en plek zijn een schatting (zie hierboven); welke docks een standplaats echt heeft, staat niet in open data.')
+w('- De dag zelf (in `src/fleet.js`) is geijkt op de cijfers uit het onderzoeksmemo (rapporten/simon-loos-control-tower, §1.4): winkeldiensten van 8,5 tot 11 uur met 45 tot 60 procent rijden (Slimste, vacatureteksten), een tweede dienst voor een kwart tot een derde van de vloot, wachten bij DC\'s en winkels van 35 tot 60 minuten per truck per dag (Slimste), pauzes volgens EU-verordening 561/2006 en het Arbeidstijdenbesluit vervoer, en de AH-ritten van morgen die \'s middags via OTM5 binnenkomen. De wachttijd per soort plek en dagdeel, de lostijden en de rijsnelheden zijn schattingen.')
 w('')
 w('## Werkwijze (`tools/ct4/`)')
 w('')
@@ -126,6 +133,7 @@ w('2. `jobloc.py` (en `vacdoen.py`): adressen en teksten uit de vacaturepagina\'
 w('3. `stores.py`, `stores2.py`: winkels; `dcs.py`: DC\'s, fabrieken, groothandels; `bezorg.py`: bezorgstraten.')
 w('4. `terrain.py`: terrein, parkeerrijen en gebouwen; `graph_rebuild.py`: de routeergraaf nagebouwd met connectors; `access.py` en `apply_splits.py`: toegangsroutes en gesplitste kanten; `labels.py`: wegnummers en straatnamen.')
 w('5. `build_data.py`: schrijft places.json, klanten.json, toegang.json, graph.json en buildings.json. Controle: `tests/data-check.mjs`; plaatjes per plek: `qa_draw.py`.')
+w('6. `docks.py` (door `build_data.py` aangeroepen, ook los te draaien): docks en hun plek per standplaats in places.json; met een tweede argument een plaatje per standplaats.')
 w('')
 w('Bestandsgroottes: ' + ', '.join(f"{f} {kb(f)}" for f in ('places.json', 'klanten.json', 'toegang.json', 'graph.json', 'roads_display.json', 'buildings.json')) + '.')
 open(f'{D}/BRONNEN.md', 'w').write('\n'.join(L) + '\n')

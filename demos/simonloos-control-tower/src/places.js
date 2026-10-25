@@ -10,7 +10,9 @@ import { decode } from './roads.js';
 // node (knoop in de routeergraaf), toegang (polyline van die knoop over echte straten naar de poort), poort [lon, lat],
 // terrein [[lon, lat], ...] (ring), terreinBron, hal [[lon, lat], ...] (hoofdgebouw), rijen [[lon0, lat0, lon1, lat1, n, koers], ...]
 // (parkeerrijen: n plekken van lon0/lat0 tot lon1/lat1, voertuigen met de neus in de koers), formules (winkelritten),
-// laad (id van een DC waar de winkelritten eerst laden), pendel (id van een DC waar de helft van de winkelritten als pendel heen gaat).
+// laad (id van een DC waar de winkelritten eerst laden), pendel (id van een DC waar de helft van de winkelritten als pendel heen gaat),
+// docks (aantal laaddocks, schatting) en dockPlek [[lon, lat, koers], ...] (dock 1, 2, ...: de deur in de gevel van de hal en de
+// richting waarin een voertuig aan dat dock staat, graden vanaf noord met de klok mee; tools/ct4/docks.py).
 export const SP = P.SP;
 export const TOWNS = P.TOWNS;    // { n, lat, lon, big }
 export const CITIES = P.CITIES;  // { n, lat, lon, r } r = 1 groot ... 4 dorp
@@ -35,6 +37,14 @@ export function toegangVan(p) {
 // Gebouwen rond standplaatsen en DC's voor de 3D-wereld: pas laden als ze nodig zijn (eigen bundel buildings.js).
 // Geeft { "<standplaats of dc-id>": [{ p, h, d? }] }, zie src/buildings.js.
 export const laadGebouwen = () => import('./buildings.js').then(m => m.default);
+// Waar een voertuig aan dock n (1, 2, ...) van een standplaats staat: het midden van het voertuig voor de deur, met de neus
+// van de gevel af ({ lon, lat, bearing }, zoals een parkeerplek); null als de standplaats dat dock niet heeft.
+const DOCKDIEP = { trekker: 9, bakwagen: 5.5, bus: 3.5 };  // meters van de deur tot het midden van het voertuig
+export function dockPos(sp, n, kind = 'trekker') {
+  const d = sp && sp.dockPlek && sp.dockPlek[n - 1]; if (!d) return null;
+  const [lon, lat, koers] = d; const m = DOCKDIEP[kind] || 9; const br = koers * Math.PI / 180;
+  return { lon: lon + Math.sin(br) * m / (111320 * Math.cos(lat * Math.PI / 180)), lat: lat + Math.cos(br) * m / 111320, bearing: koers };
+}
 // Naam van een plek voor een stop: winkel of DC met plaats ("Albert Heijn Laat, Alkmaar"), standplaats als "Simon Loos Tiel".
 export function plekNaam(p) {
   if (!p) return '';

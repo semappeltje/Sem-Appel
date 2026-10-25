@@ -1,7 +1,7 @@
 # Simon Loos Control Tower (demo, versie 3.1)
 
 Werkende demo van een control tower voor Simon Loos: 1.300 gesimuleerde voertuigen
-(trekkers, bakwagens en bestelbussen) en 1.681 opleggers die over het **echte wegennet**
+(trekkers, bakwagens en bestelbussen) en 1.700 opleggers die over het **echte wegennet**
 rijden, op een kaart die zonder internet werkt. Versie 2.0 was het ontwerp uit het
 document "Control Tower 2.0: ontwerpvoorstellen, rollen en mockups": een rustige
 interface met een iconenbalk, een werkgebied per gebruiker, rollen, record-pagina's,
@@ -150,8 +150,26 @@ laatste kilometers over echte straten tot de poort of de weg voor de deur. Voor 
 gebouwen rond elke standplaats en elk DC (Overture Buildings, 16.196 contouren met hoogte), apart geladen. Welke winkel
 een vrachtwagen vandaag bedient blijft gesimuleerd (vaste seed); bronnen, aantallen en benaderingen staan in
 `src/data/BRONNEN.md`.
+
+In de tweede ronde van 4.0 is de dag geijkt op de cijfers uit het onderzoeksmemo (paragraaf 1.4; schattingen). Een dienst
+in de winkeldistributie duurt 8,5 tot 11 uur (mediaan 9,6), netwerk en bulk iets langer (mediaan 10,2 en 10,3 uur) met
+minder stops; 53 procent van de diensttijd is rijden, de rest is laden en koppelen aan het dock, wachten, lossen en
+pauze. De eerste dienst begint tussen 02:00 en 07:00, 29 procent van de vloot rijdt 's middags of 's avonds een tweede
+dienst met een andere chauffeur, en om 10:00 staan 212 van de 1.300 voertuigen op het terrein. Pauzes volgen
+EU-verordening 561/2006 (uiterlijk na 4,5 uur rijden 45 minuten, of 15 + 30; hoogstens 9 uur rijden per dienst, op een
+kwart van de diensten mag het vandaag 10 uur) en het Arbeidstijdenbesluit vervoer; elektrische voertuigen laden tussen
+twee ritten als de volgende rit niet meer in 78 procent van de accu past. Bij elke stop wacht een vrachtwagen eerst (bij
+DC's in de ochtend het langst, gemiddeld 42 minuten per truck per dag; `fleet.wachtPerPlek()`). Elke standplaats heeft
+docks in de gevel van zijn hal (aantal en plek geschat: `sp.docks`, `sp.dockPlek`, `dockPos()` in `src/places.js`);
+koppelen, laden en afkoppelen gebeuren aan een dock, nooit twee voertuigen tegelijk aan hetzelfde, en hal-scherm,
+planbord en `fleet.dockPlan(standplaats)` tonen hetzelfde dock. `fleet.eventsOf(voertuig)` geeft de gebeurtenissen van de
+dag (vertrek, aankomst, wachten, lossen, koppelen, pauze, laden) en `fleet.pool` de ritten zonder voertuig: 2 tot 5
+procent van de ritten per standplaats per dag, elk met een reden (ziek, uitval voertuig, extra rit klant, nieuw uit
+OTM5); 's middags komen de ritten van morgen erbij (`fleet.poolAt(T)`). `fleet.dagcijfers()` geeft de kerngetallen.
+
 Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
-diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen,
+diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen, wachttijden, de indeling van de docks,
+de open ritten in de pool,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
 en beoordelingen. Werkgebied, rol, thema, opgeslagen weergaven, overgenomen lostijden,
 eigen beoordelingen, de overdrachtstekst en de acties van vandaag (afgehandelde en
@@ -167,10 +185,10 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan i
 - `src/tables.js`: tabellen voertuigen, opleggers en mensen, lostijden, laden, pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
-- `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen), wegennet, standplaatsen, rollen en rechten
+- `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
-- `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein en parkeerrijen), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `BRONNEN.md`
-- `tests/data-check.mjs`: controle van de echte plekken en ritten; `tools/ct4/`: de verwerking van de data (Overture, vacatures)
+- `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein, parkeerrijen en docks), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `BRONNEN.md`
+- `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks)
 - `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)
 - `tools/`: dataverwerking (Overture), `artifact.cjs` en `sync-safetail.mjs` (de bundel naar de SafeTail-repo)
