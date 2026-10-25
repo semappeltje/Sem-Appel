@@ -177,6 +177,21 @@ terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekoze
 `tests/3d-check.mjs` controleert bouwtijd, tekenopdrachten en driehoeken per zoom, klikken, geheugen na
 drie keer uit en aan, en consolefouten.
 
+**Huisstijl.** Naar Sems schaalmodellen van Simon Loos (foto's in `rapporten/simon-loos-control-tower/fotos-modellen/`).
+De cabine is boven wit: dak, zonneklep, het vlak rond de voorruit en de deuren tot onder de ruit. Onder is ze
+Simon Loos-rood (#E3001F): grille, bumper, de deuren onder de ruit en de zijkant tot het chassis. De grens loopt
+onder de voorruit en de zijruiten: een goudgele band (#F0A526), een smalle witte bies en dan het rood. Op de
+zijkant loopt die grens licht omhoog naar achteren. Bovenaan de zijkant loopt een smalle sierstreep, geel boven
+rood, die naar voren eindigt in het kleine beeldmerk. Het beeldmerk is twee gele vierkantjes boven twee rode,
+schuin als een cursieve letter, met tussen de paren de ruimte waar het woordmerk loopt. Het staat boven de
+voorruit (op het hoge dak of op de dakspoiler) en groot midden op de zijkant van opleggers en laadbakken. Die
+zijn licht gebroken wit, met een aluminium onderrand en een smalle zwarte onderbalk; de koelmachine is wit met
+grijze roosters en de velgen zijn zilver. De Actros-vorm en de cabine in de 3D-wereld hebben een zwarte
+zonneklep, DAF, Scania en Volvo een witte. De bestelbus is wit met het beeldmerk. Het woordmerk "Simon Loos" laten we weg: er is geen letter die op elke
+machine hetzelfde rendert. Alles zit in het palet (`cabineWit`, `geel`, `kast`, `alu`, `rooster` in
+`palette.js`) en in onderdelen van dezelfde modellen (`cabineLak`, `beeldmerk` en `sierstreep` in
+`vehicles.js`): geen extra materiaal en geen extra tekenopdracht. De iconen op de 2D-kaart blijven zoals ze zijn.
+
 **Voertuigbeelden.** De beelden van voertuigen en opleggers op de voertuig- en opleggerpagina en in de
 hoverkaart zijn renders van onze eigen 3D-modellen, geen foto's; alleen van een DAF XF met koeloplegger en
 een Mercedes-Benz Actros bakwagen met aanhanger staan er foto's van Sems eigen schaalmodellen in de echte
@@ -184,7 +199,7 @@ huisstijl (`src/assets/fotos/`, bron `rapporten/simon-loos-control-tower/fotos-m
 `tools/fotos-modellen.mjs`; `fotoVan` en `fotoVanOplegger` gaan voor een render). Elke trekker heeft de cabinevorm van zijn
 merk (DAF XF, Scania R, Volvo FH, Mercedes Actros en eActros 600), zonder merktekens. Een elektrische trekker
 heeft accupakketten en een laadklep in plaats van de tank. Verder: met of zonder koeloplegger, de bakwagen
-in drie vormen, de bestelbus, en elke opleggersoort los op de steunpoten. Alles in de Simon Loos-kleuren en
+in drie vormen, de bestelbus, en elke opleggersoort los op de steunpoten. Alles in de huisstijl hierboven en
 met een fictief kenteken op het model (met een C, die Nederlandse kentekens niet hebben); de app zet het
 echte kenteken als tekst ernaast. De modellen staan in `src/scene3d/varianten.js`. `tools/render-portretten.mjs`
 rendert ze met Playwright en de software-GPU: 26 beelden van 640 x 400 px, WebP met een doorzichtige

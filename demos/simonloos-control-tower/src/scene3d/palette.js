@@ -7,12 +7,12 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 const N = 64;
 // naam: [kleur (sRGB), ruwheid, metaal, eigen licht 's nachts of null]
 const ENTRIES = {
-  rood: [0xE3001F, 0.38, 0.0, null],          // Simon Loos-rood: cabine
-  band: [0xD7001C, 0.45, 0.0, null],          // rode band en logo-strook op de kast
-  inkt: [0x23272D, 0.72, 0.0, null],          // donkere onderkant: bumper, treden, spatborden
+  rood: [0xE3001F, 0.38, 0.0, null],          // Simon Loos-rood: onderkant van de cabine, rode vierkantjes van het beeldmerk
+  band: [0xD7001C, 0.45, 0.0, null],          // rode sierstreep op de cabinezijde
+  inkt: [0x23272D, 0.72, 0.0, null],          // donkere delen: onderrand van de bumper, spiegels, spatborden
   glas: [0x1A2531, 0.08, 0.15, null],         // ruiten (spiegelen de lucht)
   glasNacht: [0x1A2531, 0.08, 0.15, 0x3A3324], // cabineruit met een vleugje binnenlicht 's nachts
-  wit: [0xF3F4F5, 0.5, 0.0, null],            // kast van oplegger en bakwagen, bestelbus
+  wit: [0xF3F4F5, 0.5, 0.0, null],            // bestelbus, AdBlue-tank
   deur: [0xE1E4E8, 0.55, 0.0, null],          // achterdeuren
   chassis: [0x2D3137, 0.78, 0.15, null],
   band_: [0x17181B, 0.94, 0.0, null],         // rubber van de banden
@@ -23,7 +23,7 @@ const ENTRIES = {
   oranje: [0xE09A12, 0.35, 0.0, 0xFFA21A],    // zijmarkeringslichten
   staal: [0xA4AAB2, 0.34, 0.6, null],         // scharnieren, sluitstangen, tank
   grille: [0x353A41, 0.55, 0.25, null],
-  koel: [0xD4D8DD, 0.5, 0.1, null],           // koelmachine
+  koel: [0xECEEF0, 0.48, 0.05, null],         // koelmachine: wit, met grijze roosters (rooster)
   klep: [0x1A1E23, 0.55, 0.0, null],          // zonneklep
   rubber: [0x1D2024, 0.9, 0.0, null],         // dockafdichting, stootblokken, spatlappen
   kenteken: [0xF2C200, 0.4, 0.0, null],       // gele kentekenplaat
@@ -52,12 +52,19 @@ const ENTRIES = {
   dakrand: [0x8B929A, 0.6, 0.3, null],        // bovenkant van de borstwering (van boven een rand om het dak)
   autoLak: [0xFFFFFF, 0.3, 0.15, null],       // carrosserie van een auto (de kleur komt per exemplaar)
   winkelLicht: [0xE8EEF2, 0.2, 0.0, 0xFFF1D8],
-  // voor de voertuigportretten (varianten.js): band van een vriesoplegger, roestvrij staal, zeil, chroom, accupakket
-  ijsblauw: [0x4FA8DC, 0.45, 0.0, null],
+  // voor de voertuigportretten (varianten.js): roestvrij staal, zeil, chroom, accupakket
   rvs: [0xD9DEE3, 0.2, 0.85, null],
   zeil: [0xEEF0EE, 0.78, 0.0, null],
   chroom: [0xE6E9EC, 0.14, 0.9, null],
   accu: [0x5A626B, 0.48, 0.35, null],
+  // huisstijl van Simon Loos (naar Sems schaalmodellen): het glanzende wit van de cabine, de goudgele band en de gele
+  // vierkantjes van het beeldmerk, het licht gebroken wit van opleggers en laadbakken, de aluminium onderrand van de
+  // kast en de grijze roosters van de koelmachine
+  cabineWit: [0xF5F5F2, 0.34, 0.0, null],
+  geel: [0xF0A526, 0.38, 0.0, null],
+  kast: [0xF1F0EA, 0.5, 0.0, null],
+  alu: [0xC3C8CE, 0.34, 0.6, null],
+  rooster: [0x8C939B, 0.55, 0.3, null],
 };
 export const P = {}; Object.keys(ENTRIES).forEach((k, i) => { P[k] = i; });
 
@@ -87,7 +94,16 @@ export function paletteMaterial(extra) {
 // ---------- bouwstenen met een palet-UV ----------
 const U = i => (i + 0.5) / N;
 export function paint(g, i) { const g2 = g.index ? g.toNonIndexed() : g; const n = g2.attributes.position.count; const uv = new Float32Array(n * 2); const u = U(i); for (let k = 0; k < n; k++) { uv[k * 2] = u; uv[k * 2 + 1] = 0.5; } g2.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); for (const name of Object.keys(g2.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g2.deleteAttribute(name); return g2; }
-export const box = (w, h, d, x, y, z, i) => paint(new THREE.BoxGeometry(w, h, d).translate(x, y, z), i);
+// doos: een kopie van één eenheidsblok, geschaald en verschoven (dezelfde punten als een BoxGeometry, maar zonder die
+// elke keer op te bouwen; een voertuig heeft er honderden)
+let eenheidsblok = null;
+export const eenheid = () => eenheidsblok || (eenheidsblok = new THREE.BoxGeometry(1, 1, 1).toNonIndexed());
+export function box(w, h, d, x, y, z, i) {
+  const e = eenheid(), a = e.attributes.position.array, pos = new Float32Array(a.length);
+  for (let k = 0; k < a.length; k += 3) { pos[k] = a[k] * w + x; pos[k + 1] = a[k + 1] * h + y; pos[k + 2] = a[k + 2] * d + z; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', e.attributes.normal.clone());
+  return paint(g, i);
+}
 // doos tussen twee hoekpunten (makkelijker voor onderdelen die je in maten van een tekening opgeeft)
 export const span = (x0, y0, z0, x1, y1, z1, i) => box(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0), (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, i);
 export const cyl = (r0, r1, h, seg, i) => paint(new THREE.CylinderGeometry(r0, r1, h, seg), i);

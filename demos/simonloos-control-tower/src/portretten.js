@@ -2,8 +2,9 @@
 // DAF XF met koeloplegger en een Mercedes-Benz Actros bakwagen met aanhanger de foto's van Sems eigen schaalmodellen in de
 // echte Simon Loos-huisstijl (FOTOS, fotoVan, fotoVanOplegger; de uitsneden maakt tools/fotos-modellen.mjs). Toon de foto
 // als die er is, anders de render.
-// Cabines in de vorm van de merken in de vloot, zonder merktekens; de Simon Loos-rode cabine en de witte oplegger zoals in
-// de 3D-wereld; een fictief kenteken op het model (de app zet het echte kenteken als tekst ernaast). Opnieuw maken:
+// Cabines in de vorm van de merken in de vloot, zonder merktekens, in de huisstijl van Sems schaalmodellen: de cabine wit
+// boven en rood onder met de goudgele band, de oplegger wit met het beeldmerk, zoals in de 3D-wereld; een fictief
+// kenteken op het model (de app zet het echte kenteken als tekst ernaast). Opnieuw maken:
 // node tools/render-portretten.mjs. 640 x 400 px, WebP met een doorzichtige achtergrond, elk hooguit 25 KB.
 //
 // De beelden komen met ?inline als data-URL in de bundel: geen los bestand, geen fetch, de bestandslijst van de sitebuild
@@ -66,7 +67,7 @@ export const PORTRETTEN = [
   trekker('mercedes', true, false, trekkerMercedesElektrisch), trekker('mercedes', true, true, trekkerMercedesElektrischOplegger),
   trekker('mercedes600', true, false, trekkerMercedes600Elektrisch), trekker('mercedes600', true, true, trekkerMercedes600ElektrischOplegger),
   bakwagen('daf', false, bakwagenDafDiesel), bakwagen('mercedes', false, bakwagenMercedesDiesel), bakwagen('mercedes', true, bakwagenMercedesElektrisch),
-  { id: 'bus-elektrisch', src: busElektrisch, w: W, h: H, soort: 'bus', ev: true, oplegger: false, vorm: 'Volkswagen e-Crafter-achtig', alt: 'Elektrische bestelbus, wit met de rode band' },
+  { id: 'bus-elektrisch', src: busElektrisch, w: W, h: H, soort: 'bus', ev: true, oplegger: false, vorm: 'Volkswagen e-Crafter-achtig', alt: 'Elektrische bestelbus, wit met het beeldmerk' },
   oplegger('koel', opleggerKoel), oplegger('vries', opleggerVries), oplegger('droog', opleggerDroog), oplegger('huif', opleggerHuif),
   oplegger('city', opleggerCity), oplegger('silo', opleggerSilo), oplegger('drank', opleggerDrank), oplegger('lzv', opleggerLzv),
 ];
