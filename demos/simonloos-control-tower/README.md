@@ -67,7 +67,9 @@ er nog bij: de **briefing** bovenaan het overzicht (wat er speelt, wat open staa
 beslissen, elke regel naar de zaak of de rit), op de ritpagina **waar een vertraging ontstond** met het voorstel en
 het effect in minuten, **zoeken** dat een voertuig, oplegger of chauffeur als pagina opent met de kaart die erheen
 vliegt, en **herladen** dat ook het zoekwoord, de filters en de sortering van elke tabel en de statusfilter van de
-kaart terugzet. De basiskaart kies je onder Kaartlagen (vier standen in de losse versie).
+kaart terugzet. De basiskaart kies je onder Kaartlagen (vier standen in de losse versie). Zonder eigen keuze opent de
+losse versie met de ingebouwde kaart en de demosite (`dist/demosite.html`) met OpenStreetMap; de bezorgbussen zet je
+onder Kaartlagen aan of uit (toets b), alleen op de kaart: in lijsten en tellers tellen ze mee.
 
 Artifact: https://claude.ai/artifact/S2ni36VcHix21CuMkWUnqF (versie 1.2 staat op
 https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
@@ -79,7 +81,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | Indeling | linkermenu, topbalk; op een telefoon de onderbalk | Vier groepen: Overzicht, Kaart, Ritten, Meldingen, Open ritten en Planbord; Vloot (Voertuigen, Opleggers, Chauffeurs, Charters en oproepkrachten); Locaties (Standplaatsen, Laden, Lostijden, Pauzeplekken); Analyse (Rapporten, Instellingen). Inklappen met `[` of de knop onderaan (bewaard). Op 390 px een onderbalk met Overzicht, Kaart, Open ritten, Meldingen en Meer. Vanuit een detailpagina ga je met de balk direct naar een ander onderdeel; de terugknop van de browser en Terug brengen je terug met hetzelfde zoekwoord, filter en dezelfde scrollpositie |
 | Werkgebied en rol | de eerste keer, daarna in de topbalk | Drie stappen: regio's, divisies, rol en standplaats; bewaard in de browser. Planner, regiomanager, directie en HR zien elk hun deel; alleen wie mag handelen ziet de knoppen |
 | Overzicht | startscherm, toets 1 | Bovenaan de briefing (de ochtendbriefing tot 11:00): hooguit vijf regels in de volgorde van een overdracht, wat er speelt (de grootste vertraging), wat open staat (de dringendste open rit, wat op een ja wacht), waar het risico zit (de dringendste andere zaak, of de open rit met de kleinste kans op tijd), wat je moet beslissen (voorstellen, zaken zonder eigenaar) en de overdracht van de vorige dienst als die er is; elke regel opent de zaak of de rit. Met `data-ai` schrijft de Assistent hem op een klik. Daaronder drie cijfers (op tijd, vertraagd, open ritten), wat nu aandacht nodig heeft (open zaken op urgentie, met een snelle actie), de vertrekken van het komende uur, de dag in een regel (`fleet.dagcijfers`) met de open ritten, en de recente gebeurtenissen |
-| Kaart | toets 2 | Voertuigen in hun statuskleur met rijrichting (nooit clusters), een filterbalk (hooguit drie getallen in beeld), losse opleggers, kaartlagen (in de losse versie vier basiskaarten: ingebouwd, OpenStreetMap, luchtfoto en topografisch; verder losse opleggers, pauzeplekken en gedimde standplaatsen), de 3D-wereld en de tijdbalk. Tegenliggers rijden rechts op hun eigen rijbaan, wegen staan vanaf zoom 16 op ware breedte en de afdelingen op het terrein vanaf zoom 16; rechts het paneel van een voertuig, oplegger, standplaats, pauzeplek, winkel of DC. Het kaartje bij aanwijzen (beeld, kenteken, chauffeur, volgende stop) rijdt mee met het voertuig (`mapApi.anchor`); een klik laat de kaart staan als het voertuig al in beeld is; volgen (f) doet de kaart zelf (`mapApi.follow`) |
+| Kaart | toets 2 | Voertuigen in hun statuskleur met rijrichting (nooit clusters), een filterbalk (hooguit drie getallen in beeld), losse opleggers, kaartlagen (in de losse versie vier basiskaarten: ingebouwd, OpenStreetMap, luchtfoto en topografisch; verder losse opleggers, bezorgbussen, pauzeplekken en gedimde standplaatsen), de 3D-wereld en de tijdbalk. Tegenliggers rijden rechts op hun eigen rijbaan, wegen staan vanaf zoom 16 op ware breedte en de afdelingen op het terrein vanaf zoom 16; rechts het paneel van een voertuig, oplegger, standplaats, pauzeplek, winkel of DC. Het kaartje bij aanwijzen (beeld, kenteken, chauffeur, volgende stop) rijdt mee met het voertuig (`mapApi.anchor`); een klik laat de kaart staan als het voertuig al in beeld is; volgen (f) doet de kaart zelf (`mapApi.follow`) |
 | 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt naar een wereld op ware grootte: trekkers met opleggers, bakwagens en bussen op koers, geparkeerd op hun plek in de rijen; de standplaatsen op hun echte terrein met de hal uit de gebouwgegevens, genummerde docks, poort, lichtmasten en de buurt eromheen; bij een klant achteruit tegen een dock; het licht volgt de klok van de simulatie (dag, schemer, nacht), met schaduw; naamborden van de afdelingen; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
 | Ritten | toets 3, `#ritten`, `#rit/<id>` | Alle ritten van de dag (ruim 3.200) met status, ETA en afwijking. De ritpagina: statusbalk (gepland, onderweg, bij klant, afgerond), slimme knoppen, drie cijfers, waar de vertraging ontstond (het stuk rijden met de vertraging, de aankomst tegen het venster en het voorstel van de assistent met het effect in minuten en Pas toe), de mijlpalen gepland naast werkelijk (met wachten en lossen per stop), berichten aan de chauffeur, "Verplaats deze rit" (naar het planbord) en "Waar past hij?" |
 | Meldingen | toets 4 of m, `#melding/<id>` | Elke uitzondering is een zaak met een vaste sleutel uit soort, voertuig en rit, een eigenaar (de planners van de standplaats) en een deadline per soort. Statussen nieuw, in behandeling, wacht op (chauffeur, klant, garage of collega; na de wachttijd komt hij vanzelf terug) en opgelost. Als lijst of als bord per status (slepen, of Alt met een pijltje). De zaakpagina: statusbalk, slimme knoppen, voorstellen met uitleg en effect, een logboek met wat het voertuig deed (`fleet.eventsOf`), notities en "Verplaats deze rit" |
@@ -185,6 +187,16 @@ HTML), nummers (ritten, voertuigen, zaken, personen, charters) worden knoppen na
 ongeldig antwoord wordt nooit getoond. Een 429 zegt na hoeveel minuten je het weer kunt proberen; een 404 valt terug
 op de vaste antwoorden. Elke actie in het antwoord kan in het logboek, het antwoord in de overdracht.
 
+## De demosite (controltower-demo.netlify.app)
+
+`npm run build` maakt naast `dist/index.html` (de losse versie) en `dist/artifact.html` ook `dist/demosite.html`:
+dezelfde app met `data-basiskaart="online"` (opent met OpenStreetMap in onze eigen stijl, de luchtfoto een klik
+verder; laadt OpenFreeMap niet, dan stil de ingebouwde kaart) en `data-ai="/api/assistent"` (de Assistent met de
+Claude API, zie `netlify/functions/README.md`). Op de demosite wordt dat bestand `public/index.html`, met
+`netlify/functions/assistent.mts` ernaast. Hosts buiten de eigen site: tiles.openfreemap.org (de standaardkaart)
+en service.pdok.nl (luchtfoto en topografisch, alleen als de kijker die kiest); de Assistent loopt via de eigen
+functie.
+
 ## Inbedden in een site (SafeTail: safetail.nl/intern/control-tower)
 
 De app staat als tabblad "Control Tower" in SafeTools, het interne deel van safetail.nl
@@ -195,10 +207,13 @@ inlog van de oprichters). Daarvoor is de app inbedbaar gemaakt:
   en de kiosk-klasse voor het hal-scherm staan op die root, niet op `<html>` of `<body>`.
   Met `contain: layout` blijven de vaste panelen (paneel, record-pagina, modals, hal-scherm)
   binnen de app, ook midden in een andere pagina.
-- Twee opties als data-attribuut op de root: `data-tiles="off"` laadt geen externe
+- Vier opties als data-attribuut op de root: `data-tiles="off"` laadt geen externe
   kaarttegels (geen enkel verzoek naar buiten; de basiskaart zit in de bundel) en
   `data-embedded` houdt de sneltoetsen binnen de app en vraagt bij "Open als hal-scherm"
-  om volledig scherm op de app zelf (Esc sluit beide).
+  om volledig scherm op de app zelf (Esc sluit beide). Alleen buiten SafeTools:
+  `data-basiskaart` (`kaart`, `online`, `luchtfoto` of `brt`) is de basiskaart zolang de kijker zelf niets koos
+  (zijn keuze onder Kaartlagen gaat voor en wordt bewaard, de standaard niet; met `data-tiles="off"` blijft het
+  altijd de ingebouwde kaart), en `data-ai` zet de Assistent aan (zie "Assistent met de Claude API").
 - Zonder WebGL toont de kaart een rustige melding; de andere weergaven werken gewoon.
 
 Bijwerken in de SafeTail-repo:
@@ -433,7 +448,9 @@ controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de s
   of de BRT-achtergrondkaart van PDOK (Kadaster, CC BY 4.0). Laadt een bron niet, dan blijft de ingebouwde kaart.
 - Voertuigen zijn iconen in de statuskleur, gedraaid in hun rijrichting (trekker met
   oplegger, trekker solo, bakwagen, bus); ver uitgezoomd worden het stippen. Losse
-  opleggers zijn een aparte laag (toets o). Geen clusters.
+  opleggers zijn een aparte laag (toets o). Geen clusters. De bezorgbussen kunnen van de kaart (Kaartlagen,
+  Instellingen, toets b; dan staat er een chip "Bezorgbussen verborgen" in de filterbalk die ze terugzet): alleen
+  de kaart en de 3D-wereld, in lijsten, tellers en meldingen tellen ze mee, en een gekozen bus blijft zichtbaar.
 
 ## Wat echt is en wat niet
 

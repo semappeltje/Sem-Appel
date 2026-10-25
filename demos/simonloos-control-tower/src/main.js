@@ -9,7 +9,8 @@ import { createLostijden } from './lostijden.js';
 
 // De app-root (#app.slct) draagt het thema en de opties. Zo draait dezelfde code als losse pagina (index.html) en
 // ingebed in een andere site: data-tiles="off" laadt geen externe kaarttegels, data-embedded houdt sneltoetsen en
-// volledig scherm binnen de app.
+// volledig scherm binnen de app, data-basiskaart kiest de basiskaart zolang de kijker zelf niets koos (de demosite:
+// online) en data-ai zet de Assistent aan (het adres van de functie, zie netlify/functions/README.md).
 const root = document.getElementById('app');
 const cfg = { tiles: root.dataset.tiles !== 'off', embedded: 'embedded' in root.dataset };
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* geen opslag */ } } };
@@ -20,9 +21,12 @@ const now = new Date(); const simTime = now.getHours() * 60 + now.getMinutes() +
 const state = { simTime, speed: 12, theme, playing: true };
 // de kaart krijgt de klok mee (simTime, speed), zodat de voertuigen tussen twee stappen vloeiend rijden en bij een sprong
 // in de tijd (tijdschuif, Nu) gewoon springen
-// de basiskaart (Kaartlagen): ingebouwd, online (OpenStreetMap via OpenFreeMap), luchtfoto of BRT (PDOK); zonder keuze
-// online, zoals voorheen
-const kaartlaag = (k => (['kaart', 'online', 'luchtfoto', 'brt'].includes(k) ? k : store.get('sl-online') === 'on' ? 'online' : 'kaart'))(store.get('sl-kaartlaag')); // zonder keuze de ingebouwde kaart: niets van buiten tot de kijker zelf een online laag kiest
+// de basiskaart (Kaartlagen): ingebouwd, online (OpenStreetMap via OpenFreeMap), luchtfoto of BRT (PDOK). Eerst de keuze
+// van de kijker (sl-kaartlaag; sl-online van oudere versies), dan wat de pagina vraagt (data-basiskaart op #app: de
+// demosite opent met OpenStreetMap), anders de ingebouwde kaart: dan gaat er niets naar buiten tot de kijker zelf een
+// online laag kiest. Laadt de gevraagde laag niet, dan stil terug naar de ingebouwde kaart.
+const BASIS = ['kaart', 'online', 'luchtfoto', 'brt'];
+const kaartlaag = (k => (BASIS.includes(k) ? k : store.get('sl-online') === 'on' ? 'online' : BASIS.includes(root.dataset.basiskaart) ? root.dataset.basiskaart : 'kaart'))(store.get('sl-kaartlaag'));
 const mapApi = createMap('map', {
   theme, tiles: cfg.tiles, online: cfg.tiles && kaartlaag === 'online', base: kaartlaag, clock: state,
   onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id), onSelectTrailer: id => window.SLCT && window.SLCT.ui.selectTrailer(id),

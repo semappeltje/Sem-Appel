@@ -14,9 +14,10 @@ let bewaardKf = null;
 // ---------- filterbalk boven de kaart ----------
 export function renderMapbar(ctx) {
   const el = ctx.$('mapbar'); if (!el) return; const F = ctx.F; const c = ctx.counts(); const k = ctx.kpi();
-  // de statusfilter en het dimmen blijven na herladen staan (sl-kaartfilter)
-  if (bewaardKf === null) bewaardKf = ctx.store.get('sl-kaartfilter') || JSON.stringify({ sts: STKEYS, dim: true });
-  const kf = JSON.stringify({ sts: STKEYS.filter(s => F.sts.has(s)), dim: !!F.dim }); if (kf !== bewaardKf) { bewaardKf = kf; ctx.store.set('sl-kaartfilter', kf); }
+  // de statusfilter, het dimmen en de bezorgbussen blijven na herladen staan (sl-kaartfilter); zolang de kijker niets
+  // verandert, bewaart de browser niets
+  if (bewaardKf === null) bewaardKf = ctx.store.get('sl-kaartfilter') || JSON.stringify({ sts: STKEYS, dim: true, bussen: true });
+  const kf = JSON.stringify({ sts: STKEYS.filter(s => F.sts.has(s)), dim: !!F.dim, bussen: F.bussen !== false }); if (kf !== bewaardKf) { bewaardKf = kf; ctx.store.set('sl-kaartfilter', kf); }
   const all = F.sts.size === STKEYS.length;
   // Rust op de kaart: hooguit drie getallen in beeld (onderweg, vertraagd, losse opleggers); de andere tellers staan in de
   // titel van de knop en op het Overzicht
@@ -24,20 +25,21 @@ export function renderMapbar(ctx) {
   const chips = STKEYS.map(s => `<button class="mc ${all ? '' : F.sts.has(s) ? 'on' : 'off'}" type="button" data-st="${s}" aria-pressed="${!all && F.sts.has(s)}" title="${fmt(c[s] || 0)} ${VST[s].n.toLowerCase()}. ${all ? `Klik om alleen ${VST[s].n.toLowerCase()} te tonen` : F.sts.has(s) ? 'Klik om weg te halen' : 'Klik om erbij te zetten'}"><i class="dot st-${s}"></i>${VST[s].n}${getal(s) ? ` <b>${fmt(c[s] || 0)}</b>` : ''}</button>`).join('');
   const extra = [
     `<span class="sep"></span><button class="mc ${ctx.trailersOnMap() ? 'on' : ''}" type="button" data-trl="1" aria-pressed="${ctx.trailersOnMap()}" title="Losse opleggers op de kaart (o)">${ic('trailer', 15)}Losse opleggers <b>${fmt(k.loose || 0)}</b></button>`,
+    F.bussen === false ? `<button class="mc x" type="button" data-clear="bussen" title="Bezorgbussen weer op de kaart (b)">${ic('bus', 15)}Bezorgbussen verborgen ${ic('x', 13)}</button>` : '',
     all ? '' : `<button class="mc" type="button" data-reset="1">Alle statussen</button>`,
     F.sps.size ? `<button class="mc x" type="button" data-clear="sps" title="Standplaatsselectie loslaten">${esc(F.sps.size === 1 ? [...F.sps][0] : `${F.sps.size} standplaatsen`)} ${ic('x', 13)}</button>` : '',
     F.ids ? `<button class="mc x" type="button" data-clear="ids" title="Selectie loslaten">${fmt(F.ids.size)} geselecteerde voertuigen ${ic('x', 13)}</button>` : '',
     F.trIds ? `<button class="mc x" type="button" data-clear="trids" title="Selectie loslaten">${fmt(F.trIds.size)} geselecteerde opleggers ${ic('x', 13)}</button>` : '',
   ].join('');
   const h = `<div class="mapchips" role="toolbar" aria-label="Filters op de kaart">${chips}${extra}</div>`;
-  if (el.dataset.h !== h) { const f = el.contains(document.activeElement) ? document.activeElement.dataset : null; el.innerHTML = h; el.dataset.h = h; if (f) { const sel = f.st ? `[data-st="${f.st}"]` : f.trl ? '[data-trl]' : null; const x = sel && el.querySelector(sel); if (x) x.focus(); } }
+  if (el.dataset.h !== h) { const f = el.contains(document.activeElement) ? document.activeElement.dataset : null; el.innerHTML = h; el.dataset.h = h; if (f) { const sel = f.st ? `[data-st="${f.st}"]` : f.trl || f.clear ? '[data-trl]' : null; // een gesloten chip: de focus blijft in de balk const x = sel && el.querySelector(sel); if (x) x.focus(); } }
 }
 export function bindMapbar(ctx) {
   const el = ctx.$('mapbar'); const F = ctx.F;
   on(el, 'click', '[data-st]', (e, b) => { const k = b.dataset.st; if (F.sts.size === STKEYS.length) F.sts = new Set([k]); else if (F.sts.has(k) && F.sts.size === 1) F.sts = new Set(STKEYS); else if (F.sts.has(k)) F.sts.delete(k); else F.sts.add(k); ctx.frame(true); });
   on(el, 'click', '[data-reset]', () => { F.sts = new Set(STKEYS); ctx.frame(true); });
   on(el, 'click', '[data-trl]', () => ctx.setTrailersOnMap(!ctx.trailersOnMap()));
-  on(el, 'click', '[data-clear]', (e, b) => { const k = b.dataset.clear; if (k === 'sps') ctx.clearSps(); else if (k === 'ids') { F.ids = null; ctx.frame(true); } else { F.trIds = null; ctx.frame(true); } });
+  on(el, 'click', '[data-clear]', (e, b) => { const k = b.dataset.clear; if (k === 'bussen') ctx.setBussenOnMap(true); else if (k === 'sps') ctx.clearSps(); else if (k === 'ids') { F.ids = null; ctx.frame(true); } else { F.trIds = null; ctx.frame(true); } });
 }
 
 // ---------- kaartlagen, 3D, tijdbalk ----------
@@ -57,12 +59,14 @@ export function kiesBasis(ctx, k) {
   m.setBase(k); ctx.store.set('sl-kaartlaag', k); ctx.store.set('sl-online', k === 'online' ? 'on' : 'off');
   return true;
 }
+// de bezorgbussen in het werkgebied, als onderregel bij de schakelaar (staat er geen een, dan zegt de regel dat)
+const busSub = ctx => { let n = 0; for (const t of ctx.fleet.trucks) if (t.kind === 'bus' && ctx.inScope(t)) n++; return n ? `toets b · ${fmt(n)} in je werkgebied` : 'toets b · geen in je werkgebied'; };
 const markBase = (el, k) => el.querySelectorAll('[data-base]').forEach(x => { const on2 = x.dataset.base === k; x.classList.toggle('on', on2); x.setAttribute('aria-checked', String(on2)); });
 export function layersMenu(ctx, b) {
   const m = ctx.mapApi(); const d3 = m && m.has3d(); const tg = (id, on2, label, sub = '') => `<label class="tgl"><input type="checkbox" id="${id}" ${on2 ? 'checked' : ''}><i></i><span>${esc(label)}${sub ? `<small style="display:block">${esc(sub)}</small>` : ''}</span></label>`;
   const nu = m && m.base ? m.base() : 'kaart';
   const basis = m && m.hasTiles() ? `<div class="basesel" id="baseSeg" role="radiogroup" aria-labelledby="baseSegL"><span class="bl" id="baseSegL">Basiskaart</span>${BASES.map(([k, n, d]) => `<button type="button" role="radio" data-base="${k}" aria-checked="${nu === k}" class="${nu === k ? 'on' : ''}"><i></i><span>${esc(n)}<small>${esc(d)}</small></span></button>`).join('')}</div>` : '';
-  ctx.L.openPop(b, `<div class="menu-h">Kaartlagen</div>${basis}${d3 ? tg('threeTog', ctx.three(), '3D-wereld', 'toets d') : ''}${tg('trlTog', ctx.trailersOnMap(), 'Losse opleggers', 'toets o')}${tg('restTog', ctx.restOnMap(), 'Pauzeplekken')}${tg('dimTog', ctx.F.dim, 'Andere standplaatsen gedimd', 'als je werkgebied één standplaats is')}`, {
+  ctx.L.openPop(b, `<div class="menu-h">Kaartlagen</div>${basis}${d3 ? tg('threeTog', ctx.three(), '3D-wereld', 'toets d') : ''}${tg('trlTog', ctx.trailersOnMap(), 'Losse opleggers', 'toets o')}${tg('busTog', ctx.bussenOnMap(), 'Bezorgbussen', busSub(ctx))}${tg('restTog', ctx.restOnMap(), 'Pauzeplekken')}${tg('dimTog', ctx.F.dim, 'Andere standplaatsen gedimd', 'als je werkgebied één standplaats is')}`, {
     cls: 'layers', label: 'Kaartlagen', onBind: p => {
       p.addEventListener('click', e => { const x = e.target.closest('[data-base]'); if (x && kiesBasis(ctx, x.dataset.base)) markBase(p, x.dataset.base); });
       // pijltjes lopen door de keuzes; kiezen met Enter of spatie (elke keuze laadt een kaart van buiten)
@@ -75,6 +79,7 @@ export function layersMenu(ctx, b) {
         const id = e.target.id; const v = e.target.checked;
         if (id === 'threeTog') ctx.set3dMode(v);
         else if (id === 'trlTog') ctx.setTrailersOnMap(v);
+        else if (id === 'busTog') ctx.setBussenOnMap(v);
         else if (id === 'restTog') ctx.setRestOnMap(v);
         else if (id === 'dimTog') { ctx.F.dim = v; ctx.frame(true); }
       });

@@ -9,7 +9,7 @@
 // De online basiskaarten nagebootst (OpenFreeMap met een echte vectortegel, de luchtfoto en de BRT-achtergrondkaart van
 // PDOK) met hun terugval, land en zee onder elke standplaats, elk DC en elke fabriek, en de afdelingen op het terrein.
 // Daarna schermafbeeldingen van de ingebouwde kaart op zoom 7, 11, 14 en 16, licht en donker, 1440 en 390 px, en een
-// meting van de framerate.
+// meting van de framerate. Ook: de demosite (data-basiskaart="online") en de bezorgbussen aan en uit.
 //
 // Gebruik: npm run build, dan in dist/ een webserver (python3 -m http.server 8772 --bind 127.0.0.1), dan
 //   node tests/map-check.mjs [url] [map voor schermafbeeldingen] [snel]
@@ -60,8 +60,9 @@ const VTILE = mvt();
 // opent de app; block: externe hosts tegenhouden (zoals een omgeving zonder bereik); embedded: data-tiles="off";
 // ofm (OpenFreeMap): 'ok' (TileJSON en een echte vectortegel), 'leeg' (antwoordt, maar een lege tegel), 'png' (een plaatje
 // in plaats van een vectortegel, zoals een tegel met een watermerk) of 'fout' (onbereikbaar); pdok (luchtfoto en BRT):
-// 'ok', 'hr-fout' (de luchtfoto van 8 cm onbereikbaar, die van 25 cm wel) of 'fout'; base: de bewaarde basiskaart
-async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded = false, block = true, ofm = 'fout', pdok = 'fout', base = null } = {}) {
+// 'ok', 'hr-fout' (de luchtfoto van 8 cm onbereikbaar, die van 25 cm wel) of 'fout'; base: de bewaarde basiskaart;
+// attrs: extra attributen op #app (de demosite: data-basiskaart="online"); prefs: andere bewaarde sleutels vooraf
+async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded = false, block = true, ofm = 'fout', pdok = 'fout', base = null, attrs = '', prefs = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500, deviceScaleFactor: w < 500 ? 2 : 1, reducedMotion: reduced ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage(); const errors = errorsOf(page); const ext = new Set();
   page.on('request', r => { if (/^(data|blob|about):/.test(r.url())) return; const u = new URL(r.url()); if (u.host !== host) ext.add(u.host); });
@@ -75,12 +76,13 @@ async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded
     if (u.host === 'tiles.openfreemap.org' || u.host === 'service.pdok.nl') return route.abort('connectionrefused');
     return route.abort('blockedbyclient');
   });
-  if (embedded) await page.route(url, async route => { const res = await route.fetch(); const body = (await res.text()).replace('class="app slct"', 'class="app slct" data-tiles="off" data-embedded'); await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
+  const extra = [embedded ? 'data-tiles="off" data-embedded' : '', attrs].filter(Boolean).join(' ');
+  if (extra) await page.route(url, async route => { const res = await route.fetch(); const body = (await res.text()).replace('class="app slct"', `class="app slct" ${extra}`); await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
   // elke melding die in beeld komt, onthouden (een melding verdwijnt na een paar seconden; onder belasting is die al weg
   // voordat de test kijkt)
   // (sinds de interface 4.0 is een melding een toast in #toasts: elke nieuwe toast telt)
   await page.addInitScript(() => { window.__notices = []; document.addEventListener('DOMContentLoaded', () => { const el = document.getElementById('toasts'); if (!el) return; new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) { const t = (n.textContent || '').trim(); if (t && window.__notices[window.__notices.length - 1] !== t) window.__notices.push(t); } }).observe(el, { childList: true }); }); });
-  await page.addInitScript(([d, b]) => { try { localStorage.clear(); localStorage.setItem('sl-theme', d ? 'dark' : 'light'); if (b) localStorage.setItem('sl-kaartlaag', b); } catch { /* geen opslag */ } }, [dark, base]);
+  await page.addInitScript(([d, b, pr]) => { try { localStorage.clear(); localStorage.setItem('sl-theme', d ? 'dark' : 'light'); if (b) localStorage.setItem('sl-kaartlaag', b); for (const [k, v] of Object.entries(pr || {})) localStorage.setItem(k, v); } catch { /* geen opslag */ } }, [dark, base, prefs]);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.SLCT && window.SLCT.fleet && document.getElementById('loading').hidden, null, { timeout: 120_000 });
   for (let i = 0; i < 3; i++) { const b = await page.$('#wzNext'); if (b) { await b.click(); await page.waitForTimeout(150); } }
@@ -366,6 +368,41 @@ for (const pdok of ['hr-fout', 'fout']) {
   check(o.base === 'brt' && o.src.brt.ok && o.brt === 'visible' && o.mw === 'none' && o.pl === 'none' && o.site === 'visible' && o.sp === 'visible' && /Kaart: Kadaster, PDOK, CC BY 4\.0/.test(o.attr), `BRT: zichtbaar, eigen wegen en namen uit, terreinen erboven, bronvermelding "${o.attr}"`);
   await page.click('#themeBtn'); await page.waitForTimeout(1500);
   check([...ext].length === 1 && ext.has('service.pdok.nl'), `BRT: alleen PDOK gevraagd (${[...ext].join(', ')})`);
+  await ctx.close();
+}
+// De demosite (data-basiskaart="online" op #app, dist/demosite.html): zonder eigen keuze opent hij met OpenStreetMap en
+// bewaart hij niets; een eigen keuze gaat voor; een onbereikbare online kaart valt stil terug; ingebed blijft het altijd
+// de ingebouwde kaart, zonder een enkel verzoek naar buiten.
+const bewaard = page => page.evaluate(() => { try { return localStorage.getItem('sl-kaartlaag'); } catch { return 'geen opslag'; } });
+{
+  const { page, ctx, errors, ext } = await open({ ofm: 'ok', attrs: 'data-basiskaart="online"' });
+  await toSp(page, 13); await page.waitForTimeout(2500); await decided(page, 'online');
+  const o = await baseState(page); const k = await bewaard(page);
+  check(o.base === 'online' && o.src.online.ok && o.oroad === 'visible' && o.keuze === 'online' && ext.size === 1 && ext.has('tiles.openfreemap.org') && !/niet bereikbaar/.test(o.notice), `demosite zonder eigen keuze: opent met OpenStreetMap, de keuze staat zo in Kaartlagen (${o.base}, ${[...ext].join(', ') || 'geen verzoek'})`);
+  check(k === null, `demosite: de standaard wordt niet bewaard, alleen een eigen keuze (sl-kaartlaag ${k})`);
+  check(errors.length === 0, `demosite: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+{
+  const { page, ctx, errors } = await open({ ofm: 'fout', attrs: 'data-basiskaart="online"' });
+  await toSp(page, 12); await page.waitForTimeout(3000); await decided(page, 'online');
+  const o = await baseState(page);
+  check(o.base === 'kaart' && o.src.online.failed && o.mw === 'visible' && o.keuze === 'kaart' && !/niet bereikbaar/.test(o.notice), `demosite zonder bereik: stil terug naar de ingebouwde kaart, zonder melding (${o.base}${o.notice ? `, melding "${o.notice}"` : ''})`);
+  check(errors.length === 0, `demosite zonder bereik: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+{
+  const { page, ctx, ext } = await open({ ofm: 'ok', base: 'kaart', attrs: 'data-basiskaart="online"' });
+  await toSp(page, 12); await page.waitForTimeout(2000);
+  const o = await baseState(page);
+  check(o.base === 'kaart' && ![...ext].some(h => /openfreemap|pdok/.test(h)), `demosite met een eigen keuze (ingebouwd): die gaat voor, niets van buiten (${o.base}, ${[...ext].join(', ') || 'geen verzoek'})`);
+  await ctx.close();
+}
+{
+  const { page, ctx, ext } = await open({ ofm: 'ok', embedded: true, attrs: 'data-basiskaart="online"' });
+  await toSp(page, 12); await page.waitForTimeout(2000);
+  const o = await baseState(page);
+  check(o.base === 'kaart' && ext.size === 0, `ingebed met data-basiskaart="online": toch de ingebouwde kaart, geen verzoek naar buiten (${o.base}, ${[...ext].join(', ') || 'geen verzoek'})`);
   await ctx.close();
 }
 
@@ -660,7 +697,57 @@ for (const pdok of ['hr-fout', 'fout']) {
 }
 
 // ======================================================================================================================
-// 9. Framerate (SwiftShader: software, dus laag) en schermafbeeldingen
+// 9. Bezorgbussen aan en uit (Sem: "laten staan, gewoon als keuze kunnen aanklikken"): standaard op de kaart; uit via
+// Kaartlagen, Instellingen, de toets b of de chip in de filterbalk; alleen de kaart (en daarmee de 3D-wereld), in lijsten
+// en tellers tellen ze mee; een gekozen bus blijft zichtbaar; de keuze blijft na herladen staan.
+{
+  const { page, ctx, errors } = await open({});
+  await manual(page);
+  const tel = () => page.evaluate(() => { const S = window.SLCT; (S.__frame || S.ui.frame)(true); let bus = 0, rest = 0, scope = 0; for (const t of S.fleet.trucks) { if (t.kind === 'bus' && S.ui.ctx.inScope(t)) scope++; if (!S.map.vehiclePos(t.id)) continue; if (t.kind === 'bus') bus++; else rest++; } return { bus, rest, scope, chip: !!document.querySelector('#mapbar [data-clear="bussen"]'), kf: (() => { try { return JSON.parse(localStorage.getItem('sl-kaartfilter') || 'null'); } catch { return null; } })(), c: { ...S.ui.ctx.counts() } }; });
+  // het werkgebied heel Nederland, zodat er bussen in beeld zijn
+  await page.evaluate(() => { const S = window.SLCT; if (S.ui.ctx.F.sps.size) S.ui.ctx.clearSps(); S.map.map.jumpTo({ center: [5.25, 52.25], zoom: 7, pitch: 0, bearing: 0 }); });
+  const a = await tel();
+  check(a.scope > 0 && a.bus > 0 && !a.chip && a.kf === null, `bezorgbussen standaard aan: ${a.bus} bussen op de kaart, geen chip, niets bewaard`);
+  await page.click('#layersBtn'); await page.waitForTimeout(200);
+  const sub = await page.evaluate(() => { const x = document.getElementById('busTog'); return x ? { on: x.checked, txt: x.closest('label').textContent } : null; });
+  check(!!sub && sub.on && /Bezorgbussen/.test(sub.txt) && /toets b/.test(sub.txt), `Kaartlagen: schakelaar Bezorgbussen, aan (${sub && sub.txt.trim()})`);
+  await page.click('#busTog'); await page.waitForTimeout(250);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+  const b = await tel();
+  check(b.bus === 0 && b.rest === a.rest && b.chip && b.kf && b.kf.bussen === false, `uit: geen bus op de kaart, de andere ${b.rest} voertuigen blijven, de chip "Bezorgbussen verborgen" staat er, bewaard`);
+  check(JSON.stringify(b.c) === JSON.stringify(a.c), `uit: de tellers van de statussen tellen de bussen gewoon mee (${JSON.stringify(b.c)})`);
+  // een gekozen bus blijft zichtbaar, de andere niet
+  const bid = await page.evaluate(() => { const S = window.SLCT, T = S.state.simTime; const t = S.fleet.trucks.find(t => t.kind === 'bus' && S.ui.ctx.inScope(t) && S.fleet.stateAt(t, T).st === 'onderweg') || S.fleet.trucks.find(t => t.kind === 'bus' && S.ui.ctx.inScope(t)); S.ui.selectTruck(t.id); return t.id; });
+  await page.waitForTimeout(400);
+  const c = await tel(); const zicht = await page.evaluate(id => !!window.SLCT.map.vehiclePos(id), bid);
+  check(zicht && c.bus === 1, `uit, maar ${bid} gekozen: die ene bus blijft zichtbaar (${c.bus} bus op de kaart)`);
+  await page.evaluate(() => window.SLCT.ui.ctx.clearSel()); await page.waitForTimeout(200);
+  // de toets b zet ze terug
+  await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press('b'); await page.waitForTimeout(300);
+  const d = await tel();
+  check(d.bus > 0 && !d.chip && d.kf && d.kf.bussen === true, `toets b: de bussen weer op de kaart (${d.bus}), de chip weg`);
+  // de chip in de filterbalk zet ze ook terug
+  await page.keyboard.press('b'); await page.waitForTimeout(300);
+  await page.click('#mapbar [data-clear="bussen"]'); await page.waitForTimeout(300);
+  const e = await tel();
+  check(e.bus > 0 && !e.chip, `de chip "Bezorgbussen verborgen" zet ze terug (${e.bus})`);
+  check(errors.length === 0, `bezorgbussen: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+{
+  // na herladen: de bewaarde keuze (sl-kaartfilter met bussen uit) geldt meteen, ook in Instellingen
+  const { page, ctx } = await open({ prefs: { 'sl-kaartfilter': JSON.stringify({ sts: ['vertraagd', 'onderweg', 'klant', 'pauze', 'terrein'], dim: true, bussen: false }) } });
+  await page.evaluate(() => { const S = window.SLCT; if (S.ui.ctx.F.sps.size) S.ui.ctx.clearSps(); S.map.map.jumpTo({ center: [5.25, 52.25], zoom: 7 }); S.ui.frame(true); }); await page.waitForTimeout(400);
+  const r = await page.evaluate(() => { const S = window.SLCT; let bus = 0; for (const t of S.fleet.trucks) if (t.kind === 'bus' && S.map.vehiclePos(t.id)) bus++; return { bus, chip: !!document.querySelector('#mapbar [data-clear="bussen"]') }; });
+  check(r.bus === 0 && r.chip, `na herladen: de bussen blijven van de kaart (${r.bus}), met de chip`);
+  await page.evaluate(() => window.SLCT.ui.navTo ? window.SLCT.ui.navTo('instellingen') : window.SLCT.ui.ctx.navTo('instellingen')); await page.waitForTimeout(500);
+  const set = await page.evaluate(() => { const x = document.getElementById('setBus'); return x ? x.checked : null; });
+  check(set === false, `Instellingen: de schakelaar Bezorgbussen staat uit (${set})`);
+  await ctx.close();
+}
+
+// ======================================================================================================================
+// 10. Framerate (SwiftShader: software, dus laag) en schermafbeeldingen
 if (!quick) {
   const { page, ctx } = await open({ w: 1440, h: 900 });
   const fps = () => page.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const tick = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(tick); else r(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(tick); }));

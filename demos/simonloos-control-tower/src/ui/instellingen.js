@@ -11,7 +11,7 @@ const KEYS = {
   'sl-werkgebied': 'Werkgebied: regio\'s, divisies, rol en standplaats', 'sl-role': 'Rol (bekijk als)', 'sl-theme': 'Thema', 'sl-nav': 'Menu ingeklapt of niet',
   'sl-acties': 'Acties van vandaag: zaken, notities, toegepaste voorstellen, berichten, logboek', 'sl-views': 'Opgeslagen weergaven', 'sl-instellingen': 'Je naam en meldingsnormen',
   'sl-kolommen': 'Gekozen kolommen per tabel', 'sl-lostijden': 'Overgenomen lostijden', 'sl-rest': 'Je beoordelingen van pauzeplekken', 'sl-overdracht': 'Overdracht naar de volgende dienst',
-  'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter van de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
+  'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter, dimmen en bezorgbussen op de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
 };
 function stored(store) { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sl-')) out.push([k, (localStorage.getItem(k) || '').length]); } } catch { /* geen opslag */ } return out.sort((a, b) => a[0].localeCompare(b[0])); }
 const kb = n => n < 1024 ? `${n} tekens` : `${(n / 1024).toFixed(1).replace('.', ',')} kB`;
@@ -40,6 +40,7 @@ export function renderInstellingen(ctx, el) {
       ${m && m.hasTiles() ? `<div class="set-r"><div><b>Basiskaart</b><span>Ingebouwd vraagt niets van buiten. OpenStreetMap, de luchtfoto en de topografische kaart komen van internet; laadt er een niet, dan blijft de ingebouwde kaart. Ook onder Kaartlagen.</span></div><select class="fld" id="setBase" aria-label="Basiskaart" style="width:200px">${BASES.map(([k, n]) => `<option value="${k}" ${m.base() === k ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>` : '<div class="set-r"><div><b>Ingebouwde basiskaart</b><span>In deze omgeving laadt de kaart niets van buiten.</span></div></div>'}
       ${m && m.has3d() ? tg('set3d', ctx.three(), '3D-wereld', 'Kantelt de kaart en toont voertuigen, depots en bomen in 3D (toets d).') : ''}
       ${tg('setTrl', ctx.trailersOnMap(), 'Losse opleggers', 'Opleggers die niet achter een trekker hangen (toets o).')}
+      ${tg('setBus', ctx.bussenOnMap(), 'Bezorgbussen', 'De bestelbussen van de boodschappenbezorging. Uit haalt ze alleen van de kaart; in lijsten en meldingen tellen ze mee (toets b).')}
       ${tg('setRest', ctx.restOnMap(), 'Pauzeplekken', 'De 48 pauzeplekken langs het snelwegennet.')}
       ${tg('setDim', ctx.F.dim, 'Andere standplaatsen gedimd', 'Als je werkgebied één standplaats is, de rest als stippen.')}
     </div></section>
@@ -62,6 +63,7 @@ export function renderInstellingen(ctx, el) {
     else if (id === 'setBase') { const mm = ctx.mapApi(); if (!kiesBasis(ctx, e.target.value) && mm) e.target.value = mm.base(); }
     else if (id === 'set3d') ctx.set3dMode(e.target.checked);
     else if (id === 'setTrl') ctx.setTrailersOnMap(e.target.checked, true);
+    else if (id === 'setBus') ctx.setBussenOnMap(e.target.checked, true);
     else if (id === 'setRest') ctx.setRestOnMap(e.target.checked);
     else if (id === 'setDim') { ctx.F.dim = e.target.checked; ctx.frame(true); }
     else if (e.target.dataset.norm) { S2.setNorm(e.target.dataset.norm, e.target.value); e.target.value = S2.norm(e.target.dataset.norm); ctx.refreshAll(false); ctx.L.toast(`Norm voor ${e.target.dataset.norm.toLowerCase()}: ${S2.norm(e.target.dataset.norm)} minuten.`, { icon: 'clock' }); }

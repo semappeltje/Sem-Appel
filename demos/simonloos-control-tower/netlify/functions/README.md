@@ -12,6 +12,9 @@ Alle gegevens van de demo zijn gesimuleerd. De assistent signaleert, rekent en s
 De demo draait op controltower-demo.netlify.app, uit de demo-repo met `public/index.html` en
 `netlify/edge-functions/gate.ts`.
 
+0. Zet `dist/demosite.html` (uit `npm run build` in deze map) als `public/index.html` in de demo-repo. Die heeft
+   `data-ai="/api/assistent"` al op de root (zonder dat attribuut doet de app geen enkel verzoek en geeft de
+   Assistent de vaste antwoorden) en `data-basiskaart="online"` (de demosite opent met OpenStreetMap).
 1. Kopieer `netlify/functions/assistent.mts` uit deze map naar dezelfde plek in de demo-repo:
    `netlify/functions/assistent.mts`, naast `netlify/edge-functions/gate.ts`. Er is geen `npm install` en geen
    build-stap nodig: het bestand heeft geen dependencies en geen imports. Netlify bundelt het zelf en draait het op

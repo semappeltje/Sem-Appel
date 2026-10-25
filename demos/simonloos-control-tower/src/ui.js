@@ -52,9 +52,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (tr) { const s = TRS.get(tr.id) || fleet.trailerStateAt(tr, T); return `${portretHtml('oplegger', tr, 'hc-foto')}<div class="hc-t"><b>${esc(tr.id)} · ${esc(TRT[tr.type].n)}</b><span>${kenteken(tr.plate, { opl: true, maat: 'sm' })}</span><span>${esc(TST[s.st].n)}${s.vehicle ? ` achter ${esc(s.vehicle.id)}` : s.place ? `, ${esc(s.place)}` : ''}</span><span>${esc(tr.base.n)}</span></div>`; }
     return null;
   }, card => vulPortretten(card, ctx));
-  const F = { regios: new Set(), sps: new Set(), divs: new Set(Object.keys(DIV)), sts: new Set(STKEYS), dim: true, ids: null, trIds: null };
-  // de statusfilter van de kaart en het dimmen van vorige keer (sl-kaartfilter, bewaard door de filterbalk)
-  try { const kf = JSON.parse(store.get('sl-kaartfilter') || 'null'); if (kf && Array.isArray(kf.sts)) { const L2 = kf.sts.filter(s => STKEYS.includes(s)); if (L2.length) F.sts = new Set(L2); F.dim = kf.dim !== false; } } catch { /* niets bewaard */ }
+  const F = { regios: new Set(), sps: new Set(), divs: new Set(Object.keys(DIV)), sts: new Set(STKEYS), dim: true, bussen: true, ids: null, trIds: null };
+  // de statusfilter van de kaart, het dimmen en de bezorgbussen van vorige keer (sl-kaartfilter, bewaard door de filterbalk)
+  try { const kf = JSON.parse(store.get('sl-kaartfilter') || 'null'); if (kf && Array.isArray(kf.sts)) { const L2 = kf.sts.filter(s => STKEYS.includes(s)); if (L2.length) F.sts = new Set(L2); F.dim = kf.dim !== false; F.bussen = kf.bussen !== false; } } catch { /* niets bewaard */ }
   let role = ROLES[store.get('sl-role')] ? store.get('sl-role') : 'planner';
   let profile = null; try { profile = JSON.parse(store.get('sl-werkgebied') || 'null'); } catch { profile = null; }
   const RM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; const FLY = RM ? 0 : 800;
@@ -208,11 +208,12 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if ((s.st === 'onderweg' || s.st === 'vertraagd') && s.drive >= 240 && !t.breakPlanned) { const left = Math.max(0, 270 - Math.floor(s.drive)); ex.push({ key: rk('R', t), sev: 'warn', kind: 'Rijtijd', t, text: `${s.driver || t.id}: ${fmtDrive(s.drive)} van 4:30 rijtijd, pauze binnen ${left} min`, data: { left } }); }
       if (t.ev && s.soc < 20 && s.st !== 'terrein' && !t.chargePlanned) ex.push({ key: rk('A', t), sev: 'warn', kind: 'Accu', t, text: `Accu ${Math.round(s.soc)} % · ${Math.round(t.range * s.soc / 100)} km bereik · ${s.next ? s.next.name : t.base.n}`, data: { soc: s.soc } });
       if (t.storing && s.st !== 'terrein' && !t.workorder) ex.push({ key: rk('T', t), sev: 'bad', kind: 'Techniek', t, text: t.storing, data: {} });
-      if (!sc) { if (mapOn && F.dim && F.sps.size && F.sts.has(s.st) && (!F.regios.size || F.regios.has(t.base.regio)) && F.divs.has(t.div)) dims.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); continue; }
+      if (!sc) { if (mapOn && F.dim && F.sps.size && F.sts.has(s.st) && (!F.regios.size || F.regios.has(t.base.regio)) && F.divs.has(t.div) && (F.bussen || t.kind !== 'bus')) dims.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.pos.lon, s.pos.lat] } }); continue; }
       inS++; c[s.st]++; if (t.ev) ev++; if (t.vandaag === 'inzet') inzet++; if (s.solo && s.st !== 'klant') solo++; if (s.seg.k === 'laden') laden++;
       if (!visible(t, s)) continue;
       nVis++;
-      if (mapOn && !docked) feats.push(featOf(t, s));
+      // bezorgbussen kunnen van de kaart (Kaartlagen, toets b); een gekozen bus blijft zichtbaar
+      if (mapOn && !docked && (F.bussen || t.kind !== 'bus' || t === selTruck)) feats.push(featOf(t, s));
     }
     // opleggers: toestand, losse opleggers op de kaart, koeling en wachttijd (elke achtste beurt; goedkoop genoeg)
     if (force || tick % 8 === 1 || !TRS.size) {
@@ -459,6 +460,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function clearSel() { selTruck = null; selTrailer = null; selWinkel = null; follow = false; if (mapApi) mapApi.setRoute(null, null, []); if (['truck', 'trailer', 'winkel', 'rest'].includes(panelMode)) closePanel(); frame(true); syncHash(); }
   function setTrailersOnMap(v, quiet) { trailersOnMap = v; if (mapApi) mapApi.showTrailers(v); K.renderMapbar(ctx); if (!quiet && view === 'kaart') L.toast(v ? 'Losse opleggers op de kaart.' : 'Losse opleggers verborgen.', { icon: 'trailer' }); }
   function setRestOnMap(v) { restOnMap = v; if (mapApi) { mapApi.showRest(v); if (v) mapApi.setRest(rest.places, selRest && selRest.id); } }
+  // alleen de kaart (en de 3D-wereld): in lijsten, tellers en meldingen blijven de bussen gewoon meetellen
+  function setBussenOnMap(v, quiet) { F.bussen = !!v; frame(true); K.renderMapbar(ctx); if (!quiet && view === 'kaart') L.toast(v ? 'Bezorgbussen weer op de kaart.' : 'Bezorgbussen van de kaart gehaald. In lijsten en meldingen tellen ze gewoon mee.', { icon: 'bus' }); }
   function showTrucksOnMap(trucks) {
     F.ids = new Set(trucks.map(t => t.id)); F.sts = new Set(STKEYS); navTo('kaart'); frame(true);
     const pts = trucks.map(t => (S.get(t.id) || stAt(t, state.simTime)).pos); if (mapApi && pts.length) { let a = [Infinity, Infinity], b = [-Infinity, -Infinity]; for (const p of pts) { a = [Math.min(a[0], p.lon), Math.min(a[1], p.lat)]; b = [Math.max(b[0], p.lon), Math.max(b[1], p.lat)]; } try { mapApi.map.fitBounds([a, b], { padding: 80, maxZoom: 11, duration: FLY }); } catch { /* */ } }
@@ -751,7 +754,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   // ---------- sneltoetsen ----------
   function showKeys() {
     const k = (a, b) => `<div><span>${esc(b)}</span><span>${a.split(' ').map(x => `<span class="kbd">${esc(x)}</span>`).join('')}</span></div>`;
-    L.openDialog(`<div class="dlg-h"><h2>Sneltoetsen</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div><div class="dlg-b"><div class="keys">${[['/', 'Zoeken'], ['Ctrl K', 'Zoeken'], ['?', 'Dit overzicht'], ['Esc', 'Sluiten of terug'], ['1', 'Overzicht'], ['2', 'Kaart'], ['3', 'Ritten'], ['4', 'Meldingen'], ['5', 'Planbord'], ['6', 'Voertuigen'], ['7', 'Opleggers'], ['8', 'Chauffeurs'], ['9', 'Standplaatsen'], ['0', 'Laden'], ['m', 'Meldingen'], ['a', 'Assistent'], ['f', 'Volg het gekozen voertuig'], ['o', 'Losse opleggers op de kaart'], ['d', '3D-wereld'], ['[', 'Menu in- of uitklappen'], ['↑ ↓', 'Rijen in een tabel'], ['Enter', 'Rij of suggestie openen'], ['Spatie', 'Rij selecteren']].map(([a, b]) => k(a, b)).join('')}</div><p class="hint">Ingebed in een andere pagina werken de toetsen zodra je in de app hebt geklikt.</p></div>`, { label: 'Sneltoetsen' });
+    L.openDialog(`<div class="dlg-h"><h2>Sneltoetsen</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div><div class="dlg-b"><div class="keys">${[['/', 'Zoeken'], ['Ctrl K', 'Zoeken'], ['?', 'Dit overzicht'], ['Esc', 'Sluiten of terug'], ['1', 'Overzicht'], ['2', 'Kaart'], ['3', 'Ritten'], ['4', 'Meldingen'], ['5', 'Planbord'], ['6', 'Voertuigen'], ['7', 'Opleggers'], ['8', 'Chauffeurs'], ['9', 'Standplaatsen'], ['0', 'Laden'], ['m', 'Meldingen'], ['a', 'Assistent'], ['f', 'Volg het gekozen voertuig'], ['o', 'Losse opleggers op de kaart'], ['b', 'Bezorgbussen op de kaart'], ['d', '3D-wereld'], ['[', 'Menu in- of uitklappen'], ['↑ ↓', 'Rijen in een tabel'], ['Enter', 'Rij of suggestie openen'], ['Spatie', 'Rij selecteren']].map(([a, b]) => k(a, b)).join('')}</div><p class="hint">Ingebed in een andere pagina werken de toetsen zodra je in de app hebt geklikt.</p></div>`, { label: 'Sneltoetsen' });
   }
   document.addEventListener('keydown', e => {
     // Ingebed in een pagina: alleen toetsen met de focus in de app tellen (een klik in de app geeft de root de focus).
@@ -780,6 +783,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     else if (e.key === 'a') toggleAssist();
     else if (e.key === 'f' && selTruck) toggleFollow();
     else if (e.key === 'o') setTrailersOnMap(!trailersOnMap);
+    else if (e.key === 'b') setBussenOnMap(!F.bussen);
     else if (e.key === 'd') set3dMode(!three);
     else if (e.key === '[') toggleNav();
   });
@@ -799,7 +803,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     counts: () => counts, kpi: () => kpi, exceptions: () => exceptions, msgCount: () => msgCount, applied: A.acts.applied, collegas: spns => collegasVoor(spns),
     view: () => view, navCurrent, navTo, setView, go, back, title, openPage, closePage, rerenderPage: () => renderPage(true), renderPanel, openPanel, closePanel, panelOpen, panelMode: () => panelMode, toggleAssist,
     selectTruck, selectTrailer, selectSp, selectRest, selectWinkel, selectPlace, toonPoolrit, flyTo, clearSel, selTruck: () => selTruck, selTrailer: () => selTrailer, follow: () => follow, toggleFollow,
-    trailersOnMap: () => trailersOnMap, setTrailersOnMap, restOnMap: () => restOnMap, setRestOnMap, three: () => three, set3dMode, mapApi: () => mapApi, dockMap, vliegBijDock, showTrucksOnMap, showTrailersOnMap,
+    trailersOnMap: () => trailersOnMap, setTrailersOnMap, restOnMap: () => restOnMap, setRestOnMap, bussenOnMap: () => F.bussen, setBussenOnMap, three: () => three, set3dMode, mapApi: () => mapApi, dockMap, vliegBijDock, showTrucksOnMap, showTrailersOnMap,
     sendMsg, bulkMessage, shareLink, runAction, applyProposal, voorstellen, voorstelVoor, voorstelById, assignMenu, statusMenu, refreshAll, frame, hashTo, syncHash, fullscreen,
     pbSp: () => pbSp, setPbSp: sp => { pbSp = sp; }, clearSps, savedViews, saveView, deleteView, applyView, openWizard, showKeys, toggleTheme, toggleNav,
     setTime, setPlaying, setSpeed, setNow, ritLog, objCard: (k, o) => K.objCard(ctx, k, o), logAct: txt => A.log(txt), mountSearch: el => search.mount(el),
