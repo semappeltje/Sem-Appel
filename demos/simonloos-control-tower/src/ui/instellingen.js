@@ -8,6 +8,7 @@ import { aiUrl } from './ai.js';
 import { BASES, kiesBasis } from './kaart.js';
 
 const KEYS = {
+  'sl-planbord': 'Planbord: rijen, zoom en de bak met open ritten; vandaag ook de dag en de filters', 'sl-openritten': 'Open ritten: vandaag of morgen',
   'sl-werkgebied': 'Werkgebied: regio\'s, divisies, rol en standplaats', 'sl-role': 'Rol (bekijk als)', 'sl-theme': 'Thema', 'sl-nav': 'Menu ingeklapt of niet',
   'sl-acties': 'Acties van vandaag: zaken, notities, toegepaste voorstellen, berichten, logboek', 'sl-views': 'Opgeslagen weergaven', 'sl-instellingen': 'Je naam en meldingsnormen',
   'sl-kolommen': 'Gekozen kolommen per tabel', 'sl-lostijden': 'Overgenomen lostijden', 'sl-rest': 'Je beoordelingen van pauzeplekken', 'sl-overdracht': 'Overdracht naar de volgende dienst',

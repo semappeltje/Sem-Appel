@@ -487,6 +487,43 @@ const klokLoopt = p => p.evaluate(() => { const S = window.SLCT; S.state.simTime
 const stilKaart = async p => { await p.waitForTimeout(250); await p.waitForFunction(() => !window.SLCT.map.map.isMoving(), null, { timeout: 20000, polling: 150 }).catch(() => {}); await p.waitForTimeout(250); };
 const landing = p => p.evaluate(() => window.__lnd[window.__lnd.length - 1] || null);
 const inMidden = x => !!x && x.fx > 0.35 && x.fx < 0.65 && x.fy > 0.35 && x.fy < 0.65;
+// J15. de paginatitel in de topbalk: waar de zichtbare tekst eindigt tegen het begin van het zoekveld (op een telefoon de
+// zoekknop), of hij met een ellips afbreekt als hij niet past, en of er rechts iets van de topbalk af valt
+const titelMeet = () => {
+  const top = document.getElementById('topbar').getBoundingClientRect(); const h = document.getElementById('vtitle'); const z = document.getElementById('zoek');
+  const fs = z.querySelector('.fsearch'); const zl = (fs && fs.offsetParent ? fs : z).getBoundingClientRect().left;
+  const hr = h.getBoundingClientRect(); const rg = document.createRange(); rg.selectNodeContents(h); const tr = rg.getBoundingClientRect();
+  const cs = getComputedStyle(h); const knipt = cs.overflowX === 'hidden'; const zicht = knipt ? Math.min(tr.right, hr.right) : tr.right;
+  let rechts = 0; for (const k of document.querySelectorAll('.top-r *')) { const r = k.getBoundingClientRect(); if (r.width) rechts = Math.max(rechts, r.right); }
+  return { t: h.textContent, onder: zicht > zl + 0.5, afgekapt: h.scrollWidth > h.clientWidth + 1, ellips: knipt && cs.textOverflow === 'ellipsis', breed: Math.round(Math.max(0, Math.min(hr.right, zl) - hr.left)), buiten: Math.round(rechts - top.right), a: decodeURIComponent(location.hash) };
+};
+// alle weergaven, vier zaken, een rit en een voertuigpagina; gewoon, krap (de chip van een oefendag zoals de werkstroom van
+// de voorstellen hem in de topbalk zet, en de rol regiomanager met het langere label) en krap in het donker
+async function titelToets(p, w) {
+  const adressen = await p.evaluate(() => { const c = window.SLCT.ui.ctx; return [...document.querySelectorAll('#views > .view')].map(v => 'view:' + v.id.replace(/^v-/, '')).concat(c.Z.list().slice(0, 4).map(z => 'melding/' + z.id), [`rit/${c.R.all()[0].id}`, 'voertuig/T-1068/vandaag']); });
+  const ronde = async () => {
+    const fout = []; let n = 0, kort = 0, smalst = Infinity;
+    for (const a of adressen) {
+      await p.evaluate(a => window.SLCT.ui.ctx.go(a), a); await p.waitForTimeout(150);
+      const m = await p.evaluate(titelMeet); n++; if (m.afgekapt) kort++; smalst = Math.min(smalst, m.breed);
+      if (m.onder || m.buiten > 0 || (m.afgekapt && !m.ellips)) fout.push(`"${m.t}" (${m.a}${m.onder ? ', onder het zoekveld' : ''}${m.buiten > 0 ? `, ${m.buiten} px rechts eraf` : ''}${m.afgekapt && !m.ellips ? ', afgekapt zonder ellips' : ''})`);
+    }
+    return { n, kort, smalst, fout };
+  };
+  const gewoon = await ronde();
+  await p.evaluate(() => { document.getElementById('clockBtn').insertAdjacentHTML('beforebegin', '<button class="badge b-info" type="button" id="oefenChipToets">Oefendag</button>'); window.SLCT.ui.ctx.setRole('regiomanager'); });
+  await p.waitForTimeout(300);
+  const krap = await ronde();
+  await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme()); await p.waitForTimeout(400);
+  const donker = await ronde();
+  await p.evaluate(() => { window.SLCT.ui.ctx.toggleTheme(); document.getElementById('oefenChipToets').remove(); window.SLCT.ui.ctx.setRole('planner'); });
+  await p.waitForTimeout(300);
+  const fout = [...gewoon.fout, ...krap.fout, ...donker.fout];
+  // op 1440 past elke titel gewoon helemaal; krap houdt de titel minstens 120 px (op een telefoon 80 px)
+  const min = w >= 1000 ? 120 : 80;
+  check(!fout.length && (w < 1000 || gewoon.kort === 0) && krap.smalst >= min && donker.smalst >= min,
+    `${w} px: de paginatitel valt nooit onder het zoekveld en rechts valt niets van de topbalk af (${gewoon.n} titels gewoon, ${gewoon.kort} afgekapt; krap met een chip en de rol regiomanager ${krap.kort} afgekapt met een ellips, de titel minstens ${krap.smalst} px; donker ${donker.kort} afgekapt)${fout.length ? `: ${fout.slice(0, 3).join('; ')}` : ''}`);
+}
 // een PNG van Playwright uitpakken (8 bits, RGB of RGBA, zonder interlace), voor de pixeltoets van de arcering
 function pngPixels(buf) {
   let o = 8, w = 0, h = 0, ct = 0; const idat = [];
@@ -633,6 +670,8 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
   const rm = await p.evaluate(() => ({ lock: !!document.querySelector('#sheet .locked'), kpi: /Harde remmingen/.test(document.getElementById('sheet').textContent) }));
   check(rm.lock && !rm.kpi, 'regiomanager: het tabblad Rijden van een chauffeur is afgeschermd (geen harde remmingen of overtredingen per chauffeur)');
   await p.evaluate(() => window.SLCT.ui.ctx.setRole('planner'));
+  // J15. de paginatitel op 1440 px, licht en donker
+  await titelToets(p, 1440);
   await cj.close();
 }
 // J2. vanaf het Overzicht naar de kaart op een telefoon (390 px): het voertuig midden in het deel boven het paneel
@@ -646,6 +685,12 @@ if (mode === 'gl') {
     check(inMidden(l) && top.t > top.topbalk, `390 px: vanaf het Overzicht naar de kaart landt ${id} op ${l ? `${l.fx}, ${l.fy}` : 'niets'} van het deel tussen de filterbalk (${top.t} px) en het paneel (${top.b} px), niet tegen de topbalk`);
   } else note('390 px: geen gebeurtenis met een voertuig');
   await c3.close();
+}
+// J15 op een telefoon (390 px), ook zonder WebGL
+{
+  const { ctx: c4, p } = await paginaWognum({ width: 390, height: 844 });
+  await titelToets(p, 390);
+  await c4.close();
 }
 
 const realErrors = errors.filter(e => !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED/.test(e));
