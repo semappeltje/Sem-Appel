@@ -1,4 +1,4 @@
-# Simon Loos Control Tower (demo, versie 3.1)
+# Simon Loos Control Tower (demo, versie 4.0)
 
 Werkende demo van een control tower voor Simon Loos: 1.300 gesimuleerde voertuigen
 (trekkers, bakwagens en bestelbussen) en 1.700 opleggers die over het **echte wegennet**
@@ -36,6 +36,39 @@ het standplaatspaneel, het planbord heeft filters, klik-op-blok en een meelopend
 het hal-scherm telt af per rij en het zoekpalet vindt ook opleggers, kentekens, werkorders
 en standplaatsen.
 
+Versie 4.0 (oktober 2026) is een nieuwe interface volgens `ONTWERP-4.md`, naar het voorbeeld van de grote
+control towers (Simacan, Samsara, Shippeo, project44, Descartes). Een linkermenu in vier groepen dat je inklapt
+tot iconen, een topbalk met zoeken, werkgebied, rol, de klok van de simulatie, assistent, meldingen, thema en je
+naam, en op een telefoon een onderbalk. Nieuw zijn het Overzicht als startscherm, Ritten (elke route van elke
+dienst is een rit met een vast nummer en een eigen pagina), Meldingen als zaken (vaste sleutel, eigenaar, deadline
+en de statussen nieuw, in behandeling, wacht op en opgelost; als lijst of als bord), een planbord waarop je ritten
+versleept en elke wijziging eerst getoetst wordt (overlap, tijdvenster, rij- en rusttijd, accu, oplegger, dock),
+de bak "Open ritten" met de ritten uit de pool, detailpagina's met een statusbalk, slimme knoppen met tellers,
+tabbladen en een logboek, Rapporten en Instellingen. Elke weergave, rit, zaak, voertuig, oplegger, chauffeur en
+standplaats heeft een eigen adres (`#rit/R-10213`, `#melding/V-T-1112-R-10448`), de terugknop werkt en wat je doet
+blijft na een herlaad staan. Een ontwerpsysteem in `src/style.css`: tokens voor licht en donker, een typeschaal met
+tabulaire cijfers, een raster van 8 punten, zichtbare focusringen en minder beweging als je systeem dat vraagt. In
+dezelfde ronde kwamen de echte plekken en de geijkte dag (zie "Wat echt is en wat niet"), de kaart en de
+3D-wereld (zie daar).
+
+Later in 4.0 kwam de vraagkant van de planning erbij (Sem: "je ziet de planning vanuit chauffeursperspectief, maar
+niet de ritten die moeten worden ingevuld"). **Open ritten** is het vertrekpunt: wat staat er open, hoe groot is de
+kans dat het rond komt en op tijd weg is, wat doe je nu, en wie kan het rijden (eigen chauffeurs, oproepkrachten en
+zzp'ers, charters), met de kans op een ja, redenen en kosten. Toewijzen is een klik; de rit staat gearceerd op het
+planbord tot iemand ja zegt. **Charters en oproepkrachten** is de flexibele schil zelf, met een pagina per charter en
+per persoon; de chauffeurspagina heeft voorkeuren en tevredenheid, het planbord een stille markering als een dienst
+slecht past, en de rapporten de invulling per week en de roosterfit per standplaats. Het planbord gaat door de tijd
+(gisteren, vandaag, morgen, zoom van 2 tot 24 uur, gepland tegen gereden), tabellen hebben filtermenu's met chips en
+opgeslagen weergaven, en de Assistent kan de Claude API gebruiken als de pagina dat aanzet (zie "Vraagkant" en
+"Assistent met de Claude API").
+
+Voor de eindcontrole van 4.0 (de acceptatie-eisen in `rapporten/simon-loos-control-tower/acceptatie-4.0.md`) kwamen
+er nog bij: de **briefing** bovenaan het overzicht (wat er speelt, wat open staat, waar het risico zit, wat je moet
+beslissen, elke regel naar de zaak of de rit), op de ritpagina **waar een vertraging ontstond** met het voorstel en
+het effect in minuten, **zoeken** dat een voertuig, oplegger of chauffeur als pagina opent met de kaart die erheen
+vliegt, en **herladen** dat ook het zoekwoord, de filters en de sortering van elke tabel en de statusfilter van de
+kaart terugzet. De basiskaart kies je onder Kaartlagen (vier standen in de losse versie).
+
 Artifact: https://claude.ai/artifact/S2ni36VcHix21CuMkWUnqF (versie 1.2 staat op
 https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 
@@ -43,37 +76,114 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 
 | Onderdeel | Waar | Wat het doet |
 | --- | --- | --- |
-| Werkgebied | eerste keer, daarna knop Werkgebied | Drie stappen: regio's, ritten, rol en standplaats; bewaard in de browser, niet elke keer opnieuw |
-| Rollen | Bekijk als in de topbalk | Planner, regiomanager, directie, HR; bepaalt welke delen van truck- en persoonspagina's zichtbaar zijn |
-| Kaart | Kaart | Voertuigen als iconen in de statuskleur met hun rijrichting (van veraf stippen, nooit clusters), losse opleggers met toets o of de chip Los, klikbare statusfilters, voertuig- en opleggerkaartje bij selectie, kaartlagen (vier basiskaarten in de losse versie: ingebouwd, OpenStreetMap, luchtfoto, topografisch; gedimde standplaatsen, pauzeplekken), rechts rijden op de eigen rijbaan, wegen vanaf zoom 16 op ware breedte, afdelingen op het terrein vanaf zoom 16 |
-| 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt naar een wereld op ware grootte: trekkers met opleggers, bakwagens en bussen op koers, geparkeerd op hun plek in de rijen; de standplaatsen op hun echte terrein met de hal uit de gebouwgegevens, genummerde docks, poort, lichtmasten en de buurt eromheen; bij een klant achteruit tegen een dock; zon met schaduw, licht en donker; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
-| Meldingen | bel of toets m | Drie kerngetallen, uitzonderingen (vertraging, rijtijd, accu, techniek, koeling, oplegger te laat opgehaald) afvinken, toewijzen aan een collega of op later zetten; blijft staan na een herlaad |
-| Voertuigpagina | klik op Open voertuig of een rij in Voertuigen | Chauffeurs van vandaag per dienst en de oplegger erachter; Historie (laatste twaalf diensten, wie reed het vaakst), Vandaag (diensten en dagplan), Cijfers (chauffeurswisselingen, verbruik per chauffeur), Onderhoud (RDW, werkorder), Documenten |
-| Opleggerpaneel en -pagina | klik op een oplegger op de kaart, in een paneel of in Opleggers | Status, waar hij staat of achter welke trekker hij hangt, lading, temperatuur bij koel en vries, sinds wanneer, ophaalmoment; pagina met APK, ATP, onderhoud en documenten |
-| Persoonspagina | klik op een chauffeur | Dienst van vandaag (tijden, voertuig, oplegger), voertuigen van de laatste twaalf diensten en bevoegdheden open; rijden en schades voor regiomanager, directie en HR; contract en kosten voor directie en HR; telefoon na klik met logregel |
-| Voertuigen, Opleggers en Mensen | tabellen | Tegels en chips per soort en status, sorteren, zoeken, csv-export (in de losse versie; de artifact-viewer staat downloads niet toe); Opleggers heeft een knop Op de kaart |
-| Standplaatsen | tabel en vertrekbord | Voertuigen, opleggers, chauffeurs op dienst en wissels per week per standplaats; Open als hal-scherm |
-| Laden | Laden | Dagprijs per uur, laadsessies in de goedkoopste kwartieren binnen de netaansluiting, kosten slim tegenover direct, piekvermogen |
-| Lostijden | Lostijden | Gepland naast gemeten per dagdeel per adres; overnemen per adres of alles, met het effect op de planning van morgen |
-| Pauzeplekken | Pauzeplekken | 48 plekken op het snelwegennet met voorzieningen en beoordelingen; eigen beoordeling; de assistent stelt er een voor bij rijtijd |
-| Hal-scherm | `#hal/<standplaats>` | Vertrekbord (vertrek, voertuig, oplegger, chauffeur, bestemming, dock, status) op volledig scherm voor een tv in de loods |
-| Klant-link | Deel link op het truckkaartje, `#klant/<truck>` | Alleen die truck en de volgende levering, met live ETA |
-| Zoeken en sneltoetsen | toets / of Ctrl K | Voertuigen, opleggers, kentekens, chauffeurs, werkorders, standplaatsen, winkels, pauzeplekken, weergaven; 1 tot 9 en 0 wisselen van weergave, o toont losse opleggers, d de 3D-wereld, f volgt, Esc sluit; elke weergave en elk record heeft een URL (`#voertuig/T-1002`) en de terugknop werkt |
-| Opgeslagen weergaven | Weergaven in de topbalk | Werkgebied, filters en kaartpositie onder een naam bewaren |
-| Assistent | Assistent | Voorstellen bij vertraging, rijtijd, accu, techniek, koeling en opleggers die wachten (een solo terugrijdende trekker of een reservetrekker haalt ze op); "Pas toe" past het plan aan en stuurt de chauffeur een bericht; vragen in gewone taal, ook over opleggers; collega's; overdracht |
+| Indeling | linkermenu, topbalk; op een telefoon de onderbalk | Vier groepen: Overzicht, Kaart, Ritten, Meldingen, Open ritten en Planbord; Vloot (Voertuigen, Opleggers, Chauffeurs, Charters en oproepkrachten); Locaties (Standplaatsen, Laden, Lostijden, Pauzeplekken); Analyse (Rapporten, Instellingen). Inklappen met `[` of de knop onderaan (bewaard). Op 390 px een onderbalk met Overzicht, Kaart, Open ritten, Meldingen en Meer. Vanuit een detailpagina ga je met de balk direct naar een ander onderdeel; de terugknop van de browser en Terug brengen je terug met hetzelfde zoekwoord, filter en dezelfde scrollpositie |
+| Werkgebied en rol | de eerste keer, daarna in de topbalk | Drie stappen: regio's, divisies, rol en standplaats; bewaard in de browser. Planner, regiomanager, directie en HR zien elk hun deel; alleen wie mag handelen ziet de knoppen |
+| Overzicht | startscherm, toets 1 | Bovenaan de briefing (de ochtendbriefing tot 11:00): hooguit vijf regels in de volgorde van een overdracht, wat er speelt (de grootste vertraging), wat open staat (de dringendste open rit, wat op een ja wacht), waar het risico zit (de dringendste andere zaak, of de open rit met de kleinste kans op tijd), wat je moet beslissen (voorstellen, zaken zonder eigenaar) en de overdracht van de vorige dienst als die er is; elke regel opent de zaak of de rit. Met `data-ai` schrijft de Assistent hem op een klik. Daaronder drie cijfers (op tijd, vertraagd, open ritten), wat nu aandacht nodig heeft (open zaken op urgentie, met een snelle actie), de vertrekken van het komende uur, de dag in een regel (`fleet.dagcijfers`) met de open ritten, en de recente gebeurtenissen |
+| Kaart | toets 2 | Voertuigen in hun statuskleur met rijrichting (nooit clusters), een filterbalk (hooguit drie getallen in beeld), losse opleggers, kaartlagen (in de losse versie vier basiskaarten: ingebouwd, OpenStreetMap, luchtfoto en topografisch; verder losse opleggers, pauzeplekken en gedimde standplaatsen), de 3D-wereld en de tijdbalk. Tegenliggers rijden rechts op hun eigen rijbaan, wegen staan vanaf zoom 16 op ware breedte en de afdelingen op het terrein vanaf zoom 16; rechts het paneel van een voertuig, oplegger, standplaats, pauzeplek, winkel of DC. Het kaartje bij aanwijzen (beeld, kenteken, chauffeur, volgende stop) rijdt mee met het voertuig (`mapApi.anchor`); een klik laat de kaart staan als het voertuig al in beeld is; volgen (f) doet de kaart zelf (`mapApi.follow`) |
+| 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt naar een wereld op ware grootte: trekkers met opleggers, bakwagens en bussen op koers, geparkeerd op hun plek in de rijen; de standplaatsen op hun echte terrein met de hal uit de gebouwgegevens, genummerde docks, poort, lichtmasten en de buurt eromheen; bij een klant achteruit tegen een dock; het licht volgt de klok van de simulatie (dag, schemer, nacht), met schaduw; naamborden van de afdelingen; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
+| Ritten | toets 3, `#ritten`, `#rit/<id>` | Alle ritten van de dag (ruim 3.200) met status, ETA en afwijking. De ritpagina: statusbalk (gepland, onderweg, bij klant, afgerond), slimme knoppen, drie cijfers, waar de vertraging ontstond (het stuk rijden met de vertraging, de aankomst tegen het venster en het voorstel van de assistent met het effect in minuten en Pas toe), de mijlpalen gepland naast werkelijk (met wachten en lossen per stop), berichten aan de chauffeur, "Verplaats deze rit" (naar het planbord) en "Waar past hij?" |
+| Meldingen | toets 4 of m, `#melding/<id>` | Elke uitzondering is een zaak met een vaste sleutel uit soort, voertuig en rit, een eigenaar (de planners van de standplaats) en een deadline per soort. Statussen nieuw, in behandeling, wacht op (chauffeur, klant, garage of collega; na de wachttijd komt hij vanzelf terug) en opgelost. Als lijst of als bord per status (slepen, of Alt met een pijltje). De zaakpagina: statusbalk, slimme knoppen, voorstellen met uitleg en effect, een logboek met wat het voertuig deed (`fleet.eventsOf`), notities en "Verplaats deze rit" |
+| Open ritten | toets 5, `#openritten`, `#openritten/<id>` | De ritten zonder voertuig of chauffeur (`fleet.poolAt`), vandaag en morgen, op urgentie, met reden en de kans op invulling. Een rit uitgeklapt: de kans op invulling en de kans op tijd met de uitleg en het advies in een zin (`fleet.prognose`), en de kandidaten in drie groepen (`fleet.kandidaten`): eigen chauffeurs, oproepkrachten en zzp'ers, charters, elk met de kans op een ja, de redenen, de voorkeur, waarschuwingen (rijtijd, rust, uren, voertuig) en de kosten (schatting); een aanbevolen knop. "Vraag tegelijk uit" vraagt de kleinste groep die samen negen op de tien kans op een ja geeft. Toewijzen (`fleet.wijsToe`) zet de rit gearceerd op het planbord met het bericht erbij; "Ja, bevestigd" of "Kan niet". Bellen belt niet in de demo (de knop toont het gesimuleerde nummer), Mail opent een mail met de rit; wie gebeld of gevraagd is, staat in het logboek en blijft na herladen bewaard |
+| Planbord | toets 6, `#planbord/<rit>` | Een werkbalk op een regel: standplaats, rijen per voertuig, chauffeur of dock, Filters, zoeken, Gisteren, Vandaag en Morgen, Vroeger, Later en Nu, zoom (2, 6, 12 of 24 uur) en de legenda. De hele dag staat in het bord: slepen of Shift met het wiel schuift door de tijd, Ctrl met het wiel of knijpen zoomt, en het beeld blijft staan als de simulatie verder loopt. Een klik op de tijdas zet de replay op dat tijdstip en het bord volgt de replay ("Terug naar de echte klok" zet hem terug). Gepland tegen gereden: gereden gevuld, nog te rijden licht, het geplande blok omlijnd, een vertraging erachter in de statuskleur. Gisteren toont de gereden diensten uit de historie. Bovenaan de open ritten als omlijnde blokken in hun laadvenster (in hooguit drie banen; zijn het er meer tegelijk, dan per uur een blok met het aantal dat Open ritten opent) en de toegewezen ritten zonder voertuig (charter, morgen) in een eigen rij; wat op een ja wacht, is gearceerd; een stille stip als een dienst slecht past bij de voorkeur van de chauffeur. Een rit die nog niet begon, sleep je naar een ander voertuig of een andere tijd, of je schuift hem met de pijltjes; eerst getoetst (`src/ui/toets.js`). De bak Open ritten eronder: per rit "Rit inplannen" (de drie groepen) of slepen op een voertuig |
+| Voertuigen, Opleggers, Chauffeurs | toets 7, 8 en 9 | Tabellen met rijen van 36 px en een regel bediening: zoeken, filters als keuzemenu's (een actief filter is een chip met een kruisje, de rest achter "Meer filters", "Wis filters"), opgeslagen weergaven per tabel (`sl-tabelweergaven`), kolomkeuze en csv. Selectie met bulkacties en een menu op de rechtermuisknop. Kentekens als Nederlandse plaat; de nummers zijn verzonnen en bevatten bewust een Q. Detailpagina's met het beeld in de kop (een foto van Sems schaalmodel als die er is, met "Foto: schaalmodel"; anders de render van het 3D-model, met "Beeld: 3D-model"; `src/portretten.js`, dynamisch geladen), een statusbalk, slimme knoppen, groepen in kaarten met label en waarde, hooguit drie cijfers en een primaire actie. De chauffeurspagina heeft de voorkeuren (diensten, weekend, ritten, regio, uren, extra diensten, wat hij zelf zei) en de tevredenheid met de roosterfit (`fleet.voorkeurenVan`, `fleet.tevredenheid`), alleen op die pagina en nooit als ranglijst; bij de diensten staat of ze pasten |
+| Charters en oproepkrachten | toets 0, `#charters`, `#charter/<id>`, `#oproep/<id>` | Twee tabbladen: charters (`fleet.CHARTERS`: plaats, wagens, vandaag en morgen vrij, op tijd, tarief, contact) en oproepkrachten, zzp'ers en weekendchauffeurs (`fleet.OPROEP`: soort, standplaats, rijbewijs, de dagdelen van vandaag en morgen, laatste inzet). Een pagina per charter (afspraken, contact, de ritten die hij voor ons reed) en per persoon (beschikbaarheid per dag en dagdeel, voorkeuren, afspraken, het nummer afgeschermd tot een klik die wordt vastgelegd). Geen ranglijst van mensen: de tabel sorteert niet op betrouwbaarheid, en het signaal over de Wet DBA (schijnzelfstandigheid) staat alleen op de pagina van een zzp'er |
+| Standplaatsen | menu | Tabel, paneel met vertrekbord en terrein, de dockplanning per standplaats, "Open als hal-scherm" |
+| Laden | menu | Drie getallen (te laden, bespaard, piek), dagprijs en laadvermogen per kwartier, laadsessies in de goedkoopste kwartieren, slim tegenover direct |
+| Lostijden | menu | Gepland (`s.los`) naast gemeten, met de wachttijd ernaast, per dagdeel en adres; overnemen per adres of alles |
+| Pauzeplekken | menu | Plekken op het snelwegennet met voorzieningen en beoordelingen; de assistent stelt er een voor bij rijtijd |
+| Rapporten | menu | Op tijd per dag (dertig dagen), per klant en per standplaats; de invulling van open ritten per week (eigen, oproep of zzp, charter, niet ingevuld; `fleet.poolHistorie`); de roosterfit per standplaats (het deel van de laatste diensten dat bij de voorkeur paste); de kosten van charters per week (schatting, alleen voor regiomanager en directie); wachttijd per DC, de dag in cijfers en meldingen per soort; bij elke grafiek een tabel en csv |
+| Instellingen | menu | Je naam, rol en thema, werkgebied, normen per soort melding, kaart, sneltoetsen, de Assistent (alleen met `data-ai`) en wat deze browser bewaart (wissen vraagt eerst om bevestiging) |
+| Zoeken | topbalk, toets / of Ctrl K | Voertuigen (kenteken met en zonder streepjes), opleggers, chauffeurs, open ritten, charters en oproepkrachten, standplaatsen met hun klanten, winkels en DC's, plaatsen, ritten, pauzeplekken, weergaven en acties; een tikfout mag ("wognm"). De lijst staat er bij elke toets meteen (MiniSearch, ruim onder de 100 ms). Een voertuig, oplegger of chauffeur opent als pagina en de kaart in die pagina vliegt erheen (met minder beweging springt hij); een standplaats, winkel, DC of plaats opent op de kaart |
+| Assistent | topbalk of toets a | Voorstellen bij open zaken met uitleg en effect; "Pas toe" past het plan echt aan en stuurt de chauffeur een bericht. Met `data-ai` op de root ook Ochtendbriefing, Overdracht schrijven en een vraag via de Claude API (zie "Assistent met de Claude API"); zonder dat attribuut de vaste antwoorden en geen enkel verzoek |
+| Hal-scherm en klant-link | `#hal/<standplaats>`, `#klant/<voertuig>` | Vertrekbord met dock voor een tv in de loods (volledig scherm, telt af per rij); voor een klant alleen dat voertuig en de volgende levering |
+| Sneltoetsen | toets ? | 1 tot 9 en 0 wisselen van weergave (Overzicht, Kaart, Ritten, Meldingen, Open ritten, Planbord, Voertuigen, Opleggers, Chauffeurs, Charters en oproepkrachten), / zoekt, m meldingen, a assistent, o losse opleggers, d de 3D-wereld, f volgen, `[` het menu, Esc sluit; ingebed alleen als de app de focus heeft |
+| Opgeslagen weergaven | werkgebied in de topbalk, en per tabel | Werkgebied, filters en kaartpositie onder een naam; per tabel zoekwoord, filters, sortering en kolommen |
 
 ## Draaien
 
 ```
 npm install
 npm run dev              # ontwikkelserver
-npm run build            # dist/index.html: één bestand met alles erin (ca. 8 MB), plus dist/artifact.html voor het Claude-artifact
-npm run build:site       # dist-site/: app.js, data.js, maplibre.js, three.js en app.css met vaste namen, om in een site in te bedden
+npm run build            # dist/index.html: één bestand met alles erin (ca. 15,0 MB; het artifact mag tot 16 MB), plus dist/artifact.html voor het Claude-artifact (ook 15,0 MB)
+npm run build:site       # dist-site/: app.js, data.js, lib.js, uplot.js, maplibre.js, three.js, buildings.js, portretten.js en app.css met vaste namen, om in een site in te bedden
 ```
 
 Open `dist/index.html` via een webserver (bijvoorbeeld `npx vite preview` of
 `python3 -m http.server` in `dist/`). Direct vanaf schijf (`file://`) werkt niet,
 omdat MapLibre een web worker start.
+
+### Controles
+
+Met `dist/` op een webserver (`cd dist && python3 -m http.server 8774 --bind 127.0.0.1`):
+
+```
+node tests/toets.test.mjs                                   # de toetsregels van het planbord, zonder browser
+node tests/verify.mjs 8774 [gl|nogl] [plain|embedded] [map]  # laden, thema en kiosk op de root, geen overloop op 1440 en 390 px, minder beweging, alle weergaven
+node tests/ui-check.mjs 8774 [gl|nogl] [plain|embedded]      # ruim 70 controles van de werking: adressen, planbord, voorstellen, zaken, zoeken, pagina's, sneltoetsen, 390 px
+node tests/data-check.mjs http://127.0.0.1:8774/index.html    # de echte plekken en de geijkte dag
+node tests/map-check.mjs http://127.0.0.1:8774/index.html     # de kaart en de beweging
+node tests/3d-check.mjs http://127.0.0.1:8774/index.html      # de 3D-wereld
+node tests/portretten-check.mjs http://127.0.0.1:8774/index.html  # de beelden van voertuigen en opleggers (foto of render)
+node tests/open-ritten-check.mjs http://127.0.0.1:8774/index.html # de vraagkant op de data, bellen zonder tel:, de Assistent door de echte serverfunctie
+node tests/assistent-check.mjs                                # de serverfunctie van de Assistent, zonder browser
+node tests/otm5-check.mjs                                     # de vertaling naar en van OTM5 (zie src/otm5.js)
+```
+
+`gl` draait Chromium met software-WebGL (SwiftShader), `nogl` zonder WebGL (de kaart toont dan een melding);
+`embedded` zet `data-tiles="off" data-embedded` op de root, zoals in SafeTools. Elke controle meldt ook
+consolefouten en verzoeken naar buiten.
+
+## Vraagkant: open ritten, de flexibele schil en voorkeuren
+
+De interface rekent hier niet zelf; ze toont de data van `src/fleet.js` (met `src/inzet.js` en `src/voorkeuren.js`)
+en bewaart wat de planner doet. `src/ui/invulling.js` is de enige plek waar de interface die data aanroept:
+
+| Data | Wat de interface ermee doet |
+| --- | --- |
+| `fleet.poolAt(T, zonder)` | De open ritten zoals de planner ze om T ziet, zonder wat al is toegewezen; vandaag en morgen, op urgentie |
+| `fleet.urgentie(rit, T)`, `fleet.prognose(rit, T)` | Minuten tot het laadvenster; de kans op invulling en de kans op tijd (ingevuld en binnen het venster weg), met `tekst`, `uitleg`, `advies` (de ene zin wat te doen) en `basis` (acht weken vergelijkbare ritten: eigen, oproep, charter, te laat) |
+| `fleet.kandidaten(rit, { T, people, toegewezen, max })` | De kandidaten in drie groepen, altijd met `people` (dezelfde personen en voorkeuren als op de chauffeurspagina) en met wat al is toegewezen (niemand twee keer tegelijk, een charter niet boven zijn trekkers) |
+| `fleet.wijsToe(rit, kandidaat, opts)` | Puur: het blok voor het planbord, de logregel, het bericht en de kosten. De interface bewaart de toewijzing als actie in `sl-acties` (de sleutel van vandaag; een nieuwe dag begint leeg), voert haar na herladen opnieuw uit en geeft haar terug als `toegewezen` en `zonder` |
+| `fleet.poolHistorie(sp)` | De invulling per week in de rapporten |
+| `fleet.CHARTERS`, `fleet.OPROEP` | Charters en oproepkrachten met hun pagina's; ids `CH-01` en `OP-001` |
+| `fleet.voorkeurenVan`, `fleet.tevredenheid`, `fleet.past` | De chauffeurspagina, de markering op het planbord, de roosterfit per standplaats |
+| `fleet.WAARSCHUWINGEN`, `fleet.WAARSCHUWING_KORT` | De waarschuwingen bij een kandidaat (de rust volgens de cao, zie hieronder) |
+
+Toewijzen werkt voor alle drie de groepen hetzelfde: de vraag gaat uit (een eigen chauffeur die op dienst is krijgt
+hem op de boordcomputer; bij een oproepkracht of charter staat het bericht klaar om te kopiëren, te mailen of voor te
+lezen), de rit staat gearceerd op het planbord, en "Ja, bevestigd" of "Kan niet" maakt het af. Een rit van vandaag
+komt op het vrije voertuig dat de data kiest, in een eigen dienst; een charter, een rit van morgen of een rit zonder
+vrij voertuig krijgt een eigen rij. Loopt het venster al, dan vertrekt de rit een kwartier na de vraag.
+
+Rusttijd: de cao beroepsgoederenvervoer is strenger dan EU 561/2006. EU 561 staat drie keer 9 uur verkorte rust toe
+tussen twee weekrusten; de cao hoogstens drie keer 10 uur, verder 11 uur (Staatscourant 2026, nr. 7211; status zoek,
+nog na te lezen). De toets van het planbord (`src/ui/toets.js`) gebruikt de cao-grens, en een eigen chauffeur die de
+data met EU 561 voorstelt maar met de rit minder dan 10 uur rust houdt, staat als niet beschikbaar met de reden.
+
+Bellen belt niet: in de demo is er geen `tel:`-link. De knop Bel toont het gesimuleerde nummer met de melding "Demo:
+er wordt niet gebeld, het nummer is gesimuleerd", en het gesprek komt in het logboek. Mail blijft `mailto:` (de
+adressen eindigen op `.example`). Telefoonnummers en e-mailadressen gaan niet mee in de bewaarde acties.
+
+Wat er nodig is voor echte data: de open ritten en hun historie uit het TMS (rit, venster, wanneer bekend, door wie
+ingevuld; OTM5, zie `src/otm5.js` en `rapporten/simon-loos-control-tower/echte-data-en-otm5.md`), het vertrek uit de
+boordcomputer, het rooster en de uren uit het roostersysteem (voor rij- en rusttijd en de weekuren), de flexibele
+schil uit de inhuur (charters met tarief en beschikbaarheid, oproepkrachten met hun beschikbaarheid), en voorkeuren
+uit een chauffeursapp (vrijwillig). De functies hierboven rekenen dan ongewijzigd op die records.
+
+## Assistent met de Claude API
+
+Zet de pagina `data-ai="/api/assistent"` op de root, dan krijgt de Assistent drie ingangen: Ochtendbriefing,
+Overdracht schrijven en een vraag (Enter stuurt). Zonder dat attribuut doet de app geen enkel verzoek en geeft de
+Assistent de vaste antwoorden. Het verzoek volgt het contract van `netlify/functions/assistent.mts`: POST met
+Content-Type `application/json`, `{ soort, vraag?, dag }`. De dag (`aiDag` in `src/ui/ai.js`) is kleiner dan 40 KB:
+tijd, datum, standplaats, rol, cijfers, de zaken (hoogstens 30, op urgentie), de open ritten met de kans op invulling,
+de kans op tijd en het advies (hoogstens 30), de kandidaten van de vijf meest urgente ritten (hoogstens vijf per rit),
+wachttijd, rijtijd, laden, de overdracht, recente gebeurtenissen en de sleutel `personen` (nummer en naam, hoogstens
+200). Namen in vrije tekst worden eerst nummers, telefoonnummers en e-mailadressen gaan eruit; de functie vervangt
+de namen opnieuw voordat er iets naar de API gaat. Het antwoord komt met `textContent` op het scherm (nooit als
+HTML), nummers (ritten, voertuigen, zaken, personen, charters) worden knoppen naar dat onderdeel, en een half of
+ongeldig antwoord wordt nooit getoond. Een 429 zegt na hoeveel minuten je het weer kunt proberen; een 404 valt terug
+op de vaste antwoorden. Elke actie in het antwoord kan in het logboek, het antwoord in de overdracht.
 
 ## Inbedden in een site (SafeTail: safetail.nl/intern/control-tower)
 
@@ -98,13 +208,74 @@ npm run build:site
 node tools/sync-safetail.mjs ../../../website   # pad naar de website-repo
 ```
 
-Dat kopieert de zes bestanden (sinds de 3D-wereld ook `three.js`, en sinds 4.0 `buildings.js` met de gebouwen, die
-`app.js` allebei pas bij de eerste klik op de kubus met een relatief pad laadt) naar `public/intern/control-tower/app/` en schrijft daar
-`VERSIE.json` (commit en datum). De pagina daar bevat de HTML-opbouw van de app (dezelfde
-id's als `index.html` hier, sinds 3.0 ook `v-opleggers`): verandert die opbouw, pas dan
-ook die pagina aan. Daarna in de
-website-repo: `npm run build`, `npm test`, committen (zie daar DEPLOY.md, "SafeTools ·
-Control Tower").
+Dat kopieert de negen bestanden naar `public/intern/control-tower/app/` en schrijft daar `VERSIE.json` (commit en
+datum): `app.js` (de code), `data.js` (wegennet en plaatsen), `lib.js` (svelte-gantt, MiniSearch en Floating UI),
+`uplot.js` (de grafieken, pas bij de eerste grafiek geladen), `maplibre.js`, `three.js` en `buildings.js` (de
+3D-wereld en de gebouwen, pas bij de eerste klik op de kubus), `portretten.js` (de beelden van voertuigen en
+opleggers, pas op een detailpagina of in een kaartje) en `app.css`. De late bestanden laadt `app.js` met een
+relatief pad. De pagina daar bevat de HTML-opbouw van de app (het skelet hieronder): verandert die
+opbouw, pas dan ook die pagina aan, en de lijsten `SHELL_IDS` en `APP_BESTANDEN` in `tests/smoke/control-tower.spec.mjs`
+daar. Daarna in de website-repo: `npm run build`, `npm test`, committen (zie daar DEPLOY.md, "SafeTools · Control
+Tower").
+
+### Skelet (sinds 4.0)
+
+De id's die de code verwacht, in deze opbouw (`index.html`; klassen en `hidden` horen erbij):
+
+```html
+<div id="app" class="app slct">                       <!-- data-tiles="off" data-embedded in SafeTools -->
+  <nav class="side" id="side" aria-label="Hoofdmenu"></nav>
+  <div class="main">
+    <header class="top" id="topbar"></header>
+    <div class="views" id="views">
+      <section class="view" id="v-overzicht" aria-label="Overzicht"></section>
+      <section class="view on" id="v-kaart" aria-label="Kaart">
+        <div id="map"></div>
+        <div class="mapbar" id="mapbar"></div>
+        <div class="maptools" id="maptools"></div>
+        <div class="timebar" id="timebar"></div>
+        <div class="tip" id="tip"></div>
+      </section>
+      <section class="view" id="v-ritten" aria-label="Ritten"></section>
+      <section class="view" id="v-meldingen" aria-label="Meldingen"></section>
+      <section class="view" id="v-openritten" aria-label="Open ritten"></section>
+      <section class="view" id="v-planbord" aria-label="Planbord"></section>
+      <section class="view" id="v-voertuigen" aria-label="Voertuigen"></section>
+      <section class="view" id="v-opleggers" aria-label="Opleggers"></section>
+      <section class="view" id="v-chauffeurs" aria-label="Chauffeurs"></section>
+      <section class="view" id="v-charters" aria-label="Charters en oproepkrachten"></section>
+      <section class="view" id="v-standplaatsen" aria-label="Standplaatsen"></section>
+      <section class="view" id="v-laden" aria-label="Laden"></section>
+      <section class="view" id="v-lostijden" aria-label="Lostijden"></section>
+      <section class="view" id="v-pauze" aria-label="Pauzeplekken"></section>
+      <section class="view" id="v-rapporten" aria-label="Rapporten"></section>
+      <section class="view" id="v-instellingen" aria-label="Instellingen"></section>
+      <aside class="panel" id="panel" aria-label="Details"></aside>
+      <div class="sheet" id="sheet" hidden></div>
+    </div>
+  </div>
+  <nav class="bottombar" id="bottombar" aria-label="Hoofdmenu"></nav>
+  <div class="pop" id="popover" hidden></div>
+  <div class="modal" id="dialog" hidden></div>
+  <div class="modal" id="wizard" hidden></div>
+  <div class="full" id="hal" hidden></div>
+  <div class="full kl" id="klant" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="loading" id="loading" role="status"> <!-- skelet en tekst zoals in index.html --> <p id="loadMsg"></p> </div>
+</div>
+```
+
+Samen 36 id's: `app`, `side`, `topbar`, `views`, `v-overzicht`, `v-kaart`, `map`, `mapbar`, `maptools`, `timebar`,
+`tip`, `v-ritten`, `v-meldingen`, `v-openritten`, `v-planbord`, `v-voertuigen`, `v-opleggers`, `v-chauffeurs`,
+`v-charters`, `v-standplaatsen`,
+`v-laden`, `v-lostijden`, `v-pauze`, `v-rapporten`, `v-instellingen`, `panel`, `sheet`, `bottombar`, `popover`,
+`dialog`, `wizard`, `hal`, `klant`, `toasts`, `loading` en `loadMsg`. Ten opzichte van 3.2 vervallen `rail`,
+`statline`, `fcard`, `notice`, `v-trucks`, `v-mensen`, `v-assistent` en `palette`; nieuw zijn `side`, `views`,
+`v-overzicht`, `mapbar`, `v-ritten`, `v-meldingen`, `v-openritten`, `v-voertuigen`, `v-chauffeurs`, `v-charters`,
+`v-rapporten`, `v-instellingen`, `bottombar`, `popover`, `dialog` en `toasts`, en `timebar` staat nu binnen `v-kaart`.
+`v-openritten` en `v-charters` kwamen er later in 4.0 bij: in SafeTools moeten ze ook in de pagina en in `SHELL_IDS`. Al het andere (het zoekveld
+`#zoekIn`, de bel `#bellCnt`, het kaartje `#hcard`, de knoppen) bouwt de app zelf op. Meldingen van de app zijn
+toasts in `#toasts` (aria-live polite); er is geen `#notice` meer.
 
 ## 3D-wereld
 
@@ -243,7 +414,7 @@ merk (DAF XF, Scania R, Volvo FH, Mercedes Actros en eActros 600), zonder merkte
 heeft accupakketten en een laadklep in plaats van de tank. Verder: met of zonder koeloplegger, de bakwagen
 in drie vormen, de bestelbus, en elke opleggersoort los op de steunpoten. Alles in de huisstijl hierboven en
 met een fictief kenteken op het model (met een C, die Nederlandse kentekens niet hebben); de app zet het
-echte kenteken als tekst ernaast. De modellen staan in `src/scene3d/varianten.js`. `tools/render-portretten.mjs`
+echte kenteken als plaat ernaast. De modellen staan in `src/scene3d/varianten.js`. `tools/render-portretten.mjs`
 rendert ze met Playwright en de software-GPU: 26 beelden van 640 x 400 px, WebP met een doorzichtige
 achtergrond, elk hooguit 25 KB en samen ongeveer 560 KB. Twee keer draaien geeft dezelfde bestanden. De
 beelden staan in `src/assets/portretten/`. `src/portretten.js` neemt ze met `?inline` op in de bundel
@@ -320,17 +491,19 @@ de open ritten in de pool en hun historie, voorkeuren en tevredenheid van chauff
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
 en beoordelingen. Werkgebied, rol, thema, opgeslagen weergaven, overgenomen lostijden,
 eigen beoordelingen, de overdrachtstekst en de acties van vandaag (afgehandelde en
-uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan in de browser
-(localStorage, `sl-*`).
+uitgestelde meldingen, toegepaste voorstellen, berichten), de 3D-stand, de basiskaart, de statusfilter van de kaart
+en per tabel het zoekwoord, de filters en de sortering staan in de browser (localStorage, `sl-*`), zodat herladen
+dezelfde toestand geeft.
 
 ## Bestanden
 
 - `index.html`, `src/main.js`: opbouw, opties van de app-root, laden en de klok van de simulatie
-- `src/ui.js`: iconenbalk, topbalk, kaartweergave, meldingenpaneel, wizard, zoekpalet, sneltoetsen, weergaven, routes
-- `src/views.js`: planbord, standplaatsen, hal-scherm, klantweergave, assistent
-- `src/sheets.js`: voertuig-, oplegger- en persoonspagina's met rechten per rol
-- `src/tables.js`: tabellen voertuigen, opleggers en mensen, lostijden, laden, pauzeplekken
-- `src/people.js`: chauffeurs en hun dienst, voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
+- `src/ui.js`: de app-staat, de beurt van de simulatie (`frame`), selectie, kaart en volgen, routes (`#…`), wizard, sneltoetsen, de context voor de weergaven
+- `src/ui/`: de interface 4.0. `nav.js` (linkermenu, topbalk, onderbalk), `overzicht.js`, `kaart.js` (filterbalk, kaartlagen, tijdbalk, panelen, het kaartje bij aanwijzen), `ritten.js` (ritten en de ritpagina), `zaken.js` (meldingen als zaken: sleutel, eigenaar, deadline, statussen, bord, zaakpagina, logboek), `planbord.js` (svelte-gantt), `planwijzig.js` (het plan aanpassen: een rit verplaatsen of uit de pool inplannen, met dock), `toets.js` (pure toetsregels, met `tests/toets.test.mjs`), `inplannen.js` (toetsen, uitvoeren, berichten en logboek, gedeeld door planbord, zaken en assistent), `assistent.js` en `ai.js` (de Assistent, met de Claude API als `data-ai` op de root staat), `invulling.js` (de vraagkant op de data: prognose, kandidaten, toewijzen, de flexibele schil, voorkeuren), `openritten.js` (Open ritten en de dialoog Rit inplannen), `poule.js` (Charters en oproepkrachten en hun pagina's), `portret.js` (het beeld in de kop van een pagina), `zoek.js` (MiniSearch), `layers.js` (popovers, menu's, het kaartje bij een nummer, dialogen, bevestigen, toasts; Floating UI), `table.js` (de tabel met venster, filters, kolomkeuze, selectie, csv en menu), `tijdreeks.js` (uPlot), `charts.js` (kleine SVG-grafieken), `metrics.js` (kerngetallen door de dag), `rapporten.js`, `instellingen.js`, `acts.js` (wat de planner vandaag deed, `sl-acties`), `base.js` (opmaak, statuswoorden, badges, statusbalk en slimme knoppen) en `taal.js` (een ongeldige taalcode van de browser houdt de app niet tegen)
+- `src/views.js`: standplaatsen met vertrekbord en dockplanning, hal-scherm, klantweergave
+- `src/sheets.js`: voertuig-, oplegger- en persoonspagina's (statusbalk, slimme knoppen, tabbladen, logboek) met rechten per rol
+- `src/tables.js`: tabellen voertuigen, opleggers en chauffeurs, lostijden, laden (met de grafieken per kwartier), pauzeplekken
+- `src/people.js`: chauffeurs en hun dienst, planners per standplaats (een per 15 tot 25 voertuigen, over vroeg, dag en avond), voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
 - `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd)
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
@@ -341,5 +514,7 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan i
 - `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool), van de afdelingen en van de vraagkant (prognose, historie, voorkeuren, charters en oproepkrachten zonder echte namen, kandidaten, toewijzen); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks, afdelingen, charters)
 - `src/otm5.js`: de vertaling tussen de gesimuleerde dag en OTM5 (Open Trip Model 5.9.0): `uitFleet` (onze vorm), `naarOtm5` en `vanOtm5`; puur en buiten de app-bundel, de basis voor de import van echte ritten (zie `rapporten/simon-loos-control-tower/echte-data-en-otm5.md`)
 - `tests/otm5-check.mjs` (`npm run test:otm5`): de vertaling tegen de officiële OTM5-specificatie (vastgezet in `tests/otm5/`), tegen het planbord en de gebeurtenissen van de app, en heen en terug; `--bestand pad.json` controleert een echt OTM5-bestand
+- `tests/`: `verify.mjs` en `ui-check.mjs` (de interface), `toets.test.mjs`, `data-check.mjs`, `map-check.mjs`, `3d-check.mjs` (zie "Controles")
 - `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)
+- Bibliotheken: MapLibre GL JS (BSD-3), three.js (MIT), svelte-gantt 4.5 (MIT, het planbord), MiniSearch 7.2 (MIT, zoeken), Floating UI 1.8 (MIT, plaatsen van popovers en kaartjes), uPlot 1.6 (MIT, tijdreeksen). Geen lettertypen of iets anders van buiten
 - `tools/`: dataverwerking (Overture), `artifact.cjs` en `sync-safetail.mjs` (de bundel naar de SafeTail-repo)

@@ -2,7 +2,7 @@
 // vaste wagen), de historie per voertuig (wie reed erop) en per persoon (op welke wagens), kerngegevens, onderhoud en
 // documenten per voertuig en per oplegger. Alles gesimuleerd en deterministisch; namen en nummers zijn fictief.
 import { SP, DIV } from './places.js';
-import { TRT } from './fleet.js';
+import { TRT, LAST } from './fleet.js';
 
 let seed = 7712026; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const pick = a => a[Math.floor(rnd() * a.length)];
@@ -77,7 +77,7 @@ export function createPeople(fleet) {
       onderhoud: { date: fmtDate(dayAgo(Math.floor(r(5, 70)))), what: pick(WHAT), garage: t.base.hub ? 'Wognum' : pick(GARAGE), volgend: kmstand + Math.round(r(4000, 20000) / 500) * 500 },
       werkorder: t.storing ? { what: t.storing, since: 'vandaag' } : t.vandaag === 'onderhoud' ? { what: pick(WERK), since: fmtDay(dayAgo(Math.floor(r(1, 4)))), gepland: 'vandaag in de werkplaats' } : (rnd() < 0.06 ? { what: pick(WERK), since: fmtDay(dayAgo(Math.floor(r(1, 6)))) } : null),
       banden: rnd() < 0.08 ? 'as 2 laag (melding boordcomputer)' : 'in orde', capacity: CAPACITY(t),
-      km30: Math.round(history.reduce((a, h) => a + h.km, 0) / 12 * 26), verbruik: verbruik.length ? verbruik.reduce((a, v) => a + v.v * v.n, 0) / history.length : base, inzet: Math.round(r(72, 92)), onTime: +r(90, 99.5).toFixed(1),
+      km30: Math.round(history.reduce((a, h) => a + h.km, 0) / 12 * 26), verbruik: verbruik.length ? verbruik.reduce((a, v) => a + v.v * v.n, 0) / history.length : base, inzet: Math.round(r(72, 92)), onTime: +r(97, 100).toFixed(1),
       schades12: history.filter(h => h.note === 'schade gemeld').length, kostenKm: +(t.ev ? r(0.84, 0.98) : t.kind === 'bus' ? r(0.42, 0.55) : t.kind === 'bakwagen' ? r(0.8, 0.95) : r(1.02, 1.24)).toFixed(2), perDriver: verbruik,
       docs: [['Kentekenbewijs', 'deel 1 en 2, RDW'], ['Verzekeringsbewijs', 'casco en WA, tot 31-12-2026'], ['APK-rapport', `laatste keuring ${fmtDate(dayAgo(Math.floor(r(60, 340))))}`], ['Tachograaf-ijking', `geldig tot ${fmtMY(monthsAhead(3, 24))}`], ...(t.lzv ? [['LZV-ontheffing', 'RDW, kernnet']] : [])],
     };
@@ -106,5 +106,40 @@ export function createPeople(fleet) {
   }
   const byId = new Map(persons.map(p => [p.id, p]));
   const truckOf = p => p.dienst ? p.dienst.t : null;
-  return { persons, byId, forTruck, forTrailer, spStats, truckOf, dateLabel: fmtDate };
+  const planners = makePlanners(fleet);
+  return { persons, byId, forTruck, forTrailer, spStats, truckOf, dateLabel: fmtDate, planners, plannerVoor: (spn, div, T) => plannerVoor(planners, spn, div, T) };
+}
+
+// ---------- planners ----------
+// Een planner per 15 tot 25 voertuigen per standplaats (onderzoek D2), verdeeld over drie diensten: vroeg, dag en avond.
+// Wognum, de grootste standplaats, heeft er 9 tot 15. Daarnaast het team van de control tower in Wognum. Fictieve namen
+// uit een eigen reeks toevalsgetallen: de chauffeurs en hun gegevens veranderen er niet door.
+export const PL_DIENST = { vroeg: { n: 'Vroege dienst', a: 300, b: 810 }, dag: { n: 'Dagdienst', a: 510, b: 1020 }, avond: { n: 'Avonddienst', a: 810, b: 1320 } };
+const PL_VOOR = ['Sanne', 'Ilse', 'Femke', 'Lotte', 'Eva', 'Noor', 'Iris', 'Daan', 'Ruud', 'Fatima', 'Yara', 'Esther', 'Mark', 'Jesse', 'Karin', 'Wouter', 'Sophie', 'Hamza', 'Nadia', 'Joost', 'Merel', 'Rutger', 'Inge', 'Bart', 'Ricardo', 'Mirjam', 'Stefan', 'Leila'];
+function makePlanners(fleet) {
+  let s2 = 5512026; const rn = () => { s2 = (s2 * 16807) % 2147483647; return (s2 - 1) / 2147483646; };
+  const pk = a => a[Math.floor(rn() * a.length)];
+  const bezet = new Set(); for (const p of fleet.driverPool.values()) for (const n of p.names) bezet.add(n);
+  const naam = () => { for (let i = 0; i < 60; i++) { const n = `${pk(PL_VOOR)} ${pk(LAST)}`; if (!bezet.has(n)) { bezet.add(n); return n; } } return `${pk(PL_VOOR)} ${pk(LAST)} ${bezet.size}`; };
+  const out = []; const add = o => { const d = PL_DIENST[o.dienst]; out.push({ id: `PL-${String(out.length + 1).padStart(3, '0')}`, a: d.a, b: d.b, ...o }); };
+  add({ n: 'Anouk Groot', sp: 'Wognum', div: null, rol: 'Teamleider control tower', dienst: 'dag', team: true }); bezet.add('Anouk Groot');
+  for (const sp of SP) {
+    const L = fleet.trucks.filter(t => t.base === sp); if (!L.length) continue;
+    let k = Math.max(1, Math.round(L.length / 20)); if (sp.n === 'Wognum') k = Math.min(15, Math.max(9, k));
+    // de divisies naar hun aandeel in de vloot van de standplaats
+    const per = new Map(); for (const t of L) per.set(t.div, (per.get(t.div) || 0) + 1);
+    const divs = [...per].sort((a, b) => b[1] - a[1]).map(x => x[0]);
+    for (let i = 0; i < k; i++) {
+      const dienst = ['dag', 'vroeg', 'avond'][i % 3]; const div = divs[Math.floor(i / 3) % divs.length];
+      add({ n: naam(), sp: sp.n, div, rol: `Planner ${DIV[div].n.toLowerCase()}`, dienst, voertuigen: Math.round(L.length / k) });
+    }
+  }
+  add({ n: naam(), sp: 'Wognum', div: null, rol: 'Control tower, avond', dienst: 'avond', team: true });
+  return out;
+}
+// wie pakt een zaak op: een planner van die standplaats en divisie die nu dienst heeft, anders van die standplaats,
+// anders het team van de control tower
+function plannerVoor(L, spn, div, T) {
+  const t = ((T % 1440) + 1440) % 1440; const op = p => t >= p.a && t < p.b;
+  return L.find(p => p.sp === spn && p.div === div && op(p)) || L.find(p => p.sp === spn && op(p)) || L.find(p => p.team && op(p)) || L.find(p => p.sp === spn) || L[0];
 }

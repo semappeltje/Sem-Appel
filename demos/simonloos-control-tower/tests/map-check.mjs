@@ -78,11 +78,14 @@ async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded
   if (embedded) await page.route(url, async route => { const res = await route.fetch(); const body = (await res.text()).replace('class="app slct"', 'class="app slct" data-tiles="off" data-embedded'); await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
   // elke melding die in beeld komt, onthouden (een melding verdwijnt na een paar seconden; onder belasting is die al weg
   // voordat de test kijkt)
-  await page.addInitScript(() => { window.__notices = []; document.addEventListener('DOMContentLoaded', () => { const el = document.getElementById('notice'); if (!el) return; new MutationObserver(() => { const t = el.textContent || ''; if (el.classList.contains('on') && t && window.__notices[window.__notices.length - 1] !== t) window.__notices.push(t); }).observe(el, { attributes: true, childList: true, characterData: true, subtree: true }); }); });
+  // (sinds de interface 4.0 is een melding een toast in #toasts: elke nieuwe toast telt)
+  await page.addInitScript(() => { window.__notices = []; document.addEventListener('DOMContentLoaded', () => { const el = document.getElementById('toasts'); if (!el) return; new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) { const t = (n.textContent || '').trim(); if (t && window.__notices[window.__notices.length - 1] !== t) window.__notices.push(t); } }).observe(el, { childList: true }); }); });
   await page.addInitScript(([d, b]) => { try { localStorage.clear(); localStorage.setItem('sl-theme', d ? 'dark' : 'light'); if (b) localStorage.setItem('sl-kaartlaag', b); } catch { /* geen opslag */ } }, [dark, base]);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.SLCT && window.SLCT.fleet && document.getElementById('loading').hidden, null, { timeout: 120_000 });
   for (let i = 0; i < 3; i++) { const b = await page.$('#wzNext'); if (b) { await b.click(); await page.waitForTimeout(150); } }
+  // sinds de interface 4.0 opent de app op het Overzicht; de kaart krijgt de voertuigen pas als hij in beeld is
+  await page.evaluate(() => window.SLCT.ui.setView && window.SLCT.ui.setView('kaart'));
   await page.waitForTimeout(900);
   return { page, ctx, errors, ext };
 }
@@ -224,9 +227,11 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
   // midden in de vlucht ligt de zoom ruim onder begin en eind; tekent een overbelaste machine daar geen enkel beeld, dan
   // valt het uit- en inzoomen niet te zien en telt alleen dat de kaart op het voertuig eindigt
   const mid = vl.rec.filter(([t]) => t > 135 && t < 765), minZ = Math.min(vl.z0, ...vl.rec.map(r => r[1])), dipped = minZ < Math.min(vl.z0, vl.z1) - 0.5;
-  const endOk = !!fa && Math.hypot(fa.x - fa.w / 2, fa.y - fa.h / 2) < 30;
+  // het midden van het vrije deel naast het paneel (de interface 4.0 houdt ruimte vrij voor het paneel: padding)
+  const vm = await page.evaluate(() => { const m = window.SLCT.map.map, p = m.getPadding(), c = m.getContainer(); return { x: p.left + (c.clientWidth - p.left - p.right) / 2, y: p.top + (c.clientHeight - p.top - p.bottom) / 2 }; });
+  const endOk = !!fa && Math.hypot(fa.x - vm.x, fa.y - vm.y) < 30;
   // met minder dan drie beelden midden in de vlucht (machine overbelast) is het dieptepunt van de boog niet te zien
-  check(endOk && (dipped || mid.length < 3), `vliegen naar ${far} (ver weg): ${dipped ? `eerst uit- dan inzoomen (laagste zoom ${minZ.toFixed(1)})` : mid.length >= 3 ? `geen uitzoomen te zien (laagste zoom ${minZ.toFixed(1)})` : 'geen beeld midden in de vlucht (machine overbelast)'}, ${vl.rec.length} beelden, ${endOk ? 'eindigt op het voertuig' : `eindigt ${fa ? Math.round(Math.hypot(fa.x - fa.w / 2, fa.y - fa.h / 2)) + ' px' : 'buiten beeld'} naast het voertuig`}`);
+  check(endOk && (dipped || mid.length < 3), `vliegen naar ${far} (ver weg): ${dipped ? `eerst uit- dan inzoomen (laagste zoom ${minZ.toFixed(1)})` : mid.length >= 3 ? `geen uitzoomen te zien (laagste zoom ${minZ.toFixed(1)})` : 'geen beeld midden in de vlucht (machine overbelast)'}, ${vl.rec.length} beelden, ${endOk ? 'eindigt op het voertuig' : `eindigt ${fa ? Math.round(Math.hypot(fa.x - vm.x, fa.y - vm.y)) + ' px' : 'buiten beeld'} naast het voertuig`}`);
   await auto(page);
   check(errors.length === 0, `consolefouten: ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 5).join('\n     ') : ''}`);
   await ctx.close();
@@ -239,7 +244,7 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(true)); await page.waitForTimeout(2500);
   await page.evaluate(() => window.SLCT.map.map.jumpTo({ zoom: 14.5 })); await page.waitForTimeout(1500);
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(false)); await page.waitForTimeout(1200);
-  const d = await page.evaluate(() => { const m = window.SLCT.map.map; return { tiles: window.SLCT.map.hasTiles(), src: ['ofm', 'luchtfoto', 'brt'].filter(id => m.getSource(id)), keuze: !!document.getElementById('baseSeg'), base: window.SLCT.map.base() }; });
+  const d = await page.evaluate(() => { const m = window.SLCT.map.map; return { tiles: window.SLCT.map.hasTiles(), src: ['ofm', 'luchtfoto', 'brt'].filter(id => m.getSource(id)), keuze: (() => { const b = document.getElementById('layersBtn'); b.click(); const k = !!document.getElementById('baseSeg'); if (document.getElementById('popover') && !document.getElementById('popover').hidden) b.click(); return k; })(), base: window.SLCT.map.base() }; });
   check(!d.tiles && !d.src.length && !d.keuze && d.base === 'kaart' && ext.size === 0, `ingebed: geen online bron, geen keuze voor de basiskaart, externe hosts: ${[...ext].join(', ') || 'geen'}`);
   check(errors.length === 0, `ingebed: consolefouten ${errors.length}`);
   await ctx.close();
@@ -261,7 +266,9 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
   const far = await page.evaluate(() => { const S = window.SLCT, m = S.map.map, f = S.fleet, T = S.state.simTime; const c = m.getCenter(); const t = f.trucks.find(t => { const s = f.stateAt(t, T); return s.st === 'onderweg' && Math.hypot(s.pos.lon - c.lng, s.pos.lat - c.lat) > 1; }); return t.id; });
   await page.evaluate(id => window.SLCT.ui.selectTruck(id), far); await page.waitForTimeout(150);
   const j = await screenOf(page, far);
-  check(j && Math.hypot(j.x - j.w / 2, j.y - j.h / 2) < 3, `minder beweging: de camera springt naar ${far} (na 150 ms ${j && Math.hypot(j.x - j.w / 2, j.y - j.h / 2).toFixed(1)} px van het midden)`);
+  // sinds de interface 4.0 houdt de kaart ruimte vrij voor het paneel (padding): het midden is dat van het vrije deel
+  const pc = await page.evaluate(() => { const m = window.SLCT.map.map, p = m.getPadding(), c = m.getContainer(); return { x: p.left + (c.clientWidth - p.left - p.right) / 2, y: p.top + (c.clientHeight - p.top - p.bottom) / 2 }; });
+  check(j && Math.hypot(j.x - pc.x, j.y - pc.y) < 3, `minder beweging: de camera springt naar ${far} (na 150 ms ${j && Math.hypot(j.x - pc.x, j.y - pc.y).toFixed(1)} px van het midden van het vrije deel naast het paneel)`);
   check(errors.length === 0, `minder beweging: consolefouten ${errors.length}`);
   await ctx.close();
 }
@@ -270,8 +277,10 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
 // 4. Online basiskaarten, nagebootst (de bronnen zijn hier niet bereikbaar): OpenFreeMap (TileJSON en een echte
 // vectortegel; een lege tegel of een plaatje telt niet als werkend), de luchtfoto en de BRT-achtergrondkaart van PDOK, en
 // de terugval naar de ingebouwde kaart: stil als niemand de stand koos, met een melding als iemand hem zelf koos.
-const baseState = page => page.evaluate(() => { const S = window.SLCT, m = S.map.map, v = id => (m.getLayer(id) ? m.getLayoutProperty(id, 'visibility') || 'visible' : 'geen'), d = S.map.debug(); return { base: d.base, src: d.src, mw: v('mw'), pl: v('pl-1'), land: v('land'), site: v('site'), siteLine: v('site-line'), sp: v('sp'), oroad: v('o-road'), foto: v('luchtfoto'), brt: v('brt'), attr: (m.getContainer().querySelector('.maplibregl-ctrl-attrib-inner') || {}).textContent || '', notice: (window.__notices || []).join(' | '), keuze: [...document.querySelectorAll('#baseSeg [data-base].on')].map(b => b.dataset.base).join() }; });
-const pickBase = (page, k) => page.evaluate(k => { const pop = document.getElementById('layersPop'); pop.hidden = false; document.querySelector(`#baseSeg [data-base="${k}"]`).click(); pop.hidden = true; }, k);
+const baseState = page => page.evaluate(() => { const S = window.SLCT, m = S.map.map, v = id => (m.getLayer(id) ? m.getLayoutProperty(id, 'visibility') || 'visible' : 'geen'), d = S.map.debug(); return { base: d.base, src: d.src, mw: v('mw'), pl: v('pl-1'), land: v('land'), site: v('site'), siteLine: v('site-line'), sp: v('sp'), oroad: v('o-road'), foto: v('luchtfoto'), brt: v('brt'), attr: (m.getContainer().querySelector('.maplibregl-ctrl-attrib-inner') || {}).textContent || '', notice: (window.__notices || []).join(' | '), keuze: (() => { const b = document.getElementById('layersBtn'), dicht = !document.getElementById('baseSeg'); if (dicht) b.click(); const k = [...document.querySelectorAll('#baseSeg [data-base].on')].map(x => x.dataset.base).join(); if (dicht && document.getElementById('baseSeg')) b.click(); return k; })() }; });
+// sinds de interface 4.0 staat de keuze in het menu Kaartlagen, een popover die pas bij het openen ontstaat: openen,
+// kiezen, sluiten (zoals een kijker het doet)
+const pickBase = (page, k) => page.evaluate(k => { const b = document.getElementById('layersBtn'); if (!document.getElementById('baseSeg')) b.click(); document.querySelector(`#baseSeg [data-base="${k}"]`).click(); if (document.getElementById('baseSeg')) b.click(); }, k);
 // wachten tot een bron beslist is: hij werkt (bij de luchtfoto eventueel pas op de tweede laag, tier) of de kaart is
 // terug op ingebouwd; onder belasting duurt de eerste tegel langer dan de vaste wachttijd
 const decided = (page, k, tier = 0) => page.waitForFunction(([k, tier]) => { const s = window.SLCT.map.debug().src[k]; return !!s && (s.failed || (s.ok && (s.tier || 0) >= tier)); }, [k, tier], { timeout: 20000, polling: 200 }).catch(() => {});

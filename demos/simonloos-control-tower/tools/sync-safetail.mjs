@@ -4,7 +4,7 @@
 //   npm run build:site
 //   node tools/sync-safetail.mjs ../../../website      # pad naar de website-repo (SafeTail-V-O-F/Website)
 //
-// Kopieert app.js, data.js, maplibre.js, three.js, buildings.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
+// Kopieert app.js, data.js, lib.js, uplot.js, maplibre.js, three.js, buildings.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
 // VERSIE.json (commit en datum van deze repo, bestandsgroottes). De pagina src/pages/intern/control-tower.astro in
 // die repo laadt deze bestanden en toont de versie. Daarna in de website-repo: npm run build, npm test, committen
 // (DEPLOY.md, "SafeTools · Control Tower").
@@ -18,7 +18,11 @@ const dist = path.join(app, 'dist-site');
 const target = process.argv[2];
 if (!target) { console.error('Gebruik: node tools/sync-safetail.mjs <pad naar de website-repo>'); process.exit(1); }
 const doel = path.join(path.resolve(target), 'public', 'intern', 'control-tower', 'app');
-const FILES = ['app.js', 'data.js', 'maplibre.js', 'three.js', 'buildings.js', 'app.css'];
+// lib.js: de bibliotheken van de interface (svelte-gantt, MiniSearch, Floating UI; alle MIT); uplot.js: de grafieken (MIT)
+const FILES = ['app.js', 'data.js', 'lib.js', 'uplot.js', 'maplibre.js', 'three.js', 'buildings.js', 'app.css'];
+// portretten.js: de beelden van voertuigen en opleggers (renders van de 3D-modellen), pas geladen op een detailpagina of
+// in een kaartje; los bestand als de module er is
+if (existsSync(path.join(dist, 'portretten.js'))) FILES.push('portretten.js');
 for (const f of FILES) if (!existsSync(path.join(dist, f))) { console.error(`${f} ontbreekt in dist-site/: draai eerst npm run build:site`); process.exit(1); }
 // three.js mag alleen dynamisch geladen worden (bij de eerste klik op de kubus): een statische import in app.js zou het bij elke paginalading ophalen
 if (/from\s*["']\.\/three\.js["']/.test(readFileSync(path.join(dist, 'app.js'), 'utf8'))) { console.error('app.js importeert three.js statisch; scene3d.js mag niets uit de app importeren (geef het mee via opts.data)'); process.exit(1); }

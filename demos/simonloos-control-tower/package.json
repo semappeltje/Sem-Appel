@@ -21,7 +21,11 @@
     "yaml": "^2.9.1"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "maplibre-gl": "^6.15.0",
-    "three": "^0.170.0"
+    "minisearch": "^7.2.0",
+    "svelte-gantt": "^4.5.0",
+    "three": "^0.170.0",
+    "uplot": "^1.6.32"
   }
 }

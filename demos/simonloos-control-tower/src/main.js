@@ -22,7 +22,7 @@ const state = { simTime, speed: 12, theme, playing: true };
 // in de tijd (tijdschuif, Nu) gewoon springen
 // de basiskaart (Kaartlagen): ingebouwd, online (OpenStreetMap via OpenFreeMap), luchtfoto of BRT (PDOK); zonder keuze
 // online, zoals voorheen
-const kaartlaag = (k => (['kaart', 'online', 'luchtfoto', 'brt'].includes(k) ? k : store.get('sl-online') === 'off' ? 'kaart' : 'online'))(store.get('sl-kaartlaag'));
+const kaartlaag = (k => (['kaart', 'online', 'luchtfoto', 'brt'].includes(k) ? k : store.get('sl-online') === 'on' ? 'online' : 'kaart'))(store.get('sl-kaartlaag')); // zonder keuze de ingebouwde kaart: niets van buiten tot de kijker zelf een online laag kiest
 const mapApi = createMap('map', {
   theme, tiles: cfg.tiles, online: cfg.tiles && kaartlaag === 'online', base: kaartlaag, clock: state,
   onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id), onSelectTrailer: id => window.SLCT && window.SLCT.ui.selectTrailer(id),

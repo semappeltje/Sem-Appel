@@ -4,44 +4,57 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simon Loos Control Tower</title>
-<meta name="description" content="Control tower voor Simon Loos: 1.300 gesimuleerde voertuigen en 1.681 opleggers live op het echte wegennet, met diensten per chauffeur, werkgebied per gebruiker, rollen, voertuig- en persoonspagina's, opleggerbord, laadplanning, lostijden en pauzeplekken.">
+<meta name="description" content="Control tower voor Simon Loos: 1.300 gesimuleerde voertuigen en 1.700 opleggers live op het echte wegennet, met ritten, meldingen als zaken met eigenaar en norm, planbord, voertuig-, oplegger- en chauffeurspagina's, standplaatsen met vertrekbord en docks, laadplanning, lostijden, pauzeplekken en rapporten.">
 <style>html,body{height:100%;margin:0;background:#FFFFFF}</style>
 </head>
 <body>
 <!-- De app-root: class "slct" draagt alle stijl en het thema (data-theme), zodat de app ook in een andere pagina past.
-     Opties als data-attributen: data-tiles="off" (geen externe kaarttegels), data-embedded (ingebed in een site). -->
+     Opties als data-attributen: data-tiles="off" (geen externe kaarttegels), data-embedded (ingebed in een site).
+     De id's hieronder zijn het skelet dat de code verwacht; de SafeTools-pagina spiegelt het (zie README, "Skelet"). -->
 <div id="app" class="app slct">
-  <nav class="rail" id="rail"></nav>
+  <nav class="side" id="side" aria-label="Hoofdmenu"></nav>
   <div class="main">
-    <header class="tb" id="topbar"></header>
-    <div class="views">
-      <section class="view on" id="v-kaart">
+    <header class="top" id="topbar"></header>
+    <div class="views" id="views">
+      <section class="view" id="v-overzicht" aria-label="Overzicht"></section>
+      <section class="view on" id="v-kaart" aria-label="Kaart">
         <div id="map"></div>
-        <div class="statline" id="statline"></div>
-        <div class="fcard" id="fcard" hidden></div>
+        <div class="mapbar" id="mapbar"></div>
         <div class="maptools" id="maptools"></div>
-        <div class="notice" id="notice"></div>
+        <div class="timebar" id="timebar"></div>
         <div class="tip" id="tip"></div>
       </section>
-      <section class="view" id="v-planbord"></section>
-      <section class="view" id="v-trucks"></section>
-      <section class="view" id="v-opleggers"></section>
-      <section class="view" id="v-mensen"></section>
-      <section class="view" id="v-standplaatsen"></section>
-      <section class="view" id="v-laden"></section>
-      <section class="view" id="v-lostijden"></section>
-      <section class="view" id="v-pauze"></section>
-      <section class="view" id="v-assistent"></section>
-      <div class="timebar" id="timebar"></div>
+      <section class="view" id="v-ritten" aria-label="Ritten"></section>
+      <section class="view" id="v-meldingen" aria-label="Meldingen"></section>
+      <section class="view" id="v-openritten" aria-label="Open ritten"></section>
+      <section class="view" id="v-planbord" aria-label="Planbord"></section>
+      <section class="view" id="v-voertuigen" aria-label="Voertuigen"></section>
+      <section class="view" id="v-opleggers" aria-label="Opleggers"></section>
+      <section class="view" id="v-chauffeurs" aria-label="Chauffeurs"></section>
+      <section class="view" id="v-charters" aria-label="Charters en oproepkrachten"></section>
+      <section class="view" id="v-standplaatsen" aria-label="Standplaatsen"></section>
+      <section class="view" id="v-laden" aria-label="Laden"></section>
+      <section class="view" id="v-lostijden" aria-label="Lostijden"></section>
+      <section class="view" id="v-pauze" aria-label="Pauzeplekken"></section>
+      <section class="view" id="v-rapporten" aria-label="Rapporten"></section>
+      <section class="view" id="v-instellingen" aria-label="Instellingen"></section>
+      <aside class="panel" id="panel" aria-label="Details"></aside>
+      <div class="sheet" id="sheet" hidden></div>
     </div>
   </div>
-  <aside class="panel" id="panel"></aside>
-  <div class="sheet" id="sheet" hidden></div>
+  <nav class="bottombar" id="bottombar" aria-label="Hoofdmenu"></nav>
+  <div class="pop" id="popover" hidden></div>
+  <div class="modal" id="dialog" hidden></div>
   <div class="modal" id="wizard" hidden></div>
-  <div class="modal pal-wrap" id="palette" hidden></div>
   <div class="full" id="hal" hidden></div>
   <div class="full kl" id="klant" hidden></div>
-  <div class="modal" id="loading"><div class="card"><div class="wizlogo"><span>Simon Loos · Control Tower</span></div><h2>De vloot wordt geladen</h2><p>Alle voertuigen en opleggers op een kaart met het echte wegennet. Routes worden berekend op de wegengraaf; dat duurt ongeveer een seconde.</p><div class="loadbar"><i></i></div><p class="small" id="loadMsg">Routes berekenen op het wegennet…</p><p class="small">Wegen en water uit OpenStreetMap (Overture Maps), standplaatsen en klanten van werkenbijsimonloos.nl. Voertuigen, opleggers, chauffeurs, diensten, ritten, tijden, prijzen en beoordelingen zijn gesimuleerd.</p></div></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="loading" id="loading" role="status">
+    <div class="ld-side"><span class="skel" style="height:22px;width:120px;margin-bottom:12px"></span><span class="skel" style="height:14px;width:150px"></span><span class="skel" style="height:14px;width:120px"></span><span class="skel" style="height:14px;width:140px"></span><span class="skel" style="height:14px;width:110px"></span><span class="skel" style="height:14px;width:130px"></span></div>
+    <div class="ld-main"><div class="ld-top"><span class="skel" style="height:18px;width:160px"></span><span class="skel" style="height:32px;width:320px;margin-left:auto"></span></div>
+      <div class="ld-body"><div class="ld-card"><span class="skel" style="height:16px;width:40%"></span><span class="skel" style="height:44px"></span><span class="skel" style="height:44px"></span><span class="skel" style="height:44px"></span></div><div class="ld-card"><span class="skel" style="height:16px;width:50%"></span><span class="skel" style="height:40px"></span><span class="skel" style="height:40px"></span></div></div></div>
+    <div class="ld-msg"><b>Control Tower wordt geladen</b><div class="loadbar"><i></i></div><p id="loadMsg">Routes berekenen op het wegennet…</p><p>Wegen en water uit OpenStreetMap (Overture Maps), standplaatsen en klanten van werkenbijsimonloos.nl. Voertuigen, opleggers, chauffeurs, diensten, ritten, tijden, prijzen en beoordelingen zijn gesimuleerd.</p></div>
+  </div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>
