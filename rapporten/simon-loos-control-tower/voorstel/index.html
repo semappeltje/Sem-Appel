@@ -1,6 +1,6 @@
 <title>Control Tower Voorstel</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Voorstel van Sem Appel aan Simon Loos: van de demo naar het planningssysteem, met een proef op één standplaats, een rekenvoorbeeld en het stap voor stap uitfaseren van de huidige applicaties.">
+<meta name="description" content="Voorstel van Sem Appel aan Simon Loos: van de demo naar het planningssysteem, met een proef op één standplaats, kosten en baten en het stap voor stap uitfaseren van de huidige applicaties.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
@@ -694,6 +694,40 @@ figcaption b { color: var(--ink); }
   .calc tfoot tr { border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
   .calc tfoot td, .calc tfoot th { border: 0; }
 }
+
+/* hoofdstuk 6, kosten en baten: vier kerncijfers, het saldo, de baten en kosten buiten geld */
+.kba-key { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 26px 0 8px; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.kba-key > div { padding: 12px 14px 12px 0; min-width: 0; }
+.kba-key > div + div { padding-left: 14px; border-left: 1px solid var(--rule); }
+.kba-key dt { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-3); margin-bottom: 4px; }
+.kba-key dd { margin: 0; }
+.kba-key dd b { display: block; font-size: 1.5em; line-height: 1.15; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kba-key dd span { display: block; font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+h3.kba-h { margin-top: 34px; font-size: calc(var(--fs-h3) * 1.08); }
+.saldo td, .saldo th { font-variant-numeric: tabular-nums; }
+.saldo thead th { white-space: nowrap; }
+.saldo tbody th { font-weight: 600; min-width: 8em; }
+.saldo tbody th span { display: block; font-weight: 400; font-size: var(--fs-xs); color: var(--ink-3); }
+.saldo tr.stress td, .saldo tr.stress th { background: var(--panel); }
+.saldo tr.stress th { padding-left: 8px; }
+.nf tbody th { font-weight: 600; min-width: 10em; }
+.nf tbody th span { display: block; font-weight: 400; font-size: var(--fs-xs); color: var(--ink-3); }
+.nf td:last-child { color: var(--ink-2); }
+.wegen td { min-width: 9em; }
+.kba-min ul { margin: 6px 0 10px; }
+.assume-k { counter-reset: a 10; }
+@media (max-width: 760px) {
+  .kba-key { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kba-key > div:nth-child(3) { padding-left: 0; border-left: 0; }
+  .kba-key > div:nth-child(n+3) { border-top: 1px solid var(--rule); }
+}
+@media print {
+  .kba-key { margin: 5mm 0 2mm; break-inside: avoid; }
+  .kba-key dd b { font-size: 1.35em; }
+  h3.kba-h { margin-top: 7mm; }
+  .saldo, .kba-min, .kost-blok { break-inside: avoid; }
+  .saldo td, .saldo th, .nf td, .nf th { padding-top: 1.6mm; padding-bottom: 1.6mm; }
+}
 </style>
 
 <script>document.documentElement.lang = "nl";</script>
@@ -704,7 +738,7 @@ figcaption b { color: var(--ink); }
       <span>Voorstel · Control Tower</span>
     </div>
     <h1>Control Tower Simon&nbsp;Loos: van demo naar het planningssysteem</h1>
-    <p class="cover-sub">Wat er in de markt is, wat we al hebben, wat we kunnen maken, wat het kan opleveren en hoe we stap voor stap overstappen.</p>
+    <p class="cover-sub">Wat er in de markt is, wat we al hebben, wat we kunnen maken, wat het kost en oplevert, en hoe we stap voor stap overstappen.</p>
     <div class="cover-meta"><span><b>25 oktober 2026</b></span><span>Voorstel van <b>Sem Appel</b></span></div>
     <figure class="cover-art">
       <div class="band" aria-hidden="true"></div>
@@ -723,8 +757,8 @@ figcaption b { color: var(--ink); }
       <li><span class="k">Wat we zien</span><span class="v">De pijn zit in het werk tussen de systemen: veel handwerk, Excel naast de systemen, charters die op de dag zelf worden gebeld, wachttijd bij de DC's en chauffeurs die klagen over de planning.</span></li>
       <li><span class="k">Wat we al hebben</span><span class="v">Een werkende demo op echte adressen, klanten en wegen, met 1.300 gesimuleerde voertuigen en een 3D-wereld, gebouwd zonder één gegeven van Simon Loos.</span></li>
       <li><span class="k">Wat we voorstellen</span><span class="v">Een proef op één standplaats, eerst in schaduwstand naast de huidige systemen, en daarna stap voor stap overnemen wat aantoonbaar beter werkt.</span></li>
-      <li><span class="k">Wat het kan opleveren</span><span class="v">Minder wachten, minder last-minute charters, lichtere dagen voor planners en minder verloop: samen 0,9 tot 5,3 miljoen euro per jaar (schatting), met 2,4 miljoen als middelste uitkomst.</span></li>
-      <li><span class="k">Wat we vragen</span><span class="v">Een gesprek van een uur met de planning van Wognum en ICT, toegang tot voorbeelddata en groen licht voor een verkenning van vier tot zes weken.</span></li>
+      <li><span class="k">Wat het kost en oplevert</span><span class="v">Eenmalig ongeveer 0,85 miljoen euro in twee jaar en daarna 0,4 miljoen per jaar, tegen 0,9 tot 5,3 miljoen euro per jaar aan baten: minder wachten, minder last-minute charters, lichtere dagen voor planners en minder verloop. In het middelste geval terugverdiend binnen een half jaar na de uitrol (alles schatting). Buiten geld: rust voor planners, een planning die chauffeurs past en eigen data.</span></li>
+      <li><span class="k">Wat we vragen</span><span class="v">Een gesprek van een uur met de planning van Wognum en ICT, toegang tot voorbeelddata en groen licht voor een verkenning van vier tot zes weken (ongeveer 41.000 euro, schatting).</span></li>
     </ol>
     <nav class="toc" aria-labelledby="toc-t">
       <h3 id="toc-t">Inhoud</h3>
@@ -734,7 +768,7 @@ figcaption b { color: var(--ink); }
         <li><span class="n">3</span><a href="#demo">Wat we nu al hebben</a><span class="pg" data-pg="demo"></span></li>
         <li><span class="n">4</span><a href="#maken">Wat we kunnen maken</a><span class="pg" data-pg="maken"></span></li>
         <li><span class="n">5</span><a href="#ideeen">Ideeën die het verschil maken</a><span class="pg" data-pg="ideeen"></span></li>
-        <li><span class="n">6</span><a href="#opleveren">Wat het kan opleveren</a><span class="pg" data-pg="opleveren"></span></li>
+        <li><span class="n">6</span><a href="#opleveren">Kosten en baten</a><span class="pg" data-pg="opleveren"></span></li>
         <li><span class="n">7</span><a href="#nodig">Wat ervoor nodig is</a><span class="pg" data-pg="nodig"></span></li>
         <li><span class="n">8</span><a href="#uitfaseren">Hoe we de huidige applicaties en licenties uitfaseren</a><span class="pg" data-pg="uitfaseren"></span></li>
         <li><span class="n">9</span><a href="#vragen">Wat we vragen</a><span class="pg" data-pg="vragen"></span></li>
@@ -1266,9 +1300,18 @@ figcaption b { color: var(--ink); }
 
 <section class="ch" id="opleveren" aria-labelledby="opleveren-t">
   <div class="wrap">
-    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">6</span><h2 id="opleveren-t">Wat het kan opleveren</h2></div>
-    <p class="lead">Een eerlijk rekenvoorbeeld: vier posten, drie scenario's, elke aanname erbij, en alles een schatting.</p>
-    <p class="prose">De bedragen tonen de orde van grootte. Ze zijn geen belofte. De proef vervangt elke aanname door het echte cijfer van Simon Loos. En geld komt pas vrij als vrijgekomen uren ook anders worden ingezet: een charter minder, minder overuren, een tweede dienst.</p>
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">6</span><h2 id="opleveren-t">Kosten en baten</h2></div>
+    <p class="lead">Wat het kost, wat het oplevert en wat niet in geld te vangen is. Elke aanname staat erbij, en alles is een schatting.</p>
+    <p class="prose">De bedragen tonen de orde van grootte. Ze zijn geen belofte en geen offerte. De proef vervangt elke aanname door het echte cijfer van Simon Loos. En geld komt pas vrij als vrijgekomen uren ook anders worden ingezet: een charter minder, minder overuren, een tweede dienst.</p>
+    <dl class="kba-key" aria-label="Kosten en baten in vier cijfers">
+      <div><dt>Eenmalig</dt><dd><b>€&nbsp;0,85&nbsp;miljoen</b><span>in twee jaar; 0,52 tot 1,29 miljoen</span></dd></div>
+      <div><dt>Per jaar, na de uitrol</dt><dd><b>€&nbsp;0,39&nbsp;miljoen</b><span>0,24 tot 0,71 miljoen</span></dd></div>
+      <div><dt>Baten per jaar</dt><dd><b>€&nbsp;2,4&nbsp;miljoen</b><span>0,9 tot 5,3 miljoen</span></dd></div>
+      <div><dt>Terugverdiend</dt><dd><b>5&nbsp;maanden</b><span>na de uitrol; 2 tot 22 maanden</span></dd></div>
+    </dl>
+    <p class="small muted prose">Middelste kosten en middelste baten, schattingen. De bandbreedtes staan in de tabellen hieronder.</p>
+
+    <h3 class="kba-h">De baten in geld</h3>
     <div class="tablewrap">
       <table class="calc">
         <thead><tr><th scope="col" class="post">Post</th><th scope="col" class="how">Zo rekenen we</th><th scope="col" class="sc">Voorzichtig <span class="muted">(schatting)</span></th><th scope="col" class="sc">Midden <span class="muted">(schatting)</span></th><th scope="col" class="sc">Ruim <span class="muted">(schatting)</span></th></tr></thead>
@@ -1298,8 +1341,155 @@ figcaption b { color: var(--ink); }
     </div>
     <p class="small muted prose">Alle bedragen per jaar en schattingen, afgerond op duizend euro. De wachttijd is de grootste en de zachtste post: vrijgekomen uren worden pas geld als je ze inzet.</p>
 
+    <div class="sub kost-blok">
+      <h3>De kosten in geld, per stap</h3>
+      <p class="prose small">De stappen uit hoofdstuk 7 en 8. Na elke stap kunnen jullie stoppen; de bedragen tellen dus alleen op als het bewijs er is.</p>
+      <div class="tablewrap">
+        <table class="calc">
+          <thead><tr><th scope="col" class="post">Stap</th><th scope="col" class="how">Wat erin zit</th><th scope="col" class="sc">Laag <span class="muted">(schatting)</span></th><th scope="col" class="sc">Midden <span class="muted">(schatting)</span></th><th scope="col" class="sc">Hoog <span class="muted">(schatting)</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="post">0 · Verkennen</th><td class="how">4 tot 6 weken, twee mensen van Hero: gesprekken, voorbeelddata, AVG en OR. Daarna weten jullie of het past.</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;28.000</b><span>288&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;41.000</b><span>360&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;57.000</b><span>432&nbsp;uur Hero</span></td></tr>
+            <tr><th scope="row" class="post">1 en 2 · Proef op één standplaats</th><td class="how">20 tot 22 weken, twee tot vier ontwikkelaars, een planner de helft van zijn tijd, iemand van ICT en de schaduwstand. Daarna weten jullie op eigen cijfers welke kolom van de baten klopt.</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;165.000</b><span>1.440&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;282.000</b><span>2.268&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;434.000</b><span>3.168&nbsp;uur Hero</span></td></tr>
+            <tr><th scope="row" class="post">3 en 4 · Flexibele schil en tactisch</th><td class="how">16 weken, twee tot drie ontwikkelaars, een planner een kwart van zijn tijd.</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;115.000</b><span>1.152&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;164.000</b><span>1.440&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;223.000</b><span>1.728&nbsp;uur Hero</span></td></tr>
+            <tr><th scope="row" class="post">5 en 6 · Uitrol en opruimen</th><td class="how">Ongeveer 40 standplaatsen in golven, training van alle planners, koppelingen bij de leveranciers, beveiliging en AVG.</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;211.000</b><span>1.680&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;366.000</b><span>2.520&nbsp;uur Hero</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;577.000</b><span>3.360&nbsp;uur Hero</span></td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row" class="post">Eenmalig, samen</th><td class="how">stap 0 tot en met 4 in het eerste jaar, de uitrol in het tweede</td>
+            <td class="sc" data-l="Laag"><b>€&nbsp;519.000</b><span>ongeveer 0,5 miljoen</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;853.000</b><span>ongeveer 0,85 miljoen</span></td>
+            <td class="sc" data-l="Hoog"><b>€&nbsp;1.291.000</b><span>ongeveer 1,3 miljoen</span></td></tr></tfoot>
+        </table>
+      </div>
+      <p class="small muted prose">Inclusief de uren van de eigen mensen van Simon Loos, de training en het dubbel draaien in de schaduwstand. De demo verlaagt de bouwkosten in deze rekening niet: de bouwversie is een nieuw systeem. Dat is voorzichtig gerekend.</p>
+    </div>
+
+    <div class="sub kost-blok">
+      <h3>De kosten in geld, per jaar na de uitrol</h3>
+      <div class="tablewrap">
+        <table class="calc">
+          <thead><tr><th scope="col" class="post">Post</th><th scope="col" class="how">Zo rekenen we</th><th scope="col" class="sc">Laag <span class="muted">(schatting)</span></th><th scope="col" class="sc">Midden <span class="muted">(schatting)</span></th><th scope="col" class="sc">Hoog <span class="muted">(schatting)</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="post">Doorontwikkelen en beheer</th><td class="how">mensen van Hero × 1.500 uur per jaar × uurtarief</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;203.000</b><span>1,5&nbsp;mensen</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;315.000</b><span>2&nbsp;mensen</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;540.000</b><span>3&nbsp;mensen</span></td></tr>
+            <tr><th scope="row" class="post">Hosting in de EU</th><td class="how">servers, opslag, bewaking en back-ups</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;15.000</b></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;30.000</b></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;60.000</b></td></tr>
+            <tr><th scope="row" class="post">Bereikbaar dag en nacht</th><td class="how">de planning draait ook &#39;s nachts en in het weekend</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;15.000</b></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;30.000</b></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;50.000</b></td></tr>
+            <tr><th scope="row" class="post">Rekenbibliotheken en kaarten</th><td class="how">open source waar het kan; een betaalde licentie alleen als het nodig is</td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;0</b></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;10.000</b></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;40.000</b></td></tr>
+            <tr><th scope="row" class="post">De Assistent (Claude)</th><td class="how">planners × vragen per dag × werkdagen × prijs per vraag<sup class="fn"><a href="#opl-n5">5</a></sup></td>
+              <td class="sc" data-l="Laag"><b>€&nbsp;2.000</b><span>50&nbsp;planners · 10&nbsp;vragen</span></td>
+              <td class="sc" data-l="Midden"><b>€&nbsp;5.000</b><span>65&nbsp;planners · 20&nbsp;vragen</span></td>
+              <td class="sc" data-l="Hoog"><b>€&nbsp;16.000</b><span>85&nbsp;planners · 30&nbsp;vragen</span></td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row" class="post">Per jaar, samen</th><td class="how"></td>
+            <td class="sc" data-l="Laag"><b>€&nbsp;235.000</b><span>ongeveer 0,24 miljoen</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;390.000</b><span>ongeveer 0,39 miljoen</span></td>
+            <td class="sc" data-l="Hoog"><b>€&nbsp;706.000</b><span>ongeveer 0,71 miljoen</span></td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
     <div class="sub">
-      <h3>De aannames</h3>
+      <h3>Het saldo en de terugverdientijd</h3>
+      <div class="tablewrap">
+        <table class="saldo">
+          <thead><tr><th scope="col">Baten</th><th scope="col">Baten per jaar</th><th scope="col">Kosten per jaar</th><th scope="col">Saldo per jaar</th><th scope="col">Terugverdiend na de uitrol</th><th scope="col">Saldo over vijf jaar</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Voorzichtig</th><td>€&nbsp;856.000</td><td>€&nbsp;390.000</td><td><b>€&nbsp;466.000</b></td><td>22 maanden</td><td><b>€&nbsp;0,8&nbsp;miljoen</b></td></tr>
+            <tr><th scope="row">Midden</th><td>€&nbsp;2.424.000</td><td>€&nbsp;390.000</td><td><b>€&nbsp;2.034.000</b></td><td>5 maanden</td><td><b>€&nbsp;6,3&nbsp;miljoen</b></td></tr>
+            <tr><th scope="row">Ruim</th><td>€&nbsp;5.343.000</td><td>€&nbsp;390.000</td><td><b>€&nbsp;4.953.000</b></td><td>2 maanden</td><td><b>€&nbsp;16,5&nbsp;miljoen</b></td></tr>
+            <tr class="stress"><th scope="row">Stresstest <span>voorzichtige baten, hoge kosten</span></th><td>€&nbsp;856.000</td><td>€&nbsp;706.000</td><td><b>€&nbsp;150.000</b></td><td>8,6 jaar</td><td><b>min €&nbsp;0,8&nbsp;miljoen</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted prose">Met de middelste kosten (eenmalig €&nbsp;853.000, per jaar €&nbsp;390.000); de stresstest met de hoge (€&nbsp;1.291.000 en €&nbsp;706.000). Terugverdiend: het eenmalige bedrag gedeeld door het saldo per jaar, vanaf de volledige uitrol. Vijf jaar: jaar 1 stap 0 tot en met 4 zonder baten, jaar 2 de uitrol met de helft van de baten en de jaarkosten, jaar 3 tot en met 5 alles. Schattingen, afgerond.</p>
+      <p class="prose">De stresstest laat zien waarom jullie per stap beslissen. Met voorzichtige baten en hoge kosten verdient het zich binnen vijf jaar niet terug. Na stap 2 weten jullie op eigen cijfers in welke rij Simon Loos zit, voor ongeveer €&nbsp;0,32&nbsp;miljoen (0,19 tot 0,49 miljoen voor stap 0 tot en met 2). Valt het tegen, dan stoppen jullie daar.</p>
+    </div>
+
+    <div class="box kba-min">
+      <h3><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>Wat het minimaal moet opleveren</h3>
+      <p class="prose small">Ongeveer <b>€&nbsp;561.000 per jaar</b> dekt alles: de jaarkosten en het eenmalige bedrag verdeeld over vijf jaar (middelste kosten). Met de middelste aannames is dat elk van deze vier:</p>
+      <ul>
+        <li>bijna 2 minuten minder wachten per truck per dag, van de 45, als die minuten ook worden ingezet</li>
+        <li>15 ritten per dag die nu op de dag zelf naar een charter gaan, eerder geregeld</li>
+        <li>49 minuten minder werk per planner per dag</li>
+        <li>75 chauffeurs per jaar minder die vertrekken</li>
+      </ul>
+      <p class="prose small">Geen post hoeft het alleen te doen. Met de middelste aannames halen de vier samen ruim vier keer dit bedrag. Het meeste hangt aan de wachttijd: die meet de proef daarom als eerste.</p>
+    </div>
+
+    <div class="sub">
+      <h3>De baten buiten geld</h3>
+      <div class="tablewrap">
+        <table class="nf">
+          <thead><tr><th scope="col">Baat</th><th scope="col">Voor wie</th><th scope="col">Zo meet de proef het</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Rust en grip</th><td>Planners. De dag begint met een briefing in plaats van zoeken, met minder bellen en zonder Excel naast het systeem.</td><td>tevredenheid voor en na, uren per plan, touch rate</td></tr>
+            <tr><th scope="row">Een planning die past</th><td>Chauffeurs. Voorkeuren tellen mee, diensten staan eerder vast, het werk is eerlijk verdeeld.</td><td>tevredenheid, ruilverzoeken, verloop</td></tr>
+            <tr><th scope="row">Betrouwbaar voor de klant</th><td>Albert Heijn en de andere klanten. Het venster gehaald, een ETA voordat de klant belt, een link per levering.</td><td>op tijd per klant en per winkel, klachten</td></tr>
+            <tr><th scope="row">Rijtijd en rust vooraf bewaakt</th><td>Chauffeurs en directie. De planning houdt rekening met EU 561/2006 en de cao, in plaats van achteraf te corrigeren.</td><td>overschrijdingen per 1.000 diensten</td></tr>
+            <tr><th scope="row">Minder uitstoot</th><td>Klanten en de omgeving. Minder wachten met draaiende koeling, minder lege kilometers, laden op het goede moment.</td><td>wachttijd, lege kilometers, laadmomenten; de CO<sub>2</sub> rekenen we daaruit</td></tr>
+            <tr><th scope="row">Kennis in het systeem</th><td>De organisatie. Een nieuwe planner of invaller is sneller op weg, en ziekte van een planner raakt de dag minder.</td><td>inwerktijd van een nieuwe planner</td></tr>
+            <tr><th scope="row">Eigen data, eigen tempo</th><td>Directie en ICT. De data in een open standaard (OTM5), en jullie bepalen wat er gebouwd wordt en wanneer.</td><td>koppelingen via de open standaard</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>De kosten en risico's buiten geld</h3>
+      <div class="tablewrap">
+        <table class="nf">
+          <thead><tr><th scope="col">Wat het vraagt of riskeert</th><th scope="col">Zo houden we het klein</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Werk en wennen voor planners</th><td>Eén standplaats eerst, een planner als domeineigenaar, en niets vervangen voordat het nieuwe aantoonbaar beter werkt. De extra uren in de schaduwstand staan in de kosten.</td></tr>
+            <tr><th scope="row">Afhankelijk van een klein team</th><td>Code, data en documentatie zijn van Simon Loos, in open standaarden. Afspraken over continuïteit, zodat een tweede partij het kan overnemen.</td></tr>
+            <tr><th scope="row">Privacy en medezeggenschap</th><td>Posities, uren en voorkeuren zijn persoonsgegevens. Een DPIA, verwerkersovereenkomsten, de OR vooraf, en geen ranglijst van chauffeurs. Een signaal, geen juridisch advies.</td></tr>
+            <tr><th scope="row">Een storing midden in de nacht</th><td>De schaduwstand, het oude systeem blijft tot het nieuwe bewezen is, bewaking en een terugvalplan.</td></tr>
+            <tr><th scope="row">Tijd van directie en ICT</th><td>Eén opdrachtgever, een vaste meetlat en een besluit per stap.</td></tr>
+            <tr><th scope="row">Leveranciers en klanten</th><td>Navitrans, Trimble en Simacan blijven. Albert Heijn nemen we vooraf mee. Opzeggen pas na bewijs, volgens de termijnen.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Drie wegen naast elkaar</h3>
+      <div class="tablewrap">
+        <table class="nf wegen">
+          <thead><tr><th scope="col">Weg</th><th scope="col">Kosten</th><th scope="col">Wat het oplevert</th><th scope="col">Wat het vraagt</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Niets doen</th><td>Nu niets. Licenties en handwerk blijven.</td><td>Geen verandering.</td><td>De pijn blijft: wachten, charters op de dag zelf, Excel. De werkwijze volgt de leveranciers.</td></tr>
+            <tr><th scope="row">Kopen of uitbreiden</th><td>Een licentie per voertuig of per gebruiker, plus invoering. Op te vragen.</td><td>Snel, en elders al in gebruik.</td><td>De werkwijze past zich aan het pakket aan. Data en tempo liggen bij de leverancier.</td></tr>
+            <tr><th scope="row">Bouwen op wat er is <span>dit voorstel</span></th><td>Zie de tabellen hierboven.</td><td>Gemaakt voor de werkwijze van Simon Loos, met eigen data en stap voor stap een weg terug.</td><td>Een klein team (zie de risico's) en discipline in de proef.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prose small">In de verkenning vragen we ook een prijs op voor de koopweg. Bij het besluit over stap 1 vergelijken jullie dan drie wegen op cijfers.</p>
+    </div>
+
+    <div class="sub">
+      <h3>De aannames bij de baten</h3>
       <ol class="assume">
         <li><span>Werkdagen per jaar voor de vloot: 300 (zes dagen per week, min de feestdagen).</span></li>
         <li><span>Voertuigen die op een werkdag bij een DC komen: 1.000 van de 1.300.<sup class="fn"><a href="#opl-n1">1</a></sup> De rest zijn bussen, reserve en onderhoud.</span></li>
@@ -1314,6 +1504,18 @@ figcaption b { color: var(--ink); }
       </ol>
     </div>
 
+    <div class="sub">
+      <h3>De aannames bij de kosten</h3>
+      <ol class="assume assume-k">
+        <li><span>Uurtarief van het team van Hero: €&nbsp;90, €&nbsp;105 of €&nbsp;120. Een aanname, door Hero te bevestigen.</span></li>
+        <li><span>Een mens werkt 36 uur per week aan het project; een jaar beheer is 1.500 uur.</span></li>
+        <li><span>Simon Loos: een planner als domeineigenaar de helft van zijn tijd in stap 1 en 2 en een kwart in stap 3 en 4; iemand van ICT een vijfde tot een derde; in de schaduwstand vier planners 2 tot 4 uur extra per week, twaalf weken lang. Een planner kost €&nbsp;50 per uur, ICT €&nbsp;70.</span></li>
+        <li><span>Uitrol: ongeveer 40 standplaatsen, 40, 60 of 80 uur van Hero per standplaats, en 8 uur training per planner.</span></li>
+        <li><span>Koppelingen bij de leveranciers €&nbsp;25.000 tot €&nbsp;100.000, beveiliging en AVG (DPIA, pentest) €&nbsp;15.000 tot €&nbsp;40.000. Richtbedragen, op te vragen.</span></li>
+        <li><span>De Assistent: 2 tot 3 cent per vraag, alleen op een klik van de planner.<sup class="fn"><a href="#opl-n5">5</a></sup></span></li>
+      </ol>
+    </div>
+
     <div class="sub twocol">
       <div>
         <h3>Wat we van jullie nodig hebben om het echt te rekenen</h3>
@@ -1324,6 +1526,8 @@ figcaption b { color: var(--ink); }
           <li>het aantal planners per standplaats, en waar hun tijd heen gaat</li>
           <li>het verloop van chauffeurs en wat werving en inwerken kosten</li>
           <li>wie de wachttijd betaalt en wat daarover met klanten is afgesproken</li>
+          <li>de licentiekosten en opzegtermijnen van ORTEC, ORD en de andere pakketten</li>
+          <li>wat een uur van een planner en van ICT kost</li>
         </ul>
       </div>
       <div>
@@ -1335,8 +1539,10 @@ figcaption b { color: var(--ink); }
           <li>uren van de planner per plan</li>
           <li>touch rate: welk deel van de ritten de planner nog aanraakt</li>
           <li>tevredenheid van planners en chauffeurs, voor en na</li>
+          <li>overschrijdingen van rijtijd en rust per 1.000 diensten</li>
+          <li>de inwerktijd van een nieuwe planner</li>
         </ul>
-        <p class="small">Niet meegeteld: licenties die later kunnen vervallen, het doorbelasten van wachttijd aan klanten, en de kosten van bouwen, hosting en tijdelijk dubbel draaien. Die zetten we in de verkenning op een rij.</p>
+        <p class="small">Niet meegeteld, en dus alleen in jullie voordeel: licenties die na de uitrol kunnen vervallen, en het doorbelasten van wachttijd aan klanten. Wel meegeteld, maar nog op te vragen: de kosten van de koppelingen bij de leveranciers.</p>
       </div>
     </div>
     <div class="notes" role="note" aria-label="Bronnen bij hoofdstuk 6">
@@ -1345,6 +1551,7 @@ figcaption b { color: var(--ink); }
         <li id="opl-n2"><span>2</span><span>Wachttijd: 35 tot 60 minuten per truck per dag. Leveranciersbron (Nokavision), via hetzelfde onderzoek. <span class="status">Schatting.</span></span></li>
         <li id="opl-n3"><span>3</span><span>Ritten: 3.000 tot 4.000 per dag bij 1.300 voertuigen. Eigen schatting in onze blauwdruk. <span class="status">Schatting.</span></span></li>
         <li id="opl-n4"><span>4</span><span>Planners: 15 tot 25 trucks per planner, bij 1.300 trucks 50 tot 85 planners. Hetzelfde onderzoek als noot 1. <span class="status">Schatting.</span></span></li>
+        <li id="opl-n5"><span>5</span><span>Prijs per vraag aan de Assistent: 1 tot 3 dollarcent, gerekend met de prijzen van Anthropic (oktober 2026) en de grootte van een vraag in onze demo. <span class="status">Schatting.</span></span></li>
       </ol>
     </div>
   </div>
@@ -1490,7 +1697,8 @@ figcaption b { color: var(--ink); }
         <li>De functielijst: elk Excel-blad dat een proces draagt.</li>
         <li>De datalijst en het proefplan met de meetlat: op tijd, wachttijd, charteraandeel, uren planner per plan, touch rate, tevredenheid.</li>
         <li>Een eerste testdemo op jullie eigen voorbeelddata: lokaal en alleen lezen.</li>
-        <li>Het rekenvoorbeeld uit hoofdstuk 6, opnieuw gerekend met jullie eigen cijfers.</li>
+        <li>De kosten en baten uit hoofdstuk 6, opnieuw gerekend met jullie eigen cijfers.</li>
+        <li>Een vergelijking met de koopweg: een prijs voor een pakket naast dit voorstel.</li>
       </ul>
     </div>
     <p class="final">Elke stap heeft een weg terug. Er wordt niets opgezegd en niets vervangen voordat het nieuwe aantoonbaar beter werkt.</p>
@@ -1501,7 +1709,7 @@ figcaption b { color: var(--ink); }
 <section class="ch" id="bijlage" aria-labelledby="bijlage-t">
   <div class="wrap">
     <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">B</span><h2 id="bijlage-t">Bijlage: twaalf vragen om door te vragen</h2></div>
-    <p class="lead">Voor de directie, de planners en ICT. De antwoorden maken het rekenvoorbeeld en het proefplan echt.</p>
+    <p class="lead">Voor de directie, de planners en ICT. De antwoorden maken de kosten en baten en het proefplan echt.</p>
     <ol class="qs">
       <li><span><b>Systemen.</b> Welk systeem houdt wat bij, per standplaats en divisie: ORTEC, Navitrans, Trimble, Simacan, Navision, ORD, Excel? Wie beheert het, en kunnen we exports of API-toegang krijgen?</span></li>
       <li><span><b>Ritten.</b> Hoe komen de ritten per klant binnen (OTM5 van Albert Heijn, EDI, portaal, mail, Excel), op welke tijden, en hoe vaak veranderen ze daarna nog?</span></li>

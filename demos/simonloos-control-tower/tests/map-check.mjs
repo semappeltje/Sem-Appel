@@ -711,7 +711,8 @@ const bewaard = page => page.evaluate(() => { try { return localStorage.getItem(
   await page.click('#layersBtn'); await page.waitForTimeout(200);
   const sub = await page.evaluate(() => { const x = document.getElementById('busTog'); return x ? { on: x.checked, txt: x.closest('label').textContent } : null; });
   check(!!sub && sub.on && /Bezorgbussen/.test(sub.txt) && /toets b/.test(sub.txt), `Kaartlagen: schakelaar Bezorgbussen, aan (${sub && sub.txt.trim()})`);
-  await page.click('#busTog'); await page.waitForTimeout(250);
+  // de schakelaar zelf ligt onder zijn getekende baan: klikken op het label, zoals een kijker doet
+  await page.locator('label.tgl', { has: page.locator('#busTog') }).click(); await page.waitForTimeout(250);
   await page.keyboard.press('Escape'); await page.waitForTimeout(150);
   const b = await tel();
   check(b.bus === 0 && b.rest === a.rest && b.chip && b.kf && b.kf.bussen === false, `uit: geen bus op de kaart, de andere ${b.rest} voertuigen blijven, de chip "Bezorgbussen verborgen" staat er, bewaard`);
