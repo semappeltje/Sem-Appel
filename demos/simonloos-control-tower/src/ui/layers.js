@@ -8,7 +8,7 @@ import { ic, esc } from './base.js';
 
 export function createLayers(root) {
   const pop = root.querySelector('#popover'), dlg = root.querySelector('#dialog'), toasts = root.querySelector('#toasts');
-  let popTrigger = null, popOnClose = null, dlgReturn = null, dlgOnClose = null, stopAuto = null;
+  let popTrigger = null, popOnClose = null, dlgReturn = null, dlgOnClose = null, stopAuto = null, popAc = null;
   const focusables = el => [...el.querySelectorAll('button:not([disabled]),[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null || x === document.activeElement);
 
   // ---------- plaatsen ----------
@@ -34,7 +34,9 @@ export function createLayers(root) {
     pop.className = `pop ${cls}`; pop.innerHTML = html; pop.hidden = false; pop.setAttribute('role', 'dialog'); if (label) pop.setAttribute('aria-label', label); else pop.removeAttribute('aria-label');
     pop.style.left = '0px'; pop.style.top = '0px'; pop.style.maxHeight = '';
     popTrigger = trigger; popOnClose = onClose || null; if (trigger) trigger.setAttribute('aria-expanded', 'true');
-    if (onBind) onBind(pop);
+    // de popover blijft hetzelfde element: wat onBind er aan luisteraars bij zet, hoort bij deze ene keer openen en
+    // verdwijnt bij sluiten (anders telt elke keer openen een klik-luisteraar op, en doet een keuze het meer keer)
+    if (onBind) { popAc = new AbortController(); const sig = popAc.signal; onBind(new Proxy(pop, { get: (t, k) => k === 'addEventListener' ? (type, fn, o) => t.addEventListener(type, fn, { ...(o && typeof o === 'object' ? o : { capture: !!o }), signal: sig }) : (v => (typeof v === 'function' ? v.bind(t) : v))(Reflect.get(t, k)) })); }
     const ref = at ? punt(at.x, at.y) : trigger; const placement = at ? 'bottom-start' : align === 'right' ? 'bottom-end' : 'bottom-start';
     if (ref) { const upd = () => place(ref, pop, placement); upd(); if (!at && trigger && trigger.isConnected) stopAuto = autoUpdate(trigger, pop, upd, { animationFrame: false }); }
     if (focus) { const f = pop.querySelector('[autofocus]') || pop.querySelector('.menu-i.on') || focusables(pop)[0]; if (f) f.focus({ preventScroll: true }); }
@@ -42,6 +44,7 @@ export function createLayers(root) {
   }
   function closePop(restore = true) {
     if (stopAuto) { stopAuto(); stopAuto = null; }
+    if (popAc) { popAc.abort(); popAc = null; }
     if (pop.hidden) return; pop.hidden = true; pop.innerHTML = '';
     const t = popTrigger; popTrigger = null; if (t) t.setAttribute('aria-expanded', 'false');
     const cb = popOnClose; popOnClose = null; if (cb) cb();
