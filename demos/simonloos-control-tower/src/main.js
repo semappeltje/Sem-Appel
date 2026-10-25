@@ -20,8 +20,11 @@ const now = new Date(); const simTime = now.getHours() * 60 + now.getMinutes() +
 const state = { simTime, speed: 12, theme, playing: true };
 // de kaart krijgt de klok mee (simTime, speed), zodat de voertuigen tussen twee stappen vloeiend rijden en bij een sprong
 // in de tijd (tijdschuif, Nu) gewoon springen
+// de basiskaart (Kaartlagen): ingebouwd, online (OpenStreetMap via OpenFreeMap), luchtfoto of BRT (PDOK); zonder keuze
+// online, zoals voorheen
+const kaartlaag = (k => (['kaart', 'online', 'luchtfoto', 'brt'].includes(k) ? k : store.get('sl-online') === 'off' ? 'kaart' : 'online'))(store.get('sl-kaartlaag'));
 const mapApi = createMap('map', {
-  theme, tiles: cfg.tiles, online: cfg.tiles && store.get('sl-online') !== 'off', clock: state,
+  theme, tiles: cfg.tiles, online: cfg.tiles && kaartlaag === 'online', base: kaartlaag, clock: state,
   onSelectTruck: id => window.SLCT && window.SLCT.ui.selectTruck(id), onSelectSp: sp => window.SLCT && window.SLCT.ui.selectSp(sp), onSelectRest: id => window.SLCT && window.SLCT.ui.selectRest(id), onSelectTrailer: id => window.SLCT && window.SLCT.ui.selectTrailer(id),
   onHover: (id, pt) => window.SLCT && window.SLCT.ui.hover(id, pt), onMapClick: () => window.SLCT && window.SLCT.ui.hover(null),
   // flyTo('O-5150'): een gekoppelde oplegger zit achter een voertuig; de vloot weet achter welk
@@ -31,9 +34,12 @@ const mapApi = createMap('map', {
   // wat er gebeurt op de plekken van de gekozen rit (wachten, lossen, koppelen, dock): de kaart zet het bij de stops
   events: id => { const S = window.SLCT; return S && S.fleet.eventsOf ? S.fleet.eventsOf(id) : null; },
   on3dFailed: () => window.SLCT && window.SLCT.ui.notice('De 3D-wereld kon niet laden; de platte kaart blijft.'),
-  // laden de online tegels niet (geen internet, of een omgeving die ze tegenhoudt), dan stil terug naar de ingebouwde
-  // kaart; alleen als iemand de laag zelf aanzette een melding
-  onTilesFailed: info => { const tog = document.getElementById('onlineTog'); if (tog) tog.classList.remove('on'); if (info && info.user) window.SLCT && window.SLCT.ui.notice('Online kaartlaag niet bereikbaar; de ingebouwde basiskaart is actief.'); },
+  // laden de online tegels of de luchtfoto niet (geen internet, of een omgeving die ze tegenhoudt), dan stil terug naar
+  // de ingebouwde kaart; alleen als iemand de laag zelf koos een melding
+  onTilesFailed: info => {
+    document.querySelectorAll('#baseSeg [data-base]').forEach(b => { const on = b.dataset.base === 'kaart'; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    if (info && info.user) window.SLCT && window.SLCT.ui.notice(`${info.layer === 'luchtfoto' ? 'De luchtfoto' : info.layer === 'brt' ? 'De BRT-achtergrondkaart' : 'De online kaart (OpenStreetMap)'} is niet bereikbaar; de ingebouwde basiskaart is actief.`);
+  },
 });
 // Eerst de pagina laten zien, dan de routes over het echte wegennet berekenen (ongeveer een seconde).
 const loadMsg = document.getElementById('loadMsg');

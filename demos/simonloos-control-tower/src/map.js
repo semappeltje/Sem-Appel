@@ -1,23 +1,28 @@
 // Kaart: MapLibre GL met een eigen basiskaart in de geest van Google Maps (basemap.js; wegen en water uit Overture Maps /
-// OpenStreetMap, provincies en bebouwing uit Natural Earth). Werkt zonder internet; met internet (losse versie) komen de
-// tegels van CARTO Voyager eroverheen. Voertuigen rijden vloeiend tussen de stappen van de simulatie (motion.js), de
+// OpenStreetMap, provincies en bebouwing uit Natural Earth). Werkt zonder internet; met internet (losse versie) kan de
+// basiskaart ook OpenStreetMap zijn (OpenFreeMap, in hetzelfde palet), de luchtfoto of de BRT-achtergrondkaart (PDOK). Voertuigen rijden vloeiend tussen de stappen van de simulatie (motion.js), de
 // camera vliegt en volgt rustig (cubic-bezier(.2,.7,.2,1)), en bij "minder beweging" springt alles.
 //
 // API (ui.js): map, setTheme, setOnline, whenReady, setTrucks, setTrailers, showTrailers, trailersOn, setSelected,
 // setRoute, highlightSp, fitSps, setRest, showRest, isOnline, hasOnline, hasTiles, set3d, is3d, has3d, followCam, scene3d.
-// Nieuw: follow(id, opts), following(), flyTo(doel, opts), setSelectedId(id), setHover(id), vehiclePos(id),
+// Nieuw: follow(id, opts), following(), flyTo(doel, opts), setSelectedId(id), setHover(id), vehiclePos(id) (ook het doel
+// van de lopende stap, tlon/tlat: een rijdend voertuig rijdt rechts, op de rijbaan van zijn rijrichting),
 // inView(lon, lat, pad), pick(point), setEvents(lijst), anchor(id), debug(). Nieuwe opties: onSelectPlace({ type: 'dc' |
 // 'winkel', ...plek }) bij een klik op een DC of winkel (zonder die optie zijn ze niet klikbaar), clock (simTime en
 // speed), resolve(id) voor doelen die alleen de app kent (een gekoppelde oplegger), events(id) voor de gebeurtenissen
-// van een voertuig (fleet.eventsOf; de kaart zet ze bij de plekken van de gekozen rit), onTilesFailed({ user }). onHover
-// krijgt als derde argument het anker van het voertuig (zie anchor).
+// van een voertuig (fleet.eventsOf; de kaart zet ze bij de plekken van de gekozen rit), onTilesFailed({ user, layer }).
+// onHover krijgt als derde argument het anker van het voertuig (zie anchor).
+// Basiskaart: setBase('kaart' | 'online' | 'luchtfoto' | 'brt'), base(), hasBase(stand); opts.base: de stand bij het
+// starten. 'online' is OpenStreetMap via OpenFreeMap (setOnline/isOnline blijven werken), 'luchtfoto' de luchtfoto van
+// PDOK onder de eigen wegen, 'brt' de BRT-achtergrondkaart van PDOK. Laadt een bron niet (of stuurt hij iets anders dan
+// tegels), dan terug naar de ingebouwde kaart en opts.onTilesFailed({ user, layer }).
 import * as maplibregl from 'maplibre-gl';
 import workerSrc from 'maplibre-gl/dist/maplibre-gl-worker.mjs?raw';
 import './map.css';
 import urban from './data/urban.json';
 import { SP, ST, DCS, WINKELS, dcById, winkelById, dockPos, laadGebouwen } from './places.js';
 import { TRST } from './fleet.js';
-import { PAL, FONT, addGround, addLabels, addPois, addDepots, addStyleImages, applyPalette, highlightDepot, createBuildings2d, tileUrls, OFM_URL, GROUND, LABELS } from './basemap.js';
+import { PAL, FONT, addGround, addLabels, addPois, addDepots, addStyleImages, applyPalette, highlightDepot, createBuildings2d, GROUND, LABELS, laneShift, laneStats, photoUrl, PHOTO_LAYERS, PHOTO_ATTR, PHOTO_HIDE, setPhotoStyle, addOnline, OFM_IDS, OFM_LAYERS, OFM_ATTR, brtUrl, BRT_ATTR } from './basemap.js';
 import { createMotion, createVehicleLayer, buildAtlas, EASE, reducedMotion, mercX, mercY, angleDelta, metersPerPixel } from './motion.js';
 
 // De kaart draait in één bestand (ook als artifact): de MapLibre-worker wordt uit een blob-URL gestart.
@@ -29,7 +34,8 @@ const Z = (...stops) => ['interpolate', ['linear'], ['zoom'], ...stops];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerpStops = (z, stops) => { if (z <= stops[0]) return stops[1]; for (let i = 2; i < stops.length; i += 2) if (z <= stops[i]) { const t = (z - stops[i - 2]) / (stops[i] - stops[i - 2]); return stops[i - 1] + (stops[i + 1] - stops[i - 1]) * t; } return stops[stops.length - 1]; };
 // maat van de voertuigiconen en de stippen per zoomniveau (zoals icon-size)
-const VEH = [7.6, 0.5, 10, 0.72, 13, 0.92, 16, 1.02, 18, 1.05], DOT = [5.5, 0.55, 7.6, 0.78, 10, 0.82, 13, 0.95, 16, 1.1];
+// (op zoom 16 iets kleiner: een rijdende trekker past dan ongeveer op zijn rijbaan van 7,5 m, 10 px; daarboven ware grootte)
+const VEH = [7.6, 0.5, 10, 0.72, 13, 0.92, 15, 0.92, 16, 0.78, 18, 1.05], DOT = [5.5, 0.55, 7.6, 0.78, 10, 0.82, 13, 0.95, 16, 1.1];
 // echte lengte (m) en lengte van het icoon (px bij maat 1) per soort: geparkeerde voertuigen staan vanaf zoom 14,5 op ware
 // grootte in hun parkeerrij, rijdende groeien heel dichtbij mee naar ware grootte
 const REAL = { trekker: 16.5, solo: 6.2, bakwagen: 10, bus: 6.8 };
@@ -53,13 +59,18 @@ function noMap(container, theme) {
   if (el) el.innerHTML = '<div class="nomap"><div><b>De kaart heeft WebGL nodig</b>Deze browser heeft WebGL uit staan of ondersteunt het niet. Planbord, trucks, mensen, standplaatsen, laden, lostijden en pauzeplekken werken gewoon.</div></div>';
   const no = () => {};
   const map = { easeTo: no, flyTo: no, jumpTo: no, resize: no, fitBounds: no, on: no, off: no, getZoom: () => 6.6, getCenter: () => ({ lng: 5.3, lat: 52.2 }), getBearing: () => 0, getPitch: () => 0 };
-  return { map, setTheme: no, setOnline: no, whenReady: f => setTimeout(f, 0), setTrucks: no, setTrailers: no, showTrailers: no, trailersOn: () => false, setSelected: no, setRoute: no, highlightSp: no, fitSps: no, setRest: no, showRest: no, isOnline: () => false, hasOnline: () => false, hasTiles: () => false, set3d: no, is3d: () => false, has3d: () => false, followCam: no, scene3d: () => null, follow: no, following: () => null, flyTo: () => false, setSelectedId: no, setHover: no, vehiclePos: () => null, inView: () => false, pick: () => null, setEvents: no, anchor: () => null, debug: () => ({ noWebGL: true }), noWebGL: true, theme };
+  return { map, setTheme: no, setOnline: no, setBase: no, base: () => 'kaart', hasBase: m => m === 'kaart', whenReady: f => setTimeout(f, 0), setTrucks: no, setTrailers: no, showTrailers: no, trailersOn: () => false, setSelected: no, setRoute: no, highlightSp: no, fitSps: no, setRest: no, showRest: no, isOnline: () => false, hasOnline: () => false, hasTiles: () => false, set3d: no, is3d: () => false, has3d: () => false, followCam: no, scene3d: () => null, follow: no, following: () => null, flyTo: () => false, setSelectedId: no, setHover: no, vehiclePos: () => null, inView: () => false, pick: () => null, setEvents: no, anchor: () => null, debug: () => ({ noWebGL: true }), noWebGL: true, theme };
 }
 
 // opts.tiles === false: geen externe kaarttegels (geen enkel verzoek naar buiten); alleen de ingebouwde basiskaart.
 // opts.clock: het object met simTime en speed (main.js), om sprongen in de tijd te herkennen.
 export function createMap(container, opts) {
-  let theme = opts.theme || 'light'; const tiles = opts.tiles !== false; let online = tiles && opts.online !== false; let onlineFailed = false, tilesOk = false, userOnline = false, tileErrors = 0;
+  let theme = opts.theme || 'light'; const tiles = opts.tiles !== false;
+  // de basiskaart: 'kaart' (de ingebouwde) of, alleen met externe tegels, 'online' (OpenFreeMap), 'luchtfoto' of 'brt'
+  // (PDOK). Per bron: ok (de eerste tegel kwam en klopte), failed, het aantal fouten, of iemand de stand zelf koos, bij
+  // OpenFreeMap het aantal tegels zonder bekende lagen, bij de luchtfoto de laag (0: 8 cm, 1: 25 cm, de terugval).
+  const SRC = { online: { ok: false, failed: false, errors: 0, user: false, seen: 0 }, luchtfoto: { ok: false, failed: false, errors: 0, user: false, tier: 0 }, brt: { ok: false, failed: false, errors: 0, user: false } };
+  let base = !tiles ? 'kaart' : SRC[opts.base] ? opts.base : opts.base === 'kaart' || opts.online === false ? 'kaart' : 'online';
   if (!hasWebGL2()) return noMap(container, theme);
   let map;
   try {
@@ -187,11 +198,13 @@ export function createMap(container, opts) {
   // onderaan zet MapLibre elk nieuw element bovenaan: eerst de schaalbalk, dan de knoppen (die komen erboven)
   map.addControl(new maplibregl.ScaleControl({ maxWidth: 96, unit: 'metric' }), 'bottom-right');
   map.addControl(new Controls(), 'bottom-right');
-  let attrCtl = null, ofmShown = false;
+  let attrCtl = null;
+  const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-bijdragers</a>';
+  // per basiskaart; Overture Maps blijft staan voor de eigen lagen erboven (terreinen, routes)
   function setAttribution() {
     if (attrCtl) map.removeControl(attrCtl);
-    const on = tiles && online && !onlineFailed;
-    attrCtl = new maplibregl.AttributionControl({ compact: true, customAttribution: on ? `© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-bijdragers</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>${ofmShown ? ' · <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>' : ''} · Overture Maps` : '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-bijdragers</a> · Overture Maps · Natural Earth' });
+    const text = base === 'online' ? `${OFM_ATTR} · Overture Maps` : base === 'luchtfoto' ? `${PHOTO_ATTR} · ${OSM_ATTR} · Overture Maps` : base === 'brt' ? `${BRT_ATTR} · Overture Maps` : `${OSM_ATTR} · Overture Maps · Natural Earth`;
+    attrCtl = new maplibregl.AttributionControl({ compact: true, customAttribution: text });
     map.addControl(attrCtl, 'bottom-right');
     // MapLibre zet een nieuw element onderaan bovenaan de stapel; de bronvermelding hoort helemaal onderaan
     const el = map.getContainer().querySelector('.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib'); if (el && el.parentNode) el.parentNode.appendChild(el);
@@ -217,16 +230,12 @@ export function createMap(container, opts) {
   const empty = fc([]);
   let lastDimsEmpty = true;
   const addTrailerIcons = () => { for (const [id, img] of Object.entries(trailerIcons(PAL[theme].stroke))) { if (map.hasImage(id)) map.removeImage(id); map.addImage(id, img, { pixelRatio: 2 }); } };
-  const buildings = createBuildings2d(map, () => PAL[theme], () => applyOnline());
+  const buildings = createBuildings2d(map, () => PAL[theme], () => applyBase());
 
   map.on('load', () => {
     const P = PAL[theme];
     addStyleImages(map, P); addTrailerIcons();
     addGround(map, P);
-    if (tiles) {
-      map.addSource('carto', { type: 'raster', tiles: tileUrls(theme), tileSize: 256, maxzoom: 20 });
-      map.addLayer({ id: 'carto', type: 'raster', source: 'carto', layout: { visibility: online ? 'visible' : 'none' }, paint: { 'raster-fade-duration': reducedMotion() ? 0 : 220 } });
-    }
     // route van het geselecteerde voertuig (K3): gereden stuk grijs, komend stuk blauw, de laatste 20 minuten als een
     // vervagend spoor in de kleur van de status; een bron met lijnmaten, het verloop schuift per beeld mee
     map.addSource('route', { type: 'geojson', data: empty, lineMetrics: true }); map.addSource('stops', { type: 'geojson', data: empty });
@@ -266,60 +275,93 @@ export function createMap(container, opts) {
     map.on('mousemove', onMove); map.getCanvas().addEventListener('mouseleave', () => setHoverId(null, null));
     map.on('click', onClick);
     map.on('move', () => { needBuild = true; kick(); }); map.on('resize', () => { needBuild = true; kick(); });
-    map.on('data', e => { if (e && e.sourceId === 'carto' && e.tile && !tilesOk) { tilesOk = true; applyOnline(); } });
+    map.on('data', e => {
+      if (!e || !e.tile) return;
+      if (e.sourceId === 'ofm') checkOnline();
+      else if ((e.sourceId === 'luchtfoto' || e.sourceId === 'brt') && !SRC[e.sourceId].ok) { SRC[e.sourceId].ok = true; applyBase(); }
+    });
     map.on('error', onError);
     for (const ev of ['dragstart', 'rotatestart', 'pitchstart', 'zoomstart']) map.on(ev, e => { if (e.originalEvent) gesture(true, ev); });
     for (const ev of ['dragend', 'rotateend', 'pitchend', 'zoomend']) map.on(ev, e => { if (e.originalEvent || gestureOn) gesture(false, ev); });
-    ready = true; applyOnline(); onReady.splice(0).forEach(f => f());
+    ready = true; applyBase(); onReady.splice(0).forEach(f => f());
     if (lastTrucks) setTrucks(lastTrucks, lastDims || []);
   });
   function useFallback() { fallback = true; vlayer.setVisible(false); if (map.getLayer('trucks-fb')) map.setLayoutProperty('trucks-fb', 'visibility', three ? 'none' : 'visible'); if (lastTrucks && map.getSource('trucks')) map.getSource('trucks').setData(fc(lastTrucks)); }
   function onError(e) {
     const sid = e && (e.sourceId || (e.source && e.source.id) || (e.tile && e.tile.source));
-    if (sid === 'carto' || (e && e.error && /cartocdn/.test(String(e.error.url || e.error.message || '')))) {
-      tileErrors++;
-      if (online && !onlineFailed && (!tilesOk || tileErrors > 12)) { onlineFailed = true; setOnline(false, true); opts.onTilesFailed && opts.onTilesFailed({ user: userOnline }); }
-      return;
-    }
-    if (sid === 'ofm' || (e && e.error && /openfreemap/.test(String(e.error.url || e.error.message || '')))) { ofmFailed = true; removeOfm(); return; }
+    const u = String((e && e.error && (e.error.url || e.error.message)) || '');
+    const which = sid === 'ofm' || /openfreemap/.test(u) ? 'online' : sid === 'luchtfoto' || /luchtfotorgb/.test(u) ? 'luchtfoto' : sid === 'brt' || /achtergrondkaart/.test(u) ? 'brt' : null;
+    if (which) { srcError(which, u); return; }
     console.warn('kaart:', e && e.error ? e.error.message || e.error : e);
   }
 
-  // ---------- online: tegels van CARTO, en in 3D gebouwen van OpenFreeMap ----------
-  // Zolang de tegels niet bevestigd laden, blijft alles van de eigen kaart zichtbaar; laden ze, dan gaan de eigen
-  // plaatsnamen en wegen uit (de tegels hebben die al). Mislukt het laden, dan terug naar de ingebouwde kaart.
-  let ofmFailed = false;
-  function applyOnline() {
-    if (!ready) return; const covered = tiles && online && tilesOk;
-    for (const id of [...LABELS, ...GROUND.filter(g => !['land', 'seam', 'water'].includes(g))]) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', covered ? 'none' : 'visible');
-    if (map.getLayer('bld')) { map.setLayoutProperty('bld', 'visibility', covered ? 'none' : 'visible'); map.setLayoutProperty('bld-line', 'visibility', covered ? 'none' : 'visible'); }
-    ensureOfm();
+  // ---------- basiskaart: ingebouwd, online (OpenFreeMap), luchtfoto of BRT (PDOK) ----------
+  // Een online bron telt pas als hij werkt als de eerste tegel er is en klopt: bij OpenFreeMap een vectortegel met lagen
+  // uit het OpenMapTiles-schema (een bron die wel antwoordt maar iets anders stuurt telt niet), bij een rasterbron een
+  // plaatje dat MapLibre kon lezen. Tot dan blijft alles van de eigen kaart zichtbaar; daarna gaan bij OpenFreeMap en BRT
+  // de eigen land, water, wegen en namen uit (anders dubbel). Mislukt het (fouten vóór de eerste goede tegel, of meer dan
+  // twaalf daarna), dan terug naar de ingebouwde kaart; bij de luchtfoto eerst nog de foto van 25 cm.
+  const COVER = new Set(['land', 'seam', 'water', 'urban', 'prov', 'nat', 'toegang', 'te', 'sec', 'se', 'prc', 'pr', 'trc', 'tr', 'mwc', 'mw', 'mwb', 'bld', 'bld-line', ...LABELS]);
+  function applyBase() {
+    if (!ready) return;
+    if (tiles && base === 'online') ensureOnline();
+    if (tiles && (base === 'luchtfoto' || base === 'brt')) addRaster(base);
+    const covered = (base === 'online' && SRC.online.ok) || (base === 'brt' && SRC.brt.ok);
+    const hide = id => (covered && COVER.has(id)) || (base === 'luchtfoto' && PHOTO_HIDE.has(id));
+    for (const id of [...LABELS, ...GROUND, 'bld', 'bld-line']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', hide(id) ? 'none' : 'visible');
+    for (const id of OFM_IDS) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', base === 'online' ? 'visible' : 'none');
+    for (const id of ['luchtfoto', 'brt']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', base === id ? 'visible' : 'none');
+    setPhotoStyle(map, base === 'luchtfoto', theme, three); ensureOfm3d(); needBuild = true; kick();
   }
-  function ensureOfm() {
-    const want = three && tiles && online && tilesOk && !ofmFailed;
-    if (want && !map.getSource('ofm')) {
-      try {
-        map.addSource('ofm', { type: 'vector', url: OFM_URL });
-        // niet op de terreinen van de standplaatsen: daar tekent de 3D-wereld zijn eigen gebouwen
-        const depots = { type: 'MultiPoint', coordinates: SP.map(sp => [sp.lon, sp.lat]) };
-        map.addLayer({ id: 'ofm-3d', type: 'fill-extrusion', source: 'ofm', 'source-layer': 'building', minzoom: 13, filter: ['>', ['distance', depots], 700], paint: { 'fill-extrusion-color': PAL[theme].bld3d, 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': Z(13, 0, 13.6, 0.92) } }, map.getLayer(LABELS[0]) ? LABELS[0] : undefined);
-        ofmShown = true; setAttribution();
-      } catch (e) { ofmFailed = true; removeOfm(); }
+  // de lagen van OpenFreeMap pas bij de eerste keer online (een vectorbron vraagt zijn TileJSON meteen op), onder alle
+  // eigen lagen
+  function ensureOnline() { if (!map.getLayer('o-bg')) addOnline(map, PAL[theme], map.getLayer('land') ? 'land' : undefined, false); }
+  // luchtfoto en BRT: boven land en water, onder het terrein en de wegen
+  function addRaster(m) {
+    if (!tiles || map.getSource(m)) return;
+    map.addSource(m, { type: 'raster', tiles: [m === 'luchtfoto' ? photoUrl(SRC.luchtfoto.tier) : brtUrl(theme)], tileSize: 256, maxzoom: 19 });
+    map.addLayer({ id: m, type: 'raster', source: m, layout: { visibility: 'none' }, paint: { 'raster-fade-duration': reducedMotion() ? 0 : 220 } }, map.getLayer('site') ? 'site' : undefined);
+  }
+  // klopt de tegel van OpenFreeMap? (lagen uit het schema; na zes tegels zonder: het is geen OpenFreeMap)
+  function checkOnline() {
+    const s = SRC.online; if (s.ok || s.failed || base !== 'online') return;
+    s.seen++;
+    if (OFM_LAYERS.some(l => map.querySourceFeatures('ofm', { sourceLayer: l }).length > 0)) { s.ok = true; applyBase(); }
+    else if (s.seen >= 6) failBase('online');
+  }
+  function srcError(m, u) {
+    const s = SRC[m];
+    // een tegel van de foto van 8 cm die pas na de overstap op 25 cm misliep, telt niet meer
+    if (m === 'luchtfoto' && /Actueel_ortho/.test(u || '') && !(u || '').includes(`/${PHOTO_LAYERS[s.tier]}/`)) return;
+    s.errors++;
+    if (base !== m || s.failed || (s.ok && s.errors <= 12)) return;
+    if (m === 'luchtfoto' && s.tier === 0) { s.tier = 1; s.errors = 0; s.ok = false; const src = map.getSource('luchtfoto'); if (src && src.setTiles) src.setTiles([photoUrl(1)]); return; }
+    failBase(m);
+  }
+  function failBase(m) { SRC[m].failed = true; if (base === m) setBase('kaart', true); opts.onTilesFailed && opts.onTilesFailed({ user: SRC[m].user, layer: m }); }
+  function setBase(mode, auto) {
+    let m = SRC[mode] ? mode : 'kaart';
+    if (m !== 'kaart' && (!tiles || SRC[m].failed)) m = 'kaart';
+    if (!auto && m !== 'kaart') SRC[m].user = true;
+    if (m !== base) { base = m; setAttribution(); }
+    applyBase();
+  }
+  const hasBase = m => m === 'kaart' || (tiles && !!SRC[m] && !SRC[m].failed);
+  // in 3D bij OpenFreeMap de gebouwen uit dezelfde tegels als blokken (niet op de terreinen: daar tekent de 3D-wereld zijn
+  // eigen gebouwen)
+  function ensureOfm3d() {
+    const want = three && base === 'online' && SRC.online.ok;
+    if (want && !map.getLayer('ofm-3d') && map.getSource('ofm')) {
+      const depots = { type: 'MultiPoint', coordinates: SP.map(sp => [sp.lon, sp.lat]) };
+      map.addLayer({ id: 'ofm-3d', type: 'fill-extrusion', source: 'ofm', 'source-layer': 'building', minzoom: 13, filter: ['>', ['distance', depots], 700], paint: { 'fill-extrusion-color': PAL[theme].bld3d, 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': Z(13, 0, 13.6, 0.92) } }, map.getLayer(LABELS[0]) ? LABELS[0] : undefined);
     }
     if (map.getLayer('ofm-3d')) map.setLayoutProperty('ofm-3d', 'visibility', want ? 'visible' : 'none');
-  }
-  function removeOfm() { try { if (map.getLayer('ofm-3d')) map.removeLayer('ofm-3d'); if (map.getSource('ofm')) map.removeSource('ofm'); } catch { /* al weg */ } if (ofmShown) { ofmShown = false; setAttribution(); } }
-  function setOnline(v, auto) {
-    if (!auto && v) userOnline = true;
-    const was = online; online = tiles && !!v && !onlineFailed; if (was !== online) setAttribution();
-    if (!ready || !tiles) return;
-    map.setLayoutProperty('carto', 'visibility', online ? 'visible' : 'none'); applyOnline();
   }
 
   // ---------- thema en 3D-palet ----------
   function setTheme(t) {
     theme = t; const P = PAL[t]; if (scene3d) scene3d.setTheme(t); if (!ready) return;
-    applyPalette(map, t, three); addStyleImages(map, P); addTrailerIcons();
+    setPhotoStyle(map, base === 'luchtfoto', t, three); addStyleImages(map, P); addTrailerIcons();
     map.setPaintProperty('stops', 'circle-color', ['case', ['get', 'done'], P.done, P.stroke]); map.setPaintProperty('stops', 'circle-stroke-color', ['case', ['get', 'done'], P.stroke, BLUE()]);
     map.setPaintProperty('route-casing', 'line-color', P.stroke); map.setPaintProperty('route-done', 'line-color', P.done);
     map.setPaintProperty('events', 'circle-stroke-color', P.stroke);
@@ -327,7 +369,7 @@ export function createMap(container, opts) {
     map.setPaintProperty('dim', 'circle-color', P.dim); map.setPaintProperty('rest', 'circle-stroke-color', P.stroke); map.setPaintProperty('trucks-fb', 'circle-stroke-color', P.stroke);
     gTodo = null; gTrail = null; updateRouteGrad(true);
     atlas = buildAtlas(ST, t); vlayer.setAtlas(atlas); needBuild = true; kick();
-    const src = map.getSource('carto'); if (src && src.setTiles) src.setTiles(tileUrls(t));
+    const brt = map.getSource('brt'); if (brt && brt.setTiles) brt.setTiles([brtUrl(t)]);
   }
 
   // ---------- voertuigen: interpolatie per beeld ----------
@@ -348,7 +390,7 @@ export function createMap(container, opts) {
     const dimsEmpty = !dimFeatures || !dimFeatures.length; if (!(dimsEmpty && lastDimsEmpty)) map.getSource('dim').setData(fc(dimFeatures || [])); lastDimsEmpty = dimsEmpty;
     const c = map.getCenter(); const vis = shown();
     const t0 = performance.now();
-    const changed = motion.update(features, { now: t0, simTime: clock ? clock.simTime : null, speed: clock ? clock.speed : 12, zoom: map.getZoom(), lat: c.lat, snap: reducedMotion() || !vis, snapAt: atDock });
+    const changed = motion.update(features, { now: t0, simTime: clock ? clock.simTime : null, speed: clock ? clock.speed : 12, zoom: map.getZoom(), lat: c.lat, snap: reducedMotion() || !vis, snapAt: atDock, lane: laneShift });
     stepMs = stepMs * 0.9 + (performance.now() - t0) * 0.1;
     if (!changed) return; // stilstaande klok: niets opnieuw tekenen
     if (fallback) map.getSource('trucks').setData(fc(features));
@@ -379,14 +421,17 @@ export function createMap(container, opts) {
   }
   // stip ver weg en voor stilstaande voertuigen; dichtbij (vanaf zoom 14,5) staan ook geparkeerde voertuigen als voertuig
   // in hun parkeerrij, met de neus in de richting van de rij
-  let parkedAsVehicle = false, sizeMpp = 1, sizeVs = 1;
-  const sizeAt = (z, lat) => { sizeMpp = metersPerPixel(lat, z); sizeVs = lerpStops(z, VEH); };
+  // op de luchtfoto vanaf zoom 16 alle voertuigen op ware grootte (trueSize), als blok in de echte verhouding
+  // vanaf zoom 16 een knipoog naar de huisstijl (livery, motion.js): een wit cabinedak met een goudgele band en het
+  // beeldmerk op de oplegger; de statuskleur blijft de vulling
+  let parkedAsVehicle = false, sizeMpp = 1, sizeVs = 1, trueSize = false, livery = false;
+  const sizeAt = (z, lat) => { sizeMpp = metersPerPixel(lat, z); sizeVs = lerpStops(z, VEH); trueSize = base === 'luchtfoto' && z >= 16; livery = z >= 16; };
   // maatfactor t.o.v. de gewone iconmaat: geparkeerd op ware grootte (minstens een paar pixels), rijdend minstens de iconmaat
-  const sizeOf = (r, s) => { const real = (REAL[r.k] || REAL.trekker) / sizeMpp / s.h / sizeVs; return r.mv ? Math.max(1, real) : Math.max(0.1, real); };
+  const sizeOf = (r, s) => { const real = (REAL[r.k] || REAL.trekker) / sizeMpp / s.h / sizeVs; return r.mv && !trueSize ? Math.max(1, real) : Math.max(0.1, real); };
   const spriteOf = (r, far) => {
     const S = atlas.sprites; const st = ST[r.st] ? r.st : 'terrein'; const dot = () => ({ s: S.get('dot-' + st) || S.get('dot-terrein'), dot: true });
     if (far || (!r.mv && !parkedAsVehicle)) return dot();
-    const s = (!r.mv && (S.get(`park-${r.k}-${st}`) || S.get(`park-trekker-${st}`))) || S.get(`veh-${r.k}-${st}`) || S.get(`veh-trekker-${st}`);
+    const s = ((!r.mv || trueSize) && ((livery && S.get(`lpark-${r.k}-${st}`)) || S.get(`park-${r.k}-${st}`) || S.get(`park-trekker-${st}`))) || (livery && S.get(`liv-${r.k}-${st}`)) || S.get(`veh-${r.k}-${st}`) || S.get(`veh-trekker-${st}`);
     return s ? { s, dot: false } : dot();
   };
   // Volgorde per zoomniveau, zoals in Google Maps: ver uitgezoomd gaan plaatsnamen voor (standplaatsen en voertuigen
@@ -399,6 +444,8 @@ export function createMap(container, opts) {
     const sp = ['dc', 'sp', 'sp-on'].filter(id => map.getLayer(id));
     for (const id of sp) map.moveLayer(id, st === 0 && first ? first : undefined);
     map.moveLayer('vehicles', st === 1 && first ? first : sp[0]);
+    // de namen van de afdelingen (vanaf zoom 16) boven de voertuigen, onder de standplaatsen
+    if (st === 2 && map.getLayer('afd')) map.moveLayer('afd', sp[0]);
   }
   function build(now) {
     builds++; orderVehicles();
@@ -549,19 +596,33 @@ export function createMap(container, opts) {
   // scherpe overgang bij het voertuig (step, fijne textuur), en bovenop het spoor van de laatste 20 minuten (interpolate)
   // dat naar het voertuig toe opkomt in de kleur van zijn status en daar ophoudt. Alleen blauw en spoor schuiven per beeld
   // mee; het grijs is iets smaller dan het blauw, zodat er langs het blauwe stuk niets doorschemert.
-  let route = null, gTodo = null, gTrail = null;
+  let route = null, gTodo = null, gTrail = null, laneCache = new Map();
   const mlen = (a, b) => Math.hypot(mercX(a[0]) - mercX(b[0]), mercY(a[1]) - mercY(b[1]));
+  const shiftBy = (p, o) => (o ? [p[0] + o[0], p[1] + o[1]] : p);
+  const bearingOf = (a, b) => { const k = Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180); return (Math.atan2((b[0] - a[0]) * k, b[1] - a[1]) * 180 / Math.PI + 360) % 360; };
   const defaultV = lat => 70000 / 60 / (40075016.686 * Math.cos(lat * Math.PI / 180)); // 70 km/u in Mercator per minuut
   function setRoute(done, todo, stops) {
     if (!ready) return;
     map.getSource('stops').setData(fc((stops || []).map(s => ({ type: 'Feature', properties: { done: !!s.done }, geometry: { type: 'Point', coordinates: [s.lon, s.lat] } }))));
     if (!done && !todo) { if (route) { route = null; map.getSource('route').setData(empty); } updateTripEvents(true); return; }
-    const d = done || [], t = todo || []; const coords = [...d.slice(0, Math.max(0, d.length - 1)), ...(t.length ? t : d.slice(-1))];
-    let sj = 0; for (let i = 1; i < d.length; i++) sj += mlen(d[i - 1], d[i]);
-    let L = sj; for (let i = 1; i < t.length; i++) L += mlen(t[i - 1], t[i]);
-    const at = d.length ? d[d.length - 1] : t[0];
+    const d = done || [], t = todo || []; const raw = [...d.slice(0, Math.max(0, d.length - 1)), ...(t.length ? t : d.slice(-1))];
+    const atRaw = d.length ? d[d.length - 1] : t[0], k = d.length ? d.length - 1 : 0;
+    const sig = raw.length > 1 ? `${raw[0]}|${raw[raw.length - 1]}|${d.length + t.length}` : '';
+    // de route ligt op de rijbaan van het voertuig, zoals het voertuig zelf (rechts rijden): elk punt verschoven met de
+    // richting van de route daar; per rit onthouden, alleen het punt van het voertuig is elke stap nieuw (met de koers van
+    // het getoonde voertuig, zodat het spoor precies bij het voertuig ophoudt)
+    if (!route || route.sig !== sig) laneCache = new Map();
+    const sr = selId && motion.get(selId); const atB = sr && sr.tx === atRaw[0] && sr.ty === atRaw[1] && sr.mv ? sr.tb : null;
+    const coords = raw.map((p, i) => {
+      if (i === k && atB != null) return shiftBy(p, laneShift(p[0], p[1], atB));
+      const key = p[0] + ',' + p[1]; let q = i === k ? null : laneCache.get(key); if (q) return q;
+      const a = raw[Math.max(0, i - 1)], b = raw[Math.min(raw.length - 1, i + 1)]; q = shiftBy(p, a === b ? null : laneShift(p[0], p[1], bearingOf(a, b)));
+      if (i !== k) laneCache.set(key, q); return q;
+    });
+    let sj = 0; for (let i = 1; i <= k; i++) sj += mlen(coords[i - 1], coords[i]);
+    let L = sj; for (let i = k + 1; i < coords.length; i++) L += mlen(coords[i - 1], coords[i]);
+    const at = coords[k];
     // dezelfde lijn als de vorige stap (alleen het punt van het voertuig schuift): de bron niet opnieuw zetten
-    const sig = coords.length > 1 ? `${coords[0]}|${coords[coords.length - 1]}|${d.length + t.length}` : '';
     const same = route && route.sig === sig && Math.abs(route.L - L) < route.L * 1e-3;
     if (!same) map.getSource('route').setData(fc(coords.length > 1 ? [line(coords)] : []));
     // waar het voertuig de afgelopen minuten op de route was (een punt per 0,2 minuut van de klok), voor het spoor; een
@@ -573,7 +634,7 @@ export function createMap(container, opts) {
       const h2 = hist[hist.length - 1]; if (!h2 || T - h2[0] >= 0.2) hist.push([T, sj]);
       while (hist.length > 1 && hist[1][0] <= T - 20) hist.shift();
     }
-    route = { sig, L: same ? route.L : L, sj, at, coords, hist };
+    route = { sig, L: same ? route.L : L, sj, at, atRaw, coords, hist };
     updateRouteGrad(true);
     updateTripEvents(!same);
   }
@@ -644,7 +705,7 @@ export function createMap(container, opts) {
   function updateRouteGrad(force) {
     if (!ready || !route || !route.L) return;
     let s = route.sj; const r = selId && motion.get(selId);
-    if (r && Math.abs(r.tx - route.at[0]) < 1e-9 && Math.abs(r.ty - route.at[1]) < 1e-9) s = Math.max(0, route.sj - mlen([r.cx, r.cy], route.at));
+    if (r && Math.abs(r.tx - route.atRaw[0]) < 1e-9 && Math.abs(r.ty - route.atRaw[1]) < 1e-9) s = Math.max(0, route.sj - mlen([r.cx, r.cy], route.at));
     const f = clamp(s / route.L, 0, 1), f0 = Math.min(f, trailStart(clock ? clock.simTime : null) / route.L);
     const col = (r && ST[r.st] ? ST[r.st] : ST.onderweg || { color: '#16A34A' }).color;
     const ppx = route.L * 512 * Math.pow(2, map.getZoom());
@@ -748,8 +809,10 @@ export function createMap(container, opts) {
     if (scene3d) { scene3d.setTheme(theme); scene3d.enable(three); if (three) { push3d(); if (lastTrailers) scene3d.setTrailers(trl3d(lastTrailers)); } }
     vlayer.setVisible(!three && !fallback); if (fallback && map.getLayer('trucks-fb')) map.setLayoutProperty('trucks-fb', 'visibility', three ? 'none' : 'visible');
     map.setLayoutProperty('trailers', 'visibility', trailersOn && !three ? 'visible' : 'none');
+    // in 3D staan de afdelingen op bordjes in de 3D-wereld; de platte namen dan weg
+    if (map.getLayer('afd')) map.setLayoutProperty('afd', 'visibility', three ? 'none' : 'visible');
     if (three) setHoverId(null, null);
-    applyPalette(map, theme, three); ensureOfm(); needBuild = true; kick();
+    setPhotoStyle(map, base === 'luchtfoto', theme, three); ensureOfm3d(); needBuild = true; kick();
   }
 
   function highlightSp(name) { if (ready) highlightDepot(map, name); else onReady.push(() => highlightDepot(map, name)); }
@@ -757,12 +820,13 @@ export function createMap(container, opts) {
   function showRest(v) { if (!ready) return; map.setLayoutProperty('rest', 'visibility', v ? 'visible' : 'none'); }
   function fitSps(list, pad = 60) { if (!list.length) return; const b = new maplibregl.LngLatBounds(); for (const s of list) b.extend([s.lon, s.lat]); map.fitBounds(b, { padding: pad, maxZoom: 10.5, duration: reducedMotion() ? 0 : 800, easing: EASE }); }
   const whenReady = f => ready ? f() : onReady.push(f);
-  function vehiclePos(id) { const r = motion.get(id); if (!r) return null; motion.sample(r, performance.now()); return { lon: r.cx, lat: r.cy, bearing: r.cb, st: r.st }; }
-  function debug() { return { mark: !!mark, steps, builds, drawn: vlayer.count(), vehicles: motion.order().length, interval: Math.round(motion.interval()), frameMs: Math.round(frameEma * 10) / 10, buildMs: Math.round(buildMs * 100) / 100, stepMs: Math.round(stepMs * 100) / 100, heavy, fallback, follow: follow.id, followImplicit: follow.implicit, followRotate: follow.rotate, followBlend: !!follow.blend, followPaused: follow.paused, followStarts, followStops, followWindow: Math.round(followWindow()), easing: isAnimating(), gesture: gestureOn, sel: selId, hover: hoverId, online, onlineFailed, tilesOk, ofm: !!map.getSource('ofm'), buildings: buildings.state(), three }; }
+  // de getoonde stand, en waar het voertuig bij deze stap heen rijdt (tlon, tlat: de stap op zijn rijbaan)
+  function vehiclePos(id) { const r = motion.get(id); if (!r) return null; motion.sample(r, performance.now()); return { lon: r.cx, lat: r.cy, bearing: r.cb, st: r.st, tlon: r.tx + r.tox, tlat: r.ty + r.toy }; }
+  function debug() { return { mark: !!mark, steps, builds, drawn: vlayer.count(), vehicles: motion.order().length, interval: Math.round(motion.interval()), frameMs: Math.round(frameEma * 10) / 10, buildMs: Math.round(buildMs * 100) / 100, stepMs: Math.round(stepMs * 100) / 100, lane: { ...laneStats }, heavy, fallback, follow: follow.id, followImplicit: follow.implicit, followRotate: follow.rotate, followBlend: !!follow.blend, followPaused: follow.paused, followStarts, followStops, followWindow: Math.round(followWindow()), easing: isAnimating(), gesture: gestureOn, sel: selId, hover: hoverId, base, src: JSON.parse(JSON.stringify(SRC)), online: base === 'online', onlineFailed: SRC.online.failed, tilesOk: SRC.online.ok, ofm: !!map.getSource('ofm'), buildings: buildings.state(), three }; }
 
   return {
-    map, setTheme, setOnline: v => setOnline(v, false), whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest,
-    isOnline: () => online, hasOnline: () => tiles && !onlineFailed, hasTiles: () => tiles, set3d, is3d: () => three, has3d: () => true, followCam, scene3d: () => scene3d,
+    map, setTheme, setOnline: v => setBase(v ? 'online' : base === 'online' ? 'kaart' : base, false), setBase: m => setBase(m, false), base: () => base, hasBase, whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest,
+    isOnline: () => base === 'online', hasOnline: () => hasBase('online'), hasTiles: () => tiles, set3d, is3d: () => three, has3d: () => true, followCam, scene3d: () => scene3d,
     follow: followApi, following: () => follow.id, flyTo, setSelectedId, setHover, vehiclePos, inView, pick: pt => pickVehicle(pt), setEvents, anchor: anchorOf, debug,
   };
 }

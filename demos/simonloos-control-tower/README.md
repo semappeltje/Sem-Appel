@@ -45,7 +45,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | --- | --- | --- |
 | Werkgebied | eerste keer, daarna knop Werkgebied | Drie stappen: regio's, ritten, rol en standplaats; bewaard in de browser, niet elke keer opnieuw |
 | Rollen | Bekijk als in de topbalk | Planner, regiomanager, directie, HR; bepaalt welke delen van truck- en persoonspagina's zichtbaar zijn |
-| Kaart | Kaart | Voertuigen als iconen in de statuskleur met hun rijrichting (van veraf stippen, nooit clusters), losse opleggers met toets o of de chip Los, klikbare statusfilters, voertuig- en opleggerkaartje bij selectie, kaartlagen (online tegels, gedimde standplaatsen, pauzeplekken) |
+| Kaart | Kaart | Voertuigen als iconen in de statuskleur met hun rijrichting (van veraf stippen, nooit clusters), losse opleggers met toets o of de chip Los, klikbare statusfilters, voertuig- en opleggerkaartje bij selectie, kaartlagen (vier basiskaarten in de losse versie: ingebouwd, OpenStreetMap, luchtfoto, topografisch; gedimde standplaatsen, pauzeplekken), rechts rijden op de eigen rijbaan, wegen vanaf zoom 16 op ware breedte, afdelingen op het terrein vanaf zoom 16 |
 | 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt naar een wereld op ware grootte: trekkers met opleggers, bakwagens en bussen op koers, geparkeerd op hun plek in de rijen; de standplaatsen op hun echte terrein met de hal uit de gebouwgegevens, genummerde docks, poort, lichtmasten en de buurt eromheen; bij een klant achteruit tegen een dock; zon met schaduw, licht en donker; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
 | Meldingen | bel of toets m | Drie kerngetallen, uitzonderingen (vertraging, rijtijd, accu, techniek, koeling, oplegger te laat opgehaald) afvinken, toewijzen aan een collega of op later zetten; blijft staan na een herlaad |
 | Voertuigpagina | klik op Open voertuig of een rij in Voertuigen | Chauffeurs van vandaag per dienst en de oplegger erachter; Historie (laatste twaalf diensten, wie reed het vaakst), Vandaag (diensten en dagplan), Cijfers (chauffeurswisselingen, verbruik per chauffeur), Onderhoud (RDW, werkorder), Documenten |
@@ -215,8 +215,9 @@ controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de s
   ODbL). Snelwegen, autowegen en N-wegen vormen de routeergraaf waarover de trucks
   rijden; secundaire en tertiaire wegen worden getoond bij inzoomen. Water als vlakken.
 - **Provincies en bebouwing: Natural Earth 10m.**
-- **MapLibre GL JS 6** (BSD). De basiskaart zit in het bestand zelf; met internet
-  kunnen OpenStreetMap-tegels van CARTO eroverheen (kaartlagen, links onderaan).
+- **MapLibre GL JS 6** (BSD). De basiskaart zit in het bestand zelf. In de losse versie kan onder Kaartlagen (links
+  onderaan) ook een online basiskaart: OpenStreetMap via OpenFreeMap (vectortegels in hetzelfde palet), de luchtfoto
+  of de BRT-achtergrondkaart van PDOK (Kadaster, CC BY 4.0). Laadt een bron niet, dan blijft de ingebouwde kaart.
 - Voertuigen zijn iconen in de statuskleur, gedraaid in hun rijrichting (trekker met
   oplegger, trekker solo, bakwagen, bus); ver uitgezoomd worden het stippen. Losse
   opleggers zijn een aparte laag (toets o). Geen clusters.
@@ -255,7 +256,8 @@ Elke standplaats heeft afdelingen (`sp.afdelingen`, zoals Google Maps de gebouwe
 warehouse (met de naam van het DC als dat er staat), de docks ("Docks 1 tot 30"), de poort, de opleggers en het
 laadplein, en waar de vacature het noemt ook het kantoor, de garage en de wasstraat (Wognum: hoofdkantoor, warehouse,
 garage en wasstraat). Wat er is, komt uit de vacatures (`bron: 'vacature'`); welk gebouw welke functie heeft, staat niet in
-open data en is afgeleid uit grootte, vorm en ligging (`bron: 'afgeleid'`; zie `src/data/BRONNEN.md`).
+open data en is afgeleid uit grootte, vorm en ligging (`bron: 'afgeleid'`; zie `src/data/BRONNEN.md`). Op de kaart staan
+ze vanaf zoom 16 als rustige namen op het terrein, een afdeling in een gebouw midden in dat gebouw; in 3D op bordjes.
 
 De vraagkant van de planning is gesimuleerd (`src/inzet.js`, `src/voorkeuren.js`, `src/data/charters.json`). Elke rit in de
 pool heeft een prognose: de kans op invulling en op een vertrek binnen het venster, uit acht weken gesimuleerde historie per
@@ -293,6 +295,7 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan i
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
 - `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein, parkeerrijen, docks en afdelingen), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `charters.json` (verzonnen charters), `BRONNEN.md`
+- `tests/map-check.mjs`: de kaart in de browser (terugval en online bronnen nagebootst, ingebed zonder verzoeken naar buiten, minder beweging, rechts rijden, land en zee, afdelingen, framerate)
 - `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool), van de afdelingen en van de vraagkant (prognose, historie, voorkeuren, charters en oproepkrachten zonder echte namen, kandidaten, toewijzen); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks, afdelingen, charters)
 - `src/otm5.js`: de vertaling tussen de gesimuleerde dag en OTM5 (Open Trip Model 5.9.0): `uitFleet` (onze vorm), `naarOtm5` en `vanOtm5`; puur en buiten de app-bundel, de basis voor de import van echte ritten (zie `rapporten/simon-loos-control-tower/echte-data-en-otm5.md`)
 - `tests/otm5-check.mjs` (`npm run test:otm5`): de vertaling tegen de officiële OTM5-specificatie (vastgezet in `tests/otm5/`), tegen het planbord en de gebeurtenissen van de app, en heen en terug; `--bestand pad.json` controleert een echt OTM5-bestand

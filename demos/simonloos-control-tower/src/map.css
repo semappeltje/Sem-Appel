@@ -50,3 +50,16 @@
 @media (prefers-reduced-motion: reduce) {
   .slct .slmap .slz button, .slct .slmap .slz .slz-c svg { transition: none; }
 }
+
+/* Kaartlagen (het venster van de knop met de lagen): de basiskaart als keuzerondjes: ingebouwd, OpenStreetMap (OpenFreeMap),
+   luchtfoto en BRT-achtergrondkaart (PDOK); alleen in de losse versie */
+.slct .basesel { display: flex; flex-direction: column; gap: 1px; padding-bottom: 6px; border-bottom: 1px solid var(--line, #E4E7EC); }
+.slct .basesel .bl { font-size: 11px; color: var(--muted, #5F6775); margin-bottom: 3px; }
+.slct .basesel button { display: flex; align-items: center; gap: 9px; padding: 4px 6px; margin: 0 -6px; border-radius: 6px; text-align: left; font-size: 12px; line-height: 1.3; color: var(--text2, #3C4043); }
+.slct .basesel button:hover { background: var(--bg3, #EEF0F3); }
+.slct .basesel button:focus-visible { outline: 2px solid var(--focus, #2563EB); outline-offset: -1px; }
+.slct .basesel button i { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line2, #CDD2DA); flex: none; position: relative; }
+.slct .basesel button.on { color: var(--text, #15181E); font-weight: 500; }
+.slct .basesel button.on i { border-color: var(--text, #15181E); }
+.slct .basesel button.on i::after { content: ""; position: absolute; inset: 2.5px; border-radius: 50%; background: var(--text, #15181E); }
+.slct .basesel small { display: block; font-size: 11px; font-weight: 400; color: var(--muted, #5F6775); }

@@ -1,9 +1,13 @@
 // Controle van de kaart (Control Tower 4.0, kaart en beweging): vloeiende beweging tussen twee simulatiestappen, volgen in
-// 2D en 3D, de terugval zonder online tegels, geen verzoek naar buiten in de ingebedde versie, aanwijzen (handcursor en
+// 2D en 3D, de terugval zonder online kaart, geen verzoek naar buiten in de ingebedde versie, aanwijzen (handcursor en
 // halo), klikken, vliegen alleen als het voertuig buiten beeld is, en "minder beweging" (niets glijdt, de camera springt).
 // Dan het spoor van de gekozen rit (grijs gereden, blauw komend, de laatste 20 minuten vervagend), flyTo naar een plek,
 // voertuig of oplegger met een korte markering, gebeurtenissen langs een rit, het anker voor een hoverkaartje, de docks
-// (een voertuig springt naar het dock, de deuren op de gevel) en de labels bij de plekken van de gekozen rit.
+// (een voertuig springt naar het dock, de deuren op de gevel) en de labels bij de plekken van de gekozen rit. Dan rechts
+// rijden: elk rijdend voertuig op de rijbaan van zijn eigen rijrichting (de A7 bij Wognum in beide richtingen, alle
+// rijdende voertuigen, de route van een gekozen voertuig op zijn rijbaan), met een schermafbeelding van de A7 op zoom 16.
+// De online basiskaarten nagebootst (OpenFreeMap met een echte vectortegel, de luchtfoto en de BRT-achtergrondkaart van
+// PDOK) met hun terugval, land en zee onder elke standplaats, elk DC en elke fabriek, en de afdelingen op het terrein.
 // Daarna schermafbeeldingen van de ingebouwde kaart op zoom 7, 11, 14 en 16, licht en donker, 1440 en 390 px, en een
 // meting van de framerate.
 //
@@ -19,7 +23,7 @@ const host = new URL(url).host;
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 let fail = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'OK  ' : 'FOUT'} ${msg}`); if (!ok) fail++; };
-const errorsOf = page => { const e = []; page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED|ERR_TUNNEL|cartocdn|openfreemap/.test(m.text())) e.push(m.text().slice(0, 240)); }); page.on('pageerror', x => e.push('pageerror: ' + String(x).slice(0, 240))); return e; };
+const errorsOf = page => { const e = []; page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED|ERR_TUNNEL|ERR_CONNECTION_REFUSED|pdok|openfreemap/.test(m.text())) e.push(m.text().slice(0, 240)); }); page.on('pageerror', x => e.push('pageerror: ' + String(x).slice(0, 240))); return e; };
 
 // een effen PNG (voor nagebootste kaarttegels)
 function crc32(b) { let crc = 0xFFFFFFFF; for (let n = 0; n < b.length; n++) { let c = (crc ^ b[n]) & 0xFF; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c; } return (crc ^ 0xFFFFFFFF) >>> 0; }
@@ -29,22 +33,53 @@ function png(w, h, [r, g, bl]) {
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
-const TILE = png(256, 256, [233, 229, 220]);
+const PHOTO = png(256, 256, [104, 122, 88]), BRT = png(256, 256, [236, 232, 220]);
+// een vectortegel (Mapbox Vector Tile 2.1, protobuf) met lagen van OpenMapTiles: water, landuse, transportation (een
+// snelweg en een straat), transportation_name, building en place; om OpenFreeMap na te bootsen
+function mvt() {
+  const varint = n => { const o = []; n >>>= 0; while (n > 127) { o.push((n & 127) | 128); n >>>= 7; } o.push(n); return o; };
+  const key = (f, wt) => varint((f << 3) | wt), len = (f, b) => [...key(f, 2), ...varint(b.length), ...b], str = (f, t) => len(f, [...Buffer.from(t, 'utf8')]), uint = (f, n) => [...key(f, 0), ...varint(n)];
+  const zz = n => ((n << 1) ^ (n >> 31)) >>> 0;
+  const geom = (rings, close) => { const out = []; let x = 0, y = 0; for (const r of rings) { out.push(9, zz(r[0][0] - x), zz(r[0][1] - y)); x = r[0][0]; y = r[0][1]; if (r.length > 1) out.push(2 | ((r.length - 1) << 3)); for (let i = 1; i < r.length; i++) { out.push(zz(r[i][0] - x), zz(r[i][1] - y)); x = r[i][0]; y = r[i][1]; } if (close) out.push(15); } return out; };
+  const layer = (name, feats) => {
+    const keys = [], vals = [], ki = k => (keys.includes(k) ? keys.indexOf(k) : keys.push(k) - 1), vi = v => (vals.includes(v) ? vals.indexOf(v) : vals.push(v) - 1);
+    const fs = feats.map((f, n) => { const tags = []; for (const [k, v] of Object.entries(f.tags)) tags.push(ki(k), vi(v)); return len(2, [...uint(1, n + 1), ...len(2, tags.flatMap(varint)), ...uint(3, f.type), ...len(4, geom(f.rings, f.type === 3).flatMap(varint))]); });
+    const value = v => (typeof v === 'number' ? [...key(5, 0), ...varint(v)] : str(1, String(v)));
+    return len(3, [...uint(15, 2), ...str(1, name), ...fs.flat(), ...keys.flatMap(k => str(3, k)), ...vals.flatMap(v => len(4, value(v))), ...uint(5, 4096)]);
+  };
+  const sq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  return Buffer.from([
+    ...layer('water', [{ type: 3, rings: [sq(0, 0, 1200, 1200)], tags: { class: 'lake' } }]), ...layer('landuse', [{ type: 3, rings: [sq(2400, 2400, 4096, 4096)], tags: { class: 'industrial' } }]),
+    ...layer('transportation', [{ type: 2, rings: [[[0, 2048], [4096, 2100]]], tags: { class: 'motorway' } }, { type: 2, rings: [[[2048, 0], [2000, 4096]]], tags: { class: 'minor' } }]),
+    ...layer('transportation_name', [{ type: 2, rings: [[[0, 2048], [4096, 2100]]], tags: { class: 'motorway', ref: 'A7' } }]),
+    ...layer('building', [{ type: 3, rings: [sq(2600, 2600, 3000, 3000)], tags: { render_height: 9 } }]), ...layer('place', [{ type: 1, rings: [[[1500, 3000]]], tags: { class: 'town', name: 'Proefdorp', rank: 10 } }]),
+  ]);
+}
+const VTILE = mvt();
 
 // opent de app; block: externe hosts tegenhouden (zoals een omgeving zonder bereik); embedded: data-tiles="off";
-// online: de tegels van CARTO nabootsen, ofm: 'ok' (TileJSON en lege tegels) of 'fout' (OpenFreeMap onbereikbaar)
-async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded = false, block = true, online = false, ofm = 'fout' } = {}) {
+// ofm (OpenFreeMap): 'ok' (TileJSON en een echte vectortegel), 'leeg' (antwoordt, maar een lege tegel), 'png' (een plaatje
+// in plaats van een vectortegel, zoals een tegel met een watermerk) of 'fout' (onbereikbaar); pdok (luchtfoto en BRT):
+// 'ok', 'hr-fout' (de luchtfoto van 8 cm onbereikbaar, die van 25 cm wel) of 'fout'; base: de bewaarde basiskaart
+async function open({ w = 1280, h = 800, dark = false, reduced = false, embedded = false, block = true, ofm = 'fout', pdok = 'fout', base = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500, deviceScaleFactor: w < 500 ? 2 : 1, reducedMotion: reduced ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage(); const errors = errorsOf(page); const ext = new Set();
   page.on('request', r => { if (/^(data|blob|about):/.test(r.url())) return; const u = new URL(r.url()); if (u.host !== host) ext.add(u.host); });
   if (block) await page.route('**/*', route => {
     const u = new URL(route.request().url()); if (u.host === host) return route.continue();
-    if (online && /cartocdn\.com$/.test(u.host)) return route.fulfill({ status: 200, contentType: 'image/png', body: TILE });
-    if (online && ofm === 'ok' && u.host === 'tiles.openfreemap.org') return /\.pbf$/.test(u.pathname) ? route.fulfill({ status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) }) : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tilejson: '3.0.0', tiles: ['https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'], minzoom: 0, maxzoom: 14, vector_layers: [{ id: 'building', fields: {} }] }) });
+    if (u.host === 'tiles.openfreemap.org' && ofm !== 'fout') {
+      if (/\/planet$/.test(u.pathname)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tilejson: '3.0.0', tiles: ['https://tiles.openfreemap.org/planet/20261020_001001_pt/{z}/{x}/{y}.pbf'], minzoom: 0, maxzoom: 14, vector_layers: ['water', 'landuse', 'transportation', 'transportation_name', 'building', 'place'].map(id => ({ id, fields: {} })) }) });
+      return route.fulfill(ofm === 'ok' ? { status: 200, contentType: 'application/x-protobuf', body: VTILE } : ofm === 'png' ? { status: 200, contentType: 'image/png', body: BRT } : { status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0) });
+    }
+    if (u.host === 'service.pdok.nl' && pdok !== 'fout' && !(pdok === 'hr-fout' && /orthoHR/.test(u.pathname))) return route.fulfill({ status: 200, contentType: 'image/png', body: /luchtfoto/.test(u.pathname) ? PHOTO : BRT });
+    if (u.host === 'tiles.openfreemap.org' || u.host === 'service.pdok.nl') return route.abort('connectionrefused');
     return route.abort('blockedbyclient');
   });
   if (embedded) await page.route(url, async route => { const res = await route.fetch(); const body = (await res.text()).replace('class="app slct"', 'class="app slct" data-tiles="off" data-embedded'); await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
-  await page.addInitScript(d => { try { localStorage.clear(); localStorage.setItem('sl-theme', d ? 'dark' : 'light'); } catch { /* geen opslag */ } }, dark);
+  // elke melding die in beeld komt, onthouden (een melding verdwijnt na een paar seconden; onder belasting is die al weg
+  // voordat de test kijkt)
+  await page.addInitScript(() => { window.__notices = []; document.addEventListener('DOMContentLoaded', () => { const el = document.getElementById('notice'); if (!el) return; new MutationObserver(() => { const t = el.textContent || ''; if (el.classList.contains('on') && t && window.__notices[window.__notices.length - 1] !== t) window.__notices.push(t); }).observe(el, { attributes: true, childList: true, characterData: true, subtree: true }); }); });
+  await page.addInitScript(([d, b]) => { try { localStorage.clear(); localStorage.setItem('sl-theme', d ? 'dark' : 'light'); if (b) localStorage.setItem('sl-kaartlaag', b); } catch { /* geen opslag */ } }, [dark, base]);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.SLCT && window.SLCT.fleet && document.getElementById('loading').hidden, null, { timeout: 120_000 });
   for (let i = 0; i < 3; i++) { const b = await page.$('#wzNext'); if (b) { await b.click(); await page.waitForTimeout(150); } }
@@ -67,14 +102,16 @@ const pickMover = (page, zoom) => page.evaluate(zoom => {
 }, zoom);
 const screenOf = (page, id) => page.evaluate(id => { const m = window.SLCT.map.map, p = window.SLCT.map.vehiclePos(id); if (!p) return null; const q = m.project([p.lon, p.lat]); const r = document.getElementById('map').getBoundingClientRect(); return { x: q.x, y: q.y, px: r.left + q.x, py: r.top + q.y, w: m.getContainer().clientWidth, h: m.getContainer().clientHeight, lon: p.lon, lat: p.lat, b: p.bearing }; }, id);
 const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
+// wachten tot de tegels er zijn en de namen geplaatst (onder belasting duurt dat langer), dan nog even voor het infaden
+const settle = async page => { await page.waitForFunction(() => { const m = window.SLCT.map.map, st = m.style; return m.areTilesLoaded() && !m.isMoving() && !!st && (!st.pauseablePlacement || st.pauseablePlacement.isDone()) && !(st.placement && st.placement.hasTransitions(performance.now())); }, null, { timeout: 15000, polling: 200 }).catch(() => {}); await page.waitForTimeout(1200); };
 
 // ======================================================================================================================
 // 1. Losse versie zonder bereik: terugval, interpolatie, aanwijzen, klikken, volgen (2D en 3D), vliegen
 {
   const { page, ctx, errors, ext } = await open();
-  const d0 = await page.evaluate(() => ({ ...window.SLCT.map.debug(), land: window.SLCT.map.map.getLayoutProperty('land', 'visibility'), mw: window.SLCT.map.map.getLayoutProperty('mw', 'visibility'), pl: window.SLCT.map.map.getLayoutProperty('pl-1', 'visibility'), notice: document.getElementById('notice').classList.contains('on') ? document.getElementById('notice').textContent : '' }));
-  check(d0.onlineFailed && !d0.online && d0.land !== 'none' && d0.mw !== 'none' && d0.pl !== 'none', `terugval: online tegels geprobeerd (${[...ext].filter(h => /carto/.test(h)).length ? 'carto' : 'geen verzoek'}), onlineFailed=${d0.onlineFailed}, ingebouwde kaart zichtbaar`);
-  check(!/Online kaartlaag/.test(d0.notice), `terugval zonder melding als niemand de laag aanzette (${d0.notice || 'geen melding'})`);
+  const d0 = await page.evaluate(() => ({ ...window.SLCT.map.debug(), land: window.SLCT.map.map.getLayoutProperty('land', 'visibility'), mw: window.SLCT.map.map.getLayoutProperty('mw', 'visibility'), pl: window.SLCT.map.map.getLayoutProperty('pl-1', 'visibility'), notice: (window.__notices || []).join(' | ') }));
+  check(d0.onlineFailed && !d0.online && d0.base === 'kaart' && d0.land !== 'none' && d0.mw !== 'none' && d0.pl !== 'none', `terugval: online kaart geprobeerd (${[...ext].filter(h => /openfreemap/.test(h)).length ? 'OpenFreeMap' : 'geen verzoek'}), onlineFailed=${d0.onlineFailed}, ingebouwde kaart zichtbaar`);
+  check(!/niet bereikbaar/.test(d0.notice), `terugval zonder melding als niemand de online kaart koos (${d0.notice || 'geen melding'})`);
   check(d0.vehicles > 1000 && d0.drawn >= d0.vehicles && !d0.fallback, `voertuiglaag (WebGL): ${d0.drawn} iconen voor ${d0.vehicles} voertuigen`);
 
   // --- interpolatie. SwiftShader tekent hier maar een paar beelden per seconde, dus: een klein venster en stappen van
@@ -86,7 +123,8 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
   const ip = await page.evaluate(async id => {
     const S = window.SLCT; const b0 = S.map.debug().builds; const timed = [], frames = []; const t0 = performance.now();
     S.state.simTime += 0.2; S.__frame();
-    const target = S.fleet.stateAt(S.fleet.byId.get(id), S.state.simTime).pos;
+    // het doel: de nieuwe stap, op de rijbaan van het voertuig (rechts rijden: de kaart verschuift een rijdend voertuig)
+    const p0 = S.map.vehiclePos(id), target = { lon: p0.tlon, lat: p0.tlat };
     const timer = setInterval(() => { const p = S.map.vehiclePos(id); timed.push([p.lon, p.lat]); }, 60);
     await new Promise(res => { const tick = () => { const p = S.map.vehiclePos(id); frames.push([p.lon, p.lat]); if (performance.now() - t0 < 2300) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
     clearInterval(timer);
@@ -125,7 +163,8 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
   const f2 = await page.evaluate(async id => {
     const S = window.SLCT, m = S.map.map, rec = []; const p0 = S.map.vehiclePos(id);
     const on = () => { const q = S.map.vehiclePos(id); if (!q) return; const s = m.project([q.lon, q.lat]), c = m.getContainer(); rec.push({ d: Math.hypot(s.x - c.clientWidth / 2, s.y - c.clientHeight / 2), b: m.getBearing() }); };
-    m.on('move', on); await new Promise(r => setTimeout(r, 2200)); m.off('move', on);
+    // 2,2 s meten; tekent de machine zo traag dat er minder dan drie beelden vallen, dan langer (tot 8 s)
+    m.on('move', on); const t0 = performance.now(); while (performance.now() - t0 < 2200 || (rec.length < 3 && performance.now() - t0 < 8000)) await new Promise(r => setTimeout(r, 100)); m.off('move', on);
     const p1 = S.map.vehiclePos(id);
     return { n: rec.length, off: rec.length ? Math.max(...rec.map(x => x.d)) : null, rot: rec.some(x => Math.abs(x.b) > 0.01), moved: Math.hypot((p1.lon - p0.lon) * 68000, (p1.lat - p0.lat) * 111000), fl: S.map.following() };
   }, id);
@@ -200,8 +239,8 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(true)); await page.waitForTimeout(2500);
   await page.evaluate(() => window.SLCT.map.map.jumpTo({ zoom: 14.5 })); await page.waitForTimeout(1500);
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(false)); await page.waitForTimeout(1200);
-  const d = await page.evaluate(() => ({ tiles: window.SLCT.map.hasTiles(), carto: !!window.SLCT.map.map.getSource('carto'), ofm: !!window.SLCT.map.map.getSource('ofm') }));
-  check(!d.tiles && !d.carto && !d.ofm && ext.size === 0, `ingebed: geen tegelbron, externe hosts: ${[...ext].join(', ') || 'geen'}`);
+  const d = await page.evaluate(() => { const m = window.SLCT.map.map; return { tiles: window.SLCT.map.hasTiles(), src: ['ofm', 'luchtfoto', 'brt'].filter(id => m.getSource(id)), keuze: !!document.getElementById('baseSeg'), base: window.SLCT.map.base() }; });
+  check(!d.tiles && !d.src.length && !d.keuze && d.base === 'kaart' && ext.size === 0, `ingebed: geen online bron, geen keuze voor de basiskaart, externe hosts: ${[...ext].join(', ') || 'geen'}`);
   check(errors.length === 0, `ingebed: consolefouten ${errors.length}`);
   await ctx.close();
 }
@@ -214,7 +253,7 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
   for (let i = 0; i < 3; i++) { await step(page, 0.1); await page.waitForTimeout(700); }
   const r = await page.evaluate(async id => {
     const S = window.SLCT; const pos = []; const t0 = performance.now(); S.state.simTime += 0.1; S.__frame();
-    const target = S.fleet.stateAt(S.fleet.byId.get(id), S.state.simTime).pos;
+    const p0 = S.map.vehiclePos(id), target = { lon: p0.tlon, lat: p0.tlat };
     await new Promise(res => { const tick = () => { const p = S.map.vehiclePos(id); pos.push([p.lon, p.lat]); if (performance.now() - t0 < 700) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
     return { distinct: new Set(pos.map(p => p[0].toFixed(7) + ',' + p[1].toFixed(7))).size, first: Math.hypot(pos[0][0] - target.lon, pos[0][1] - target.lat) };
   }, id);
@@ -228,21 +267,94 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
 }
 
 // ======================================================================================================================
-// 4. Online (nagebootst, want tegelservers zijn hier niet bereikbaar): de tegels van CARTO bovenop, de eigen namen en wegen
-// weg, de bronvermelding noemt CARTO; in 3D de gebouwen van OpenFreeMap; is OpenFreeMap onbereikbaar, dan stil zonder.
-for (const ofm of ['ok', 'fout']) {
-  const { page, ctx, errors } = await open({ online: true, ofm });
-  await page.waitForTimeout(800);
-  const o = await page.evaluate(() => { const m = window.SLCT.map.map; return { d: window.SLCT.map.debug(), carto: m.getLayoutProperty('carto', 'visibility'), pl: m.getLayoutProperty('pl-1', 'visibility'), mw: m.getLayoutProperty('mw', 'visibility'), sp: m.getLayoutProperty('sp', 'visibility'), attr: (document.querySelector('#map .maplibregl-ctrl-attrib') || {}).textContent || '' }; });
-  if (ofm === 'ok') check(o.d.tilesOk && o.d.online && o.carto === 'visible' && o.pl === 'none' && o.mw === 'none' && o.sp !== 'none' && /CARTO/.test(o.attr), `online: tegels geladen, eigen plaatsnamen en wegen uit, standplaatsen blijven, bronvermelding "${o.attr.slice(0, 60)}…"`);
+// 4. Online basiskaarten, nagebootst (de bronnen zijn hier niet bereikbaar): OpenFreeMap (TileJSON en een echte
+// vectortegel; een lege tegel of een plaatje telt niet als werkend), de luchtfoto en de BRT-achtergrondkaart van PDOK, en
+// de terugval naar de ingebouwde kaart: stil als niemand de stand koos, met een melding als iemand hem zelf koos.
+const baseState = page => page.evaluate(() => { const S = window.SLCT, m = S.map.map, v = id => (m.getLayer(id) ? m.getLayoutProperty(id, 'visibility') || 'visible' : 'geen'), d = S.map.debug(); return { base: d.base, src: d.src, mw: v('mw'), pl: v('pl-1'), land: v('land'), site: v('site'), siteLine: v('site-line'), sp: v('sp'), oroad: v('o-road'), foto: v('luchtfoto'), brt: v('brt'), attr: (m.getContainer().querySelector('.maplibregl-ctrl-attrib-inner') || {}).textContent || '', notice: (window.__notices || []).join(' | '), keuze: [...document.querySelectorAll('#baseSeg [data-base].on')].map(b => b.dataset.base).join() }; });
+const pickBase = (page, k) => page.evaluate(k => { const pop = document.getElementById('layersPop'); pop.hidden = false; document.querySelector(`#baseSeg [data-base="${k}"]`).click(); pop.hidden = true; }, k);
+// wachten tot een bron beslist is: hij werkt (bij de luchtfoto eventueel pas op de tweede laag, tier) of de kaart is
+// terug op ingebouwd; onder belasting duurt de eerste tegel langer dan de vaste wachttijd
+const decided = (page, k, tier = 0) => page.waitForFunction(([k, tier]) => { const s = window.SLCT.map.debug().src[k]; return !!s && (s.failed || (s.ok && (s.tier || 0) >= tier)); }, [k, tier], { timeout: 20000, polling: 200 }).catch(() => {});
+const toSp = (page, z, name = 'Wognum') => page.evaluate(([z, name]) => { const sp = window.SLCT.fleet.trucks.find(t => t.base.n === name).base; window.SLCT.map.map.jumpTo({ center: [sp.lon, sp.lat], zoom: z, pitch: 0, bearing: 0 }); }, [z, name]);
+{
+  const { page, ctx, errors, ext } = await open({ ofm: 'ok' });
+  await toSp(page, 14); await page.waitForTimeout(2500); await decided(page, 'online');
+  const o = await baseState(page);
+  check(o.base === 'online' && o.src.online.ok && o.oroad === 'visible' && o.mw === 'none' && o.pl === 'none' && o.land === 'none' && o.site === 'visible' && o.sp === 'visible', 'online (OpenFreeMap): de vectortegel klopt; eigen land, wegen en namen uit, eigen terreinen en standplaatsen blijven');
+  const rf = await page.evaluate(() => [...new Set(window.SLCT.map.map.queryRenderedFeatures().map(f => f.layer.id).filter(id => /^o-/.test(id)))]);
+  check(['o-water', 'o-road', 'o-building'].every(id => rf.includes(id)), `online: de eigen stijl tekent de tegel (${rf.join(', ')})`);
+  check(/OpenStreetMap-bijdragers · OpenFreeMap/.test(o.attr) && !/CARTO/i.test(o.attr), `online: bronvermelding "${o.attr}"`);
+  check([...ext].every(h => h === 'tiles.openfreemap.org'), `online: alleen OpenFreeMap gevraagd (${[...ext].join(', ')})`);
+  // donker: dezelfde stijl in de donkere kleuren van de ingebouwde kaart
+  await page.click('#themeBtn'); await page.waitForTimeout(900);
+  const dk = await page.evaluate(() => { const m = window.SLCT.map.map; return { bg: m.getPaintProperty('o-bg', 'background-color'), water: m.getPaintProperty('o-water', 'fill-color') }; });
+  check(/1B1F24/i.test(String(dk.bg)) && /14273B/i.test(String(dk.water)), `online donker: de stijl kleurt mee (land ${dk.bg}, water ${dk.water})`);
+  await page.click('#themeBtn'); await page.waitForTimeout(600);
+  // 3D: de gebouwen uit dezelfde tegels als blokken; terug in 2D weg
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(true)); await page.waitForTimeout(3000);
-  const t = await page.evaluate(() => { const m = window.SLCT.map.map; return { src: !!m.getSource('ofm'), layer: !!m.getLayer('ofm-3d'), vis: m.getLayer('ofm-3d') ? m.getLayoutProperty('ofm-3d', 'visibility') : null, notice: document.getElementById('notice').classList.contains('on') ? document.getElementById('notice').textContent : '' }; });
-  if (ofm === 'ok') check(t.src && t.layer && t.vis === 'visible', `online 3D: gebouwen van OpenFreeMap als laag (zichtbaar: ${t.vis})`);
-  else check(!t.src && !t.layer && !/OpenFreeMap|gebouwen/i.test(t.notice), `online 3D zonder OpenFreeMap: laag stil weggehaald, geen melding`);
+  const t = await page.evaluate(() => { const m = window.SLCT.map.map; return m.getLayer('ofm-3d') ? m.getLayoutProperty('ofm-3d', 'visibility') : 'geen'; });
+  check(t === 'visible', `online 3D: gebouwen van OpenFreeMap als blokken (${t})`);
   await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(false)); await page.waitForTimeout(1500);
   const t2 = await page.evaluate(() => { const m = window.SLCT.map.map; return m.getLayer('ofm-3d') ? m.getLayoutProperty('ofm-3d', 'visibility') : 'geen'; });
-  if (ofm === 'ok') check(t2 === 'none', `terug naar 2D: gebouwen van OpenFreeMap uit (${t2})`);
-  check(errors.length === 0, `online (${ofm === 'ok' ? 'met' : 'zonder'} OpenFreeMap): consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  check(t2 === 'none', `terug naar 2D: gebouwen van OpenFreeMap uit (${t2})`);
+  check(errors.length === 0, `online (OpenFreeMap): consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+for (const ofm of ['leeg', 'png', 'fout']) {
+  const { page, ctx, errors } = await open({ ofm });
+  await toSp(page, 12); await page.waitForTimeout(3000); await decided(page, 'online');
+  const o = await baseState(page);
+  check(o.base === 'kaart' && o.src.online.failed && o.mw === 'visible' && o.land === 'visible' && o.pl === 'visible' && !/niet bereikbaar/.test(o.notice) && /Natural Earth/.test(o.attr), `online ${ofm === 'leeg' ? 'met lege tegels' : ofm === 'png' ? 'met een plaatje als tegel (zoals een watermerk)' : 'onbereikbaar'}: telt niet als werkend, stil terug naar de ingebouwde kaart`);
+  check(errors.length === 0, `online ${ofm}: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+{
+  const { page, ctx } = await open({ base: 'kaart', ofm: 'fout' });
+  await pickBase(page, 'online'); await page.waitForTimeout(2500); await decided(page, 'online');
+  const o = await baseState(page);
+  check(o.base === 'kaart' && /niet bereikbaar/.test(o.notice) && o.keuze === 'kaart', `online zelf gekozen en onbereikbaar: melding "${o.notice}", de keuze terug op ingebouwd`);
+  await ctx.close();
+}
+{
+  // luchtfoto: onder de eigen wegen (dun en halfdoorzichtig), het terrein als rand, de voertuigen op ware grootte
+  const { page, ctx, errors, ext } = await open({ base: 'kaart', pdok: 'ok' });
+  await pickBase(page, 'luchtfoto'); await toSp(page, 17); await page.waitForTimeout(3000); await decided(page, 'luchtfoto');
+  const o = await baseState(page);
+  const st = await page.evaluate(() => { const m = window.SLCT.map.map; return { op: m.getPaintProperty('mw', 'line-opacity'), halo: m.getPaintProperty('pl-1', 'text-halo-color') }; });
+  const okFoto = o.base === 'luchtfoto' && o.src.luchtfoto.ok && o.foto === 'visible' && o.site === 'none' && o.siteLine === 'visible' && o.mw === 'visible' && st.op < 1;
+  check(okFoto, `luchtfoto: de foto onder de eigen wegen (dun, ${st.op} dekkend), het terrein als rand, namen met een lichte halo (${st.halo})${okFoto ? '' : ` (${o.base}, ${JSON.stringify(o.src.luchtfoto)}, foto ${o.foto}, terrein ${o.site}, rand ${o.siteLine}, wegen ${o.mw})`}`);
+  check(/Luchtfoto: Kadaster, PDOK, CC BY 4\.0/.test(o.attr), `luchtfoto: bronvermelding "${o.attr}"`);
+  check([...ext].every(h => h === 'service.pdok.nl'), `luchtfoto: alleen PDOK gevraagd (${[...ext].join(', ')})`);
+  // ware grootte: een rijdende trekker met oplegger op zoom 16 is 16,5 m lang (zonder luchtfoto: het grotere icoon)
+  await manual(page);
+  const tg = await page.evaluate(() => { const S = window.SLCT, f = S.fleet, T = S.state.simTime; const t = f.trucks.find(t => { const s = f.stateAt(t, T); return s.st === 'onderweg' && t.kind === 'trekker' && s.tr; }); const s = f.stateAt(t, T); S.map.map.jumpTo({ center: [s.pos.lon, s.pos.lat], zoom: 16 }); S.__frame(true); return t.id; });
+  await page.waitForTimeout(800);
+  const sz = await page.evaluate(id => { const S = window.SLCT, m = S.map.map, a = S.map.anchor(id), mpp = 40075016.686 * Math.cos(m.getCenter().lat * Math.PI / 180) / (512 * Math.pow(2, m.getZoom())); return { r: a && a.r, half: 16.5 / mpp / 2 }; }, tg);
+  check(sz.r && Math.abs(sz.r - sz.half) < 1.5, `luchtfoto: ${tg} op ware grootte (halve lengte ${sz.r && sz.r.toFixed(1)} px, 16,5 m is ${sz.half.toFixed(1)} px op zoom 16)`);
+  await auto(page);
+  if (shots) { mkdirSync(shots, { recursive: true }); await toSp(page, 17); await settle(page); await page.screenshot({ path: `${shots}/luchtfoto-nagebootst-z17.png` }); }
+  await pickBase(page, 'kaart'); await page.waitForTimeout(900);
+  const b = await baseState(page); const op = await page.evaluate(() => window.SLCT.map.map.getPaintProperty('mw', 'line-opacity'));
+  check(b.base === 'kaart' && b.site === 'visible' && b.foto === 'none' && (op === undefined || op === 1) && /Natural Earth/.test(b.attr), 'terug naar ingebouwd: wegen, terrein en bronvermelding weer gewoon');
+  check(errors.length === 0, `luchtfoto: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+for (const pdok of ['hr-fout', 'fout']) {
+  const { page, ctx } = await open({ base: 'kaart', pdok });
+  await pickBase(page, 'luchtfoto'); await toSp(page, 15); await page.waitForTimeout(3500); await decided(page, 'luchtfoto', pdok === 'hr-fout' ? 1 : 0);
+  const o = await baseState(page);
+  if (pdok === 'hr-fout') check(o.base === 'luchtfoto' && o.src.luchtfoto.tier === 1 && o.src.luchtfoto.ok && !/niet bereikbaar/.test(o.notice), `luchtfoto: de foto van 8 cm onbereikbaar, dan die van 25 cm (Actueel_ortho25)${o.base === 'luchtfoto' && o.src.luchtfoto.ok && !/niet bereikbaar/.test(o.notice) ? '' : ` (${o.base}, ${JSON.stringify(o.src.luchtfoto)}, "${o.notice}")`}`);
+  else check(o.base === 'kaart' && o.src.luchtfoto.failed && o.mw === 'visible' && /luchtfoto is niet bereikbaar/i.test(o.notice) && o.keuze === 'kaart', `luchtfoto onbereikbaar: terug naar ingebouwd, melding "${o.notice}"${o.base === 'kaart' && o.src.luchtfoto.failed ? '' : ` (${o.base}, ${JSON.stringify(o.src.luchtfoto)})`}`);
+  await ctx.close();
+}
+{
+  // BRT-achtergrondkaart: de officiële kaart, eigen wegen en namen uit, terreinen en standplaatsen erbovenop
+  const { page, ctx, ext } = await open({ base: 'brt', pdok: 'ok' });
+  await toSp(page, 15); await page.waitForTimeout(3000); await decided(page, 'brt');
+  const o = await baseState(page);
+  check(o.base === 'brt' && o.src.brt.ok && o.brt === 'visible' && o.mw === 'none' && o.pl === 'none' && o.site === 'visible' && o.sp === 'visible' && /Kaart: Kadaster, PDOK, CC BY 4\.0/.test(o.attr), `BRT: zichtbaar, eigen wegen en namen uit, terreinen erboven, bronvermelding "${o.attr}"`);
+  await page.click('#themeBtn'); await page.waitForTimeout(1500);
+  check([...ext].length === 1 && ext.has('service.pdok.nl'), `BRT: alleen PDOK gevraagd (${[...ext].join(', ')})`);
   await ctx.close();
 }
 
@@ -327,7 +439,217 @@ for (const ofm of ['ok', 'fout']) {
 }
 
 // ======================================================================================================================
-// 6. Framerate (SwiftShader: software, dus laag) en schermafbeeldingen
+// 6. Rechts rijden. Sem op de A7: "de een kwam van de ene kant en de ander van de andere, dan reden ze nog op dezelfde
+// baan". De A7 bij Wognum ligt in de data als twee lijnen, één per rijbaan, 13,6 m uit elkaar. De hartlijn is hier het
+// midden tussen de buitenste twee evenwijdige snelweglijnen bij het voertuig (op een snelweg met één lijn: die lijn);
+// rechts is gezien in de rijrichting van het voertuig.
+{
+  const { page, ctx, errors } = await open({ w: 1440, h: 900 });
+  await manual(page);
+  await page.evaluate(() => {
+    const F = window.SLCT.map.map.getSource('mw').serialize().data.features.filter(f => !f.properties.l); const KM = 111320;
+    // de snelweglijnen binnen r meter, evenwijdig aan de koers, met hun afstand opzij (side > 0: rechts van het punt)
+    window.__mwNear = (lon, lat, bearing, r) => {
+      const kx = KM * Math.cos(lat * Math.PI / 180), br = bearing * Math.PI / 180, ux = Math.sin(br), uy = Math.cos(br); const out = [];
+      for (const f of F) {
+        const g = f.geometry.coordinates; let best = null;
+        for (let j = 1; j < g.length; j++) {
+          const a = g[j - 1], b = g[j], sx = (b[0] - a[0]) * kx, sy = (b[1] - a[1]) * KM, L = Math.hypot(sx, sy); if (L < 1 || Math.abs((sx * ux + sy * uy) / L) < 0.9) continue;
+          const px = (lon - a[0]) * kx, py = (lat - a[1]) * KM, t = (px * sx + py * sy) / (L * L); if (t < -0.01 || t > 1.01) continue;
+          const qx = t * sx - px, qy = t * sy - py, d = Math.hypot(qx, qy); if (d <= r && (!best || d < best.d)) best = { d, side: qx * uy - qy * ux };
+        }
+        if (best) out.push(best);
+      }
+      return out.sort((a, b) => a.side - b.side);
+    };
+    // hoe ver een punt rechts van de hartlijn ligt
+    window.__right = (lon, lat, bearing) => { const L = window.__mwNear(lon, lat, bearing, 30); return L.length ? -(L[0].side + L[L.length - 1].side) / 2 : null; };
+  });
+  // --- één punt, twee richtingen: twee voertuigen op hetzelfde punt van een rijbaan van de A7, de een in de richting van
+  // die lijn, de ander ertegenin (zo stonden ze in de melding allebei op dezelfde helft)
+  const syn = await page.evaluate(() => {
+    const S = window.SLCT; const F = S.map.map.getSource('mw').serialize().data.features.filter(f => !f.properties.l && f.properties.d === 1); let pt = null;
+    for (const f of F) { const g = f.geometry.coordinates; for (let j = 1; j < g.length && !pt; j++) { const a = g[j - 1], b = g[j]; if ((a[1] - 52.685) * (b[1] - 52.685) <= 0 && a[1] !== b[1] && a[0] > 4.99 && a[0] < 5.08) { const t = (52.685 - a[1]) / (b[1] - a[1]); pt = { lon: a[0] + t * (b[0] - a[0]), lat: 52.685, b: (Math.atan2((b[0] - a[0]) * Math.cos(52.685 * Math.PI / 180), b[1] - a[1]) * 180 / Math.PI + 360) % 360 }; } } if (pt) break; }
+    if (!pt) return null;
+    const feat = (id, b) => ({ type: 'Feature', properties: { id, st: 'onderweg', b: Math.round(b), mv: true, k: 'trekker', base: 'Wognum' }, geometry: { type: 'Point', coordinates: [pt.lon, pt.lat] } });
+    S.map.setTrucks([feat('TEST-1', pt.b), feat('TEST-2', (pt.b + 180) % 360)], []);
+    const v = ['TEST-1', 'TEST-2'].map(id => { const q = S.map.vehiclePos(id); return { b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)) }; });
+    S.__frame(true); // de echte voertuigen terug
+    const kx = 111320 * Math.cos(52.685 * Math.PI / 180); return { d: Math.hypot((v[0].lon - v[1].lon) * kx, (v[0].lat - v[1].lat) * 111320), v };
+  });
+  check(!!syn && syn.d > 8 && syn.v.every(x => x.right > 0), syn ? `A7 bij Wognum, één punt in twee richtingen: ${syn.d.toFixed(1)} m uit elkaar, elk rechts van de hartlijn (${syn.v.map(x => `koers ${x.b}: ${x.right == null ? '-' : x.right.toFixed(1)} m`).join(', ')})` : 'A7 bij Wognum: geen rijbaan gevonden');
+  // --- echt verkeer: een moment met twee voertuigen in tegengestelde richting op de A7 bij Wognum, hoogstens 400 m uit
+  // elkaar (allebei op een snelweglijn in de data)
+  const pair = await page.evaluate(() => {
+    const S = window.SLCT, f = S.fleet, T0 = Math.floor(S.state.simTime), box = [4.99, 52.645, 5.08, 52.72];
+    for (let dt = 0; dt < 1440; dt++) {
+      const T = T0 + dt, here = [];
+      for (const t of f.trucks) { const s = f.stateAt(t, T), q = s.pos; if ((s.st !== 'onderweg' && s.st !== 'vertraagd') || q.lon < box[0] || q.lon > box[2] || q.lat < box[1] || q.lat > box[3]) continue; if (window.__mwNear(q.lon, q.lat, Math.round(q.bearing), 1).length) here.push({ id: t.id, lon: q.lon, lat: q.lat, b: q.bearing }); }
+      for (let i = 0; i < here.length; i++) for (let j = i + 1; j < here.length; j++) { const a = here[i], c = here[j]; if (Math.abs(((a.b - c.b + 540) % 360) - 180) > 150 && Math.hypot((a.lon - c.lon) * 68000, (a.lat - c.lat) * 111320) < 400) return { T, a, c }; }
+    }
+    return null;
+  });
+  if (pair) {
+    const r = await page.evaluate(async pair => {
+      const S = window.SLCT; S.state.simTime = pair.T; S.__frame(true);
+      S.map.map.jumpTo({ center: [(pair.a.lon + pair.c.lon) / 2, (pair.a.lat + pair.c.lat) / 2], zoom: 16, pitch: 0, bearing: 0 });
+      await new Promise(r => setTimeout(r, 500));
+      const v = [pair.a.id, pair.c.id].map(id => { const q = S.map.vehiclePos(id); return { id, b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)) }; });
+      // zijdelings: elk ter plekke gemeten vanaf de hartlijn en opgeteld (twee voertuigen tot 400 m uit elkaar op een
+      // bocht meet je niet langs de koers van een van beide)
+      return { v, side: (v[0].right || 0) + (v[1].right || 0) };
+    }, pair);
+    for (const x of r.v) check(x.right > 0, `${x.id} (koers ${x.b}) op de A7 bij Wognum: ${x.right == null ? '-' : x.right.toFixed(1)} m rechts van de hartlijn`);
+    check(r.side > 8, `A7 bij Wognum, verkeer in beide richtingen (${r.v.map(x => x.id).join(' en ')}): zijdelings ${r.side.toFixed(1)} m uit elkaar, elk aan zijn eigen kant van de hartlijn`);
+    if (shots) {
+      mkdirSync(shots, { recursive: true });
+      await settle(page); await page.screenshot({ path: `${shots}/a7-wognum-z16-licht.png` });
+      await page.click('#themeBtn'); await settle(page); await page.screenshot({ path: `${shots}/a7-wognum-z16-donker.png` }); await page.click('#themeBtn');
+    }
+  } else check(false, 'A7 bij Wognum: geen moment met verkeer in beide richtingen binnen een dag');
+  // --- alle voertuigen, na een sprong in de tijd (dan staan ze meteen op hun plek): rijdende rechts verschoven (of op hun
+  // eigen rijbaan), geen enkele naar links; stilstaande (terrein, dock, klant, pauze) helemaal niet
+  const all = await page.evaluate(async () => {
+    const S = window.SLCT, f = S.fleet; S.state.simTime += 3; S.__frame(true); await new Promise(r => setTimeout(r, 3000));
+    const T = S.state.simTime, KM = 111320; let n = 0, left = 0, still = 0, moved = 0, shifted = 0;
+    for (const t of f.trucks) {
+      const s = f.stateAt(t, T), q = S.map.vehiclePos(t.id); if (!q) continue; const mv = s.st === 'onderweg' || s.st === 'vertraagd';
+      const kx = KM * Math.cos(s.pos.lat * Math.PI / 180), ox = (q.lon - s.pos.lon) * kx, oy = (q.lat - s.pos.lat) * KM, m = Math.hypot(ox, oy);
+      if (!mv) { still++; if (m > 0.05) moved++; continue; }
+      n++; const br = Math.round(s.pos.bearing) * Math.PI / 180; if (m > 0.3) { shifted++; if (ox * Math.cos(br) - oy * Math.sin(br) < 0) left++; }
+    }
+    const mw = S.map.map.getSource('mw').serialize().data.features.filter(x => !x.properties.l);
+    return { n, left, still, moved, shifted, single: mw.filter(x => x.properties.d === 0).length, mw: mw.length, lane: S.map.debug().lane, stepMs: S.map.debug().stepMs };
+  });
+  check(all.left === 0 && all.shifted > all.n * 0.3, `rechts rijden: ${all.shifted} van ${all.n} rijdende voertuigen verschoven (de rest rijdt al op de lijn van zijn rijbaan), geen enkele naar links`);
+  check(all.moved === 0, `stilstaande voertuigen niet verschoven: ${all.moved} van ${all.still}`);
+  check(all.single < all.mw * 0.05, `snelwegkanten met één lijn voor beide richtingen (breder getekend, met middenberm): ${all.single} van ${all.mw}; rijbaanindex ${all.lane.indexMs} ms, indeling ${all.lane.dualMs} ms, stap ${all.stepMs} ms`);
+  // --- de route van een gekozen voertuig ligt op dezelfde rijbaan als het voertuig (stilstaande klok)
+  const rt = await page.evaluate(async () => {
+    const S = window.SLCT, f = S.fleet, T = S.state.simTime, KM = 111320, out = [];
+    const list = f.trucks.filter(t => f.stateAt(t, T).st === 'onderweg'), stride = Math.max(1, Math.floor(list.length / 12));
+    for (let i = 0; i < list.length && out.length < 12; i += stride) {
+      const id = list[i].id; S.ui.selectTruck(id); await new Promise(r => setTimeout(r, 400));
+      const q = S.map.vehiclePos(id), src = S.map.map.getSource('route').serialize().data.features || []; if (!q || !src.length) continue;
+      const g = src[0].geometry.coordinates, kx = KM * Math.cos(q.lat * Math.PI / 180); let best = 1e9;
+      for (let j = 1; j < g.length; j++) { const a = g[j - 1], b = g[j], sx = (b[0] - a[0]) * kx, sy = (b[1] - a[1]) * KM, L2 = sx * sx + sy * sy, px = (q.lon - a[0]) * kx, py = (q.lat - a[1]) * KM, t = L2 > 0 ? Math.max(0, Math.min(1, (px * sx + py * sy) / L2)) : 0; best = Math.min(best, Math.hypot(t * sx - px, t * sy - py)); }
+      out.push(best);
+    }
+    return out;
+  });
+  await page.keyboard.press('Escape');
+  check(rt.length >= 8 && rt.every(d => d < 1.5), `de route van een gekozen voertuig ligt op zijn rijbaan: ${rt.length} voertuigen, hoogstens ${rt.length ? Math.max(...rt).toFixed(2) : '-'} m van hun route`);
+  check(errors.length === 0, `rechts rijden: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+
+// ======================================================================================================================
+// 7. Land en zee. Sem in 3.2: "dan komt een plaats ineens in de zee". Elke standplaats, elk DC en elke fabriek ligt op
+// land: in de vorm die de kaart tekent (het punt ligt in een landvlak, of binnen de naad langs de buurlanden, en in geen
+// watervlak) en zoals de kaart hem tekent (met alles behalve de ondergrond uit is de kleur onder het punt op zoom 10 en
+// op zoom 14 geen water). Ook de winkels en bezorgadressen op de vorm (een plek in zee kreeg een stukje land eronder).
+{
+  const { page, ctx, errors } = await open({ w: 1280, h: 800 });
+  await manual(page);
+  const pts = await page.evaluate(() => {
+    const m = window.SLCT.map.map, src = id => m.getSource(id).serialize().data.features;
+    const ring = (r, x, y) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const yi = r[i][1], yj = r[j][1]; if ((yi > y) !== (yj > y) && x < r[i][0] + (y - yi) / (yj - yi) * (r[j][0] - r[i][0])) c = !c; } return c; };
+    const poly = (c, x, y) => ring(c[0], x, y) && !c.slice(1).some(h => ring(h, x, y));
+    const inF = (f, x, y) => (f.geometry.type === 'Polygon' ? poly(f.geometry.coordinates, x, y) : f.geometry.type === 'MultiPolygon' && f.geometry.coordinates.some(c => poly(c, x, y)));
+    const land = src('land'), water = src('water'), seam = src('seam').flatMap(f => (f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates));
+    // de naad: een lijn van 6 km breed in de landkleur langs de grens met de buurlanden
+    const seamD = (x, y) => { const kx = 111320 * Math.cos(y * Math.PI / 180); let d = 1e12; for (const l of seam) for (let i = 1; i < l.length; i++) { const a = l[i - 1], b = l[i], sx = (b[0] - a[0]) * kx, sy = (b[1] - a[1]) * 111320, px = (x - a[0]) * kx, py = (y - a[1]) * 111320, L2 = sx * sx + sy * sy, t = L2 ? Math.max(0, Math.min(1, (px * sx + py * sy) / L2)) : 0; d = Math.min(d, Math.hypot(t * sx - px, t * sy - py)); } return d; };
+    const onLand = p => land.some(f => inF(f, p[0], p[1])) || seamD(p[0], p[1]) < 2800;
+    const list = [...src('sp').map(f => ({ n: f.properties.n, s: 'standplaats', p: f.geometry.coordinates })), ...src('dcs').map(f => ({ n: f.properties.n, s: f.properties.s, p: f.geometry.coordinates }))];
+    const rest = src('winkels').map(f => f.geometry.coordinates);
+    return { list: list.map(o => ({ ...o, land: onLand(o.p), water: water.some(f => inF(f, o.p[0], o.p[1])) })), winkels: rest.length, winkelsInZee: rest.filter(p => !onLand(p)).length, patches: land.filter(f => f.properties && f.properties.patch).length };
+  });
+  const soorten = Object.entries(pts.list.reduce((a, o) => ({ ...a, [o.s]: (a[o.s] || 0) + 1 }), {})).map(([k, v]) => `${v} ${k}`).join(', ');
+  const bad = pts.list.filter(o => !o.land || o.water);
+  check(pts.list.length > 150 && bad.length === 0, `land en zee (vorm): ${pts.list.length} plekken (${soorten}) op land en in geen watervlak${bad.length ? `; niet: ${bad.slice(0, 8).map(o => `${o.n} (${o.water ? 'in water' : 'buiten land'})`).join(', ')}` : ''}`);
+  check(pts.winkelsInZee === 0, `land en zee (vorm): ook de ${pts.winkels} winkels op land (${pts.patches} stukjes land onder plekken die de grove kustlijn in zee legde)`);
+  // de kleur onder het punt: alles behalve de ondergrond (land, naad, water, bebouwing) uit; per beeld springen, wachten
+  // tot de kaart klaar is ('idle': alles geladen en getekend; wie eerder leest, ziet de achtergrond, en die is zee) en dan
+  // in het volgende beeld uitlezen
+  await page.evaluate(() => {
+    const m = window.SLCT.map.map, keep = new Set(['bg', 'land', 'seam', 'water', 'urban']);
+    const ground = () => { for (const id of (m.getLayersOrder ? m.getLayersOrder() : m.style._order)) if (!keep.has(id) && m.getLayoutProperty(id, 'visibility') !== 'none') m.setLayoutProperty(id, 'visibility', 'none'); };
+    const read = list => { const gl = m.painter.context.gl, c = m.getCanvas(), k = c.width / c.clientWidth; return list.map(p => { const q = m.project(p), b = new Uint8Array(4); gl.readPixels(Math.round(q.x * k), Math.round(c.height - q.y * k), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return [b[0], b[1], b[2]]; }); };
+    window.__inView = (center, z, list) => { m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); const W = m.getContainer(); return list.filter(([, p]) => { const q = m.project(p); return q.x > 12 && q.y > 12 && q.x < W.clientWidth - 12 && q.y < W.clientHeight - 12; }).map(([j]) => j); };
+    window.__view = (center, z, list) => new Promise(res => {
+      ground(); let over = false;
+      const done = idle => { if (over) return; over = true; m.off('idle', onIdle); m.once('render', () => res({ cols: read(list), idle })); m.triggerRepaint(); };
+      const onIdle = () => done(true);
+      m.once('idle', onIdle); m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); m.triggerRepaint();
+      setTimeout(() => done(false), 30000);
+    });
+  });
+  const sea = [170, 218, 255], isSea = c => Math.abs(c[0] - sea[0]) < 16 && Math.abs(c[1] - sea[1]) < 16 && Math.abs(c[2] - sea[2]) < 16;
+  // een klein venster (snel tekenen); per beeld alle plekken die erin vallen
+  await page.setViewportSize({ width: 560, height: 420 }); await page.waitForTimeout(800);
+  const wet = { 10: [], 14: [] }, views = { 10: 0, 14: 0 }, stuck = []; const t0 = Date.now(); const pl = pts.list;
+  for (const z of [10, 14]) {
+    const done = new Set();
+    for (let i = 0; i < pl.length; i++) {
+      if (done.has(i)) continue;
+      const inView = await page.evaluate(([c, z, list]) => window.__inView(c, z, list), [pl[i].p, z, pl.map((o, j) => [j, o.p]).filter(([j]) => !done.has(j))]);
+      if (!inView.includes(i)) inView.push(i);
+      const r = await page.evaluate(([c, z, list]) => window.__view(c, z, list), [pl[i].p, z, inView.map(j => pl[j].p)]); views[z]++;
+      if (!r.idle) stuck.push(`${pl[i].n} (zoom ${z})`);
+      inView.forEach((j, k) => { done.add(j); if (isSea(r.cols[k])) wet[z].push(`${pl[j].n} (zoom ${z}, ${r.cols[k].join('/')})`); });
+    }
+  }
+  check(wet[10].length === 0 && wet[14].length === 0 && stuck.length === 0, `land en zee (beeld): onder geen van de ${pl.length} plekken water, op zoom 10 (${views[10]} beelden) en 14 (${views[14]} beelden), ${((Date.now() - t0) / 1000).toFixed(0)} s${wet[10].length || wet[14].length ? `; water onder: ${[...wet[10], ...wet[14]].slice(0, 8).join(', ')}` : ''}${stuck.length ? `; niet klaar binnen 30 s: ${stuck.slice(0, 5).join(', ')}` : ''}`);
+  check(errors.length === 0, `land en zee: consolefouten ${errors.length}`);
+  await ctx.close();
+}
+
+// ======================================================================================================================
+// 8. Afdelingen op het terrein (sp.afdelingen, van de data). Zonder het veld geen namen; met het veld rustige namen vanaf
+// zoom 16, bij een gebouw midden in de contour, in 3D weg (daar staan ze op bordjes). Zolang de data er niet is, nagebootst
+// voor Wognum.
+{
+  const { page, ctx, errors } = await open({ w: 1440, h: 900 });
+  await manual(page);
+  const echt = await page.evaluate(() => window.SLCT.fleet.trucks.some(t => Array.isArray(t.base.afdelingen) && t.base.afdelingen.length));
+  const n0 = await page.evaluate(() => window.SLCT.map.map.getSource('afd').serialize().data.features.length);
+  if (!echt) check(n0 === 0, `afdelingen: zonder sp.afdelingen geen namen op de kaart (${n0})`);
+  await page.evaluate(() => {
+    const sp = window.SLCT.fleet.trucks.find(t => t.base.n === 'Wognum').base; if (Array.isArray(sp.afdelingen) && sp.afdelingen.length) return;
+    const d = sp.dockPlek && sp.dockPlek.length ? sp.dockPlek[Math.floor(sp.dockPlek.length / 2)] : [sp.lon, sp.lat];
+    sp.afdelingen = [
+      { naam: 'Warehouse', soort: 'loods', p: [sp.lon, sp.lat], gebouw: 0, bron: 'afgeleid' }, { naam: 'Kantoor', soort: 'kantoor', p: [sp.lon + 0.0005, sp.lat], bron: 'afgeleid' },
+      { naam: 'Docks 1 tot 30', soort: 'docks', p: [d[0], d[1]], bron: 'afgeleid' },
+      { naam: 'Opleggers', soort: 'opleggers', p: sp.poort ? [sp.poort[0], sp.poort[1]] : [sp.lon + 0.001, sp.lat], bron: 'afgeleid' },
+    ];
+  });
+  await toSp(page, 17); await page.waitForFunction(() => window.SLCT.map.debug().buildings === 'done', null, { timeout: 30000, polling: 200 }).catch(() => {}); await settle(page);
+  // na het laden van de gebouwen krijgt de bron de namen opnieuw (midden in de gebouwen); even wachten tot ze geplaatst zijn
+  await page.waitForFunction(() => window.SLCT.map.map.queryRenderedFeatures({ layers: ['afd'] }).length > 0, null, { timeout: 20000, polling: 250 }).catch(() => {}); await settle(page);
+  const r = await page.evaluate(() => {
+    const m = window.SLCT.map.map, f = m.getSource('afd').serialize().data.features, sp = window.SLCT.fleet.trucks.find(t => t.base.n === 'Wognum').base;
+    const ring = (rr, x, y) => { let c = false; for (let i = 0, j = rr.length - 1; i < rr.length; j = i++) { const yi = rr[i][1], yj = rr[j][1]; if ((yi > y) !== (yj > y) && x < rr[i][0] + (y - yi) / (yj - yi) * (rr[j][0] - rr[i][0])) c = !c; } return c; };
+    const own = m.getSource('bld') ? m.getSource('bld').serialize().data.features.filter(x => x.properties && x.properties.d === 1) : [];
+    // de afdelingen in een gebouw (loods, kantoor, garage, wasstraat, met gebouw in de data), op alle standplaatsen: de
+    // naam staat in een eigen gebouw van een terrein (d: 1)
+    const want = window.SLCT.fleet.trucks.map(t => t.base).filter((b, i, a) => a.indexOf(b) === i).reduce((n, b) => n + (b.afdelingen || []).filter(a => Number.isInteger(a.gebouw) && ['loods', 'kantoor', 'garage', 'wasstraat'].includes(a.soort)).length, 0);
+    const inside = f.filter(x => x.properties.g === 1);
+    const outside = inside.filter(x => !own.some(b => ring(b.geometry.coordinates[0], x.geometry.coordinates[0], x.geometry.coordinates[1]))).map(x => x.properties.n);
+    return { n: f.length, wognum: (sp.afdelingen || []).length, rendered: [...new Set(m.queryRenderedFeatures({ layers: ['afd'] }).map(x => x.properties.n))], tt: m.getLayoutProperty('afd', 'text-transform'), min: m.getLayer('afd').minzoom, want, inside: inside.length, outside, own: own.length };
+  });
+  check(r.n >= 3 && r.rendered.length >= Math.min(r.wognum, 6) - 1 && r.tt === 'uppercase' && r.min >= 16, `afdelingen: ${r.n} op de kaart${echt ? ' (uit de data)' : ' (nagebootst)'}, ${r.rendered.length} van de ${r.wognum} van Wognum in beeld op zoom 17 (${r.rendered.join(', ')}), in kleine kapitalen, vanaf zoom ${r.min}`);
+  check(r.own === 0 || (r.inside > 0 && r.inside >= r.want && r.outside.length === 0), `afdelingen: ${r.inside} van de ${r.want} afdelingen met een gebouw staan midden in dat gebouw${r.want > r.inside ? ` (de rest staat op zijn punt: geen bruikbare contour bij die index in buildings.json)` : ''}${r.outside.length ? `; niet: ${r.outside.slice(0, 6).join(', ')}` : ''}`);
+  if (shots) { await page.screenshot({ path: `${shots}/afdelingen-wognum-z17.png` }); }
+  await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(true)); await page.waitForTimeout(2500);
+  const v3 = await page.evaluate(() => window.SLCT.map.map.getLayoutProperty('afd', 'visibility'));
+  check(v3 === 'none', `afdelingen: in 3D weg van de platte kaart (${v3})`);
+  await page.evaluate(() => window.SLCT.ui.ctx.set3dMode(false)); await page.waitForTimeout(1200);
+  check(errors.length === 0, `afdelingen: consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
+  await ctx.close();
+}
+
+// ======================================================================================================================
+// 9. Framerate (SwiftShader: software, dus laag) en schermafbeeldingen
 if (!quick) {
   const { page, ctx } = await open({ w: 1440, h: 900 });
   const fps = () => page.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const tick = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(tick); else r(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(tick); }));

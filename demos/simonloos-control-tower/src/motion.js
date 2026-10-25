@@ -40,7 +40,10 @@ export function createMotion() {
   let lastStep = 0, interval = 135, lastSim = null, animating = false;
   const byKey = new Map();
   // features: de GeoJSON-punten van ui.js ({ id, st, b, mv, k, base }); ctx: { now, simTime, speed, playing, zoom, lat, snap,
-  // snapAt(lon, lat): true op een plek waar een voertuig niet heen of vandaan glijdt, zoals een dock aan de gevel van de hal }
+  // snapAt(lon, lat): true op een plek waar een voertuig niet heen of vandaan glijdt, zoals een dock aan de gevel van de hal,
+  // lane(lon, lat, koers): de verschuiving [dlon, dlat] naar de eigen rijbaan van een rijdend voertuig (rechts rijden) }
+  // Per voertuig: de stand op de lijn van de route (bx, by, tussen fx/fy en tx/ty) plus de verschuiving naar de rijbaan
+  // (ox, oy, tussen fox/foy en tox/toy) is de getoonde stand cx, cy. Alles wat een voertuig aanwijst of tekent gebruikt cx, cy.
   function update(features, ctx) {
     const now = ctx.now;
     const gap = now - lastStep; lastStep = now;
@@ -61,20 +64,27 @@ export function createMotion() {
       const p = f.properties, c = f.geometry.coordinates; const id = p.id; seen.add(id);
       let r = recs.get(id);
       const tb = +p.b || 0;
-      if (!r) { r = { id, cx: c[0], cy: c[1], cb: tb, fx: c[0], fy: c[1], fb: tb, tx: c[0], ty: c[1], tb, t0: now, dur: 1, v3: null }; recs.set(id, r); changed = true; }
+      if (!r) {
+        r = { id, cx: c[0], cy: c[1], cb: tb, bx: c[0], by: c[1], fx: c[0], fy: c[1], fb: tb, tx: c[0], ty: c[1], tb, ox: 0, oy: 0, fox: 0, foy: 0, tox: 0, toy: 0, t0: now, dur: 1, v3: null };
+        const o = p.mv && ctx.lane ? ctx.lane(c[0], c[1], tb) : null;
+        if (o) { r.ox = r.fox = r.tox = o[0]; r.oy = r.foy = r.toy = o[1]; r.cx += o[0]; r.cy += o[1]; }
+        recs.set(id, r); changed = true;
+      }
       else if (r.tx === c[0] && r.ty === c[1] && r.st === p.st && r.mv === !!p.mv && r.k === (p.k || 'trekker')) { /* niets veranderd: lopende beweging niet opnieuw beginnen */ }
       else {
         changed = true;
         sample(r, now);
-        const d = distM(r.cx, r.cy, c[0], c[1]);
+        const d = distM(r.bx, r.by, c[0], c[1]);
         // Springen in plaats van glijden: bij een sprong in de tijd, een te grote stap, van de ene stilstaande plek naar de
         // andere (van de parkeerplek naar een dock: de simulatie rijdt daar niet, een rechte lijn kan door de hal gaan) en
         // naar of van een dock.
         const still = !p.mv && !r.mv && d > 2;
         const dockMove = !!ctx.snapAt && d > 2 && (ctx.snapAt(c[0], c[1]) || ctx.snapAt(r.tx, r.ty));
         const snap = jump || d > maxM || d / mpp > 260 || still || dockMove;
-        if (snap) { r.fx = r.cx = c[0]; r.fy = r.cy = c[1]; r.fb = r.cb = tb; }
-        else { r.fx = r.cx; r.fy = r.cy; r.fb = r.cb; }
+        // de rijbaan: alleen een rijdend voertuig verschuift (stilstaand op een terrein, aan een dock of bij een klant niet)
+        const o = p.mv && ctx.lane ? ctx.lane(c[0], c[1], tb) : null; r.tox = o ? o[0] : 0; r.toy = o ? o[1] : 0;
+        if (snap) { r.fx = r.bx = c[0]; r.fy = r.by = c[1]; r.fb = r.cb = tb; r.fox = r.ox = r.tox; r.foy = r.oy = r.toy; r.cx = r.bx + r.ox; r.cy = r.by + r.oy; }
+        else { r.fx = r.bx; r.fy = r.by; r.fb = r.cb; r.fox = r.ox; r.foy = r.oy; }
         r.tx = c[0]; r.ty = c[1]; r.tb = d < 0.5 && !p.mv ? r.cb : tb; r.t0 = now; r.dur = snap ? 1 : interval * 1.04;
         if (!snap && Math.abs(angleDelta(r.fb, r.tb)) > 100 && d < 3) { r.fb = r.cb = r.tb; } // keren op de plek: niet draaien
       }
@@ -88,7 +98,9 @@ export function createMotion() {
   }
   function sample(r, now) {
     const a = r.dur <= 1 ? 1 : Math.min(1, Math.max(0, (now - r.t0) / r.dur));
-    r.cx = r.fx + (r.tx - r.fx) * a; r.cy = r.fy + (r.ty - r.fy) * a;
+    r.bx = r.fx + (r.tx - r.fx) * a; r.by = r.fy + (r.ty - r.fy) * a;
+    r.ox = r.fox + (r.tox - r.fox) * a; r.oy = r.foy + (r.toy - r.foy) * a;
+    r.cx = r.bx + r.ox; r.cy = r.by + r.oy;
     r.cb = (r.fb + angleDelta(r.fb, r.tb) * a + 360) % 360;
     return a;
   }
@@ -98,7 +110,7 @@ export function createMotion() {
     for (const r of order) { if (sample(r, now) < 1) moving = true; }
     animating = moving; return moving;
   }
-  function snapAll() { for (const r of order) { r.fx = r.cx = r.tx; r.fy = r.cy = r.ty; r.fb = r.cb = r.tb; r.dur = 1; } animating = false; }
+  function snapAll() { for (const r of order) { r.fx = r.bx = r.tx; r.fy = r.by = r.ty; r.fox = r.ox = r.tox; r.foy = r.oy = r.toy; r.cx = r.bx + r.ox; r.cy = r.by + r.oy; r.fb = r.cb = r.tb; r.dur = 1; } animating = false; }
   return {
     update, tick, snapAll, sample,
     order: () => order, get: id => recs.get(id) || null, atCoord: (lon, lat) => byKey.get(lon + ',' + lat) || null,
@@ -125,6 +137,20 @@ function body(g, s, x, y, w, h, r) { rr(g, x, y, w, h, r); g.lineWidth = 2.4; g.
 function fill(g, c, x, y, w, h, r) { rr(g, x, y, w, h, r); g.fillStyle = c; g.fill(); }
 function glass(g, x, y, w, h) { rr(g, x, y, w, h, 0.9); g.fillStyle = 'rgba(255,255,255,.86)'; g.fill(); }
 function roof(g, x, y, w, h) { rr(g, x, y, w, h, 1.2); g.fillStyle = 'rgba(255,255,255,.13)'; g.fill(); }
+// Van dichtbij (vanaf zoom 16) een knipoog naar de huisstijl van Simon Loos: het dak van de cabine wit met een smalle
+// goudgele band aan de voorkant, op de oplegger of laadbak het beeldmerk als twee stipjes (geel boven rood). De statuskleur
+// blijft de vulling van de oplegger of laadbak en de rand van de cabine: die moet in een oogopslag te zien zijn. (Een wit
+// voertuig met alleen een gekleurde rand viel weg op een witte weg, en een rode cabine las als 'vertraagd'.)
+// dezelfde kleuren als de 3D-wereld (scene3d/palette.js: rood, geel, cabineWit)
+const SL = { red: '#E3001F', gold: '#F0A526', white: '#F5F5F2' };
+function slCab(g, c, s, x, y, w, h, r) { body(g, s, x, y, w, h, r); fill(g, c, x, y, w, h, r); fill(g, SL.white, x + 1.7, y + 1.7, w - 3.4, h - 3.4, Math.max(0.8, r - 1.7)); g.fillStyle = SL.gold; g.fillRect(x + 1.7, y + 1.7, w - 3.4, 1.5); }
+function slLogo(g, x, y, r = 1.25) { g.fillStyle = SL.white; g.beginPath(); g.arc(x, y, r + 0.6, 0, Math.PI * 2); g.arc(x, y + r * 2.3, r + 0.6, 0, Math.PI * 2); g.fill(); g.fillStyle = SL.gold; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.fillStyle = SL.red; g.beginPath(); g.arc(x, y + r * 2.3, r, 0, Math.PI * 2); g.fill(); }
+const LIVERY = {
+  trekker: [16, 38, (g, c, d, s) => { body(g, s, -6.2, -7.5, 12.4, 25.5, 2.2); fill(g, c, -6.2, -7.5, 12.4, 25.5, 2.2); roof(g, -4.6, -5.6, 9.2, 21.6); slLogo(g, 0, -3.4); slCab(g, c, s, -6.2, -18.6, 12.4, 10.4, 3.6); }],
+  solo: [16, 22, (g, c, d, s) => { body(g, s, -3.6, -1.2, 7.2, 10.2, 1.6); fill(g, d, -3.6, -1.2, 7.2, 10.2, 1.6); slCab(g, c, s, -6.2, -11, 12.4, 10.4, 3.6); }],
+  bakwagen: [16, 32, (g, c, d, s) => { body(g, s, -6.2, -5.4, 12.4, 21.4, 2); fill(g, c, -6.2, -5.4, 12.4, 21.4, 2); roof(g, -4.6, -3.6, 9.2, 17.6); slLogo(g, 0, -1.6); slCab(g, c, s, -6.2, -15.6, 12.4, 9.6, 3.4); }],
+  bus: [14, 25, (g, c, d, s) => { body(g, s, -5.2, -12, 10.4, 24, 3.4); fill(g, c, -5.2, -12, 10.4, 24, 3.4); fill(g, SL.white, -3.5, -10.3, 7, 8, 2); g.fillStyle = SL.gold; g.fillRect(-3.5, -10.3, 7, 1.5); slLogo(g, 0, 1.6); }],
+};
 function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const f = v => Math.round(v * (1 - k)); return `rgb(${f(n >> 16 & 255)},${f(n >> 8 & 255)},${f(n & 255)})`; }
 
 export function buildAtlas(statuses, theme) {
@@ -140,6 +166,10 @@ export function buildAtlas(statuses, theme) {
     for (const [k, [w, h, draw]] of Object.entries(KINDS)) list.push({ name: `veh-${k}-${st}`, w, h, draw: g => draw(g, v.color, shade(v.color, 0.22), stroke), shadow: true });
   }
   for (const [st, v] of Object.entries(statuses)) for (const [k, [w, h, cab]] of Object.entries(PARK)) list.push({ name: `park-${k}-${st}`, w, h, draw: g => { rr(g, -w / 2, -h / 2, w, h, 1.6); g.lineWidth = 1.4; g.strokeStyle = stroke; g.stroke(); g.fillStyle = v.color; g.fill(); rr(g, -w / 2 + 0.7, -h / 2 + 0.7, w - 1.4, h * cab, 1.2); g.fillStyle = shade(v.color, 0.28); g.fill(); }, shadow: true, small: true });
+  // de huisstijl (van dichtbij): rijdend (liv-) en als blok op ware grootte (lpark-); als laatste, zodat bij een volle atlas
+  // alleen deze wegvallen en de laag de gewone iconen tekent
+  for (const [st, v] of Object.entries(statuses)) for (const [k, [w, h, draw]] of Object.entries(LIVERY)) list.push({ name: `liv-${k}-${st}`, w, h, draw: g => draw(g, v.color, shade(v.color, 0.22), stroke), shadow: true });
+  for (const [st, v] of Object.entries(statuses)) for (const [k, [w, h, cab]] of Object.entries(PARK)) list.push({ name: `lpark-${k}-${st}`, w, h, draw: g => { rr(g, -w / 2, -h / 2, w, h, 1.6); g.lineWidth = 1.4; g.strokeStyle = stroke; g.stroke(); g.fillStyle = v.color; g.fill(); const ch = h * cab; rr(g, -w / 2 + 1.1, -h / 2 + 1.1, w - 2.2, ch - 1.1, 1); g.fillStyle = SL.white; g.fill(); g.fillStyle = SL.gold; g.fillRect(-w / 2 + 1.1, -h / 2 + 1.1, w - 2.2, Math.min(1.1, ch * 0.25)); if (k !== 'solo') slLogo(g, 0, -h / 2 + ch + 2.2, 0.8); }, shadow: true, small: true });
   // plank-indeling op een canvas van 1024 breed
   const W = 1024, pad = 12; let x = pad, y = pad, rowH = 0;
   for (const s of list) { const pw = Math.ceil((s.w + 2 * M) * S), ph = Math.ceil((s.h + 2 * M) * S); if (x + pw + pad > W) { x = pad; y += rowH + pad; rowH = 0; } s.px = x; s.py = y; s.pw = pw; s.ph = ph; x += pw + pad; rowH = Math.max(rowH, ph); }
