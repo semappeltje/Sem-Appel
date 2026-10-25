@@ -10,21 +10,22 @@ mag pushen, staat die tak hier als git-bundel: `safetail-control-tower.bundle`.
 
 ```
 cd <pad naar de website-repo>
-git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-34:ronde10/control-tower-34
-git checkout ronde10/control-tower-34
+git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-35:ronde10/control-tower-35
+git checkout ronde10/control-tower-35
 npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
-git push -u origin ronde10/control-tower-34
+git push -u origin ronde10/control-tower-35
 ```
 
 De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-review) heeft
 de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Ook de
 bundel met de drie punten uit de deltareview (a25ddba) en versie 3.2 met de 3D-wereld (tak
 ronde10/control-tower-33, `three.js` als vijfde bestand) zijn samengevoegd en live
-(`setup-astro-site` op 584a75a). Deze bundel bevat de tak `ronde10/control-tower-34`: twee
-commits boven 584a75a met de nieuwe bundel (three.js wordt pas geladen bij de eerste klik op de
-kubus en app.js hangt er niet meer statisch aan, bronregel volgt de tegels, paneel naast een
-open pagina), de 3D-stand in de opslaglijst en de meetbon. `git fetch <bundel> ronde10/control-tower-34` werkt in een kopie die 584a75a al
-heeft. Daarna
+(`setup-astro-site` op 584a75a). Ook die twee commits (three.js pas bij de eerste klik, bronregel, paneel naast een pagina, de
+3D-stand in de opslaglijst) zijn samengevoegd en live (`setup-astro-site` op 7ca8fbf, met de
+bewaker van de websitesessie erbovenop). Deze bundel bevat de tak `ronde10/control-tower-35`:
+een commit boven 7ca8fbf met de nieuwe bundel (een bij het laden herstelde 3D-stand vliegt
+naar de standplaats) en de meetbon. `git fetch <bundel> ronde10/control-tower-35` werkt in een
+kopie die 7ca8fbf al heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
 
