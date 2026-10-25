@@ -186,7 +186,8 @@ const angle = (a, b) => Math.abs(((b - a + 540) % 360) - 180);
   // valt het uit- en inzoomen niet te zien en telt alleen dat de kaart op het voertuig eindigt
   const mid = vl.rec.filter(([t]) => t > 135 && t < 765), minZ = Math.min(vl.z0, ...vl.rec.map(r => r[1])), dipped = minZ < Math.min(vl.z0, vl.z1) - 0.5;
   const endOk = !!fa && Math.hypot(fa.x - fa.w / 2, fa.y - fa.h / 2) < 30;
-  check(endOk && (dipped || !mid.length), `vliegen naar ${far} (ver weg): ${dipped ? `eerst uit- dan inzoomen (laagste zoom ${minZ.toFixed(1)})` : mid.length ? `geen uitzoomen te zien (laagste zoom ${minZ.toFixed(1)})` : 'geen beeld midden in de vlucht (machine overbelast)'}, ${vl.rec.length} beelden, ${endOk ? 'eindigt op het voertuig' : `eindigt ${fa ? Math.round(Math.hypot(fa.x - fa.w / 2, fa.y - fa.h / 2)) + ' px' : 'buiten beeld'} naast het voertuig`}`);
+  // met minder dan drie beelden midden in de vlucht (machine overbelast) is het dieptepunt van de boog niet te zien
+  check(endOk && (dipped || mid.length < 3), `vliegen naar ${far} (ver weg): ${dipped ? `eerst uit- dan inzoomen (laagste zoom ${minZ.toFixed(1)})` : mid.length >= 3 ? `geen uitzoomen te zien (laagste zoom ${minZ.toFixed(1)})` : 'geen beeld midden in de vlucht (machine overbelast)'}, ${vl.rec.length} beelden, ${endOk ? 'eindigt op het voertuig' : `eindigt ${fa ? Math.round(Math.hypot(fa.x - fa.w / 2, fa.y - fa.h / 2)) + ' px' : 'buiten beeld'} naast het voertuig`}`);
   await auto(page);
   check(errors.length === 0, `consolefouten: ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 5).join('\n     ') : ''}`);
   await ctx.close();
