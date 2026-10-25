@@ -764,9 +764,10 @@ export function createMap(container, opts) {
     const now = performance.now(); if (lastImplicit.id === id) noteCadence(now - lastImplicit.t); lastImplicit = { id, t: now }; follow.last = now;
     if (follow.id !== id || follow.rotate !== (!!rotate && !reducedMotion())) startFollow(id, rotate, true);
   }
-  // de draaistap van de volgcamera rekent met de tijd sinds het vorige getekende beeld (hoogstens 100 ms), zodat een traag
-  // beeld onder belasting geen sprong van tientallen graden geeft: hoogstens 60 graden per seconde tussen twee beelden
-  let lastRenderAt = 0; map.on('render', () => { lastRenderAt = performance.now(); });
+  // De draaistap van de volgcamera rekent met de tijd sinds de vorige stap van deze lus (dt, hoogstens 250 ms): hoogstens
+  // 60 graden per seconde tussen twee beelden, en na een haperend beeld geen sprong van tientallen graden. Niet met de tijd
+  // sinds het laatst getekende beeld: tekent de kaart in hetzelfde beeld voor deze lus, dan is die tijd nul en draait de
+  // camera helemaal niet mee (de volgorde van de beeldfuncties wisselt per beeld).
   function followTick(now, dt) {
     if (!follow.id) return false;
     if (follow.implicit && now - follow.last > followWindow()) { stopFollow(); return false; } // ui.js volgt niet meer
@@ -774,7 +775,7 @@ export function createMap(container, opts) {
     if (follow.paused || gestureOn || isAnimating()) return true;
     const offY = three ? Math.round(H() * 0.34) : 0;
     const target = { center: [r.cx, r.cy], bearing: map.getBearing(), pitch: map.getPitch(), zoom: map.getZoom(), padding: { top: offY, bottom: 0, left: 0, right: 0 } };
-    if (three) { target.pitch = Math.max(map.getPitch(), 58); if (follow.rotate) { const d = angleDelta(map.getBearing(), r.cb); const rdt = clamp(lastRenderAt ? now - lastRenderAt : dt, 0, 100); const step = clamp(d * (1 - Math.exp(-rdt / 450)), -0.06 * rdt, 0.06 * rdt); target.bearing = map.getBearing() + step; } }
+    if (three) { target.pitch = Math.max(map.getPitch(), 58); if (follow.rotate) { const d = angleDelta(map.getBearing(), r.cb); const rdt = clamp(dt, 0, 250); const step = clamp(d * (1 - Math.exp(-rdt / 450)), -0.06 * rdt, 0.06 * rdt); target.bearing = map.getBearing() + step; } }
     const B = follow.blend;
     if (B) {
       const u = B.dur ? EASE(clamp((now - B.t0) / B.dur, 0, 1)) : 1;
