@@ -16,7 +16,7 @@ export const VIEWS = NAV.flatMap(g => g.items);
 export const VIEW_NAME = Object.fromEntries(VIEWS.map(v => [v[0], v[1]]));
 export const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 export const BOTTOM = ['overzicht', 'kaart', 'openritten', 'meldingen'];
-export const ROLDESC = { planner: 'Ritten, planbord, berichten en bevoegdheden', regiomanager: 'Plus rijgedrag, schades en kosten per km', directie: 'Alles, ook contract en kosten; kijkt mee, handelt niet af', hr: 'Personeel: bevoegdheden, schades en contract' };
+export const ROLDESC = { planner: 'Ritten, planbord, berichten en bevoegdheden', regiomanager: 'Plus schades en kosten per km', directie: 'Alles, ook contract en kosten; kijkt mee, handelt niet af', hr: 'Personeel: bevoegdheden, schades en contract' };
 
 export function createNav(ctx) {
   const { $ } = ctx;

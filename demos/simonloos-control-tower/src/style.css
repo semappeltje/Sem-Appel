@@ -57,6 +57,9 @@
   :focus{outline:none}
   :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   h1[tabindex="-1"]:focus,h1[tabindex="-1"]:focus-visible{outline:none}
+  /* "Naar de inhoud": de eerste tab-stop, alleen zichtbaar met de focus erop */
+  .skip{position:absolute;left:12px;top:-60px;z-index:200;padding:9px 14px;border:0;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font:600 13.5px/1.2 var(--font);box-shadow:var(--sh-pop);cursor:pointer}
+  .skip:focus,.skip:focus-visible{top:10px;outline:2px solid var(--focus);outline-offset:2px}
   .ic{flex:none;display:inline-block;vertical-align:-3px}
   [hidden]{display:none!important}
   ::selection{background:var(--sel-line)}
@@ -714,6 +717,9 @@
   .deps-t td .plate{margin-right:2px}
   .deps-t{table-layout:fixed}
   .deps-t td.dest{max-width:none}
+  .deps-t td.cd small.blk{display:block;line-height:1.15}
+  .deps-t .dep-best{display:block;margin-top:3px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+  .deps-t.nar tbody td{padding-top:5px;padding-bottom:5px}
   .feed{display:flex;flex-direction:column}
   .feed-i{display:grid;grid-template-columns:44px 22px minmax(0,1fr);gap:8px;align-items:start;padding:8px 16px;border-top:1px solid var(--line);font-size:13px;line-height:1.45}
   .feed-i time{color:var(--muted);font-size:12.5px;padding-top:1px}
@@ -909,6 +915,22 @@
   .spl-i .badge{grid-row:1/3;grid-column:2;align-self:center}
   .spl-d{min-height:0;overflow:auto;background:var(--bg)}
   .spl-d .pg{max-width:1120px;padding-top:20px}
+  /* vertrekbord op Standplaatsen: vaste kolommen in hun vak; smaller vak, minder kolommen (eerst oplegger, dan chauffeur,
+     dan dock); op een telefoon de bestemming onder het voertuig. De status valt nooit buiten beeld. */
+  .vb-box{container-type:inline-size}
+  .vb-t{table-layout:fixed}
+  .vb-t th,.vb-t td{max-width:none}
+  .vb-t th.c-vt{width:124px}
+  .vb-t th.c-vg{width:88px}
+  .vb-t th.c-opl{width:76px}
+  .vb-t th.c-chf{width:112px}
+  .vb-t th.c-dock{width:52px}
+  .vb-t th.c-st{width:100px}
+  .vb-t .vb-best{display:none}
+  @container (max-width:700px){ .vb-t .c-opl{display:none} }
+  @container (max-width:610px){ .vb-t .c-chf{display:none} }
+  @container (max-width:520px){ .vb-t .c-dock{display:none} .vb-t th.c-vt{width:84px} .vb-t td.c-vt small{display:block;line-height:1.15} }
+  @container (max-width:400px){ .vb-t .c-best{display:none} .vb-t th.c-vg{width:auto} .vb-t td.c-vg{padding-top:6px;padding-bottom:6px} .vb-t .vb-best{display:block;margin-top:3px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis} }
   .vb td.cd{color:var(--muted);font-size:12.5px}
   .vb tr.soon td.cd{color:var(--ok);font-weight:600}
   .vb tr.now td.cd{color:var(--ok);font-weight:700}
@@ -1442,8 +1464,13 @@
   .pk-u .kans{height:18px;font-size:11px;padding:0 7px}
   .pk-alle{margin-left:auto;font-size:12.5px}
   .sg-vk{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;border:2px solid var(--warn);background:var(--bg);pointer-events:none}
-  .sg-av{display:none}
-  .sg-task.aangevraagd{background-image:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--warn) 22%,transparent) 5px 8px)!important;box-shadow:inset 0 0 0 1.5px var(--warn)!important}
+  /* een rit die op een ja wacht: een eigen laag met de arcering boven de segmenten (op de taak zelf dekken die hem af),
+     een rand in de waarschuwingskleur en "gevraagd" in de tweede regel; de tekst houdt een rand in de achtergrondkleur */
+  .sg-arc{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--warn) 62%,transparent) 0 3px,transparent 3px 8px)}
+  .sg-av{font-weight:700;color:var(--warn)}
+  .sg-task.aangevraagd{box-shadow:inset 0 0 0 2px var(--warn)!important}
+  .sg-task.aangevraagd .sg-l b,.sg-task.aangevraagd .sg-l small{text-shadow:0 0 2px var(--bg),0 0 2px var(--bg),0 0 3px var(--bg)}
+  .sg-task.pb-charter.aangevraagd{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--warn) 45%,transparent) 0 3px,transparent 3px 8px)!important}
   .sg-task.pb-charter{background:var(--surface2)!important;box-shadow:inset 0 0 0 1px var(--line2);cursor:default}
   .legend i.vk{width:8px;height:8px;border-radius:50%;border:2px solid var(--warn);background:var(--bg)}
   .legend i.av{background:repeating-linear-gradient(135deg,transparent 0 3px,color-mix(in srgb,var(--warn) 35%,transparent) 3px 5px);box-shadow:inset 0 0 0 1.5px var(--warn)}

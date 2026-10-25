@@ -81,7 +81,9 @@ export const ROLES = {
 // Wat een rol mag zien (uit het ontwerpdocument Control Tower 2.0; beheerscherm en audit-log volgen later).
 export const CAN = {
   kosten: ['regiomanager', 'directie'],
-  rijden: ['regiomanager', 'directie', 'hr'],
+  // rijgedrag per chauffeur (verbruik, overtredingen, harde remmingen): niet voor de regiomanager, die de chauffeurs
+  // aanstuurt; een prestatiebeeld per chauffeur kan alleen met instemming van de OR (signaal, geen juridisch advies)
+  rijden: ['directie', 'hr'],
   schades: ['regiomanager', 'directie', 'hr'],
   contract: ['directie', 'hr'],
   nood: ['regiomanager', 'hr'],

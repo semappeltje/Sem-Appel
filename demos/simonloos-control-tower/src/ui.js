@@ -4,7 +4,7 @@
 // uitzonderingen, en regelt de routes (#ritten, #rit/R-10213, #melding/V-T-1112, ...) met een werkende terugknop.
 // De weergaven zelf staan in src/ui/*.js, views.js, tables.js en sheets.js.
 import './ui/taal.js';
-import { SP, REGIOS, DIV, ROLES, CAN, laadpunten, winkelById, dcById, plekNaam } from './places.js';
+import { SP, REGIOS, DIV, ROLES, CAN, laadpunten, winkelById, dcById, plekNaam, CITIES, TOWNS } from './places.js';
 import { KIND, TRT } from './fleet.js';
 import { esc, ic, fmt, hhmm, day, durTxt, fmtDrive, VST, TST, WACHT, initials, on, plate, kenteken, empty, effWin, sectieIconen } from './ui/base.js';
 import { portretHtml, vulPortretten } from './ui/portret.js';
@@ -24,7 +24,7 @@ import { renderStandplaatsen, renderHal, renderKlant } from './views.js';
 import { renderPlanbord, updateNowline } from './ui/planbord.js';
 import { verplaatsRit, planPoolRit, pool } from './ui/planwijzig.js';
 import { naInplannen, voerActieUit } from './ui/invulling.js';
-import { renderOpenRitten, openIn } from './ui/openritten.js';
+import { renderOpenRitten, openIn, orStand } from './ui/openritten.js';
 import { renderPoule, charterPage, oproepPage } from './ui/poule.js';
 import { renderVoertuigen, renderOpleggers, renderChauffeurs, renderLostijden, renderLaden, renderPauze } from './tables.js';
 import { truckPage, trailerPage, personPage, TRUCK_TABS, TRAILER_TABS, PERSON_TABS } from './sheets.js';
@@ -324,7 +324,24 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
 
   // ---------- kaart: selectie, route, volgen, dok in een detailpagina ----------
   const mapVisible = () => view === 'kaart' || !!docked;
-  const pad = () => ({ top: 56, left: 0, bottom: narrow() && panelOpen() ? Math.round(root.clientHeight * 0.5) : 70, right: !narrow() && panelOpen() ? Math.min(400, root.clientWidth * 0.45) : 0 });
+  // Het vrije deel van de kaart, als padding voor de camera: onder de filterbalk, boven de tijdbalk en links van het
+  // paneel (op een telefoon boven het paneel). Gemeten in de opmaak, niet geschat: een filterbalk van twee rijen of het
+  // paneel op een telefoon (62 % van de hoogte) telt zo mee. Het paneel zelf telt zonder zijn schuifbeweging (offsetWidth
+  // en offsetHeight), zodat het meten ook klopt terwijl het paneel nog binnenschuift.
+  function pad() {
+    const P = { top: 56, left: 0, bottom: 70, right: 0 };
+    try {
+      const C = $('map').getBoundingClientRect(); if (!C.width || !C.height) return P;
+      let top = 0; for (const k of $('mapbar').children) { const b = k.getBoundingClientRect(); if (b.width && b.height) top = Math.max(top, b.bottom - C.top); }
+      const tb = $('timebar').getBoundingClientRect(); let bottom = tb.height ? Math.max(0, C.bottom - tb.top) : 0, right = 0;
+      if (panelOpen()) {
+        const p = $('panel'); const V = $('views').getBoundingClientRect();
+        if (narrow()) { const b2 = Math.max(bottom, C.bottom - (V.bottom - p.offsetHeight)); if (C.height - b2 - top >= 96) bottom = b2; }
+        else right = Math.max(0, C.right - (V.right - p.offsetWidth));
+      }
+      return { top: Math.round(top), left: 0, bottom: Math.round(bottom), right: Math.round(right) };
+    } catch { return P; }
+  }
   function drawRoute(t, s) {
     const seg = s.seg; const r = seg.route || (t.plan.find(x => x.route) || {}).route; if (!r) { mapApi.setRoute(null, null, []); return; }
     const km = seg.route ? s.km : 0; const pts = r.path.pts, cum = r.path.cum; const done = [], todo = [];
@@ -368,6 +385,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     mapApi.setSelected(null);
   }
   let vliegNaar = false, vliegT = 0;
+  // wat de kaart toont zonder dat er iets gekozen is: een plaats uit zoeken of de route van een open rit (het adres
+  // #plaats/<naam> of #route/<rit>); weg zodra er iets anders gekozen wordt of de kaart uit beeld gaat
+  let kaartDoel = null;
   // zoeken opent een voertuig, oplegger of persoon als pagina; de kaart in die pagina vliegt er dan heen
   function vliegBijDock() { vliegNaar = true; clearTimeout(vliegT); vliegT = setTimeout(() => { vliegNaar = false; }, 3000); }
   function dockMap(slot, o) {
@@ -400,7 +420,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     mapApi.setRoute(null, null, []); frame(true);
   }
   function selectTruck(id, opts = {}) {
-    const t = fleet.byId.get(id); if (!t) return; selTruck = t; selTrailer = null; selRest = null; selWinkel = null; follow = false; const s = stAt(t, state.simTime); S.set(t.id, s);
+    const t = fleet.byId.get(id); if (!t) return; selTruck = t; selTrailer = null; selRest = null; selWinkel = null; kaartDoel = null; follow = false; const s = stAt(t, state.simTime); S.set(t.id, s);
     if (page && !opts.keepPage) closePage();
     if (!opts.stay && view !== 'kaart') setView('kaart', true);
     openPanel('truck', true);
@@ -410,7 +430,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     frame(true); syncHash();
   }
   function selectTrailer(id, opts = {}) {
-    const tr = fleet.trailerById.get(id); if (!tr) return; selTrailer = tr; selTruck = null; selRest = null; selWinkel = null; follow = false; mapApi && mapApi.setRoute(null, null, []);
+    const tr = fleet.trailerById.get(id); if (!tr) return; selTrailer = tr; selTruck = null; selRest = null; selWinkel = null; kaartDoel = null; follow = false; mapApi && mapApi.setRoute(null, null, []);
     const s = fleet.trailerStateAt(tr, state.simTime); TRS.set(tr.id, s);
     if (s.st !== 'gekoppeld' && s.st !== 'onderhoud') setTrailersOnMap(true, true);
     if (page && !opts.keepPage) closePage();
@@ -420,18 +440,18 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     frame(true); syncHash();
   }
   function selectSp(sp) {
-    if (!sp) return; selSp = sp; selTruck = null; selRest = null; selTrailer = null; selWinkel = null; follow = false; mapApi && mapApi.setRoute(null, null, []); F.sps = new Set([sp.n]); mapApi && mapApi.highlightSp(sp.n);
+    if (!sp) return; selSp = sp; selTruck = null; selRest = null; selTrailer = null; selWinkel = null; kaartDoel = null; follow = false; mapApi && mapApi.setRoute(null, null, []); F.sps = new Set([sp.n]); mapApi && mapApi.highlightSp(sp.n);
     if (page) closePage();
     if (view !== 'kaart') setView('kaart', true); openPanel('sp', true);
     if (mapApi && !mapApi.noWebGL) cam(sp.n, [sp.lon, sp.lat], Math.max(mapApi.map.getZoom(), 12.5));
     frame(true); refreshAll(false); syncHash();
   }
-  function selectRest(id) { const p = rest.byId.get(id); if (!p) return; selRest = p; selTrailer = null; selWinkel = null; if (page) closePage(); setRestOnMap(true); if (view !== 'kaart') setView('kaart', true); openPanel('rest', true); if (mapApi && !mapApi.noWebGL) cam([p.lon, p.lat], [p.lon, p.lat], Math.max(mapApi.map.getZoom(), 11)); syncHash(); }
+  function selectRest(id) { const p = rest.byId.get(id); if (!p) return; selRest = p; selTrailer = null; selWinkel = null; kaartDoel = null; if (page) closePage(); setRestOnMap(true); if (view !== 'kaart') setView('kaart', true); openPanel('rest', true); if (mapApi && !mapApi.noWebGL) cam([p.lon, p.lat], [p.lon, p.lat], Math.max(mapApi.map.getZoom(), 11)); syncHash(); }
   // een winkel, DC, fabriek of groothandel: op id (places.js) of op de stopnaam uit het dagplan
   function selectWinkel(key, opts = {}) {
     const p = winkelById.get(key) || dcById.get(key) || null; const name = p ? plekNaam(p) : key; let pos = p ? [p.lon, p.lat] : null;
     if (!pos) for (const t of fleet.trucks) { for (const s of t.plan) if (s.k === 'stop' && s.stop === name && s.route) { const i = Math.max(0, s.route.path.cum.findIndex(c2 => c2 >= (s.km0 || 0))); pos = s.route.path.pts[i]; break; } if (pos) break; }
-    if (!pos) return; selWinkel = { name, id: p ? p.id : null, place: p, lon: pos[0], lat: pos[1] }; selTruck = null; selTrailer = null; selRest = null; follow = false; mapApi && mapApi.setRoute(null, null, []);
+    if (!pos) return; selWinkel = { name, id: p ? p.id : null, place: p, lon: pos[0], lat: pos[1] }; selTruck = null; selTrailer = null; selRest = null; kaartDoel = null; follow = false; mapApi && mapApi.setRoute(null, null, []);
     if (page) closePage(); if (view !== 'kaart') setView('kaart', true); openPanel('winkel', true);
     if (mapApi && !mapApi.noWebGL) cam(p ? p.id : [selWinkel.lon, selWinkel.lat], [selWinkel.lon, selWinkel.lat], Math.max(mapApi.map.getZoom(), 14.5), { alsVerborgen: !!opts.vanKaart });
     frame(true); syncHash();
@@ -457,19 +477,37 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (mapApi.flyTo && mapApi.flyTo(doel, { zoom, duration: FLY, mark: o.mark !== false })) return;
     if (ll) mapApi.map.easeTo({ center: ll, zoom, duration: FLY, padding: P });
   }
-  function flyTo(lon, lat, zoom, label) { if (page) closePage(); if (view !== 'kaart') setView('kaart', true); else syncHash(); cam([lon, lat], [lon, lat], zoom); if (label) L.toast(`Kaart op ${label}.`, { icon: 'pin' }); }
-  // een rit uit de pool (nog zonder voertuig) op de kaart: de hele route blauw met de stops (mapApi.setRoute)
-  function toonPoolrit(item) {
+  // wat op de kaart gekozen is loslaten (voertuig, oplegger, winkel, pauzeplek, het paneel van een standplaats), zonder
+  // het adres al te zetten: daarna komt een plaats of een route in beeld
+  function losSelectie() { selTruck = null; selTrailer = null; selWinkel = null; selRest = null; follow = false; kaartDoel = null; if (mapApi) mapApi.setRoute(null, null, []); if (['truck', 'trailer', 'winkel', 'rest', 'sp'].includes(panelMode)) closePanel(); }
+  // een plaats (zoeken, of het adres #plaats/Purmerend): de kaart vliegt naar het midden van het vrije deel; het adres
+  // wordt #plaats/<naam>, zodat herladen en de terugknop kloppen
+  function flyTo(lon, lat, zoom, label, o = {}) {
+    if (page) closePage(); losSelectie(); kaartDoel = label ? { soort: 'plaats', id: label } : null;
+    if (view !== 'kaart') setView('kaart', true);
+    cam([lon, lat], [lon, lat], zoom); frame(true); syncHash();
+    if (label && !o.stil) L.toast(`Kaart op ${label}.`, { icon: 'pin' });
+  }
+  const plaatsVan = n => CITIES.find(c => c.n === n) || TOWNS.find(c => c.n === n) || null;
+  // een rit uit de pool (nog zonder voertuig) op de kaart: de hele route blauw met de stops (mapApi.setRoute), midden in het
+  // vrije deel van de kaart met 40 px rand; het adres wordt #route/<rit>
+  function toonPoolrit(item, o = {}) {
     if (!item || !item.route || !item.route.path) return;
-    if (page) closePage(); clearSel(); if (view !== 'kaart') setView('kaart', true);
+    if (page) closePage(); losSelectie(); kaartDoel = { soort: 'route', id: item.id };
+    if (view !== 'kaart') setView('kaart', true);
+    frame(true); syncHash();
     if (!mapApi || mapApi.noWebGL) { L.toast('De kaart heeft WebGL nodig; deze browser heeft dat niet.', { icon: 'info' }); return; }
     const pts = item.route.path.pts; const stops = (item.stops || []).map(s => s.place && s.place.lon != null ? { lon: s.place.lon, lat: s.place.lat, done: false } : null).filter(Boolean);
-    mapApi.setRoute(null, pts, stops);
     let a = [Infinity, Infinity], b = [-Infinity, -Infinity]; for (const p of pts) { a = [Math.min(a[0], p[0]), Math.min(a[1], p[1])]; b = [Math.max(b[0], p[0]), Math.max(b[1], p[1])]; }
-    try { mapApi.map.fitBounds([a, b], { padding: { top: 90, bottom: 110, left: 60, right: 60 }, maxZoom: 12, duration: FLY }); } catch { /* */ }
-    L.toast(`Rit ${item.id} (${item.klant}, nog zonder voertuig): de route en ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'} op de kaart.`, { icon: 'route' });
+    // na herladen (#route/...) is de kaart misschien nog niet klaar: dan tekent hij de route zodra hij er is
+    mapApi.whenReady(() => {
+      if (!kaartDoel || kaartDoel.soort !== 'route' || kaartDoel.id !== item.id) return;
+      mapApi.setRoute(null, pts, stops);
+      try { mapApi.map.setPadding(pad()); mapApi.map.fitBounds([a, b], { padding: 40, maxZoom: 12, duration: o.stil ? 0 : FLY }); } catch { /* buiten beeld */ }
+    });
+    if (!o.stil) L.toast(`Rit ${item.id} (${item.klant}, nog zonder voertuig): de route en ${stops.length} ${stops.length === 1 ? 'stop' : 'stops'} op de kaart.`, { icon: 'route' });
   }
-  function clearSel() { selTruck = null; selTrailer = null; selWinkel = null; follow = false; if (mapApi) mapApi.setRoute(null, null, []); if (['truck', 'trailer', 'winkel', 'rest'].includes(panelMode)) closePanel(); frame(true); syncHash(); }
+  function clearSel() { selTruck = null; selTrailer = null; selWinkel = null; kaartDoel = null; follow = false; if (mapApi) mapApi.setRoute(null, null, []); if (['truck', 'trailer', 'winkel', 'rest'].includes(panelMode)) closePanel(); frame(true); syncHash(); }
   function setTrailersOnMap(v, quiet) { trailersOnMap = v; if (mapApi) mapApi.showTrailers(v); K.renderMapbar(ctx); if (!quiet && view === 'kaart') L.toast(v ? 'Losse opleggers op de kaart.' : 'Losse opleggers verborgen.', { icon: 'trailer' }); }
   function setRestOnMap(v) { restOnMap = v; if (mapApi) { mapApi.showRest(v); if (v) mapApi.setRest(rest.places, selRest && selRest.id); } }
   // alleen de kaart (en de 3D-wereld): in lijsten, tellers en meldingen blijven de bussen gewoon meetellen
@@ -583,7 +621,11 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     // anders met de maat van de verborgen weergave of van het kaartje in de pagina, en het voertuig belandt linksboven.
     // Daarna nog een keer, als de opmaak (paneel, balken) gezet is.
     if (name === 'kaart' && mapApi) { try { mapApi.map.resize(); } catch { /* geen kaart */ } setTimeout(() => { try { mapApi.map.resize(); } catch { /* */ } }, 0); }
+    // terug op de kaart vanuit een andere weergave: de padding van de camera opnieuw uit het vrije deel van nu (een paneel
+    // dat buiten de kaart dichtging, liet anders zijn padding achter, en een fitBounds daarna kwam scheef uit)
+    if (name === 'kaart' && was !== 'kaart' && mapApi && !mapApi.noWebGL) { try { mapApi.map.setPadding(pad()); } catch { /* oudere kaart */ } }
     if (name !== 'kaart' && ['truck', 'trailer', 'sp', 'rest', 'winkel'].includes(panelMode)) closePanel();
+    if (name !== 'kaart') kaartDoel = null;
     if (name === 'kaart' && !scopeFlown && mapApi) { scopeFlown = true; flyToScope(); }
     frame(true);
     if (!quiet) syncHash();
@@ -610,7 +652,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       voertuigen: `${fmt(k.inScope || 0)} voertuigen · ${fmt(k.inzet || 0)} ingezet`,
       opleggers: `${fmt(k.trailers || 0)} opleggers · ${fmt(k.loose || 0)} los`,
       chauffeurs: `${esc(scopeLabel())} · een voertuig per dienst`,
-      standplaatsen: `${fmt(spsInScope().length)} standplaatsen in ${esc(scopeLabel())}`,
+      standplaatsen: `${fmt(spsInScope().length)} ${spsInScope().length === 1 ? 'standplaats' : 'standplaatsen'} in ${esc(scopeLabel())}`,
       laden: `Goedkoopste uren · ${esc(scopeLabel())}`,
       lostijden: `Gepland naast gemeten · ${esc(scopeLabel())}`,
       pauze: `${rest.places.length} plekken langs de snelweg`,
@@ -638,7 +680,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function currentHash() {
     if (halSp) return 'hal/' + halSp; if (klantId) return 'klant/' + klantId;
     if (page) return page.kind === 'rit' || page.kind === 'melding' || page.kind === 'charter' || page.kind === 'oproep' ? `${page.kind}/${page.id}` : `${page.kind}/${page.id}/${(page.tab || '').toLowerCase() || (page.kind === 'persoon' ? 'overzicht' : 'vandaag')}`;
-    if (view === 'kaart') { if (selTruck) return 'voertuig/' + selTruck.id; if (selTrailer) return 'oplegger/' + selTrailer.id; if (selSp && panelMode === 'sp' && panelOpen()) return 'standplaats/' + selSp.n; if (selWinkel && panelMode === 'winkel' && panelOpen()) return 'winkel/' + (selWinkel.id || selWinkel.name); }
+    if (view === 'kaart') { if (selTruck) return 'voertuig/' + selTruck.id; if (selTrailer) return 'oplegger/' + selTrailer.id; if (selSp && panelMode === 'sp' && panelOpen()) return 'standplaats/' + selSp.n; if (selWinkel && panelMode === 'winkel' && panelOpen()) return 'winkel/' + (selWinkel.id || selWinkel.name); if (kaartDoel) return `${kaartDoel.soort}/${kaartDoel.id}`; }
     if (view === 'standplaatsen' && ui.spSel) return 'standplaatsen/' + ui.spSel;
     if (view === 'openritten' && ui.or && ui.or.sel) return 'openritten/' + ui.or.sel;
     if (view === 'charters' && ui.pouleTab === 'oproep') return 'charters/oproep';
@@ -670,11 +712,13 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if (klantId) { if (wasKlant !== klantId) { if (page) closePage(); if (view !== 'kaart') setView('kaart', true); const t = fleet.byId.get(klantId); if (t) { selTruck = t; follow = true; if (mapApi) { const s = stAt(t, state.simTime); mapApi.map.easeTo({ center: [s.pos.lon, s.pos.lat], zoom: 11, duration: FLY }); } } } renderKlant(ctx, klantId); return; }
       if (wasKlant && !klantId) { follow = false; selTruck = null; frame(true); }
       if (k === 'planbord' && id) { if (page) closePage(); ui.pbKlaar = id; if (view === 'planbord') renderView('planbord'); else setView('planbord', true); }
-      else if (k === 'openritten') { if (page) closePage(); ui.or = ui.or || { sel: null, dag: 'vandaag' }; ui.or.sel = id || null; if (id) { const it = pool(ctx).find(x => x.id === id); if (it) ui.or.dag = it.dag === 'morgen' ? 'morgen' : 'vandaag'; } if (view === 'openritten') renderView('openritten'); else setView('openritten', true); }
+      else if (k === 'openritten') { if (page) closePage(); orStand(ctx); ui.or.sel = id || null; if (id) { const it = pool(ctx).find(x => x.id === id); if (it) ui.or.dag = it.dag === 'morgen' ? 'morgen' : 'vandaag'; } if (view === 'openritten') renderView('openritten'); else setView('openritten', true); }
       else if (k === 'charters') { if (page) closePage(); ui.pouleTab = id === 'oproep' ? 'oproep' : 'charters'; if (view === 'charters') renderView('charters'); else setView('charters', true); }
       else if (k === 'charter' && id) { if (!page && !explicit && view !== 'charters') setView('charters', true); openPage('charter', id); }
       else if (k === 'oproep' && id) { if (!page && !explicit && view !== 'charters') setView('charters', true); ui.pouleTab = ui.pouleTab || 'oproep'; openPage('oproep', id); }
-      else if (HASH_VIEW[k] && !id) { if (page) closePage(); if (k === 'kaart' && (selTruck || selTrailer || selWinkel)) clearSel(); if (k === 'kaart' && panelMode === 'sp') closePanel(); setView(HASH_VIEW[k], true); }
+      else if (HASH_VIEW[k] && !id) { if (page) closePage(); if (k === 'kaart' && (selTruck || selTrailer || selWinkel || kaartDoel)) clearSel(); if (k === 'kaart' && panelMode === 'sp') closePanel(); setView(HASH_VIEW[k], true); }
+      else if (k === 'plaats' && id) { const c = plaatsVan(id); if (c) flyTo(c.lon, c.lat, 11.2, c.n, { stil: true }); }
+      else if (k === 'route' && id) { const it = pool(ctx).find(x => x.id === id); if (it) toonPoolrit(it, { stil: true }); else { if (page) closePage(); setView('kaart', true); } }
       else if (k === 'standplaatsen' && id) { if (page) closePage(); ui.spSel = SP.find(s => s.n === id) ? id : null; setView('standplaatsen', true); }
       else if (k === 'assistent') { toggleAssist(true); }
       else if (k === 'rit' && id) { if (!page && view !== 'ritten' && !explicit) setView('ritten', true); openPage('rit', id); }
@@ -702,7 +746,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     let body = '';
     if (W.step === 1) body = `<h3>Welke regio's wil je zien?</h3><p class="hint">Je werkgebied bepaalt wat je standaard ziet: kaart, ritten, meldingen en tellers. Je past het later aan via het werkgebied in de topbalk.</p><div class="tcards" role="group" aria-label="Regio's">${[['Alle', 'Heel Nederland', `${SP.length} standplaatsen · ${fmt(fleet.trucks.length)} voertuigen`], ...REGIOS.map(r => [r, r, `${SP.filter(s => s.regio === r).length} standplaatsen · ${fmt(SP.filter(s => s.regio === r).reduce((a, s) => a + s.fleet, 0))} voertuigen`])].map(([k, n, d]) => { const onn = k === 'Alle' ? !W.regios.size : W.regios.has(k); return `<button class="tcard ${onn ? 'on' : ''}" type="button" role="checkbox" aria-checked="${onn}" data-regio="${esc(k)}"><i class="cb2 ${onn ? 'on' : ''}">${onn ? ic('check', 12) : ''}</i><b>${esc(n)}</b><span>${esc(d)}</span></button>`; }).join('')}</div>`;
     else if (W.step === 2) body = `<h3>Welke ritten wil je zien?</h3><p class="hint">Kies de divisies die bij je werk horen. Netwerk- en bulkritten lopen door het hele land; winkeldistributie blijft in de regio.</p><div class="tcards" role="group" aria-label="Divisies">${Object.entries(DIV).map(([k, d]) => `<button class="tcard ${W.divs.has(k) ? 'on' : ''}" type="button" role="checkbox" aria-checked="${W.divs.has(k)}" data-div="${k}"><i class="cb2 ${W.divs.has(k) ? 'on' : ''}">${W.divs.has(k) ? ic('check', 12) : ''}</i><b>${esc(d.n)}</b><span>${esc(DIVDESC[k])}</span></button>`).join('')}</div>`;
-    else body = `<h3>Wie ben je?</h3><p class="hint">Je rol bepaalt wat je ziet: planners zien ritten en bevoegdheden, regiomanagers ook rijgedrag en schades, directie en HR ook contract en kosten. Kies eventueel je standplaats als startpunt.</p><div class="tcards" role="radiogroup" aria-label="Rol">${Object.entries(ROLES).map(([k, r]) => `<button class="tcard ${W.role === k ? 'on' : ''}" type="button" role="radio" aria-checked="${W.role === k}" data-role="${k}"><i class="cb2 round ${W.role === k ? 'on' : ''}"></i><b>${esc(r.n)}</b><span>${esc({ planner: 'Ritten, planbord, berichten, bevoegdheden', regiomanager: 'Plus rij-score, schades en kosten per km', directie: 'Alles, ook contract en kosten', hr: 'Personeel: bevoegdheden, schades, contract' }[k])}</span></button>`).join('')}</div><label class="flabel" for="wzSp" style="margin-top:12px">Standplaats als startpunt (optioneel)<select class="fld" id="wzSp"><option value="">Geen, begin bij de regio</option>${SP.slice().sort((a, b) => a.n.localeCompare(b.n)).map(s => `<option ${W.sp === s.n ? 'selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>`;
+    else body = `<h3>Wie ben je?</h3><p class="hint">Je rol bepaalt wat je ziet: planners zien ritten en bevoegdheden, regiomanagers ook schades en kosten, directie en HR ook contract en rijgedrag. Kies eventueel je standplaats als startpunt.</p><div class="tcards" role="radiogroup" aria-label="Rol">${Object.entries(ROLES).map(([k, r]) => `<button class="tcard ${W.role === k ? 'on' : ''}" type="button" role="radio" aria-checked="${W.role === k}" data-role="${k}"><i class="cb2 round ${W.role === k ? 'on' : ''}"></i><b>${esc(r.n)}</b><span>${esc({ planner: 'Ritten, planbord, berichten, bevoegdheden', regiomanager: 'Plus schades en kosten per km', directie: 'Alles, ook contract en kosten', hr: 'Personeel: bevoegdheden, schades, contract' }[k])}</span></button>`).join('')}</div><label class="flabel" for="wzSp" style="margin-top:12px">Standplaats als startpunt (optioneel)<select class="fld" id="wzSp"><option value="">Geen, begin bij de regio</option>${SP.slice().sort((a, b) => a.n.localeCompare(b.n)).map(s => `<option ${W.sp === s.n ? 'selected' : ''}>${esc(s.n)}</option>`).join('')}</select></label>`;
     $('wizard').innerHTML = `<div class="dlg wiz" role="dialog" aria-modal="true" aria-labelledby="wizTitle"><div class="dlg-h"><div class="wiz-logo"><img src="${logo}" alt="Simon Loos"><span id="wizTitle">Control Tower · je werkgebied</span></div>${profile ? `<button class="ib" type="button" id="wzX" aria-label="Sluiten">${ic('x', 18)}</button>` : ''}</div><div class="wsteps">${stepHtml}</div><div class="dlg-b">${body}</div><div class="dlg-f"><span class="hint grow" style="align-self:center">${W.step === 3 ? 'Alles is later aan te passen.' : `Stap ${W.step} van 3`}</span>${profile ? '<button class="btn" type="button" id="wzCancel">Annuleren</button>' : ''}${W.step > 1 ? '<button class="btn" type="button" id="wzBack">Terug</button>' : ''}<button class="btn pri" type="button" id="wzNext">${W.step === 3 ? 'Klaar' : 'Verder'}</button></div></div>`;
     const wz = $('wizard');
     on2(wz, '[data-regio]', c => { const k = c.dataset.regio; if (k === 'Alle') W.regios.clear(); else { W.regios.has(k) ? W.regios.delete(k) : W.regios.add(k); if (W.regios.size === REGIOS.length) W.regios.clear(); } renderWizard(); focusData('regio', k); });
@@ -783,7 +827,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if (typing) { e.target.blur(); return; }
       if (halSp || klantId) { hashTo(''); return; }
       if (page) { back(); return; }
-      if (selTruck || selTrailer || selWinkel || selRest) { clearSel(); return; }
+      if (selTruck || selTrailer || selWinkel || selRest || kaartDoel) { clearSel(); return; }
       if (panelOpen()) { closePanel(); syncHash(); return; }
       return;
     }
@@ -846,6 +890,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   $('panel').addEventListener('mouseover', e => { const b = e.target instanceof Element ? e.target.closest('[data-open^="kaart:truck:"]') : null; if (b) halo(b.dataset.open.slice(12)); });
   $('panel').addEventListener('mouseout', e => { const b = e.target instanceof Element ? e.target.closest('[data-open^="kaart:truck:"]') : null; if (b && !(e.relatedTarget instanceof Node && b.contains(e.relatedTarget))) halo(null); });
   if (embedded) { root.tabIndex = -1; root.addEventListener('pointerdown', () => { if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); }); }
+  // #views en de app-root schuiven nooit zelf (overflow: hidden), maar een scrollIntoView of een focus buiten beeld kan ze
+  // toch verschuiven: op een telefoon maakt het dichte paneel onderaan #views hoger dan het scherm. Dan staat de kaart (of
+  // elke andere weergave) half leeg. Meteen terugzetten.
+  for (const el of [root, $('views')]) el.addEventListener('scroll', () => { if (el.scrollTop || el.scrollLeft) { el.scrollTop = 0; el.scrollLeft = 0; } }, { passive: true });
   let rsz = null; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(() => { refreshAll(); }, 150); });
 
   function attachMap(api) {
@@ -860,11 +908,25 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if (!api.noWebGL && api.map && api.map.getLayer) for (const lid of ['dc', 'winkel']) if (api.map.getLayer(lid)) api.map.on('click', lid, e => { if (e.defaultPrevented || !e.features || !e.features.length) return; if (api.pick && api.pick(e.point)) return; const id = e.features[0].properties && e.features[0].properties.id; if (id) selectPlace({ id }); });
     });
   }
+  // "Naar de inhoud": de eerste tab-stop van de app, zodat je met het toetsenbord niet eerst door het menu en de topbalk
+  // hoeft (zonder deze knop 25 keer Tab tot de briefing). Hij zet de focus op de kop van wat open staat: de pagina, anders
+  // de weergave; de volgende Tab is dan het eerste dat je kunt kiezen (op het Overzicht de eerste regel van de briefing).
+  function naarInhoud() {
+    const el = page ? $('sheet') : $('v-' + view); if (!el) return;
+    const doel = el.querySelector('h1, h2, h3') || el;
+    if (!doel.hasAttribute('tabindex')) doel.tabIndex = -1;
+    doel.focus({ preventScroll: false });
+  }
   function start() {
+    if (!root.querySelector(':scope > .skip')) { const sk = document.createElement('button'); sk.type = 'button'; sk.className = 'skip'; sk.textContent = 'Naar de inhoud'; sk.addEventListener('click', naarInhoud); root.insertBefore(sk, root.firstChild); }
     nav.bind(); nav.renderSide(); nav.renderBottom(); nav.renderTop();
     restoreActs(); R.bump();
-    window.addEventListener('popstate', () => { if (readHash() !== currentHash()) onHash(); });
-    window.addEventListener('hashchange', () => { if (readHash() !== currentHash()) onHash(); });
+    // een nieuw adres (terugknop, of een link of adres met een #) geeft popstate en hashchange na elkaar: een keer uitvoeren,
+    // anders zet bijvoorbeeld #planbord/<rit> de rit twee keer klaar (twee meldingen)
+    let laatsteAdres = { h: null, t: 0 };
+    const opAdres = () => { const h = readHash(); if (h === currentHash()) return; const nu = performance.now(); if (laatsteAdres.h === h && nu - laatsteAdres.t < 250) return; laatsteAdres = { h, t: nu }; onHash(); };
+    window.addEventListener('popstate', opAdres);
+    window.addEventListener('hashchange', opAdres);
     if (profile) applyProfile(false); else openWizard(1);
     if (location.hash.length > 1) onHash(); else setView('overzicht', true);
     if (!location.hash || location.hash.length <= 1) replaceHash('#' + currentHash());

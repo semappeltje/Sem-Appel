@@ -73,7 +73,9 @@ function contactKnoppen(ctx, item, k) {
 function kandidaatHtml(ctx, item, k, i, kan, pri) {
   const WK = ctx.fleet.WAARSCHUWING_KORT || {};
   const doel = k.soort === 'charter' ? `charter/${k.id}` : k.soort === 'oproep' ? `oproep/${k.id}` : `persoon/${k.id}/overzicht`;
-  const sub = k.soort === 'charter' ? `charter${k.contactpersoon ? `, contact ${k.contactpersoon}` : ''}` : `${wieSoort(k)} · ${k.voertuig ? `op ${k.voertuig}` : 'nog geen voertuig'}`;
+  // k.voertuig is het voertuig dat de data voor deze rit kiest (vrij in het laadvenster, op de standplaats van de rit), voor
+  // elke kandidaat hetzelfde: de chauffeur rijdt de rit met dat voertuig, hij zit er nu niet op
+  const sub = k.soort === 'charter' ? `charter${k.contactpersoon ? `, contact ${k.contactpersoon}` : ''}` : `${wieSoort(k)} · ${k.voertuig ? `met ${k.voertuig} (vrij)` : 'nog geen voertuig'}`;
   const ja = Math.round((k.kans || 0) * 100);
   const why = (k.redenen || []).slice(0, 3);
   const chips = [k.past ? `<span class="rz ${k.past.oordeel === 'past goed' ? 'ok' : k.past.oordeel === 'past slecht' ? 'nee' : ''}" title="Voorkeur van ${esc(k.naam)}">${esc(k.past.oordeel)}</span>` : '',
@@ -140,7 +142,7 @@ function wachtHtml(ctx, item, v) {
   const tw = item.toegewezen; const wacht = tw.status === 'aangevraagd';
   const x = tw.soort === 'charter' ? (ctx.fleet.CHARTERS || []).find(c => c.id === tw.id) : tw.soort === 'oproep' ? (ctx.fleet.OPROEP || []).find(o => o.id === tw.id) : null;
   const k = { soort: tw.soort, naam: tw.naam, tel: x ? x.tel : null, email: x && x.email ? x.email : null };
-  const br = tw.bericht; const waar = tw.t ? `op ${tw.t}` : tw.soort === 'charter' ? 'eigen trekker en chauffeur' : item.dag === 'morgen' ? 'voor morgen, een eigen rij op het planbord' : 'nog geen voertuig';
+  const br = tw.bericht; const waar = tw.t ? `met ${tw.t}` : tw.soort === 'charter' ? 'eigen trekker en chauffeur' : item.dag === 'morgen' ? 'voor morgen, een eigen rij op het planbord' : 'nog geen voertuig';
   const mail = tw.soort === 'charter' && k.email && br ? `<a class="btn sm" href="${esc(mailHref(ctx, item, k, br.tekst))}" data-contact="mail" data-wie="${esc(k.naam)}">${ic('mail', 14)}<span>Mail</span></a>` : '';
   return `<section class="or-st ${wacht ? 'wacht' : 'ok'}">${ic(wacht ? 'clock' : 'okc', 20)}<div class="or-sw"><b>${wacht ? `Wacht op een ja van ${esc(tw.naam)}` : `${esc(tw.naam || 'Eigen chauffeur')} rijdt deze rit`}</b>
       <p>${esc(wieSoort(tw))}, ${esc(waar)} · ${item.dag === 'morgen' ? 'morgen ' : ''}vertrek ${hhmm(tw.start || v[0])}${tw.kosten ? ` · ${euro(tw.kosten)} (schatting)` : ''} · gevraagd om ${hhmm(tw.T || 0)}${!wacht && tw.Tb !== undefined ? `, ja om ${hhmm(tw.Tb)}` : ''}</p>
@@ -168,9 +170,21 @@ function detailHtml(ctx, item) {
     ${kandidatenHtml(ctx, item, KD)}`;
 }
 
+// ---------- de stand: vandaag of morgen ----------
+// De gekozen dag blijft na herladen staan (localStorage sl-openritten), maar alleen dezelfde dag: wie gisteravond Morgen
+// koos, begint vanochtend weer bij Vandaag. Pas bewaard als de planner de dag verandert.
+const ORKEY = 'sl-openritten';
+export function orStand(ctx) {
+  if (ctx.ui.or) return ctx.ui.or;
+  let dag = 'vandaag'; try { const s = JSON.parse(ctx.store.get(ORKEY) || 'null'); if (s && s.datum === ctx.A.DAY && (s.dag === 'morgen' || s.dag === 'vandaag')) dag = s.dag; } catch { /* niets bewaard */ }
+  ctx.ui.or = { sel: null, dag, bewaard: dag };
+  return ctx.ui.or;
+}
+function bewaarDag(ctx) { const S = ctx.ui.or; if (!S || S.dag === S.bewaard) return; S.bewaard = S.dag; ctx.store.set(ORKEY, JSON.stringify({ dag: S.dag, datum: ctx.A.DAY })); }
+
 // ---------- de weergave ----------
 export function renderOpenRitten(ctx, el) {
-  const ui = ctx.ui; const S = ui.or || (ui.or = { sel: null, dag: 'vandaag' });
+  const ui = ctx.ui; const S = orStand(ctx);
   const open = openIn(ctx); const tw = toegewezenIn(ctx); const wacht = tw.filter(p => p.toegewezen.status === 'aangevraagd'); const klaar = tw.filter(p => p.toegewezen.status !== 'aangevraagd');
   const vd = open.filter(p => p.dag !== 'morgen'), mo = open.filter(p => p.dag === 'morgen');
   const L = S.dag === 'morgen' ? mo : vd; const narrow = ctx.narrow();
@@ -189,7 +203,7 @@ export function renderOpenRitten(ctx, el) {
   const detail = toonDetail ? `<div class="or-d" data-or-d="${esc(sel.id)}">${narrow ? `<button class="btn sm ghost or-terug" type="button" data-orlijst="1">${ic('back', 15)}Alle open ritten</button>` : ''}${detailHtml(ctx, sel)}</div>`
     : narrow ? '' : `<div class="or-d">${empty('Geen open ritten', 'Alles in je werkgebied is ingevuld. Nieuwe ritten van klanten, ziekmeldingen en uitval komen hier vanzelf binnen.', '', 'okc', 'center')}</div>`;
   const h = `<div class="or">${lijst}${detail}</div>`;
-  S.cur = sel ? sel.id : null;
+  S.cur = sel ? sel.id : null; bewaarDag(ctx);
   if (swap(el, h)) el.querySelectorAll('.or-i.on').forEach(x => { const box = x.closest('.or-l'); if (box && (x.offsetTop < box.scrollTop || x.offsetTop > box.scrollTop + box.clientHeight - 60)) x.scrollIntoView({ block: 'nearest' }); });
   if (!el.dataset.bound) {
     el.dataset.bound = '1';

@@ -38,10 +38,35 @@ export function renderPlanbord(ctx, el) {
 }
 export function updateNowline(ctx) { const pb = ctx.ui.pbState; if (pb) pb.nowline(); }
 
+// De stand van het bord blijft na herladen staan (localStorage sl-planbord): rijen (voertuig, chauffeur of dock), zoom en
+// of de bak met open ritten open staat altijd; de dag (gisteren, vandaag, morgen) en de filters alleen op dezelfde dag,
+// zodat de volgende ochtend weer bij vandaag begint. Het zoekwoord niet: daar staat vaak een naam in.
+const PBKEY = 'sl-planbord';
+function standVan(ctx) {
+  // op een telefoon begint het bord met 6 uur in beeld en de bak dicht
+  const nar = !!(ctx.narrow && ctx.narrow());
+  const f = { div: 'alle', kind: 'alle', st: 'alle', q: '', per: 'voertuig', zoom: nar ? 6 : 12, dag: 'vandaag', poolOpen: !nar, poolDag: 'vandaag' };
+  let s = null; try { s = JSON.parse(ctx.store.get(PBKEY) || 'null'); } catch { s = null; }
+  if (s && typeof s === 'object') {
+    if (MODES.some(m => m[0] === s.per)) f.per = s.per; if (ZOOMS.includes(s.zoom)) f.zoom = s.zoom; if (typeof s.poolOpen === 'boolean') f.poolOpen = s.poolOpen;
+    if (s.datum === ctx.A.DAY) {
+      if (DAGEN.some(d => d[0] === s.dag)) f.dag = s.dag;
+      for (const k of ['div', 'kind']) if (typeof s[k] === 'string' && s[k]) f[k] = s[k];
+      if (['alle', 'vertraagd', 'onderweg', 'klant', 'terrein'].includes(s.st)) f.st = s.st;
+    }
+  }
+  f.poolDag = f.dag === 'morgen' ? 'morgen' : 'vandaag';
+  return f;
+}
+
 function createBoard(ctx, el) {
   const { fleet, state, S, R } = ctx; const ui = ctx.ui;
-  const f = ui.pb || (ui.pb = { div: 'alle', kind: 'alle', st: 'alle', q: '', per: 'voertuig', zoom: ctx.narrow && ctx.narrow() ? 6 : 12, dag: 'vandaag', poolOpen: !(ctx.narrow && ctx.narrow()), poolDag: 'vandaag' }); // op een telefoon begint de bak dicht
+  const f = ui.pb || (ui.pb = standVan(ctx));
   if (!ZOOMS.includes(f.zoom)) f.zoom = ctx.narrow && ctx.narrow() ? 6 : 12; if (!f.dag) f.dag = 'vandaag';
+  // pas bewaren als de planner iets verandert (zolang niet, bewaart de browser niets)
+  const standTekst = () => JSON.stringify({ per: f.per, zoom: f.zoom, dag: f.dag, div: f.div, kind: f.kind, st: f.st, poolOpen: !!f.poolOpen, datum: ctx.A.DAY });
+  let bewaard = standTekst();
+  function bewaar() { const s = standTekst(); if (s !== bewaard) { bewaard = s; ctx.store.set(PBKEY, s); } }
   const DAY0 = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
   const ms = m => DAY0 + m * MIN; const mm = x => (x - DAY0) / MIN;
   let gantt = null, sig = '', taskSig = new Map(), lastNow = -1, rowsNow = [], tasksNow = [], bucket = -1, externals = [], rebuildSoon = 0;
@@ -125,13 +150,15 @@ function createBoard(ctx, el) {
   const ritStatus = r => ctx.R.stateOf(r, T(), S).st;
   // gepland tegen gereden: wat al gereden is staat gevuld, wat nog komt licht; het geplande blok is omlijnd, en een
   // vertraging (de rit duurt langer dan gepland) staat erachter in de statuskleur
-  function ritHtml(r, rs) {
+  // av: de rit wacht op een ja (toegewezen, nog niet bevestigd): een arcering in de waarschuwingskleur over het hele blok,
+  // boven de segmenten (anders dekken die hem af), en "gevraagd" in de tweede regel, zoals bij de rijen van een charter
+  function ritHtml(r, rs, av = false) {
     const t = r.t; const P = t.plan; const a = P[r.i0].t0, b = P[r.i1].t1, len = Math.max(1, b - a);
     const segs = P.slice(r.i0, r.i1 + 1).filter(s => s.t1 - s.t0 > 0.5).map(s => `<i class="${segKlas(s)}" style="left:${((s.t0 - a) / len * 100).toFixed(2)}%;width:${((s.t1 - s.t0) / len * 100).toFixed(2)}%"></i>`).join('');
     const dest = r.dest.length ? kortStop(r.dest[0]) + (r.dest.length > 1 ? ` +${r.dest.length - 1}` : '') : 'rit';
     const nowPct = rs.st !== 'gepland' && rs.st !== 'afgerond' ? Math.max(0, Math.min(100, (rs.at - absT(t, a)) / len * 100)) : rs.st === 'afgerond' ? 100 : 0;
     const dl = t.delayResolved ? 0 : P.slice(r.i0, r.i1 + 1).reduce((x, s) => x + (s.k === 'drive' ? s.delay || 0 : 0), 0); const planPct = Math.max(0, Math.min(100, (len - dl) / len * 100));
-    return `<span class="sg-r">${segs}</span>${nowPct < 100 ? `<span class="sg-fut" style="left:${nowPct.toFixed(1)}%"></span>` : ''}${dl ? `<span class="sg-plan" style="width:${planPct.toFixed(1)}%"></span><span class="sg-dl" style="left:${planPct.toFixed(1)}%"></span>` : ''}<span class="sg-l"><b>${esc(dest)}</b><small>${hhmm(absT(t, a))}–${hhmm(absT(t, b))}${dl ? ` · +${Math.round(dl)} min` : ''}</small></span>`;
+    return `<span class="sg-r">${segs}</span>${nowPct < 100 ? `<span class="sg-fut" style="left:${nowPct.toFixed(1)}%"></span>` : ''}${dl ? `<span class="sg-plan" style="width:${planPct.toFixed(1)}%"></span><span class="sg-dl" style="left:${planPct.toFixed(1)}%"></span>` : ''}${av ? '<span class="sg-arc" aria-hidden="true"></span>' : ''}<span class="sg-l"><b>${esc(dest)}</b><small>${av ? '<span class="sg-av">gevraagd</span> · ' : ''}${hhmm(absT(t, a))}–${hhmm(absT(t, b))}${dl ? ` · +${Math.round(dl)} min` : ''}</small></span>`;
   }
   // een stille markering als de rit slecht past bij de voorkeur van de chauffeur (fleet.past: divisie, dienstdeel, weekend,
   // regio); een rit die nog op een ja wacht, staat gearceerd
@@ -148,7 +175,7 @@ function createBoard(ctx, el) {
     const ing = P.slice(r.i0, r.i1 + 1).some(s => s.ingevoegd) || r.routes.some(x => x.pool);
     const vk = rs.st === 'gepland' ? voorkeurVan(r) : null; const av = ing && aangevraagd(r);
     const dl = t.delayResolved ? 0 : P.slice(r.i0, r.i1 + 1).reduce((x, s) => x + (s.k === 'drive' ? s.delay || 0 : 0), 0);
-    return { id: r.id, resourceId, from: ms(absT(t, P[r.i0].t0)), to: ms(absT(t, P[r.i1].t1)), html: ritHtml(r, rs) + (vk ? `<span class="sg-vk" title="Tegen voorkeur. ${esc(vk)}" aria-label="Tegen voorkeur. ${esc(vk)}"></span>` : '') + (av ? '<span class="sg-av">gevraagd</span>' : ''), label: `Rit ${r.id}${rs.st === 'afgerond' ? ', gereden' : rs.st === 'gepland' ? ', gepland' : ', onderweg'}${dl ? `, ${Math.round(dl)} min later dan gepland` : ''}${vk ? `, tegen voorkeur: ${vk}` : ''}${av ? ', wacht op een ja' : ''}`,
+    return { id: r.id, resourceId, from: ms(absT(t, P[r.i0].t0)), to: ms(absT(t, P[r.i1].t1)), html: ritHtml(r, rs, av) + (vk ? `<span class="sg-vk" title="Tegen voorkeur. ${esc(vk)}" aria-label="Tegen voorkeur. ${esc(vk)}"></span>` : ''), label: `Rit ${r.id}${rs.st === 'afgerond' ? ', gereden' : rs.st === 'gepland' ? ', gepland' : ', onderweg'}${dl ? `, ${Math.round(dl)} min later dan gepland` : ''}${vk ? `, tegen voorkeur: ${vk}` : ''}${av ? ', wacht op een ja' : ''}`,
       classes: `pb-rit st-${rs.st}${late ? ' late' : ''}${ing ? ' ing' : ''}${vast ? ' vast' : ''}${vk ? ' tegen' : ''}${av ? ' aangevraagd' : ''}`, enableDragging: !vast, draggable: !vast, enableResize: false, resizable: false };
   }
   // toegewezen ritten zonder voertuig op het bord (een charter, een rit van morgen, of nog geen vrij voertuig): een eigen rij
@@ -259,7 +286,7 @@ function createBoard(ctx, el) {
   function scrollNow(smooth) { if (f.dag !== 'vandaag') { zetDag('vandaag', true); return; } naarTijd(T(), 0.25, smooth); }
   function stap(dir) { const sc = body(); if (!sc) return; sc.scrollBy({ left: dir * sc.clientWidth * 0.5, behavior: RM() ? 'auto' : 'smooth' }); }
   function zetZoom(z) {
-    if (!ZOOMS.includes(z) || z === f.zoom) return; const mid = tijdOp(0.5); f.zoom = z;
+    if (!ZOOMS.includes(z) || z === f.zoom) return; const mid = tijdOp(0.5); f.zoom = z; bewaar();
     if (gantt) { gantt.$set({ minWidth: breedte(), columnOffset: kolom() }); requestAnimationFrame(() => { if (mid !== null) naarTijd(mid, 0.5); }); }
     swap($('[data-pb=bar]'), bar(spNu(), fleet.trucks.filter(t => t.base === spNu())));
   }
@@ -380,7 +407,7 @@ function createBoard(ctx, el) {
       <span class="hint">${dag === 'vandaag' ? 'Op urgentie. Kies Rit inplannen, of sleep de kaart op een voertuig.' : 'De ritten van morgen komen tussen 13:00 en 16:30 binnen. Waar een voertuig na middernacht nog werkt, kan hij er nu al op.'}${pool(ctx).some(p => p.schatting) ? ' Pool geschat: een paar procent van de ritten van de standplaats.' : ''}</span><button class="lnk pk-alle" type="button" data-open="view:openritten">Alle open ritten</button></div>
       ${f.poolOpen ? `<div class="pk-list" role="list">${V.length ? V.map(card).join('') : `<p class="hint" style="padding:8px 0">${dag === 'vandaag' ? 'Alles van vandaag is ingepland.' : 'Nog geen ritten voor morgen.'}</p>`}</div>` : ''}`;
   }
-  on(el, 'click', '[data-pktg]', () => { f.poolOpen = !f.poolOpen; drawPool(true); });
+  on(el, 'click', '[data-pktg]', () => { f.poolOpen = !f.poolOpen; drawPool(true); bewaar(); });
   on(el, 'click', '[data-pkdag]', (e, b) => { f.poolDag = b.dataset.pkdag; drawPool(true); });
   on(el, 'click', '[data-pkkaart]', (e, b) => { const item = poolItems(spNu()).find(p => p.id === b.dataset.pkkaart); if (item) ctx.toonPoolrit(item); });
   on(el, 'click', '[data-pkwaar]', (e, b) => { const sp = spNu(); const item = poolItems(sp).find(p => p.id === b.dataset.pkwaar); if (item) openRitDialoog(ctx, item, { na }); });
@@ -427,7 +454,7 @@ function createBoard(ctx, el) {
     // de replay is verzet (tijdbalk, Ga naar, echte klok): het bord scrolt mee; gewoon verversen laat het beeld staan
     if (ui.pbVolg && gantt) { ui.pbVolg = false; if (f.dag === 'vandaag') requestAnimationFrame(() => naarTijd(T(), 0.35, true)); }
     const dn = $('[data-pb=dagnote]'); if (dn) { const tx = f.dag === 'gisteren' ? 'Gisteren: de gereden diensten uit de historie, per voertuig (geen ritten per blok).' : f.dag === 'morgen' ? 'Morgen: het plan komt vanmiddag tussen 13:00 en 16:30 binnen. Nu staan hier de open ritten van morgen en de nachtritten van vandaag.' : ''; dn.hidden = !tx; if (dn.textContent !== tx) dn.textContent = tx; }
-    nowline();
+    nowline(); bewaar();
   }
   // een rit klaarzetten om te verplaatsen: het juiste bord (standplaats, per voertuig, geen filters, het tijdvenster om de
   // rit heen), het blok gekozen en in beeld, met de focus erop (pijltjes en Alt met pijltjes werken meteen)
