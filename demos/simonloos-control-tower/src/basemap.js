@@ -178,17 +178,22 @@ function sites() {
 // op de Veluwe). De routes kiezen niet op rijrichting, dus een voertuig kan op de verkeerde rijbaan liggen. De richting
 // van een lijn in de data is bovendien niet altijd de rijrichting (bij het samenvoegen van stukjes tot één kant kan een
 // lijn omgedraaid zijn), dus de regel hangt daar niet van af: de andere rijbaan hoort links van het voertuig te liggen.
-// laneShift(lon, lat, koers) geeft de verschuiving (in graden) naar waar een rijdend voertuig hoort:
-//   - op een rijbaan van een gescheiden weg (een kant met een evenwijdige lijn van dezelfde klasse ernaast): ligt de
-//     andere rijbaan (de dichtstbijzijnde evenwijdige lijn die de andere kant op wijst) links, dan niets (de lijn is het
-//     midden van de rijbaan); ligt hij rechts, dan rijdt het voertuig op de verkeerde rijbaan en gaat het naar die andere;
-//   - op een weg met één lijn voor beide richtingen: rechts van de hartlijn, snelweg 6 m, autoweg en N-weg 2,3 m;
-//   - buiten de graaf (toegangsstraten, terreinen): 1,7 m; op een afrit (één rijstrook): niets.
+// laneShift(lon, lat, koers) geeft de verschuiving (in graden) naar waar een rijdend voertuig hoort: het midden van de
+// rechterstrook van zijn eigen rijbaan, op ware maat (een rijstrook is 3,5 m; zo tekent de kaart de wegen ook):
+//   - op een rijbaan van een gescheiden weg (een kant met een evenwijdige lijn van dezelfde klasse ernaast) is de lijn in
+//     de data het midden van de rijbaan, met twee stroken: de rechterstrook ligt 1,75 m rechts van de lijn. Ligt de andere
+//     rijbaan (de dichtstbijzijnde evenwijdige lijn die de andere kant op wijst) links, dan 1,75 m naar rechts; ligt hij
+//     rechts, dan rijdt het voertuig op de verkeerde rijbaan en gaat het naar de rechterstrook van die andere. De breedte
+//     van de middenberm hoeft niet bekend te zijn: die zit in de afstand tussen de twee lijnen (13,6 m bij Wognum, tot 160 m
+//     op de Veluwe);
+//   - op een snelweg met één lijn voor beide richtingen (getekend als twee rijbanen van 7,5 m met 4 m berm): 2 + 3,5 + 1,75
+//     = 7,25 m rechts van de hartlijn; op een autoweg of N-weg met één lijn (één strook per richting): 1,75 m;
+//   - buiten de graaf (toegangsstraten en terreinen, getekend als straat van 5,5 m): 1,4 m; op een afrit (één strook): niets.
 // Of een kant een rijbaan is, staat per kant vast (drie punten, de meerderheid telt), zodat een voertuig onderweg niet
 // heen en weer springt. Bij autowegen en N-wegen tellen korte kanten (onder 60 m: rotondes, kruispunten) niet als
 // rijbaan, en mag de andere rijbaan niet verder dan 46 m (autoweg) of 30 m (N-weg) liggen: anders zou een voertuig dat
 // verkeerd om een rotonde rijdt aan de overkant getekend worden, of op een andere weg die toevallig evenwijdig loopt.
-export const LANE = { mw: 6, n: 2.3, overig: 1.7 };
+export const LANE = { rijbaan: 1.75, mw: 7.25, n: 1.75, overig: 1.4 };
 const TWIN_R = [160, 46, 30], MIN_EDGE = [0, 60, 60]; // per klasse: hoe ver de andere rijbaan mag liggen, kortste kant
 const KM = 111320, LC = 0.0015, OX = 5, OY = 52; // cellen van ongeveer 100 bij 170 m; punten ten opzichte van (5, 52)
 let LX = null;
@@ -331,8 +336,9 @@ export function laneShift(lon, lat, bearing) {
   const near = ETD[ei] ? Math.min(TWIN_R[cls], ETD[ei] + 12) : TWIN_R[cls];
   let q = nearestTwin(L, laneScan(lon, lat, ux, uy, near).nc, cls, ei, curCos);
   if (q < 0 && near < TWIN_R[cls]) q = nearestTwin(L, laneScan(lon, lat, ux, uy, TWIN_R[cls]).nc, cls, ei, curCos);
-  if (q < 0) return null;
-  const C = L.cand; return C[q + 2] * rx + C[q + 3] * ry > 0 ? [C[q + 2] / kx, C[q + 3] / KM] : null;
+  const strook = by(LANE.rijbaan);
+  if (q < 0) return strook;
+  const C = L.cand; return C[q + 2] * rx + C[q + 3] * ry > 0 ? [C[q + 2] / kx + strook[0], C[q + 3] / KM + strook[1]] : strook;
 }
 
 let BASE = null;

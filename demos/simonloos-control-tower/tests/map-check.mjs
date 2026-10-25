@@ -4,7 +4,7 @@
 // Dan het spoor van de gekozen rit (grijs gereden, blauw komend, de laatste 20 minuten vervagend), flyTo naar een plek,
 // voertuig of oplegger met een korte markering, gebeurtenissen langs een rit, het anker voor een hoverkaartje, de docks
 // (een voertuig springt naar het dock, de deuren op de gevel) en de labels bij de plekken van de gekozen rit. Dan rechts
-// rijden: elk rijdend voertuig op de rijbaan van zijn eigen rijrichting (de A7 bij Wognum in beide richtingen, alle
+// rijden: elk rijdend voertuig op de rechterstrook van de rijbaan van zijn eigen rijrichting (de A7 bij Wognum in beide richtingen, alle
 // rijdende voertuigen, de route van een gekozen voertuig op zijn rijbaan), met een schermafbeelding van de A7 op zoom 16.
 // De online basiskaarten nagebootst (OpenFreeMap met een echte vectortegel, de luchtfoto en de BRT-achtergrondkaart van
 // PDOK) met hun terugval, land en zee onder elke standplaats, elk DC en elke fabriek, en de afdelingen op het terrein.
@@ -512,6 +512,9 @@ const bewaard = page => page.evaluate(() => { try { return localStorage.getItem(
     };
     // hoe ver een punt rechts van de hartlijn ligt
     window.__right = (lon, lat, bearing) => { const L = window.__mwNear(lon, lat, bearing, 30); return L.length ? -(L[0].side + L[L.length - 1].side) / 2 : null; };
+    // hoe ver een punt rechts van de lijn van zijn eigen rijbaan ligt (de dichtstbijzijnde evenwijdige snelweglijn binnen
+    // 5 m): op de rechterstrook van een rijbaan met twee stroken van 3,5 m is dat 1,75 m
+    window.__lane = (lon, lat, bearing) => { const L = window.__mwNear(lon, lat, bearing, 5); const o = L.reduce((a, x) => (!a || Math.abs(x.side) < Math.abs(a.side) ? x : a), null); return o ? -o.side : null; };
   });
   // --- één punt, twee richtingen: twee voertuigen op hetzelfde punt van een rijbaan van de A7, de een in de richting van
   // die lijn, de ander ertegenin (zo stonden ze in de melding allebei op dezelfde helft)
@@ -521,11 +524,14 @@ const bewaard = page => page.evaluate(() => { try { return localStorage.getItem(
     if (!pt) return null;
     const feat = (id, b) => ({ type: 'Feature', properties: { id, st: 'onderweg', b: Math.round(b), mv: true, k: 'trekker', base: 'Wognum' }, geometry: { type: 'Point', coordinates: [pt.lon, pt.lat] } });
     S.map.setTrucks([feat('TEST-1', pt.b), feat('TEST-2', (pt.b + 180) % 360)], []);
-    const v = ['TEST-1', 'TEST-2'].map(id => { const q = S.map.vehiclePos(id); return { b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)) }; });
+    const v = ['TEST-1', 'TEST-2'].map(id => { const q = S.map.vehiclePos(id); return { b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)), lane: window.__lane(q.lon, q.lat, Math.round(q.bearing)) }; });
     S.__frame(true); // de echte voertuigen terug
     const kx = 111320 * Math.cos(52.685 * Math.PI / 180); return { d: Math.hypot((v[0].lon - v[1].lon) * kx, (v[0].lat - v[1].lat) * 111320), v };
   });
   check(!!syn && syn.d > 8 && syn.v.every(x => x.right > 0), syn ? `A7 bij Wognum, één punt in twee richtingen: ${syn.d.toFixed(1)} m uit elkaar, elk rechts van de hartlijn (${syn.v.map(x => `koers ${x.b}: ${x.right == null ? '-' : x.right.toFixed(1)} m`).join(', ')})` : 'A7 bij Wognum: geen rijbaan gevonden');
+  // Sem in 4.0: "tegenliggers lijken allebei op de binnenste strook bij de middenberm te rijden". Op ware maat: elk in het
+  // midden van de rechterstrook van zijn eigen rijbaan, 1,75 m rechts van de lijn (een rijstrook is 3,5 m)
+  check(!!syn && syn.v.every(x => x.lane != null && x.lane > 1.5 && x.lane < 2.0), syn ? `A7 bij Wognum: elk op de rechterstrook van zijn eigen rijbaan (${syn.v.map(x => `koers ${x.b}: ${x.lane == null ? '-' : x.lane.toFixed(2)} m rechts van de lijn`).join(', ')}; een rijstrook is 3,5 m)` : 'A7 bij Wognum: geen rijbaan gevonden');
   // --- echt verkeer: een moment met twee voertuigen in tegengestelde richting op de A7 bij Wognum, hoogstens 400 m uit
   // elkaar (allebei op een snelweglijn in de data)
   const pair = await page.evaluate(() => {
@@ -542,12 +548,12 @@ const bewaard = page => page.evaluate(() => { try { return localStorage.getItem(
       const S = window.SLCT; S.state.simTime = pair.T; S.__frame(true);
       S.map.map.jumpTo({ center: [(pair.a.lon + pair.c.lon) / 2, (pair.a.lat + pair.c.lat) / 2], zoom: 16, pitch: 0, bearing: 0 });
       await new Promise(r => setTimeout(r, 500));
-      const v = [pair.a.id, pair.c.id].map(id => { const q = S.map.vehiclePos(id); return { id, b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)) }; });
+      const v = [pair.a.id, pair.c.id].map(id => { const q = S.map.vehiclePos(id); return { id, b: Math.round(q.bearing), lon: q.lon, lat: q.lat, right: window.__right(q.lon, q.lat, Math.round(q.bearing)), lane: window.__lane(q.lon, q.lat, Math.round(q.bearing)) }; });
       // zijdelings: elk ter plekke gemeten vanaf de hartlijn en opgeteld (twee voertuigen tot 400 m uit elkaar op een
       // bocht meet je niet langs de koers van een van beide)
       return { v, side: (v[0].right || 0) + (v[1].right || 0) };
     }, pair);
-    for (const x of r.v) check(x.right > 0, `${x.id} (koers ${x.b}) op de A7 bij Wognum: ${x.right == null ? '-' : x.right.toFixed(1)} m rechts van de hartlijn`);
+    for (const x of r.v) check(x.right > 0 && x.lane != null && x.lane > 1.5 && x.lane < 2.0, `${x.id} (koers ${x.b}) op de A7 bij Wognum: ${x.right == null ? '-' : x.right.toFixed(1)} m rechts van de hartlijn, op de rechterstrook (${x.lane == null ? '-' : x.lane.toFixed(2)} m rechts van de lijn van zijn rijbaan)`);
     check(r.side > 8, `A7 bij Wognum, verkeer in beide richtingen (${r.v.map(x => x.id).join(' en ')}): zijdelings ${r.side.toFixed(1)} m uit elkaar, elk aan zijn eigen kant van de hartlijn`);
     if (shots) {
       mkdirSync(shots, { recursive: true });
