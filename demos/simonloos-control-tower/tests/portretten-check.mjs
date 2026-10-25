@@ -43,7 +43,18 @@ check(!los.length, `geen bestanden zonder portret in src/assets/portretten${los.
 
 // ---------- de module zelf, in Node: de ?inline-imports vervangen door de bestandsnaam ----------
 const tmp = mkdtempSync(path.join(tmpdir(), 'portretten-'));
-const body = src.replace(/^import\s+(\w+)\s+from\s+'\.\/assets\/portretten\/([\w-]+\.webp)\?inline';$/gm, (_, n, f) => `const ${n} = 'data:image/webp;${f}';`);
+// de foto's van de schaalmodellen (src/assets/fotos): 960 x 640, elk hooguit 60 KB, samen hooguit 200 KB
+const fotos = [...src.matchAll(/^import\s+(\w+)\s+from\s+'\.\/assets\/fotos\/([\w-]+\.webp)\?inline';$/gm)].map(m => ({ name: m[1], file: m[2] }));
+const fdir = path.join(app, 'src', 'assets', 'fotos'); let ftotal = 0; const fbad = [];
+for (const { file } of fotos) {
+  const f = path.join(fdir, file); if (!existsSync(f)) { fbad.push(`${file} ontbreekt`); continue; }
+  const buf = readFileSync(f); ftotal += buf.length; const wh = webpSize(buf);
+  if (buf.length > 60 * 1024) fbad.push(`${file} ${buf.length} bytes`);
+  if (!wh || wh[0] !== 960 || wh[1] !== 640) fbad.push(`${file} ${wh ? wh.join('x') : 'geen WebP'}`);
+}
+check(fotos.length > 0 && !fbad.length, `${fotos.length} foto's van schaalmodellen, elk een WebP van 960 x 640 en hooguit 60 KB${fbad.length ? ': ' + fbad.join('; ') : ''}`);
+check(ftotal <= 200 * 1024, `foto's samen ${(ftotal / 1024).toFixed(1)} KB (hooguit 200 KB)`);
+const body = src.replace(/^import\s+(\w+)\s+from\s+'\.\/assets\/(?:portretten|fotos)\/([\w-]+\.webp)\?inline';$/gm, (_, n, f) => `const ${n} = 'data:image/webp;${f}';`);
 writeFileSync(path.join(tmp, 'portretten.mjs'), body);
 const M = await import(pathToFileURL(path.join(tmp, 'portretten.mjs')).href);
 const ids = M.PORTRETTEN.map(p => p.id);
@@ -51,6 +62,10 @@ check(new Set(ids).size === ids.length && M.PORTRETTEN.every(p => p.alt && p.alt
 const vorm = [['DAF XF 480', 'trekker-daf-diesel'], ['Scania R 450', 'trekker-scania-diesel'], ['Scania 460 R Super', 'trekker-scania-diesel'], ['Volvo FH 460', 'trekker-volvo-diesel'], ['Mercedes-Benz Actros 1845', 'trekker-mercedes-diesel']];
 const vormEv = [['Volvo FH Electric', 'trekker-volvo-elektrisch'], ['Mercedes-Benz eActros 300', 'trekker-mercedes-elektrisch'], ['Mercedes-Benz eActros 600', 'trekker-mercedes600-elektrisch']];
 const mis = [...vorm.map(([m, id]) => [M.portretVan({ kind: 'trekker', ev: false, model: m }), id]), ...vormEv.map(([m, id]) => [M.portretVan({ kind: 'trekker', ev: true, model: m }), id]), ...vormEv.map(([m, id]) => [M.portretVan({ kind: 'trekker', ev: true, model: m }, true), id + '-oplegger'])].filter(([p, id]) => !p || p.id !== id);
+const fids = M.FOTOS.map(f => f.id);
+check(new Set(fids).size === fids.length && M.FOTOS.every(f => f.alt && f.bron && f.w === 960 && f.h === 640), `FOTOS: ${fids.length} unieke namen, elk met alt-tekst, bron en maat`);
+const fDaf = M.fotoVan({ kind: 'trekker', ev: false, model: 'DAF XF 480' }), fActros = M.fotoVan({ kind: 'bakwagen', ev: false, model: 'Mercedes-Benz Actros 2545' }), fEv = M.fotoVan({ kind: 'trekker', ev: true, model: 'Volvo FH Electric' }), fKoel = M.fotoVanOplegger('koel'), fSilo = M.fotoVanOplegger('silo');
+check(fDaf && fDaf.zicht === 'voor' && fActros && fActros.soort === 'bakwagen' && fEv === null && fKoel && fKoel.zicht === 'zij' && fSilo === null, `fotoVan: DAF XF → ${fDaf && fDaf.id}, Actros bakwagen → ${fActros && fActros.id}, elektrische Volvo → ${fEv}, koeloplegger → ${fKoel && fKoel.id}, silo → ${fSilo}`);
 check(!mis.length, `cabinevorm per model, met en zonder oplegger${mis.length ? ': ' + mis.map(([p, id]) => `${id} → ${p && p.id}`).join('; ') : ''}`);
 
 // ---------- elk voertuig en elke oplegger uit de simulatie ----------

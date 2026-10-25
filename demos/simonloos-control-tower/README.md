@@ -178,7 +178,10 @@ terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekoze
 drie keer uit en aan, en consolefouten.
 
 **Voertuigbeelden.** De beelden van voertuigen en opleggers op de voertuig- en opleggerpagina en in de
-hoverkaart zijn renders van onze eigen 3D-modellen, geen foto's. Elke trekker heeft de cabinevorm van zijn
+hoverkaart zijn renders van onze eigen 3D-modellen, geen foto's; alleen van een DAF XF met koeloplegger en
+een Mercedes-Benz Actros bakwagen met aanhanger staan er foto's van Sems eigen schaalmodellen in de echte
+huisstijl (`src/assets/fotos/`, bron `rapporten/simon-loos-control-tower/fotos-modellen/`, uitsneden met
+`tools/fotos-modellen.mjs`; `fotoVan` en `fotoVanOplegger` gaan voor een render). Elke trekker heeft de cabinevorm van zijn
 merk (DAF XF, Scania R, Volvo FH, Mercedes Actros en eActros 600), zonder merktekens. Een elektrische trekker
 heeft accupakketten en een laadklep in plaats van de tank. Verder: met of zonder koeloplegger, de bakwagen
 in drie vormen, de bestelbus, en elke opleggersoort los op de steunpoten. Alles in de Simon Loos-kleuren en

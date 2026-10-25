@@ -1,4 +1,7 @@
-// Portretten van de voertuigen en opleggers: renders van onze eigen 3D-modellen (src/scene3d/varianten.js), geen foto's.
+// Portretten van de voertuigen en opleggers: renders van onze eigen 3D-modellen (src/scene3d/varianten.js), en voor een
+// DAF XF met koeloplegger en een Mercedes-Benz Actros bakwagen met aanhanger de foto's van Sems eigen schaalmodellen in de
+// echte Simon Loos-huisstijl (FOTOS, fotoVan, fotoVanOplegger; de uitsneden maakt tools/fotos-modellen.mjs). Toon de foto
+// als die er is, anders de render.
 // Cabines in de vorm van de merken in de vloot, zonder merktekens; de Simon Loos-rode cabine en de witte oplegger zoals in
 // de 3D-wereld; een fictief kenteken op het model (de app zet het echte kenteken als tekst ernaast). Opnieuw maken:
 // node tools/render-portretten.mjs. 640 x 400 px, WebP met een doorzichtige achtergrond, elk hooguit 25 KB.
@@ -37,6 +40,11 @@ import opleggerCity from './assets/portretten/oplegger-city.webp?inline';
 import opleggerSilo from './assets/portretten/oplegger-silo.webp?inline';
 import opleggerDrank from './assets/portretten/oplegger-drank.webp?inline';
 import opleggerLzv from './assets/portretten/oplegger-lzv.webp?inline';
+// foto's van de schaalmodellen (960 x 640, WebP, 33 tot 52 KB)
+import fotoDafVoor from './assets/fotos/daf-xf-koeloplegger-voor.webp?inline';
+import fotoDafZij from './assets/fotos/daf-xf-koeloplegger-zij.webp?inline';
+import fotoActrosVoor from './assets/fotos/mercedes-actros-bakwagen-aanhanger-voor.webp?inline';
+import fotoActrosZij from './assets/fotos/mercedes-actros-bakwagen-aanhanger-zij.webp?inline';
 
 const W = 640, H = 400;
 const VORM = { daf: 'DAF XF', scania: 'Scania R', volvo: 'Volvo FH', mercedes: 'Mercedes-Benz Actros', mercedes600: 'Mercedes-Benz eActros 600' };
@@ -93,3 +101,33 @@ export function portretVanOplegger(oplegger) {
   const t = typeof oplegger === 'string' ? oplegger : oplegger.type || oplegger.soort || oplegger.kind;
   return BY_ID.get(`oplegger-${t}`) || BY_ID.get('oplegger-droog');
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Foto's van de schaalmodellen van Simon Loos (Sem Appel, oktober 2026): de echte huisstijl, witte bovenkant en rode
+// onderkant van de cabine met de oranje-rode strepen, witte opleggers met het beeldmerk. Bron: rapporten/simon-loos-
+// control-tower/fotos-modellen/. Een foto gaat voor een render; de elektrische trekkers en de andere merken hebben alleen een
+// render, tot er een foto van is.
+const FW = 960, FH = 640, FOTO_BRON = 'Foto van een schaalmodel (Sem Appel, oktober 2026)';
+export const FOTOS = [
+  { id: 'foto-daf-xf-koeloplegger-voor', src: fotoDafVoor, w: FW, h: FH, zicht: 'voor', soort: 'trekker', cabine: 'daf', ev: false, oplegger: 'koel', alt: 'DAF XF met koeloplegger in de Simon Loos-huisstijl, schuin van voren (foto van een schaalmodel)', bron: FOTO_BRON },
+  { id: 'foto-daf-xf-koeloplegger-zij', src: fotoDafZij, w: FW, h: FH, zicht: 'zij', soort: 'trekker', cabine: 'daf', ev: false, oplegger: 'koel', alt: 'DAF XF met koeloplegger in de Simon Loos-huisstijl, van opzij (foto van een schaalmodel)', bron: FOTO_BRON },
+  { id: 'foto-mercedes-actros-bakwagen-aanhanger-voor', src: fotoActrosVoor, w: FW, h: FH, zicht: 'voor', soort: 'bakwagen', cabine: 'mercedes', ev: false, aanhanger: true, alt: 'Mercedes-Benz Actros bakwagen met aanhanger in de Simon Loos-huisstijl, schuin van voren (foto van een schaalmodel)', bron: FOTO_BRON },
+  { id: 'foto-mercedes-actros-bakwagen-aanhanger-zij', src: fotoActrosZij, w: FW, h: FH, zicht: 'zij', soort: 'bakwagen', cabine: 'mercedes', ev: false, aanhanger: true, alt: 'Mercedes-Benz Actros bakwagen met aanhanger in de Simon Loos-huisstijl, van opzij (foto van een schaalmodel)', bron: FOTO_BRON },
+];
+
+// alle foto's die bij een voertuig passen, de voorkant eerst; leeg als er geen foto van is (dan de render)
+export function fotosVan(voertuig) {
+  if (!voertuig) return [];
+  const kind = voertuig.kind || voertuig.soort || 'trekker'; const ev = !!voertuig.ev; const cab = cabineVan(voertuig.model);
+  if (ev || kind === 'bus' || voertuig.van) return [];
+  if (kind === 'bakwagen') return cab === 'daf' ? [] : FOTOS.filter(f => f.soort === 'bakwagen');
+  return cab === 'daf' || cab == null ? FOTOS.filter(f => f.soort === 'trekker') : [];
+}
+export function fotoVan(voertuig) { return fotosVan(voertuig)[0] || null; }
+// een losse oplegger: de koel- en vriesopleggers staan op de zijfoto van de DAF
+export function fotosVanOplegger(oplegger) {
+  if (!oplegger) return [];
+  const t = typeof oplegger === 'string' ? oplegger : oplegger.type || oplegger.soort || oplegger.kind;
+  return t === 'koel' || t === 'vries' ? FOTOS.filter(f => f.soort === 'trekker' && f.zicht === 'zij').concat(FOTOS.filter(f => f.soort === 'trekker' && f.zicht === 'voor')) : [];
+}
+export function fotoVanOplegger(oplegger) { return fotosVanOplegger(oplegger)[0] || null; }
