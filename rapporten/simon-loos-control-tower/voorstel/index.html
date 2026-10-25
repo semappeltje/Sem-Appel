@@ -187,7 +187,7 @@ tr.group th { padding-top: 22px; font-size: var(--fs-xs); color: var(--ink-3); f
 .chip.link { background: var(--gold-wash); border-color: transparent; color: var(--gold-text); }
 .chip.swap { background: var(--red-wash); border-color: transparent; color: var(--red-text); }
 .chip.use { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.chip.idea { color: var(--ink-3); }
+.chip.insp { color: var(--ink-3); }
 .chip.build { background: var(--red-wash); border-color: transparent; color: var(--red-text); }
 
 /* lijsten met lessen en punten */
@@ -636,6 +636,34 @@ figcaption b { color: var(--ink); }
   .keuze td, .keuze th { padding: 1.3mm 2mm; }
 }
 </style>
+<style>
+@media print {
+  .assume li { break-inside: avoid; }
+  #nodig .need { grid-template-rows: auto; }
+  #nodig .need > div:nth-child(1), #nodig .need > div:nth-child(2), #nodig .need > div:nth-child(3) { grid-row: auto; }
+  #nodig .sub { margin-top: 5mm; }
+}
+</style>
+<style>
+@media print {
+  .notes li:only-child { grid-column: 1 / -1; }
+  .heat-legend { gap: 1mm 1.4mm; }
+  .heat-legend i { width: 1.9em; }
+  .heat-legend span { margin-right: 2mm; }
+  .calc thead .sc .muted { display: block; font-weight: 400; }
+}
+.calc thead .sc .muted { font-weight: 400; }
+</style>
+<style>
+/* print: geen regels langer dan ongeveer 95 tekens */
+@media print {
+  .prose > p, p.prose, ul.prose > li, .closing, .final, .ask li > div { max-width: 146mm; }
+  figcaption, p.small, ul.small > li, .sub.cond li, .later { max-width: 124mm; }
+  .tl-b p, .box li, .box p { max-width: 134mm; }
+  .notes li:only-child { max-width: 112mm; }
+  .cover-art figcaption { max-width: 120mm; }
+}
+</style>
 
 <script>document.documentElement.lang = "nl";</script>
 <header class="cover" id="top">
@@ -693,7 +721,7 @@ figcaption b { color: var(--ink); }
     <div class="roles">
       <div class="role">
         <h3>De planner</h3>
-        <p>Hij werkt in het systeem en houdt ernaast een Excel bij: diensten, roosters en de charterlijst met telefoonnummers. Een gat vult hij door te bellen, met een oproepkracht, een zzp'er of een charter, vaak op de dag zelf. Om 04:00 meldt een chauffeur zich ziek en begint het zoeken opnieuw. Wat de nachtdienst wist, staat nergens, dus de overdracht is een telefoongesprek. Een planner overziet 15 tot 25 trucks.<sup class="fn"><a href="#pijn-n1">1</a></sup></p>
+        <p>Hij werkt in het systeem en houdt ernaast een Excel bij met diensten, roosters en de charterlijst. Een gat vult hij door te bellen, vaak op de dag zelf. Om 04:00 meldt een chauffeur zich ziek en begint het zoeken opnieuw. Wat de nachtdienst wist, staat nergens; de overdracht is een telefoongesprek. Een planner overziet 15 tot 25 trucks.<sup class="fn"><a href="#pijn-n1">1</a></sup></p>
         <p class="typ"><q>Wie kan er om vijf uur nog naar Raalte?</q> <small>(typerend, geen citaat)</small></p>
       </div>
       <div class="role">
@@ -711,7 +739,7 @@ figcaption b { color: var(--ink); }
       </div>
       <div class="role">
         <h3>De klant</h3>
-        <p>De winkel wil weten wanneer de wagen komt, het DC wanneer hij aan het dock staat. Klopt de ETA niet, dan belt de winkel de planner en belt de planner de chauffeur. Albert Heijn kijkt mee in een eigen toren, Simacan; staat daar een andere tijd dan bij de vervoerder, dan begint het bellen.</p>
+        <p>De winkel wil weten wanneer de wagen komt. Klopt de ETA niet, dan belt de winkel de planner en belt de planner de chauffeur. Albert Heijn kijkt mee in een eigen toren, Simacan; staat daar een andere tijd, dan begint het bellen.</p>
         <p class="typ"><q>Waar blijft de wagen van zeven uur?</q> <small>(typerend, geen citaat)</small></p>
       </div>
       <div class="role">
@@ -738,7 +766,6 @@ figcaption b { color: var(--ink); }
     <p class="prose">Per systeem wat het doet en wat we ermee voorstellen. Wat over de systemen van Simon Loos staat, komt uit onze onderzoeken en uit algemene kennis van de producten.<sup class="fn"><a href="#markt-n1">1</a></sup> Welke modules echt in gebruik zijn en wat in de contracten staat, vragen we na.</p>
     <div class="tablewrap">
       <table class="markt">
-        <caption class="muted small" style="caption-side: bottom; text-align: left; padding-top: 10px;">Houden: blijft de bron. Koppelen: we lezen en sturen via een koppeling. Vervangen of uitfaseren: pas als het nieuwe bewezen is.</caption>
         <thead><tr><th scope="col">Systeem</th><th scope="col">Wat het doet</th><th scope="col">Ons voorstel</th></tr></thead>
         <tbody>
           <tr class="group"><th colspan="3" scope="colgroup">Bij Simon Loos</th></tr>
@@ -752,12 +779,13 @@ figcaption b { color: var(--ink); }
           <tr class="group"><th colspan="3" scope="colgroup">In de sector</th></tr>
           <tr><th scope="row">Transporeon</th><td>Tijdslots bij DC's, vrachttoewijzing aan vervoerders, zichtbaarheid.</td><td><span class="chip link">Koppelen</span><br>Voor de slots bij DC's. Niet nabouwen.</td></tr>
           <tr><th scope="row">PTV</th><td>Afstanden en rijtijden voor vrachtwagens (hoogte, gewicht, tol) en route-optimalisatie.</td><td><span class="chip swap">Vervangen of inkopen</span><br>Eigen routering op OpenStreetMap met een vrachtwagenprofiel, of PTV inkopen.</td></tr>
-          <tr><th scope="row">Quintiq</th><td>Roosteren en plannen onder cao-regels, voor grote planningsvraagstukken.</td><td><span class="chip idea">Inspiratie</span><br>Voor de tactische laag. Wij doen het met Timefold.</td></tr>
+          <tr><th scope="row">Quintiq</th><td>Roosteren en plannen onder cao-regels, voor grote planningsvraagstukken.</td><td><span class="chip insp">Inspiratie</span><br>Voor de tactische laag. Wij doen het met Timefold.</td></tr>
           <tr><th scope="row">Timefold</th><td>Open source rekenmotor (Apache-2.0) voor dienstbouw, roosters en ritten, met uitleg per regel.</td><td><span class="chip use">Inzetten</span><br>Als onze rekenmotor, achter een eigen laag met de regels.</td></tr>
-          <tr><th scope="row">Dyflexis</th><td>Roosters, beschikbaarheid, verlof, uren, cao-toets en een app voor medewerkers.</td><td><span class="chip idea">Inspiratie</span><br>Voor de zelfbediening van chauffeurs. HR blijft in HR.</td></tr>
+          <tr><th scope="row">Dyflexis</th><td>Roosters, beschikbaarheid, verlof, uren, cao-toets en een app voor medewerkers.</td><td><span class="chip insp">Inspiratie</span><br>Voor de zelfbediening van chauffeurs. HR blijft in HR.</td></tr>
         </tbody>
       </table>
     </div>
+    <p class="small muted prose">Houden: blijft de bron. Koppelen: we lezen en sturen via een koppeling. Vervangen of uitfaseren: pas als het nieuwe bewezen is.</p>
 
     <div class="sub">
       <h3>Wat we ervan leren</h3>
@@ -824,17 +852,17 @@ figcaption b { color: var(--ink); }
     </div>
 
     <figure>
-      <img src="img/kaart-amsterdam.webp" width="1440" height="900" alt="Kaart rond Amsterdam met wegnummers, standplaatsen als rode ruit, groothandels en DC's met naam, en voertuigen op de ring.">
+      <img src="img/kaart-amsterdam.webp" width="1440" height="700" alt="Kaart rond Amsterdam met wegnummers, standplaatsen als rode ruit, groothandels en DC's met naam, en voertuigen op de ring.">
       <figcaption><b>Rond Amsterdam.</b> Wegnummers, standplaatsen als rode ruit, DC's en groothandels met hun naam en de voertuigen in hun statuskleur. Wegen en plekken uit open data; de voertuigen zijn gesimuleerd. Kaartgegevens © OpenStreetMap-bijdragers, Overture Maps.</figcaption>
     </figure>
 
     <div class="fig-2">
       <figure>
-        <img src="img/rit-spoor.webp" width="1280" height="800" alt="Een gekozen trekker op de A4 met de voertuigkaart: chauffeur, dienst, oplegger, lading, bestemming, ETA en venster, en de route als lijn.">
+        <img src="img/rit-spoor.webp" width="742" height="464" alt="Een gekozen trekker op de A4 met de voertuigkaart: chauffeur, dienst, oplegger, lading, bestemming, ETA en venster, en de route als lijn.">
         <figcaption><b>Een gekozen rit.</b> De kaart toont chauffeur, dienst, oplegger, lading, bestemming, ETA en venster. Achter het voertuig het spoor van de laatste twintig minuten, ervoor in blauw de rest van de rit.</figcaption>
       </figure>
       <figure>
-        <img src="img/rit-stops.webp" width="1440" height="900" alt="Een rit langs drie winkels met bij elke stop de wachttijd en de lostijd als tekst op de kaart.">
+        <img src="img/rit-stops.webp" width="740" height="462" alt="Een rit langs drie winkels met bij elke stop de wachttijd en de lostijd als tekst op de kaart.">
         <figcaption><b>Wachten en lossen bij de stops.</b> Per stop wat er gebeurt, met de tijden. De winkels zijn echte supermarkten; de rit, de chauffeur en de tijden zijn gesimuleerd.</figcaption>
       </figure>
     </div>
@@ -872,7 +900,7 @@ figcaption b { color: var(--ink); }
         <li><b>Open ritten met prognose en kandidaten.</b> Kans op invulling, eigen chauffeurs, oproepkrachten en charters met kosten (schatting), toewijzen in één klik. Wordt nu gebouwd.</li>
         <li><b>Luchtfoto.</b> De luchtfoto van het Kadaster onder de kaart, in de losse versie met internet.</li>
       </ul>
-      <p class="prose small"><b>Wat de demo niet is.</b> Eén bestand in de browser draagt geen echte data. Daarvoor is een server nodig met opslag, inloggen, koppelingen en back-ups (hoofdstuk 7). De demo is wel een voorproef van hoe het werkt, en de simulatie erin wordt de testbank waarop we het echte systeem toetsen voordat er een echte rit in gaat.</p>
+      <p class="prose small"><b>Wat de demo niet is.</b> Een bestand in de browser draagt geen echte data. Daarvoor is een server nodig met opslag, inloggen, koppelingen en back-ups (hoofdstuk 7). De demo is wel een voorproef van hoe het werkt, en de simulatie erin wordt de testbank waarop we het echte systeem toetsen voordat er een echte rit in gaat.</p>
     </div>
     <div class="notes" role="note" aria-label="Bronnen bij hoofdstuk 3">
       <ol>
@@ -969,7 +997,7 @@ figcaption b { color: var(--ink); }
         <div><dt>Pijn</dt><dd>De planner begint zijn dienst met zoeken in zes schermen en met bellen.</dd></div>
         <div><dt>Komt van</dt><dd>De dienstoverdracht in de luchtvaart en in ziekenhuizen; Simacan.</dd></div>
         <div><dt>Levert op (schatting)</dt><dd>20 tot 40 minuten per planner per dag, en minder fouten in de overdracht.</dd></div>
-        <div><dt>Goedkope proef</dt><dd>Eén pagina over de gesimuleerde data, een week lang naast de echte start van de ochtend leggen.</dd></div>
+        <div><dt>Goedkope proef</dt><dd>Een pagina over de gesimuleerde data, een week lang naast de echte start van de ochtend leggen.</dd></div>
       </dl>
       <div class="mock" role="img" aria-label="Mockup van de ochtendbriefing van Wognum om 05:30 met vijf regels: drie ziekmeldingen, zeven open ritten, vier ritten met risico, vijf gaten die vannacht al zijn gevuld en twee keuzes voor de planner.">
         <div class="mock-bar"><span class="mock-title">Ochtendbriefing <small>· Wognum · dinsdag 05:30</small></span><span class="mock-tag">mockup</span></div>
@@ -1058,7 +1086,7 @@ figcaption b { color: var(--ink); }
             <div class="cost"><span>Kosten (schatting):</span><span>reserve <b>€ 0</b> extra</span><span>oproep <b>€ 275</b></span><span>charter <b>€ 510</b></span></div>
           </div>
         </div>
-        <div class="mock-foot">Gesimuleerde voorbeelddata, namen verzonnen. Elk belletje komt in het logboek, zodat een collega ziet wie al gevraagd is.</div>
+        <div class="mock-foot">Gesimuleerde voorbeelddata, namen verzonnen. Elk belletje komt in het logboek.</div>
       </div>
     </article>
 
@@ -1135,7 +1163,7 @@ figcaption b { color: var(--ink); }
 <text class="tick" x="593.8" y="242" text-anchor="middle">52</text>
 <path class="cap-line" d="M52,54.4 L104.4,54.4 L116.4,54.4 L168.9,54.4 L180.9,54.4 L233.3,54.4 L245.3,54.4 L297.8,54.4 L309.8,54.4 L362.2,54.4 L374.2,54.4 L426.7,54.4 L438.7,54.4 L491.1,54.4 L503.1,59.6 L555.6,59.6 L567.6,59.6 L620,59.6"/>
 <text class="axis" x="336" y="258" text-anchor="middle">week</text>
-<text class="axis" x="38" y="12" text-anchor="end">diensten</text>
+<text class="axis" x="46" y="11" text-anchor="start">diensten per week</text>
 </svg>
           <p class="insight" style="margin-bottom: 0;"><b>Week 51: 51 diensten tekort.</b> Nu vastleggen bij oproepkrachten en charters, niet op de dag zelf bellen. De vraag komt uit de capaciteitsritten van de klant op donderdag, het seizoen en het verzuim.<sup class="fn"><a href="#ideeen-n2">2</a></sup></p>
         </div>
@@ -1191,7 +1219,7 @@ figcaption b { color: var(--ink); }
         <div class="mi"><h4>De simulator als digitale tweeling en testbank<small>Komt van luchtvaart en energiebedrijven, die zo testen voordat iets live gaat.</small></h4><dl><dt>Pijn</dt><dd>Fouten die pas in het echt opvallen.</dd><dt>Levert op</dt><dd>Minder incidenten bij de invoering, sneller vertrouwen.</dd><dt>Goedkope proef</dt><dd>De drie scenario's op de huidige demo, met per scenario een criterium voor geslaagd.</dd></dl></div>
         <div class="mi"><h4>Het plan als reeks gebeurtenissen<small>Komt van banken en reserveringssystemen.</small></h4><dl><dt>Pijn</dt><dd>Overdracht tussen planners, de vraag wie wat deed, de nulmeting.</dd><dt>Levert op</dt><dd>Geen apart logboek en geen discussie achteraf; de touch rate komt er vanzelf uit.</dd><dt>Goedkope proef</dt><dd>In de bouwversie is het logboek al zo opgezet.</dd></dl></div>
         <div class="mi"><h4>Het vlootnummer op het dak van opleggers<small>Komt van containers (ISO 6346) en politieauto's, met een nummer op het dak voor de helikopter.</small></h4><dl><dt>Pijn</dt><dd>Een oplegger zoeken op het terrein, en tellen door rond te lopen.</dd><dt>Levert op</dt><dd>Minder zoeken (schatting); tellen met een drone of mastcamera.</dd><dt>Goedkope proef</dt><dd>Twintig opleggers op één standplaats een dakcode geven en een week de telling vergelijken.</dd></dl></div>
-        <div class="mi"><h4>Charters herkenbaar op kaart en terrein<small>Komt van ons werk aan de 3D-wereld van de demo.</small></h4><dl><dt>Pijn</dt><dd>Zodra charters in het systeem zitten, zie je niet meer welke wagen eigen is en welke ingehuurd.</dd><dt>Levert op</dt><dd>Sneller overzicht op terrein en kaart.</dd><dt>Goedkope proef</dt><dd>Een op de twintig gesimuleerde wagens als charter in wit en grijs, en één planner vragen of het helpt.</dd></dl></div>
+        <div class="mi"><h4>Charters herkenbaar op kaart en terrein<small>Komt van ons werk aan de 3D-wereld van de demo.</small></h4><dl><dt>Pijn</dt><dd>Zodra charters in het systeem zitten, zie je niet meer welke wagen eigen is en welke ingehuurd.</dd><dt>Levert op</dt><dd>Sneller overzicht op terrein en kaart.</dd><dt>Goedkope proef</dt><dd>Een op de twintig gesimuleerde wagens als charter in wit en grijs, en een planner vragen of het helpt.</dd></dl></div>
       </div>
       <p class="later"><b>Later:</b> een klantlink met de ETA per winkel en een bericht als het venster niet gehaald wordt, wat-als op de dag van vandaag (A7 dicht, DC later open) en herplannen per standplaats in de browser. Hoe we invoeren zonder grote overstap, staat in hoofdstuk 8.</p>
     </div>
@@ -1212,29 +1240,29 @@ figcaption b { color: var(--ink); }
     <p class="prose">De bedragen tonen de orde van grootte. Ze zijn geen belofte. De proef vervangt elke aanname door het echte cijfer van Simon Loos. En geld komt pas vrij als vrijgekomen uren ook anders worden ingezet: een charter minder, minder overuren, een tweede dienst.</p>
     <div class="tablewrap">
       <table class="calc">
-        <thead><tr><th scope="col" class="post">Post</th><th scope="col" class="how">Zo rekenen we</th><th scope="col" class="sc">Voorzichtig</th><th scope="col" class="sc">Midden</th><th scope="col" class="sc">Ruim</th></tr></thead>
+        <thead><tr><th scope="col" class="post">Post</th><th scope="col" class="how">Zo rekenen we</th><th scope="col" class="sc">Voorzichtig <span class="muted">(schatting)</span></th><th scope="col" class="sc">Midden <span class="muted">(schatting)</span></th><th scope="col" class="sc">Ruim <span class="muted">(schatting)</span></th></tr></thead>
         <tbody>
           <tr><th scope="row" class="post">Wachttijd bij DC's</th><td class="how">voertuigen × werkdagen × wachtminuten × deel dat we wegnemen × kostprijs per uur</td>
-            <td class="sc"><b>€ 481.000</b><span>35 min · 5 % · € 55 per uur</span><span>8.750 uur</span></td>
-            <td class="sc"><b>€ 1.406.000</b><span>45 min · 10 % · € 62,50 per uur</span><span>22.500 uur</span></td>
-            <td class="sc"><b>€ 3.150.000</b><span>60 min · 15 % · € 70 per uur</span><span>45.000 uur</span></td></tr>
+            <td class="sc"><b>€&nbsp;481.000</b><span>35&nbsp;min · 5&nbsp;% · €&nbsp;55&nbsp;per&nbsp;uur</span><span>8.750&nbsp;uur</span></td>
+            <td class="sc"><b>€&nbsp;1.406.000</b><span>45&nbsp;min · 10&nbsp;% · €&nbsp;62,50&nbsp;per&nbsp;uur</span><span>22.500&nbsp;uur</span></td>
+            <td class="sc"><b>€&nbsp;3.150.000</b><span>60&nbsp;min · 15&nbsp;% · €&nbsp;70&nbsp;per&nbsp;uur</span><span>45.000&nbsp;uur</span></td></tr>
           <tr><th scope="row" class="post">Charters en last-minute inhuur</th><td class="how">ritten op de dag zelf × werkdagen × deel dat eerder geregeld wordt × verschil per rit</td>
-            <td class="sc"><b>€ 150.000</b><span>20 per dag · een kwart · € 100</span><span>1.500 ritten</span></td>
-            <td class="sc"><b>€ 375.000</b><span>30 per dag · een derde · € 125</span><span>3.000 ritten</span></td>
-            <td class="sc"><b>€ 900.000</b><span>40 per dag · de helft · € 150</span><span>6.000 ritten</span></td></tr>
+            <td class="sc"><b>€&nbsp;150.000</b><span>20&nbsp;per&nbsp;dag · een&nbsp;kwart · €&nbsp;100</span><span>1.500&nbsp;ritten</span></td>
+            <td class="sc"><b>€&nbsp;375.000</b><span>30&nbsp;per&nbsp;dag · een&nbsp;derde · €&nbsp;125</span><span>3.000&nbsp;ritten</span></td>
+            <td class="sc"><b>€&nbsp;900.000</b><span>40&nbsp;per&nbsp;dag · de&nbsp;helft · €&nbsp;150</span><span>6.000&nbsp;ritten</span></td></tr>
           <tr><th scope="row" class="post">Planneruren</th><td class="how">planners × werkdagen × minuten per dag × kostprijs per uur</td>
-            <td class="sc"><b>€ 175.000</b><span>50 planners · 20 min</span><span>3.500 uur</span></td>
-            <td class="sc"><b>€ 455.000</b><span>65 planners · 40 min</span><span>9.100 uur</span></td>
-            <td class="sc"><b>€ 893.000</b><span>85 planners · 60 min</span><span>17.850 uur</span></td></tr>
+            <td class="sc"><b>€&nbsp;175.000</b><span>50&nbsp;planners · 20&nbsp;min</span><span>3.500&nbsp;uur</span></td>
+            <td class="sc"><b>€&nbsp;455.000</b><span>65&nbsp;planners · 40&nbsp;min</span><span>9.100&nbsp;uur</span></td>
+            <td class="sc"><b>€&nbsp;893.000</b><span>85&nbsp;planners · 60&nbsp;min</span><span>17.850&nbsp;uur</span></td></tr>
           <tr><th scope="row" class="post">Verloop van chauffeurs</th><td class="how">vertrekkers minder × kosten per vertrekker</td>
-            <td class="sc"><b>€ 50.000</b><span>10 minder · € 5.000</span></td>
-            <td class="sc"><b>€ 188.000</b><span>25 minder · € 7.500</span></td>
-            <td class="sc"><b>€ 400.000</b><span>40 minder · € 10.000</span></td></tr>
+            <td class="sc"><b>€&nbsp;50.000</b><span>10&nbsp;minder · €&nbsp;5.000</span></td>
+            <td class="sc"><b>€&nbsp;188.000</b><span>25&nbsp;minder · €&nbsp;7.500</span></td>
+            <td class="sc"><b>€&nbsp;400.000</b><span>40&nbsp;minder · €&nbsp;10.000</span></td></tr>
         </tbody>
         <tfoot><tr><th scope="row" class="post">Per jaar, schatting</th><td class="how"></td>
-          <td class="sc"><b>€ 856.000</b><span>ongeveer 0,9 miljoen</span></td>
-          <td class="sc"><b>€ 2.424.000</b><span>ongeveer 2,4 miljoen</span></td>
-          <td class="sc"><b>€ 5.343.000</b><span>ongeveer 5,3 miljoen</span></td></tr></tfoot>
+          <td class="sc"><b>€&nbsp;856.000</b><span>ongeveer 0,9 miljoen</span></td>
+          <td class="sc"><b>€&nbsp;2.424.000</b><span>ongeveer 2,4 miljoen</span></td>
+          <td class="sc"><b>€&nbsp;5.343.000</b><span>ongeveer 5,3 miljoen</span></td></tr></tfoot>
       </table>
     </div>
     <p class="small muted prose">Alle bedragen per jaar en schattingen, afgerond op duizend euro. De wachttijd is de grootste en de zachtste post: vrijgekomen uren worden pas geld als je ze inzet.</p>
@@ -1294,7 +1322,7 @@ figcaption b { color: var(--ink); }
 <section class="ch" id="nodig" aria-labelledby="nodig-t">
   <div class="wrap">
     <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">7</span><h2 id="nodig-t">Wat ervoor nodig is</h2></div>
-    <p class="lead">Voor een eerste testdemo is weinig nodig: voorbeelddata, vier afspraken en drie mensen.</p>
+    <p class="lead">Voor een eerste testdemo is weinig nodig: data, vier afspraken en drie mensen.</p>
     <p class="prose">Alles op één plek, als afvinklijst. Data, afspraken en mensen komen van Simon Loos, de techniek bouwen wij. Zonder historie geen prognose: de acht tot twaalf weken zijn het belangrijkste.</p>
     <div class="need">
       <div>
@@ -1335,11 +1363,6 @@ figcaption b { color: var(--ink); }
           <li><span>Eigen kaarttegels, bewaking, back-ups en hosting in de EU.</span></li>
         </ul>
       </div>
-      <div class="tech">
-        <h3>Schaal, team en tijd <small>schatting</small></h3>
-        <p class="small">Per dag 100.000 tot 150.000 posities, 3.000 tot 4.000 ritten en 15.000 stops: enkele gigabytes per jaar, genoeg voor één goede server met een reserve.</p>
-        <p class="small">Stap 0 tot en met 2 op één standplaats: twee tot vier ontwikkelaars, een planner, iemand van ICT, de OR op afstand en ongeveer zes maanden.</p>
-      </div>
     </div>
 
     <div class="sub">
@@ -1348,17 +1371,17 @@ figcaption b { color: var(--ink); }
         <table class="steps-short">
           <thead><tr><th scope="col">Stap</th><th scope="col">Wat</th><th scope="col">Duur</th><th scope="col">Wat er dan uit kan</th></tr></thead>
           <tbody>
-            <tr><td>0</td><td>Verkennen: gesprekken, meelopen, voorbeelddata, AVG en OR</td><td class="d">4 tot 6 weken</td><td class="u none">niets</td></tr>
+            <tr><td>0</td><td>Verkennen: gesprekken, voorbeelddata, AVG en OR</td><td class="d">4 tot 6 weken</td><td class="u none">niets</td></tr>
             <tr><td>1</td><td>Lezen en kijken op één standplaats</td><td class="d">8 tot 10 weken</td><td class="u none">niets</td></tr>
             <tr><td>2</td><td>Dienstbouw in schaduw, dan leidend</td><td class="d">12 weken</td><td class="u">Excel voor dienstbouw daar</td></tr>
             <tr><td>3</td><td>Flexibele schil en chauffeurskant</td><td class="d">8 weken</td><td class="u">charterlijsten, belrondes</td></tr>
             <tr><td>4</td><td>Tactisch en prognoses</td><td class="d">8 weken</td><td class="u">roosterbladen</td></tr>
-            <tr><td>5</td><td>Uitrol per standplaats, klantlink</td><td class="d">2 tot 4 weken elk</td><td class="u">ORTEC-dispatch; ORD via adapter</td></tr>
+            <tr><td>5</td><td>Uitrol per standplaats, klantlink</td><td class="d">2 tot 4 weken elk</td><td class="u">ORTEC-dispatch, ORD (adapter)</td></tr>
             <tr><td>6</td><td>Opruimen</td><td class="d">na opzegtermijn</td><td class="u">ORTEC, ORD, alle Excel</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="small muted prose">Duur per stap is een schatting; hoofdstuk 8 werkt elke stap uit. Navitrans (orders en facturatie), Trimble en Simacan blijven; Navision raken we niet aan.</p>
+      <p class="small muted prose">Schatting: stap 0 tot en met 2 op één standplaats vraagt twee tot vier ontwikkelaars, een planner, iemand van ICT en de OR op afstand, en ongeveer zes maanden. Per dag gaat het om 100.000 tot 150.000 posities, 3.000 tot 4.000 ritten en 15.000 stops: enkele gigabytes per jaar, genoeg voor een goede server met een reserve. Hoofdstuk 8 werkt elke stap uit.</p>
     </div>
   </div>
 </section>
@@ -1413,7 +1436,7 @@ figcaption b { color: var(--ink); }
         <li>Het oude systeem blijft tot de stap erna bewezen is.</li>
         <li>Dubbel draaien kost tijdelijk meer werk; dat zeggen we vooraf.</li>
         <li>Albert Heijn nemen we vooraf mee, omdat Simacan hun toren is.</li>
-        <li>Facturatie, HR en onderhoud nemen we niet mee: elk heeft een eigen eigenaar, leverancier en risico. Eerst de planning en de dag.</li>
+        <li>Facturatie, HR en onderhoud nemen we niet mee. Eerst de planning en de dag.</li>
       </ul>
     </div>
   </div>
