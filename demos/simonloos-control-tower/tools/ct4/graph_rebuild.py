@@ -107,7 +107,10 @@ if not (same_nodes and same_edges):
     for i, (a, b) in enumerate(zip(cur['edges'], gedges)):
         if a != b: print('  eerste verschil kant', i, a[:5], b[:5]); break
 # weergave: secundair en tertiair
-land = json.load(open(graphjson.replace('graph.json', 'land.json')))
+# de vorm van Nederland (Natural Earth) waarmee de weergave in 3.0 gekozen is; sinds oktober 2026 staat die niet meer in
+# land.json (dat is nu de echte kust uit OpenStreetMap) maar in nl_ne.json naast dit script
+import os
+land = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nl_ne.json')))
 from shapely.geometry import Polygon, MultiPolygon, Point
 from shapely.prepared import prep
 nlp = prep(MultiPolygon([Polygon(p[0], p[1:]) for p in land['nl']]).buffer(0.03))

@@ -7,7 +7,9 @@
 // rijden: elk rijdend voertuig op de rechterstrook van de rijbaan van zijn eigen rijrichting (de A7 bij Wognum in beide richtingen, alle
 // rijdende voertuigen, de route van een gekozen voertuig op zijn rijbaan), met een schermafbeelding van de A7 op zoom 16.
 // De online basiskaarten nagebootst (OpenFreeMap met een echte vectortegel, de luchtfoto en de BRT-achtergrondkaart van
-// PDOK) met hun terugval, land en zee onder elke standplaats, elk DC en elke fabriek, en de afdelingen op het terrein.
+// PDOK) met hun terugval, land en zee onder elke standplaats, elk DC, elke fabriek en elke winkel, water op het beeld op
+// ruim twintig bekende plekken (het IJ, de havens, de grote rivieren en meren, de Eems, de Westerschelde; licht en donker)
+// en land vlak ernaast, en de afdelingen op het terrein.
 // Daarna schermafbeeldingen van de ingebouwde kaart op zoom 7, 11, 14 en 16, licht en donker, 1440 en 390 px, en een
 // meting van de framerate. Ook: de demosite (data-basiskaart="online") en de bezorgbussen aan en uit.
 //
@@ -598,63 +600,145 @@ const bewaard = page => page.evaluate(() => { try { return localStorage.getItem(
 }
 
 // ======================================================================================================================
-// 7. Land en zee. Sem in 3.2: "dan komt een plaats ineens in de zee". Elke standplaats, elk DC en elke fabriek ligt op
-// land: in de vorm die de kaart tekent (het punt ligt in een landvlak, of binnen de naad langs de buurlanden, en in geen
-// watervlak) en zoals de kaart hem tekent (met alles behalve de ondergrond uit is de kleur onder het punt op zoom 10 en
-// op zoom 14 geen water). Ook de winkels en bezorgadressen op de vorm (een plek in zee kreeg een stukje land eronder).
+// 7. Land en zee. Sem in 3.2: "dan komt een plaats ineens in de zee"; in 4.0: "dan komt Hendriks ineens in de zee". Sinds
+// het herstel van het water (tools/ct4/kust_water.py) is het land de echte kust uit OpenStreetMap, zonder naad langs de
+// buurlanden en zonder ronde stukjes land onder plekken. Elke standplaats, elk DC en elke fabriek ligt op land: in de vorm
+// die de kaart tekent (het punt ligt in een landvlak en in geen watervlak) en zoals de kaart hem tekent (met alles behalve
+// de ondergrond uit is de kleur onder het punt op zoom 10 en op zoom 14 geen water). Ook elke winkel ligt op land en in
+// geen watervlak, en geen winkel ligt op het adres of het terrein van een standplaats of DC (Overture had daar winkels die
+// er niet zijn, zoals "Etos Wognum - Tender 2" op het hoofdkantoor).
+// alleen de ondergrond tekenen (land, bebouwing, water) en de kleur onder een lijst punten uitlezen: per beeld springen,
+// wachten tot de kaart klaar is ('idle': alles geladen en getekend; wie eerder leest, ziet de achtergrond, en die is zee) en
+// dan in het volgende beeld uitlezen
+const groundView = page => page.evaluate(() => {
+  const m = window.SLCT.map.map, keep = new Set(['bg', 'land', 'water', 'urban']);
+  const ground = () => { for (const id of (m.getLayersOrder ? m.getLayersOrder() : m.style._order)) if (!keep.has(id) && m.getLayoutProperty(id, 'visibility') !== 'none') m.setLayoutProperty(id, 'visibility', 'none'); };
+  const read = list => { const gl = m.painter.context.gl, c = m.getCanvas(), k = c.width / c.clientWidth; return list.map(p => { const q = m.project(p), b = new Uint8Array(4); gl.readPixels(Math.round(q.x * k), Math.round(c.height - q.y * k), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return [b[0], b[1], b[2]]; }); };
+  window.__inView = (center, z, list) => { m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); const W = m.getContainer(); return list.filter(([, p]) => { const q = m.project(p); return q.x > 12 && q.y > 12 && q.x < W.clientWidth - 12 && q.y < W.clientHeight - 12; }).map(([j]) => j); };
+  window.__view = (center, z, list) => new Promise(res => {
+    ground(); let over = false;
+    const done = idle => { if (over) return; over = true; m.off('idle', onIdle); m.once('render', () => res({ cols: read(list), idle })); m.triggerRepaint(); };
+    const onIdle = () => done(true);
+    m.once('idle', onIdle); m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); m.triggerRepaint();
+    setTimeout(() => done(false), 30000);
+  });
+});
+// alle punten van een lijst [naam, [lon, lat]] op zoom z uitlezen, per beeld alle punten die erin vallen
+async function readAll(page, pl, z) {
+  const cols = new Array(pl.length), done = new Set(), stuck = []; let views = 0;
+  for (let i = 0; i < pl.length; i++) {
+    if (done.has(i)) continue;
+    const inView = await page.evaluate(([c, z, list]) => window.__inView(c, z, list), [pl[i][1], z, pl.map((o, j) => [j, o[1]]).filter(([j]) => !done.has(j))]);
+    if (!inView.includes(i)) inView.push(i);
+    const r = await page.evaluate(([c, z, list]) => window.__view(c, z, list), [pl[i][1], z, inView.map(j => pl[j][1])]); views++;
+    if (!r.idle) stuck.push(`${pl[i][0]} (zoom ${z})`);
+    inView.forEach((j, k) => { done.add(j); cols[j] = r.cols[k]; });
+  }
+  return { cols, views, stuck };
+}
+// de kleur van het water (P.sea in basemap.js), licht en donker
+const SEA = { licht: [170, 218, 255], donker: [20, 39, 59] };
+const like = (c, ref, tol) => !!c && Math.abs(c[0] - ref[0]) < tol && Math.abs(c[1] - ref[1]) < tol && Math.abs(c[2] - ref[2]) < tol;
 {
   const { page, ctx, errors } = await open({ w: 1280, h: 800 });
   await manual(page);
   const pts = await page.evaluate(() => {
-    const m = window.SLCT.map.map, src = id => m.getSource(id).serialize().data.features;
+    const m = window.SLCT.map.map, src = id => (m.getSource(id) ? m.getSource(id).serialize().data.features : []);
     const ring = (r, x, y) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const yi = r[i][1], yj = r[j][1]; if ((yi > y) !== (yj > y) && x < r[i][0] + (y - yi) / (yj - yi) * (r[j][0] - r[i][0])) c = !c; } return c; };
     const poly = (c, x, y) => ring(c[0], x, y) && !c.slice(1).some(h => ring(h, x, y));
-    const inF = (f, x, y) => (f.geometry.type === 'Polygon' ? poly(f.geometry.coordinates, x, y) : f.geometry.type === 'MultiPolygon' && f.geometry.coordinates.some(c => poly(c, x, y)));
-    const land = src('land'), water = src('water'), seam = src('seam').flatMap(f => (f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates));
-    // de naad: een lijn van 6 km breed in de landkleur langs de grens met de buurlanden
-    const seamD = (x, y) => { const kx = 111320 * Math.cos(y * Math.PI / 180); let d = 1e12; for (const l of seam) for (let i = 1; i < l.length; i++) { const a = l[i - 1], b = l[i], sx = (b[0] - a[0]) * kx, sy = (b[1] - a[1]) * 111320, px = (x - a[0]) * kx, py = (y - a[1]) * 111320, L2 = sx * sx + sy * sy, t = L2 ? Math.max(0, Math.min(1, (px * sx + py * sy) / L2)) : 0; d = Math.min(d, Math.hypot(t * sx - px, t * sy - py)); } return d; };
-    const onLand = p => land.some(f => inF(f, p[0], p[1])) || seamD(p[0], p[1]) < 2800;
+    // per vlak vooraf de omsluitende rechthoek (ruim 4.500 winkels tegen een paar duizend vlakken)
+    const idx = fs => fs.map(f => { const cs = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const c of cs) for (const [x, y] of c[0]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return { cs, b: [x0, y0, x1, y1] }; });
+    const inAny = (L, [x, y]) => L.some(({ cs, b }) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] && cs.some(c => poly(c, x, y)));
+    const land = idx(src('land')), water = idx(src('water'));
     const list = [...src('sp').map(f => ({ n: f.properties.n, s: 'standplaats', p: f.geometry.coordinates })), ...src('dcs').map(f => ({ n: f.properties.n, s: f.properties.s, p: f.geometry.coordinates }))];
-    const rest = src('winkels').map(f => f.geometry.coordinates);
-    return { list: list.map(o => ({ ...o, land: onLand(o.p), water: water.some(f => inF(f, o.p[0], o.p[1])) })), winkels: rest.length, winkelsInZee: rest.filter(p => !onLand(p)).length, patches: land.filter(f => f.properties && f.properties.patch).length };
+    const winkels = src('winkels').map(f => ({ id: f.properties.id, n: f.properties.n, p: f.geometry.coordinates }));
+    const wBad = winkels.filter(w => !inAny(land, w.p) || inAny(water, w.p));
+    // een winkel op een standplaats of DC: binnen 25 m van het adrespunt, op het terrein van een standplaats, of het
+    // hoofdkantoor (Tender 2, Wognum) of een holding in de naam
+    const m25 = (a, b) => Math.hypot((a[0] - b[0]) * 111320 * Math.cos(a[1] * Math.PI / 180), (a[1] - b[1]) * 111320) <= 25;
+    const adr = [...src('sp').map(f => f.geometry.coordinates), ...src('dcs').filter(f => f.properties.s === 'dc').map(f => f.geometry.coordinates)];
+    const ter = idx(src('site').filter(f => f.properties.k === 'sp'));
+    const nep = winkels.filter(w => /\b(tender|holding|hoofdkantoor)\b/i.test(w.n) || adr.some(a => m25(w.p, a)) || inAny(ter, w.p));
+    return { list: list.map(o => ({ ...o, land: inAny(land, o.p), water: inAny(water, o.p) })), winkels: winkels.length, wBad: wBad.slice(0, 8).map(w => `${w.n} (${w.p.map(v => v.toFixed(4)).join(', ')})`), wBadN: wBad.length, nep: nep.map(w => `${w.id} ${w.n}`), patches: src('land').filter(f => f.properties && f.properties.patch).length, naad: !!m.getLayer('seam'), landN: src('land').length, waterN: src('water').length };
   });
   const soorten = Object.entries(pts.list.reduce((a, o) => ({ ...a, [o.s]: (a[o.s] || 0) + 1 }), {})).map(([k, v]) => `${v} ${k}`).join(', ');
   const bad = pts.list.filter(o => !o.land || o.water);
   check(pts.list.length > 150 && bad.length === 0, `land en zee (vorm): ${pts.list.length} plekken (${soorten}) op land en in geen watervlak${bad.length ? `; niet: ${bad.slice(0, 8).map(o => `${o.n} (${o.water ? 'in water' : 'buiten land'})`).join(', ')}` : ''}`);
-  check(pts.winkelsInZee === 0, `land en zee (vorm): ook de ${pts.winkels} winkels op land (${pts.patches} stukjes land onder plekken die de grove kustlijn in zee legde)`);
-  // de kleur onder het punt: alles behalve de ondergrond (land, naad, water, bebouwing) uit; per beeld springen, wachten
-  // tot de kaart klaar is ('idle': alles geladen en getekend; wie eerder leest, ziet de achtergrond, en die is zee) en dan
-  // in het volgende beeld uitlezen
-  await page.evaluate(() => {
-    const m = window.SLCT.map.map, keep = new Set(['bg', 'land', 'seam', 'water', 'urban']);
-    const ground = () => { for (const id of (m.getLayersOrder ? m.getLayersOrder() : m.style._order)) if (!keep.has(id) && m.getLayoutProperty(id, 'visibility') !== 'none') m.setLayoutProperty(id, 'visibility', 'none'); };
-    const read = list => { const gl = m.painter.context.gl, c = m.getCanvas(), k = c.width / c.clientWidth; return list.map(p => { const q = m.project(p), b = new Uint8Array(4); gl.readPixels(Math.round(q.x * k), Math.round(c.height - q.y * k), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return [b[0], b[1], b[2]]; }); };
-    window.__inView = (center, z, list) => { m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); const W = m.getContainer(); return list.filter(([, p]) => { const q = m.project(p); return q.x > 12 && q.y > 12 && q.x < W.clientWidth - 12 && q.y < W.clientHeight - 12; }).map(([j]) => j); };
-    window.__view = (center, z, list) => new Promise(res => {
-      ground(); let over = false;
-      const done = idle => { if (over) return; over = true; m.off('idle', onIdle); m.once('render', () => res({ cols: read(list), idle })); m.triggerRepaint(); };
-      const onIdle = () => done(true);
-      m.once('idle', onIdle); m.jumpTo({ center, zoom: z, pitch: 0, bearing: 0 }); m.triggerRepaint();
-      setTimeout(() => done(false), 30000);
-    });
-  });
-  const sea = [170, 218, 255], isSea = c => Math.abs(c[0] - sea[0]) < 16 && Math.abs(c[1] - sea[1]) < 16 && Math.abs(c[2] - sea[2]) < 16;
-  // een klein venster (snel tekenen); per beeld alle plekken die erin vallen
+  check(pts.wBadN === 0, `land en zee (vorm): ook de ${pts.winkels} winkels op land en in geen watervlak${pts.wBadN ? `; niet: ${pts.wBadN}, o.a. ${pts.wBad.join(', ')}` : ''}`);
+  check(pts.patches === 0 && !pts.naad && pts.landN > 0 && pts.waterN > 100, `land en zee (vorm): de echte kust (${pts.landN} landvlakken, ${pts.waterN} watervlakken), zonder ronde stukjes land onder plekken (${pts.patches}) en zonder naad langs de buurlanden`);
+  check(pts.nep.length === 0, `geen winkel op het adres of het terrein van een standplaats of DC, en geen hoofdkantoor als winkel${pts.nep.length ? `: ${pts.nep.join(', ')}` : ''}`);
+  // de kleur onder het punt, met alles behalve de ondergrond uit; een klein venster (snel tekenen)
+  await groundView(page);
   await page.setViewportSize({ width: 560, height: 420 }); await page.waitForTimeout(800);
-  const wet = { 10: [], 14: [] }, views = { 10: 0, 14: 0 }, stuck = []; const t0 = Date.now(); const pl = pts.list;
+  const t0 = Date.now(), pl = pts.list.map(o => [o.n, o.p]), wet = [], stuck = [], views = {};
   for (const z of [10, 14]) {
-    const done = new Set();
-    for (let i = 0; i < pl.length; i++) {
-      if (done.has(i)) continue;
-      const inView = await page.evaluate(([c, z, list]) => window.__inView(c, z, list), [pl[i].p, z, pl.map((o, j) => [j, o.p]).filter(([j]) => !done.has(j))]);
-      if (!inView.includes(i)) inView.push(i);
-      const r = await page.evaluate(([c, z, list]) => window.__view(c, z, list), [pl[i].p, z, inView.map(j => pl[j].p)]); views[z]++;
-      if (!r.idle) stuck.push(`${pl[i].n} (zoom ${z})`);
-      inView.forEach((j, k) => { done.add(j); if (isSea(r.cols[k])) wet[z].push(`${pl[j].n} (zoom ${z}, ${r.cols[k].join('/')})`); });
+    const r = await readAll(page, pl, z); views[z] = r.views; stuck.push(...r.stuck);
+    r.cols.forEach((c, j) => { if (like(c, SEA.licht, 16)) wet.push(`${pl[j][0]} (zoom ${z}, ${c.join('/')})`); });
+  }
+  check(wet.length === 0 && stuck.length === 0, `land en zee (beeld): onder geen van de ${pl.length} plekken water, op zoom 10 (${views[10]} beelden) en 14 (${views[14]} beelden), ${((Date.now() - t0) / 1000).toFixed(0)} s${wet.length ? `; water onder: ${wet.slice(0, 8).join(', ')}` : ''}${stuck.length ? `; niet klaar binnen 30 s: ${stuck.slice(0, 5).join(', ')}` : ''}`);
+  check(errors.length === 0, `land en zee: consolefouten ${errors.length}`);
+  await ctx.close();
+}
+
+// ======================================================================================================================
+// 7b. Water op het beeld. De eindcontrole van 4.0 vond het IJ achter Amsterdam Centraal, het Westelijk Havengebied en de
+// bekkens van Europoort als land getekend, en ronde vlekken land in de Eems en bij Breskens. Op bekende plekken op het
+// water tekent de kaart water (licht en donker), op de zoom waarop een planner er kijkt: het IJ en de havens op zoom 13,
+// de rivieren en kanalen op 12, de grote wateren op 10. Op een paar plekken vlak naast het water tekent hij land (geen
+// waterkleur). Elk punt ligt minstens 40 m van de oever in de data (tools/ct4/kust_water.py meet het bij het maken).
+const WATERPUNTEN = [
+  ['het IJ bij Centraal', 4.899, 52.3826, 13],
+  ['het IJ bij de Houthavens', 4.8853, 52.3971, 13],
+  ['het Noordzeekanaal bij IJmuiden', 4.65, 52.463, 12],
+  ['het Noordzeekanaal bij Zaandam', 4.783, 52.4255, 12],
+  ['een bekken in Westpoort', 4.8195, 52.4057, 13],
+  ['de Beneluxhaven (Europoort)', 4.12841, 51.95131, 13],
+  ['de 7e Petroleumhaven (Europoort)', 4.20806, 51.91875, 13],
+  ['de Dintelhaven (Europoort)', 4.11815, 51.94949, 13],
+  ['het Calandkanaal', 4.1292, 51.9606, 12],
+  ['de Yangtzehaven (Maasvlakte)', 4.0411, 51.9702, 13],
+  ['de Prinses Amaliahaven (Maasvlakte 2)', 3.9989, 51.977, 13],
+  ['de Maasmond', 4.06398, 51.98537, 12],
+  ['de Nieuwe Maas bij de Erasmusbrug', 4.484, 51.907, 13],
+  ['de Waal bij Nijmegen', 5.8704, 51.8512, 12],
+  ['het IJsselmeer', 5.3, 52.85, 10],
+  ['het Markermeer', 5.2, 52.55, 10],
+  ['de Eems bij Delfzijl', 6.97, 53.33, 11],
+  ['de Dollard', 7.15, 53.27, 10],
+  ['de Westerschelde bij Breskens', 3.56, 51.41, 11],
+  ['de Westerschelde bij Vlissingen', 3.58, 51.435, 11],
+  ['het Hollands Diep', 4.55, 51.69, 10],
+  ['het Haringvliet', 4.25, 51.79, 10],
+  ['de Oosterschelde', 3.95, 51.6, 10],
+  ['de Waddenzee bij Harlingen', 5.38, 53.18, 10],
+  ['het IJsselmeer, ver weg', 5.3, 52.85, 8],
+  ['het Hollands Diep, ver weg', 4.52, 51.69, 9],
+];
+const LANDPUNTEN = [
+  ['Amsterdam Centraal', 4.9002, 52.3789, 14],
+  ['de Dam', 4.8932, 52.3731, 14],
+  ['de ECT-terminal (Maasvlakte)', 4.033, 51.955, 14],
+  ['de APM-terminal (Maasvlakte 2)', 4.005, 51.97, 14],
+  ['Delfzijl', 6.9236, 53.3317, 14],
+  ['Breskens', 3.553, 51.396, 14],
+  ['Vlissingen', 3.575, 51.444, 14],
+  ['IJmuiden', 4.623, 52.46, 14],
+];
+for (const thema of ['licht', 'donker']) {
+  const { page, ctx, errors } = await open({ w: 1280, h: 800, dark: thema === 'donker' });
+  await manual(page);
+  await groundView(page);
+  await page.setViewportSize({ width: 560, height: 420 }); await page.waitForTimeout(800);
+  const zee = SEA[thema], t0 = Date.now(), fout = [], stuck = []; let views = 0;
+  for (const [lijst, water] of [[WATERPUNTEN, true], [LANDPUNTEN, false]]) {
+    for (const z of [...new Set(lijst.map(p => p[3]))]) {
+      const pl = lijst.filter(p => p[3] === z).map(([n, lon, lat]) => [n, [lon, lat]]);
+      const r = await readAll(page, pl, z); views += r.views; stuck.push(...r.stuck);
+      r.cols.forEach((c, j) => { if (like(c, zee, 12) !== water) fout.push(`${pl[j][0]} (zoom ${z}: ${water ? 'geen water' : 'water'}, ${c ? c.join('/') : '-'})`); });
     }
   }
-  check(wet[10].length === 0 && wet[14].length === 0 && stuck.length === 0, `land en zee (beeld): onder geen van de ${pl.length} plekken water, op zoom 10 (${views[10]} beelden) en 14 (${views[14]} beelden), ${((Date.now() - t0) / 1000).toFixed(0)} s${wet[10].length || wet[14].length ? `; water onder: ${[...wet[10], ...wet[14]].slice(0, 8).join(', ')}` : ''}${stuck.length ? `; niet klaar binnen 30 s: ${stuck.slice(0, 5).join(', ')}` : ''}`);
-  check(errors.length === 0, `land en zee: consolefouten ${errors.length}`);
+  check(fout.length === 0 && stuck.length === 0, `water op het beeld (${thema}): ${WATERPUNTEN.length} plekken op het water getekend als water (${WATERPUNTEN.map(p => p[0]).join(', ')}), ${LANDPUNTEN.length} plekken vlak ernaast als land (${LANDPUNTEN.map(p => p[0]).join(', ')}); ${views} beelden, ${((Date.now() - t0) / 1000).toFixed(0)} s${fout.length ? `; niet: ${fout.join(', ')}` : ''}${stuck.length ? `; niet klaar binnen 30 s: ${stuck.join(', ')}` : ''}`);
+  check(errors.length === 0, `water op het beeld (${thema}): consolefouten ${errors.length}${errors.length ? '\n     ' + errors.slice(0, 4).join('\n     ') : ''}`);
   await ctx.close();
 }
 

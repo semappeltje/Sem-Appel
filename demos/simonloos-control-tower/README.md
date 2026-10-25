@@ -106,7 +106,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 ```
 npm install
 npm run dev              # ontwikkelserver
-npm run build            # dist/index.html: één bestand met alles erin (ca. 15,0 MB; het artifact mag tot 16 MB), plus dist/artifact.html voor het Claude-artifact (ook 15,0 MB)
+npm run build            # dist/index.html: één bestand met alles erin (ca. 15,7 MB; het artifact mag tot 16 MB), plus dist/artifact.html voor het Claude-artifact (ook 15,7 MB)
 npm run build:site       # dist-site/: app.js, data.js, lib.js, uplot.js, maplibre.js, three.js, buildings.js, portretten.js en app.css met vaste namen, om in een site in te bedden
 ```
 
@@ -487,10 +487,27 @@ controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de s
 
 ## Kaart en wegen
 
-- **Wegen en water: OpenStreetMap via Overture Maps** (release 2026-10-21.0, licentie
+- **Wegen: OpenStreetMap via Overture Maps** (release 2026-10-21.0, licentie
   ODbL). Snelwegen, autowegen en N-wegen vormen de routeergraaf waarover de trucks
-  rijden; secundaire en tertiaire wegen worden getoond bij inzoomen. Water als vlakken.
+  rijden; secundaire en tertiaire wegen worden getoond bij inzoomen.
+- **Land en water: OpenStreetMap via Overture Maps** (base/land en base/water, dezelfde release, ODbL; sinds 25 oktober
+  2026, `tools/ct4/kust_water.py`). Het land is het land binnen de kustlijn van OpenStreetMap: de Waddenzee, de Eems en
+  Dollard, de Westerschelde en de Oosterschelde zijn zee. Daarover het water: de IJssel- en randmeren, de rivieren, de
+  kanalen, de havens van Amsterdam en Rotterdam (Westpoort, Europoort, Maasvlakte, Botlek) en het IJ. Weggelaten:
+  water smaller dan 16 m (sloten, smalle vaarten), kribben, eilandjes onder 2,5 ha en losse plassen onder 4 ha (een stuk
+  vanaf 0,5 ha dat door een brug van groter water gescheiden is, zoals het water voor Amsterdam Centraal, blijft);
+  vereenvoudigd tot op 10 m (land 8 m). Ver weg (tot zoom 10) een grove versie van de grote wateren, vanaf zoom 10 het
+  fijne water met de havens en het IJ, kleine vlakken vanaf zoom 11; de namen van de grote wateren, de rivieren, het
+  Noordzeekanaal en het IJ staan erop vanaf de zoom waarop ze passen. Buiten lengte 1,8 tot 8,6 en breedte 50 tot 54,3
+  de grove kust van Natural Earth. De landsgrens met België en Duitsland komt uit OpenStreetMap (Overture divisions).
+  De bebouwing ligt onder het water. Gecontroleerd in `tests/map-check.mjs`: elke standplaats, elk DC, elke fabriek en
+  elke winkel ligt op land (vorm en beeld), en op 26 bekende plekken op het water (het IJ, de havens, de rivieren, de
+  meren, de Eems, de Westerschelde) staat water, licht en donker, met 8 plekken land vlak ernaast.
 - **Provincies en bebouwing: Natural Earth 10m.**
+- **Rijstroken op ware maat**: een rijdend voertuig rijdt in het midden van de rechterstrook van zijn eigen rijbaan (een
+  rijstrook is 3,5 m). Op een gescheiden weg is de lijn in de data het midden van de rijbaan: 1,75 m rechts daarvan; de
+  middenberm zit in de afstand tussen de twee rijbanen. Op een snelweg met één lijn voor beide richtingen 7,25 m rechts van
+  de hartlijn, op een autoweg of N-weg met één lijn 1,75 m, op een straat 1,4 m (`laneShift` in `src/basemap.js`).
 - **MapLibre GL JS 6** (BSD). De basiskaart zit in het bestand zelf. In de losse versie kan onder Kaartlagen (links
   onderaan) ook een online basiskaart: OpenStreetMap via OpenFreeMap (vectortegels in hetzelfde palet), de luchtfoto
   of de BRT-achtergrondkaart van PDOK (Kadaster, CC BY 4.0). Laadt een bron niet, dan blijft de ingebouwde kaart.
@@ -502,7 +519,7 @@ controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de s
 
 ## Wat echt is en wat niet
 
-Echt: wegen, water, de 42 standplaatsen met hun klanten (werkenbijsimonloos.nl,
+Echt: wegen, land en water (de kust, de meren, rivieren, kanalen en havens uit OpenStreetMap; zie "Kaart en wegen"), de 42 standplaatsen met hun klanten (werkenbijsimonloos.nl,
 oktober 2026), de divisies en de ligging van de pauzeplekken op het snelwegennet.
 
 Sinds 4.0 staan de standplaatsen op hun echte adres (uit de vacatures op werkenbijsimonloos.nl, op het BAG-adrespunt
@@ -575,7 +592,7 @@ dezelfde toestand geeft.
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
 - `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein, parkeerrijen, docks en afdelingen), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `charters.json` (verzonnen charters), `BRONNEN.md`
-- `tests/map-check.mjs`: de kaart in de browser (terugval en online bronnen nagebootst, ingebed zonder verzoeken naar buiten, minder beweging, rechts rijden, land en zee, afdelingen, framerate)
+- `tests/map-check.mjs`: de kaart in de browser (terugval en online bronnen nagebootst, ingebed zonder verzoeken naar buiten, minder beweging, rechts rijden op de rechterstrook, land en zee, water op het beeld, afdelingen, framerate)
 - `tests/data-check.mjs`: controle van de echte plekken en ritten en van de geijkte dag (diensten, rij- en rusttijden, accu, docks, wachttijd, gebeurtenissen, pool), van de afdelingen en van de vraagkant (prognose, historie, voorkeuren, charters en oproepkrachten zonder echte namen, kandidaten, toewijzen); `tools/ct4/`: de verwerking van de data (Overture, vacatures, docks, afdelingen, charters)
 - `src/otm5.js`: de vertaling tussen de gesimuleerde dag en OTM5 (Open Trip Model 5.9.0): `uitFleet` (onze vorm), `naarOtm5` en `vanOtm5`; puur en buiten de app-bundel, de basis voor de import van echte ritten (zie `rapporten/simon-loos-control-tower/echte-data-en-otm5.md`)
 - `tests/otm5-check.mjs` (`npm run test:otm5`): de vertaling tegen de officiële OTM5-specificatie (vastgezet in `tests/otm5/`), tegen het planbord en de gebeurtenissen van de app, en heen en terug; `--bestand pad.json` controleert een echt OTM5-bestand

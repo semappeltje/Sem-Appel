@@ -47,11 +47,6 @@ export const PAL3 = { light: { land: '#E6ECE1', urban: '#ECE6DA', sea: '#B4D8EE'
 // ---------------------------------------------------------------------------------------------------------------------
 // Gegevens (een keer opgebouwd)
 const km = (a, b) => { const k = Math.cos((a[1] + b[1]) * Math.PI / 360); return Math.hypot((a[0] - b[0]) * k * 111.32, (a[1] - b[1]) * 111.32); };
-function segDist(p, a, b) {
-  const k = Math.cos(p[1] * Math.PI / 180) * 111.32, ax = a[0] * k, ay = a[1] * 111.32, bx = b[0] * k, by = b[1] * 111.32, px = p[0] * k, py = p[1] * 111.32;
-  const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy; let t = L ? ((px - ax) * dx + (py - ay) * dy) / L : 0; t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
-}
 // lijnstukken aan elkaar rijgen tot lijnen
 function stitch(edges) {
   const key = p => p[0] + ',' + p[1]; const adj = new Map(); const used = new Set();
@@ -69,20 +64,14 @@ function stitch(edges) {
   }
   return out;
 }
-// Provinciegrenzen: alleen de randen die twee provincies delen (geen kustlijnen). Landsgrens: de randen van Nederland die
-// dicht bij een buurland liggen. Naad: de rand van de buurlanden bij Nederland, breed in de landkleur getekend, zodat er
-// tussen de (grovere) buurlanden en Nederland geen zee-kleurige spleet zichtbaar is.
+// Provinciegrenzen: alleen de randen die twee provincies delen (geen kustlijnen). Landsgrens: de grens van Nederland met
+// België en Duitsland over land, uit OpenStreetMap (land.json, veld grens; zie tools/ct4/kust_water.py).
 function borders() {
   const k = p => p[0].toFixed(4) + ',' + p[1].toFixed(4); const ek = (a, b) => { const A = k(a), B = k(b); return A < B ? A + '|' + B : B + '|' + A; };
   const cnt = new Map(), seg = new Map();
   for (const p of provinces) for (const r of p.rings) for (let i = 1; i < r.length; i++) { const key = ek(r[i - 1], r[i]); cnt.set(key, (cnt.get(key) || 0) + 1); seg.set(key, [r[i - 1], r[i]]); }
   const inner = []; for (const [key, n] of cnt) if (n >= 2) inner.push(seg.get(key));
-  const ctx = []; for (const poly of land.ctx) for (const r of poly) for (let i = 1; i < r.length; i++) { const a = r[i - 1], b = r[i]; if (Math.max(a[0], b[0]) < 2.8 || Math.min(a[0], b[0]) > 7.6 || Math.max(a[1], b[1]) < 50.5 || Math.min(a[1], b[1]) > 53.9) continue; ctx.push([a, b]); }
-  const nlEdges = []; for (const poly of land.nl) for (const r of poly) for (let i = 1; i < r.length; i++) nlEdges.push([r[i - 1], r[i]]);
-  const near = (p, list, d) => list.some(([a, b]) => segDist(p, a, b) < d);
-  const nat = nlEdges.filter(([a, b]) => near([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], ctx, 3.2) && near(a, ctx, 4) && near(b, ctx, 4));
-  const seam = ctx.filter(([a, b]) => near([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], nlEdges, 4.5));
-  return { inner: stitch(inner), nat: stitch(nat), seam: stitch(seam) };
+  return { inner: stitch(inner), nat: (land.grens || []).map(decode) };
 }
 // Wegen voor namen en nummers: roads_display.json mag per weg een naam (n) en wegnummer (ref) hebben. De vorm van een
 // item is een polyline-tekst, of een object/array met de polyline (of coördinaten) plus n en ref. Zonder die velden: geen tekst.
@@ -145,12 +134,23 @@ function roadLines() {
   labels.push(...labelLines(geo.sec, geo.ter));
   return { draw, labels };
 }
-// Water: polygonen (meren, rivieren en de stukken zee die in de data zitten); de rest van de zee is de achtergrond.
-function waterFeatures() {
-  return water.map(([t, rings]) => ({ type: 'Feature', properties: { t }, geometry: { type: 'Polygon', coordinates: rings.map(r => { const c = decode(r); if (c.length && (c[0][0] !== c[c.length - 1][0] || c[0][1] !== c[c.length - 1][1])) c.push(c[0]); return c; }) } }));
-}
-// namen van grote wateren (vaste plekken), schuin en blauw zoals op een gewone kaart
-const WATERS = [['Noordzee', 3.55, 52.75, 5], ['Waddenzee', 5.25, 53.24, 7.5], ['IJsselmeer', 5.33, 52.83, 7.5], ['Markermeer', 5.27, 52.55, 9], ['Oosterschelde', 3.93, 51.6, 9.5], ['Westerschelde', 3.78, 51.43, 9.5]];
+// Land en water uit OpenStreetMap (via Overture; tools/ct4/kust_water.py). De zee is de achtergrond. Het land is het land
+// binnen de kustlijn (land.json, veld land), daarbuiten de grove kust van Natural Earth (veld ctx). Het water ligt erover:
+// meren, rivieren, kanalen, havens en het IJ. water.json heeft per vlak [z, ringen] of [z, ringen, zx]: de kaart tekent
+// het vlak vanaf zoom z tot zoom zx. Ver weg (tot zoom 10) een grove versie van de grote wateren (de IJssel- en
+// randmeren, de rivieren, de Zeeuwse wateren); vanaf zoom 10 het fijne water met de havens, het IJ en de kanalen, kleine
+// vlakken vanaf zoom 11. Elke ring is een polyline-tekst.
+const ringOf = r => { const c = decode(r); if (c.length && (c[0][0] !== c[c.length - 1][0] || c[0][1] !== c[c.length - 1][1])) c.push(c[0]); return c; };
+const vlak = (rings, props) => ({ type: 'Feature', properties: props || {}, geometry: { type: 'Polygon', coordinates: rings.map(ringOf) } });
+function waterFeatures() { return water.map(([z, rings, zx]) => vlak(rings, { z, zx: zx || 99 })); }
+function landFeatures() { return [...(land.ctx || []).map(p => vlak(p, { a: 1 })), ...(land.land || []).map(p => vlak(p, { a: 0 }))]; }
+// namen van wateren (vaste plekken op het water, de naam uit OpenStreetMap; de laatste waarde is de zoom vanaf waar de
+// naam er staat), schuin en blauw zoals op een gewone kaart: de grote wateren ver weg, de rivieren, kanalen en het IJ
+// dichterbij
+const WATERS = [['Noordzee', 3.55, 52.75, 5], ['Waddenzee', 5.25, 53.24, 7.5], ['IJsselmeer', 5.33, 52.83, 7.5], ['Markermeer', 5.27, 52.55, 9], ['Oosterschelde', 3.93, 51.6, 9.5], ['Westerschelde', 3.78, 51.43, 9.5],
+  ['Hollands Diep', 4.52, 51.69, 9.5], ['Haringvliet', 4.22, 51.795, 9.5], ['Grevelingenmeer', 3.98, 51.745, 9.5], ['Eems', 6.952, 53.42, 9.5], ['Dollard', 7.19, 53.27, 9.5],
+  ['Waal', 5.8704, 51.8512, 11], ['Nederrijn', 5.8979, 51.9805, 11], ['Lek', 4.8747, 51.9384, 11], ['IJssel', 6.15, 52.253, 11], ['Maas', 5.7417, 51.7639, 11], ['Veerse Meer', 3.6574, 51.5627, 11], ['Lauwersmeer', 6.21, 53.36, 11], ['Gooimeer', 5.17, 52.33, 11], ['Veluwemeer', 5.7096, 52.3996, 11], ['Ketelmeer', 5.7745, 52.6016, 11],
+  ['Noordzeekanaal', 4.7211, 52.434, 11], ['Nieuwe Waterweg', 4.2314, 51.9204, 11], ['Nieuwe Maas', 4.484, 51.907, 12.5], ['Oude Maas', 4.3424, 51.8571, 12.5], ['IJ', 4.8989, 52.3826, 12.5]];
 
 // Terreinen van standplaatsen en DC's (rustig vlak zoals een bedrijfsterrein), het hoofdgebouw, de poort, en de
 // toegangsroutes over echte straten (van de routeergraaf tot de poort of de deur) als straten op de kaart.
@@ -342,52 +342,6 @@ export function laneShift(lon, lat, bearing) {
 }
 
 let BASE = null;
-// De kustlijn van Natural Earth (10m) is grof: Ameland heeft 12 punten, en in havens, op boulevards en op de eilanden
-// vallen zo'n 25 plekken (winkels, een groothandel, bezorgadressen) 100 tot 900 m in zee ("dan komt een plaats ineens in
-// de zee"). Tot er een fijne kustlijn is: onder zo'n plek een kaap van land vanaf de kust (de omhullende van een cirkel
-// van 250 m om de plek en een stuk kust van minstens 600 m breed; plekken binnen 1,5 km van elkaar delen één kaap), zodat
-// geen standplaats, DC, fabriek, winkel of bezorgadres in zee ligt. Een plek binnen de naad (de rand van de buurlanden,
-// 6 km breed in de landkleur) ligt al op land.
-export const landStats = { patches: 0 };
-function landPatches(seam) {
-  const KM = 111320, polys = [...land.nl.map(p => [p[0]]), ...land.ctx].map(rings => { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of rings[0]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return { rings, b: [x0, y0, x1, y1] }; });
-  const inRing = (r, x, y) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const yi = r[i][1], yj = r[j][1]; if ((yi > y) !== (yj > y) && x < r[i][0] + (y - yi) / (yj - yi) * (r[j][0] - r[i][0])) c = !c; } return c; };
-  const onLand = (x, y) => polys.some(({ rings, b }) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] && inRing(rings[0], x, y) && !rings.slice(1).some(h => inRing(h, x, y)));
-  // afstand (m) van een punt tot de dichtstbijzijnde lijn, met het voetpunt (dx, dy in m) en de richting van dat stuk
-  const near = (lines, x, y) => {
-    const kx = KM * Math.cos(y * Math.PI / 180); let d = 1e12, f = null;
-    for (const l of lines) for (let i = 1; i < l.length; i++) { const a = l[i - 1], c = l[i], sx = (c[0] - a[0]) * kx, sy = (c[1] - a[1]) * KM, px = (x - a[0]) * kx, py = (y - a[1]) * KM, L2 = sx * sx + sy * sy, t = L2 ? Math.max(0, Math.min(1, (px * sx + py * sy) / L2)) : 0, qx = t * sx - px, qy = t * sy - py, v = Math.hypot(qx, qy); if (v < d) { d = v; f = { qx, qy, tx: L2 ? sx / Math.sqrt(L2) : 1, ty: L2 ? sy / Math.sqrt(L2) : 0 }; } }
-    return { d, f, kx };
-  };
-  const lineD = (lines, x, y) => near(lines, x, y).d;
-  // omhullende (monotone ketting) van punten in meters
-  const hull = ps => { ps = ps.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); const lo = [], up = []; for (const q of ps) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); } for (const q of ps.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); } return lo.slice(0, -1).concat(up.slice(0, -1)); };
-  const seamLines = seam || [], coast = polys.flatMap(({ rings }) => rings);
-  const pts = [...SP.map(q => [q.lon, q.lat]), ...DCS.map(q => [q.lon, q.lat]), ...WINKELS.map(q => [q.lon, q.lat]), ...BEZORG.map(q => [q.lon, q.lat])];
-  const sea = [];
-  for (const [x, y] of pts) {
-    if (!Number.isFinite(x) || !Number.isFinite(y) || onLand(x, y) || lineD(seamLines, x, y) < 2800) continue;
-    const { d, f } = near(coast, x, y); if (f && d <= 3000) sea.push({ x, y, d, f });
-  }
-  // plekken binnen 1,5 km van elkaar samen (één kaap per dorp of haven)
-  const groups = [];
-  for (const q of sea) { const g = groups.find(g => g.some(o => Math.hypot((o.x - q.x) * KM * Math.cos(q.y * Math.PI / 180), (o.y - q.y) * KM) < 1500)); if (g) g.push(q); else groups.push([q]); }
-  const out = [];
-  for (const g of groups) {
-    // in meters rond de eerste plek: per plek een cirkel van 250 m en de kust bij het voetpunt (iets landinwaarts), minstens
-    // 600 m breed; de omhullende daarvan
-    const x0 = g[0].x, y0 = g[0].y, kx = KM * Math.cos(y0 * Math.PI / 180), ps = [];
-    for (const { x, y, d, f } of g) {
-      const ox = (x - x0) * kx, oy = (y - y0) * KM, n = Math.hypot(f.qx, f.qy) || 1, nx = f.qx / n, ny = f.qy / n, w = Math.max(300, d * 0.7);
-      for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; ps.push([ox + Math.cos(a) * 250, oy + Math.sin(a) * 250]); }
-      for (const sgn of [-1, 1]) ps.push([ox + f.qx + nx * 60 + sgn * f.tx * w, oy + f.qy + ny * 60 + sgn * f.ty * w]);
-    }
-    const ring = hull(ps).map(([mx, my]) => [x0 + mx / kx, y0 + my / KM]); ring.push(ring[0]);
-    out.push({ type: 'Feature', properties: { a: 0, patch: g.length }, geometry: { type: 'Polygon', coordinates: [ring] } });
-  }
-  landStats.patches = out.length;
-  return out;
-}
 export function baseData() {
   if (BASE) return BASE;
   const E = allEdges(); const roads = { mw: [], tr: [], pr: [] };
@@ -404,10 +358,7 @@ export function baseData() {
     ...TOWNS.filter(t => !cityNames.has(t.n.toLowerCase())).map(t => ({ type: 'Feature', properties: { n: t.n, r: t.big ? 4 : 5, dep: dep(t.n, t.lon, t.lat) }, geometry: { type: 'Point', coordinates: [t.lon, t.lat] } })),
   ];
   BASE = {
-    // Nederland zonder gaten: het gat in de vorm van Natural Earth beslaat IJsselmeer, Markermeer en ook heel Flevoland,
-    // dat dan (vanaf zoom 9 of zo) als zee getekend werd. De meren tekent de waterlaag (Overture) er zelf overheen.
-    land: fc([...land.ctx.map(p => ({ type: 'Feature', properties: { a: 1 }, geometry: { type: 'Polygon', coordinates: p } })), ...land.nl.map(p => ({ type: 'Feature', properties: { a: 0 }, geometry: { type: 'Polygon', coordinates: [p[0]] } })), ...landPatches(b.seam)]),
-    seam: fc(b.seam.map(c => line(c))), prov: fc(b.inner.map(c => line(c))), nat: fc(b.nat.map(c => line(c))),
+    land: fc(landFeatures()), prov: fc(b.inner.map(c => line(c))), nat: fc(b.nat.map(c => line(c))),
     water: fc(waterFeatures()), urban: fc(urbanRings.map(r => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [r] } }))),
     mw: fc(roads.mw), tr: fc(roads.tr), pr: fc(roads.pr), se: fc(rl.draw.se), te: fc(rl.draw.te), labels: fc(rl.labels),
     places: fc(places), waters: fc(WATERS.map(([n, lon, lat, mz]) => ({ type: 'Feature', properties: { n, mz }, geometry: { type: 'Point', coordinates: [lon, lat] } }))),
@@ -447,23 +398,23 @@ export function addStyleImages(map, P) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Lagen. De ondergrond (ground) en de tekst (labels) worden apart toegevoegd, zodat map.js er de route, de voertuigen en
 // de standplaatsen tussen kan leggen.
-export const GROUND = ['land', 'seam', 'water', 'urban', 'site', 'site-line', 'hal', 'prov', 'nat', 'toegang', 'te', 'sec', 'se', 'prc', 'pr', 'trc', 'tr', 'mwc', 'mw', 'mwb', 'dock-door', 'dock', 'poort'];
+export const GROUND = ['land', 'urban', 'water', 'site', 'site-line', 'hal', 'prov', 'nat', 'toegang', 'te', 'sec', 'se', 'prc', 'pr', 'trc', 'tr', 'mwc', 'mw', 'mwb', 'dock-door', 'dock', 'poort'];
 export const LABELS = ['water-lbl', 'road-name', 'road-shield', 'pl-5', 'pl-4', 'pl-3', 'pl-2', 'pl-1'];
 
 export function addGround(map, P) {
   const B = baseData();
-  map.addSource('land', { type: 'geojson', data: B.land, tolerance: 0.4 });
-  map.addSource('seam', { type: 'geojson', data: B.seam });
+  map.addSource('land', { type: 'geojson', data: B.land, tolerance: 0.3, maxzoom: 14, buffer: 16 });
   map.addSource('water', { type: 'geojson', data: B.water, tolerance: 0.3, maxzoom: 14, buffer: 16 });
   map.addSource('urban', { type: 'geojson', data: B.urban });
   map.addSource('prov', { type: 'geojson', data: B.prov });
   map.addSource('nat', { type: 'geojson', data: B.nat });
   for (const k of ['mw', 'tr', 'pr', 'se', 'te']) map.addSource(k, { type: 'geojson', data: B[k], tolerance: 0.3, maxzoom: 14, buffer: 16 });
   map.addLayer({ id: 'land', type: 'fill', source: 'land', paint: { 'fill-color': P.land } });
-  // de naad heeft een vaste breedte op de grond (ongeveer 6 km): dikker in pixels bij inzoomen
-  map.addLayer({ id: 'seam', type: 'line', source: 'seam', paint: { 'line-color': P.land, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 5, 4, 10, 128, 14, 2048] }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
-  map.addLayer({ id: 'water', type: 'fill', source: 'water', paint: { 'fill-color': P.sea, 'fill-antialias': true, 'fill-outline-color': P.sea } });
+  // de bebouwing (grove vlekken van Natural Earth) onder het water, zodat het IJ en de havens in de stad water blijven
   map.addLayer({ id: 'urban', type: 'fill', source: 'urban', maxzoom: 15, paint: { 'fill-color': P.urban, 'fill-opacity': Z(7, 0.85, 10, 0.75, 12, 0.5, 13.5, 0.15, 14.5, 0) } });
+  // per vlak de zoom vanaf waar (z) en tot waar (zx) het getekend wordt: ver weg de grove vorm van de grote wateren,
+  // dichtbij het fijne water met de havens, het IJ en de kanalen
+  map.addLayer({ id: 'water', type: 'fill', source: 'water', filter: ['all', ['>=', ['zoom'], ['get', 'z']], ['<', ['zoom'], ['get', 'zx']]], paint: { 'fill-color': P.sea, 'fill-antialias': true, 'fill-outline-color': P.sea } });
   map.addSource('site', { type: 'geojson', data: B.site }); map.addSource('hal', { type: 'geojson', data: B.hal });
   map.addSource('toegang', { type: 'geojson', data: B.toegang, tolerance: 0.3, buffer: 16 }); map.addSource('poort', { type: 'geojson', data: B.poort });
   map.addLayer({ id: 'site', type: 'fill', source: 'site', minzoom: 11.5, paint: { 'fill-color': P.site, 'fill-opacity': Z(11.5, 0, 12.5, 1) } });
@@ -565,7 +516,8 @@ export function addLabels(map, P) {
   map.addSource('waters', { type: 'geojson', data: B.waters });
   map.addSource('road-labels', { type: 'geojson', data: B.labels, tolerance: 0.5, maxzoom: 14, buffer: 64 });
   const halo = { 'text-halo-color': P.halo, 'text-halo-width': 1.6, 'text-halo-blur': 0.4 };
-  map.addLayer({ id: 'water-lbl', type: 'symbol', source: 'waters', layout: { 'text-field': ['step', ['zoom'], ['case', ['<=', ['get', 'mz'], 5.5], ['get', 'n'], ''], 7.4, ['case', ['<=', ['get', 'mz'], 7.5], ['get', 'n'], ''], 8.9, ['get', 'n']], 'text-font': FONT.ital, 'text-size': Z(5, 12, 9, 14, 12, 16), 'text-letter-spacing': 0.06, 'text-max-width': 7 }, paint: { 'text-color': P.waterText, 'text-halo-color': P.sea, 'text-halo-width': 0.8 } });
+  const naamTot = mz => ['case', ['<=', ['get', 'mz'], mz], ['get', 'n'], ''];
+  map.addLayer({ id: 'water-lbl', type: 'symbol', source: 'waters', layout: { 'text-field': ['step', ['zoom'], naamTot(5.5), 7.4, naamTot(7.5), 8.9, naamTot(9.5), 10.9, naamTot(11), 12.4, ['get', 'n']], 'text-font': FONT.ital, 'text-size': Z(5, 12, 9, 14, 12, 16), 'text-letter-spacing': 0.06, 'text-max-width': 7 }, paint: { 'text-color': P.waterText, 'text-halo-color': P.sea, 'text-halo-width': 0.8 } });
   // straatnamen langs de weg (alleen waar de data een naam heeft)
   map.addLayer({ id: 'road-name', type: 'symbol', source: 'road-labels', minzoom: 12.5, filter: ['!=', ['get', 'n'], ''], layout: { 'symbol-placement': 'line', 'text-field': ['get', 'n'], 'text-font': FONT.reg, 'text-size': Z(12.5, 10.5, 15, 12, 18, 14), 'text-max-angle': 32, 'symbol-spacing': 320, 'text-padding': 4, 'text-letter-spacing': 0.01, 'text-pitch-alignment': 'viewport', 'text-rotation-alignment': 'map' }, paint: { 'text-color': P.text3, ...halo, 'text-opacity': ['step', ['zoom'], ['case', ['==', ['get', 'c'], 'te'], 0, 1], 14, 1] } });
   // wegnummers als schildje: A rood, N geel, E groen; ver uitgezoomd alleen snelwegen
@@ -603,7 +555,7 @@ export function highlightDepot(map, name) { if (map.getLayer('sp-on')) map.setFi
 export function applyPalette(map, theme, three) {
   // op de luchtfoto: wegen en namen in de lichte kleuren, ook in het donkere thema (zoals Google Maps op een satellietbeeld)
   const P0 = PAL[theme], P = photoOn ? { ...P0, ...PHOTO_PAL } : P0, Q = three ? PAL3[theme] : P0; const set = (id, k, v) => { if (map.getLayer(id)) map.setPaintProperty(id, k, v); };
-  set('bg', 'background-color', Q.sea); set('land', 'fill-color', Q.land); set('seam', 'line-color', Q.land); set('water', 'fill-color', Q.sea); set('water', 'fill-outline-color', Q.sea); set('urban', 'fill-color', Q.urban);
+  set('bg', 'background-color', Q.sea); set('land', 'fill-color', Q.land); set('water', 'fill-color', Q.sea); set('water', 'fill-outline-color', Q.sea); set('urban', 'fill-color', Q.urban);
   set('prov', 'line-color', P.prov); set('nat', 'line-color', P.border);
   for (const k of ['mw', 'tr', 'pr', 'se', 'te']) { set(k, 'line-color', P[k]); set(k + 'c', 'line-color', P[k + 'C']); }
   set('mwb', 'line-color', Q.land);

@@ -15,8 +15,8 @@ def dp(pts,tol):
         if d>best: best,bi=d,i
     if best>tol: return dp(pts[:bi+1],tol)[:-1]+dp(pts[bi:],tol)
     return [pts[0],pts[-1]]
-# land + provincies: ongewijzigd overnemen
-for f in ('land.json','provinces.json'):
+# provincies: ongewijzigd overnemen (land.json komt sinds oktober 2026 uit tools/ct4/kust_water.py, de echte kust)
+for f in ('provinces.json',):
     json.dump(json.load(open(V2+f)),open(OUT+f,'w'),separators=(',',':'))
 # wegen: regionale wegen West-Friesland en A7-gat toevoegen
 R=json.load(open(V2+'roads.json'))

@@ -3,7 +3,8 @@ from shapely.geometry import shape, Polygon, MultiPolygon, LineString
 from shapely.prepared import prep
 t0=time.time()
 OUT='../src/data/'
-land=json.load(open(OUT+'land.json'))
+# de vorm van Nederland (Natural Earth); sinds oktober 2026 in ct4/nl_ne.json (land.json is nu de echte kust)
+land=json.load(open('ct4/nl_ne.json'))
 nl=MultiPolygon([Polygon(p[0],p[1:]) for p in land['nl']]).buffer(0.03)
 nlp=prep(nl)
 def km(a,b):
@@ -116,6 +117,8 @@ for cls in (3,4):
     print('weergave klasse',cls,'ketens',n,'punten',pts,flush=True)
 sd=json.dumps({'sec':disp[3],'ter':disp[4]},separators=(',',':')); open(OUT+'roads_display.json','w').write(sd); print('roads_display.json',len(sd)//1024,'kB',flush=True)
 # ---------- water ----------
+# sinds oktober 2026 maakt tools/ct4/kust_water.py water.json (en land.json); dit oude deel schrijft niets meer
+import sys; sys.exit(0)
 W=pq.read_table('nl_water.parquet').to_pylist(); print('water polygons',len(W),flush=True)
 out=[]; cnt=collections.Counter()
 for w in W:

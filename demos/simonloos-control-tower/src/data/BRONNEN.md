@@ -7,6 +7,8 @@ tijden) staat in de README onder "Wat echt is en wat niet". De verwerking staat 
 
 Release **2026-10-21.0** (de nieuwste op 25-10-2026), gelezen van `s3://overturemaps-us-west-2/release/2026-10-21.0/`
 met pyarrow, alleen de kolommen die nodig zijn en alleen binnen het kader van Nederland (lengte 3,2 tot 7,3, breedte 50,7 tot 53,6).
+Voor land, water en de landsgrens: alle vlakken en lijnen die het ruimere kader lengte 1,8 tot 8,6, breedte 50 tot 54,3 raken
+(gelezen op 25 oktober 2026; zie "Land en water" hieronder).
 
 | Thema / type | Gebruikt voor | Licentie |
 | --- | --- | --- |
@@ -15,6 +17,9 @@ met pyarrow, alleen de kolommen die nodig zijn en alleen binnen het kader van Ne
 | buildings / building | gebouwen rond standplaatsen en DC's (3D), hoofdgebouw en terrein | ODbL (OpenStreetMap) |
 | base / land_use | terrein van een standplaats of DC (het bedrijfsvlak) | ODbL (OpenStreetMap) |
 | transportation / segment | routeergraaf (al sinds 3.0), toegangsroutes over alle wegklassen, wegnummers en straatnamen | ODbL (OpenStreetMap) |
+| base / land | het land binnen de kustlijn van OpenStreetMap (`land.json`, veld `land`) | ODbL (OpenStreetMap) |
+| base / water | meren, rivieren, kanalen, havens en het IJ (`water.json`) | ODbL (OpenStreetMap) |
+| divisions / division_boundary | de landsgrens van Nederland met België en Duitsland (`land.json`, veld `grens`) | ODbL (OpenStreetMap) |
 
 ## Standplaatsen (42)
 
@@ -147,6 +152,44 @@ aansluit) en een toegangsroute in `toegang.json` (polyline van die knoop tot de 
 - Toegangsroutes: het volledige wegennet voor auto's (alle wegklassen tot en met service en woonerf, 2,69 miljoen segmenten) met een Dijkstra vanuit alle aansluitpunten op de graaf tegelijk; kosten naar wegklasse (inritten en parkeerstroken langzaam). Een plek wordt vastgeklikt op de dichtstbijzijnde weg (90 % binnen 37 m); de route eindigt op dat klikpunt. Mediaan 1,2 km, 90 % korter dan 2,9 km, langste 10,7 km (Sellingen).
 - `toegang.json` (342 kB): 4.903 toegangsroutes.
 
+## Land en water (`land.json`, `water.json`)
+
+Sinds 25 oktober 2026 uit OpenStreetMap via Overture (release 2026-10-21.0, ODbL), gemaakt met `tools/ct4/kust_water.py`
+(daarvoor de grove kust van Natural Earth met ronde stukjes land onder plekken, en water zonder kanalen en havens: het IJ
+achter Amsterdam Centraal, het Westelijk Havengebied en de bekkens van Europoort waren land).
+
+- **Land** (`land.json`, veld `land`, 99 vlakken): `base/land` met subtype en class `land`, het land binnen de kustlijn van
+  OpenStreetMap (Overture knipt het in vakken van een graad; hier samengevoegd), in het kader lengte 1,8 tot 8,6 en breedte 50
+  tot 54,3. De havens van Rotterdam, het IJ en het Noordzeekanaal liggen binnen de kustlijn (achter sluizen of binnendijks);
+  de Waddenzee, de Eems en Dollard, de Westerschelde en de Oosterschelde liggen erbuiten en zijn zee (de achtergrond van de
+  kaart). Vereenvoudigd op 8 m, stukjes onder 0,4 ha weg.
+- **Water** (`water.json`, 4.403 vlakken): alle vlakken van `base/water` (meren, rivieren, kanalen, havens, het IJ, plassen)
+  behalve zee en oceaan, benoemde gebieden (subtype `physical`), sloten, beken, zwembaden en bronnen. Per bronvlak een
+  opening van 6 m (sloten en greppels weg), samengevoegd, alleen het deel binnen het land; per samengevoegd vlak gesloten met
+  15 m (kribben en andere smalle stukken land in het water dicht) en geopend met 8 m (vaarten smaller dan 16 m weg).
+  Vereenvoudigd op 10 m (buiten Nederland 20 m); eilanden onder 2,5 ha weg; losse vlakken onder 4 ha weg, behalve stukken
+  vanaf 0,5 ha binnen 25 m van een groter watervlak (een gracht, havenmond of het water voor Amsterdam Centraal dat door een
+  brug van de rest gescheiden is); buiten Nederland (de provincies, 3 km ruim) alleen water vanaf 50 ha. Waar water binnen
+  80 m van de kust komt (monden), is het ook uit het land gehaald, zodat het land geen streep over een monding legt. Per vlak
+  de zoom waarop de kaart het tekent: 143 grove vlakken (alleen water vanaf 1 km2, geopend met 100 m, vereenvoudigd op 60 m)
+  tot zoom 10, het fijne water vanaf zoom 10 (617 vlakken vanaf 25 ha) en de kleinere vlakken vanaf zoom 11 (3.613). Waar de
+  bebouwing van Natural Earth (`urban.json`, onder het water getekend) in zee steekt (Maasvlakte, IJmuiden, Scheveningen),
+  ligt een stuk zee in de waterkleur erover met precies de kustlijn van het land (30 vlakken, altijd getekend).
+- **Buiten het kader** (veld `ctx`): de grove kust van Natural Earth 10m (publiek domein), zonder het kader.
+- **Landsgrens** (veld `grens`): `divisions/division_boundary` met subtype `country` en `is_land`, de grenzen van Nederland met
+  België (met de enclaves van Baarle) en Duitsland: 26 lijnen, 1.057 km, vereenvoudigd op 12 m.
+- Alles in graden op een raster van 1e-5 gelegd (de polyline-codering), zodat geen vlak na het afronden zichzelf snijdt.
+- Controle in het gereedschap: elke standplaats, elk DC, elke fabriek, elke winkel en elk bezorgpunt (4.969 plekken) ligt op
+  het land en in geen watervlak. Drie plekken lagen na het vereenvoudigen tegen het water; daar staat in een venster van 300
+  m de vorm van voor het vereenvoudigen (de echte rand, geen cirkel). Twee bezorgpunten liggen ook in de bron in het water,
+  omdat het midden van de straat is genomen: "Bezorgronde Wormerveer (Zaanweg)" (`bz-70`, 4,795 / 52,4908, in de Zaan) en
+  "Bezorgronde Nieuwe Niedorp (Vijverweg)" (4,8853 / 52,7356, in de vijver); dat is een fout in de bezorgpunten
+  (`tools/ct4/bezorg.py`), niet in het water. In de browser: `tests/map-check.mjs` ("land en zee" en "water op het beeld").
+- Grootte: `land.json` 120 kB, `water.json` 785 kB (was 31 en 352 kB); het artifact groeide van 15.112.365 naar 15.655.369
+  bytes (de grens is 16.000.000).
+- Werkmap: `water_get.py` en `grens_get.py` halen de bron op (280 MB water, 12 MB land), `kust_water.py <werkmap> src/data a`
+  rekent het samenvoegen (ongeveer acht minuten), `kust_water.py <werkmap> src/data` de rest (ruim twee minuten).
+
 ## Gebouwen (`buildings.json`, alleen voor 3D)
 
 16.196 gebouwen rond 78 plekken (42 standplaatsen en 36 DC's en fabrieken met een eigen terrein), 690 daarvan op het terrein zelf (`d: 1`).
@@ -224,6 +267,10 @@ Per lijn het wegnummer (`routes.ref` uit Overture: A-, N- en S-nummers, over de 
 - Welke winkels, DC's en fabrieken een standplaats op een dag bedient, is gesimuleerd (vaste seed); de plekken zelf zijn echt.
 - Hoogtes van gebouwen zonder `height` of verdiepingen zijn 6 m.
 - Docks: aantal en plek zijn een schatting (zie hierboven); welke docks een standplaats echt heeft, staat niet in open data.
+- Land en water: vereenvoudigd tot op 8 m (land) en 10 m (water); sloten, smalle vaarten, kribben en kleine plassen zijn
+  weggelaten (zie "Land en water"). Buiten het kader lengte 1,8 tot 8,6, breedte 50 tot 54,3 is de kust grof (Natural Earth).
+- Rijstroken: een rijdend voertuig staat in het midden van de rechterstrook van zijn rijbaan, met twee stroken van 3,5 m per
+  rijbaan; hoeveel stroken een weg echt heeft, staat niet in de data van de app.
 - Afdelingen: welk gebouw het kantoor, de garage of de wasstraat is, is afgeleid uit grootte, vorm en ligging (zie hierboven).
 - De vraagkant (historie, prognose, voorkeuren, tevredenheid, charters, oproepkrachten, kandidaten, kosten) is gesimuleerd; zie "Gesimuleerd" hierboven.
 - De dag zelf (in `src/fleet.js`) is geijkt op de cijfers uit het onderzoeksmemo (rapporten/simon-loos-control-tower, §1.4): winkeldiensten van 8,5 tot 11 uur met 45 tot 60 procent rijden (Slimste, vacatureteksten), een tweede dienst voor een kwart tot een derde van de vloot, wachten bij DC's en winkels van 35 tot 60 minuten per truck per dag (Slimste), pauzes volgens EU-verordening 561/2006 en het Arbeidstijdenbesluit vervoer, en de AH-ritten van morgen die 's middags via OTM5 binnenkomen. De wachttijd per soort plek en dagdeel, de lostijden en de rijsnelheden zijn schattingen.
@@ -242,5 +289,7 @@ Volgorde, met een werkmap buiten de repo voor de parquet-bestanden:
 8. `charters.py` (los, deterministisch): de verzonnen charters in `charters.json`.
 9. `winkels_opschonen.py` (door `build_data.py` aangeroepen, ook los te draaien op `src/data`): winkels op het adres of terrein
    van een standplaats of DC en het hoofdkantoor eruit (zie "Klanten").
+10. `water_get.py` en `grens_get.py`: land, water en landsgrens van Overture; `kust_water.py`: `land.json` en `water.json` (zie
+   "Land en water"). Vervangt `tools/water2.py`.
 
-Bestandsgroottes: places.json 151 kB, klanten.json 593 kB, toegang.json 342 kB, graph.json 3.915 kB, roads_display.json 2.350 kB, buildings.json 2.407 kB, charters.json 9 kB.
+Bestandsgroottes: places.json 151 kB, klanten.json 593 kB, toegang.json 342 kB, graph.json 3.915 kB, roads_display.json 2.350 kB, buildings.json 2.407 kB, charters.json 9 kB, land.json 120 kB, water.json 785 kB.
