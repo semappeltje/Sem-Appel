@@ -92,7 +92,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     F.regios = new Set((profile.regios || []).filter(r => REGIOS.includes(r))); F.divs = new Set((profile.divs || []).filter(k => DIV[k])); if (!F.divs.size) F.divs = new Set(Object.keys(DIV));
     role = ROLES[profile.role] ? profile.role : role; store.set('sl-role', role);
     F.sps = new Set(profile.sp && SP.find(s => s.n === profile.sp) ? [profile.sp] : []);
-    if (mapApi) { if (F.sps.size) { const sp = SP.find(s => s.n === profile.sp); mapApi.highlightSp(sp.n); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: 9.4, duration: FLY }); } else if (F.regios.size && F.regios.size < REGIOS.length) mapApi.fitSps(SP.filter(s => F.regios.has(s.regio))); else mapApi.map.easeTo({ center: [5.3, 52.2], zoom: 6.6, duration: FLY }); }
+    // in de 3D-stand (ook als die bij het laden is hersteld) vliegt het werkgebied naar de standplaats, zoals de knop dat doet
+    if (mapApi && three) { const sp = (F.sps.size && SP.find(s => s.n === profile.sp)) || SP[0]; mapApi.highlightSp(sp.n); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: 13.6, pitch: 58, bearing: -18, duration: FLY }); }
+    else if (mapApi) { if (F.sps.size) { const sp = SP.find(s => s.n === profile.sp); mapApi.highlightSp(sp.n); mapApi.map.easeTo({ center: [sp.lon, sp.lat], zoom: 9.4, duration: FLY }); } else if (F.regios.size && F.regios.size < REGIOS.length) mapApi.fitSps(SP.filter(s => F.regios.has(s.regio))); else mapApi.map.easeTo({ center: [5.3, 52.2], zoom: 6.6, duration: FLY }); }
     renderTopbar(); renderRail(); frame(true);
   }
 
