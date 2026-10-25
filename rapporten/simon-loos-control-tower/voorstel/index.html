@@ -113,7 +113,7 @@ b, strong { font-weight: 600; }
 .cover-top { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; font-size: var(--fs-s); color: var(--ink-2); }
 .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink); letter-spacing: .01em; }
 .brand .mark { --m: 9px; }
-.cover h1 { font-size: var(--fs-h1); line-height: 1.07; letter-spacing: -.022em; margin: 64px 0 18px; max-width: 17ch; }
+.cover h1 { font-size: var(--fs-h1); line-height: 1.07; letter-spacing: -.022em; margin: 64px 0 18px; max-width: 21ch; }
 .cover-sub { font-size: var(--fs-lead); line-height: 1.45; color: var(--ink-2); max-width: 36em; margin: 0 0 26px; }
 .cover-meta { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: var(--fs-s); color: var(--ink-2); margin-bottom: 36px; }
 .cover-meta b { color: var(--ink); }
@@ -659,9 +659,40 @@ figcaption b { color: var(--ink); }
 @media print {
   .prose > p, p.prose, ul.prose > li, .closing, .final, .ask li > div { max-width: 146mm; }
   figcaption, p.small, ul.small > li, .sub.cond li, .later { max-width: 124mm; }
-  .tl-b p, .box li, .box p { max-width: 134mm; }
+  .tl-b p, .box li, .box p { max-width: 130mm; }
   .notes li:only-child { max-width: 112mm; }
   .cover-art figcaption { max-width: 120mm; }
+}
+</style>
+<style>
+.chartwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media screen and (max-width: 720px) {
+  .idea-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 4px 10px; }
+  .idea-head .chip { grid-column: 2; justify-self: start; }
+  .cap-svg { min-width: 540px; }
+  .markt thead { display: none; }
+  .markt, .markt tbody, .markt tr, .markt th, .markt td { display: block; width: auto; min-width: 0 !important; }
+  .markt tr { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .markt th, .markt td { border: 0; padding: 2px 0; }
+  .markt tr.group { padding: 20px 0 4px; border-bottom: 1px solid var(--rule-2); }
+  .markt tr.group th { padding: 0; border: 0; }
+  .markt td:nth-child(3) { margin-top: 6px; }
+}
+@media print { .chartwrap { overflow: visible; } }
+</style>
+<style>
+@media screen and (max-width: 720px) {
+  .chartwrap { direction: rtl; }
+  .chartwrap > svg { direction: ltr; }
+  .calc thead { display: none; }
+  .calc, .calc tbody, .calc tfoot { display: block; }
+  .calc tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+  .calc th.post, .calc td.how { grid-column: 1 / -1; border: 0; padding: 0; min-width: 0; }
+  .calc td.how:empty { display: none; }
+  .calc td.sc { border: 0; padding: 0; min-width: 0; }
+  .calc td.sc::before { content: attr(data-l); display: block; font-size: var(--fs-xs); color: var(--ink-3); font-weight: 600; margin-bottom: 2px; }
+  .calc tfoot tr { border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+  .calc tfoot td, .calc tfoot th { border: 0; }
 }
 </style>
 
@@ -859,11 +890,11 @@ figcaption b { color: var(--ink); }
     <div class="fig-2">
       <figure>
         <img src="img/rit-spoor.webp" width="742" height="464" alt="Een gekozen trekker op de A4 met de voertuigkaart: chauffeur, dienst, oplegger, lading, bestemming, ETA en venster, en de route als lijn.">
-        <figcaption><b>Een gekozen rit.</b> De kaart toont chauffeur, dienst, oplegger, lading, bestemming, ETA en venster. Achter het voertuig het spoor van de laatste twintig minuten, ervoor in blauw de rest van de rit.</figcaption>
+        <figcaption><b>Een gekozen rit.</b> De kaart toont chauffeur, dienst, oplegger, lading, bestemming, ETA en venster. Achter het voertuig het spoor van de laatste twintig minuten, ervoor in blauw de rest van de rit. Chauffeur en rit zijn gesimuleerd.</figcaption>
       </figure>
       <figure>
         <img src="img/rit-stops.webp" width="740" height="462" alt="Een rit langs drie winkels met bij elke stop de wachttijd en de lostijd als tekst op de kaart.">
-        <figcaption><b>Wachten en lossen bij de stops.</b> Per stop wat er gebeurt, met de tijden. De winkels zijn echte supermarkten; de rit, de chauffeur en de tijden zijn gesimuleerd.</figcaption>
+        <figcaption><b>Wachten en lossen bij de stops.</b> Per stop wat er gebeurt, met de tijden. De winkels zijn echte supermarkten; de rit en de tijden zijn gesimuleerd.</figcaption>
       </figure>
     </div>
 
@@ -895,7 +926,7 @@ figcaption b { color: var(--ink); }
       <h3>Wat de bouwversie toevoegt <span class="chip build">in bouw, gesimuleerd</span></h3>
       <ul class="small prose" style="max-width: 46em;">
         <li><b>Planbord met slepen en directe toetsing.</b> Overlap, tijdvenster, rijtijd en pauze, rusttijd, accu, oplegger en dock. Bij een fout gaat het blok terug en zegt het bord waarom. Met de bak “Niet ingepland” en “Waar past deze rit?”.</li>
-        <li><b>Zaken.</b> Elke melding een zaak met eigenaar, status, deadline, tijdlijn en voorstel.</li>
+        <li><b>Zaken.</b> Elke melding een zaak met eigenaar, status, termijn, tijdlijn en voorstel.</li>
         <li><b>Overzicht en rapporten.</b> Op tijd per klant en standplaats, wachttijd per DC.</li>
         <li><b>Open ritten met prognose en kandidaten.</b> Kans op invulling, eigen chauffeurs, oproepkrachten en charters met kosten (schatting), toewijzen in één klik. Wordt nu gebouwd.</li>
         <li><b>Luchtfoto.</b> De luchtfoto van het Kadaster onder de kaart, in de losse versie met internet.</li>
@@ -937,7 +968,7 @@ figcaption b { color: var(--ink); }
       <div class="layer now">
         <div class="layer-k"><h3>Actueel</h3><span>de dag zelf: de control tower</span></div>
         <ul>
-          <li>Uitzonderingen eerst: elke afwijking een zaak met eigenaar en deadline.</li>
+          <li>Uitzonderingen eerst: elke afwijking een zaak met eigenaar en termijn.</li>
           <li>ETA tegen het venster, met de oorzaak erbij.</li>
           <li>Herplannen bij ziekte of pech, met de kandidaten en de kosten.</li>
           <li>Docks en opleggerwissels, wachttijd en rijtijd bewaken; overdracht en logboek met de reden van elke beslissing.</li>
@@ -975,7 +1006,7 @@ figcaption b { color: var(--ink); }
             <li>ERP en facturatie (Navision, Navitrans)</li>
             <li>boordcomputer, chauffeursapp en e-CMR (Trimble)</li>
             <li>de toren van de klant (Simacan)</li>
-            <li>kaartdata (OpenStreetMap, PDOK) en de rekenkern van de solver (Timefold)</li>
+            <li>kaartdata (OpenStreetMap, PDOK) en de rekenkern zelf (Timefold)</li>
             <li>routering voor vrachtwagens (OSRM of Valhalla, of PTV inkopen)</li>
           </ul>
         </div>
@@ -1033,14 +1064,14 @@ figcaption b { color: var(--ink); }
             <table class="keuze">
               <thead><tr><th scope="col">Keuze</th><th scope="col" class="num">Kosten</th><th scope="col">Winkels op tijd</th><th scope="col">Effect</th></tr></thead>
               <tbody>
-                <tr class="pick"><td><b>Youssef A.</b>, zzp</td><td class="eur">€ 355</td><td>5 van 5</td><td class="eff">gekozen 05:41, bevestigd</td></tr>
-                <tr><td><b>Charter A</b> (Hoorn)</td><td class="eur">€ 510</td><td>5 van 5</td><td class="eff">bellen, bevestigt binnen 30 min</td></tr>
-                <tr><td><b>Mirjam T.</b> begint eerder</td><td class="eur">€ 60</td><td>4 van 5</td><td class="eff">1:10 u overuren; haar rit van 10:00 komt open</td></tr>
-                <tr><td><b>Rit 45 min later</b></td><td class="eur">€ 0</td><td>2 van 5</td><td class="eff">venster van DC Oss gemist</td></tr>
+                <tr class="pick"><td><b>Youssef A.</b>, zzp</td><td class="eur">€&nbsp;355</td><td>5 van 5</td><td class="eff">gekozen 05:41, bevestigd</td></tr>
+                <tr><td><b>Charter A</b> (Hoorn)</td><td class="eur">€&nbsp;510</td><td>5 van 5</td><td class="eff">bellen, bevestigt binnen 30 min</td></tr>
+                <tr><td><b>Mirjam T.</b> begint eerder</td><td class="eur">€&nbsp;60</td><td>4 van 5</td><td class="eff">1:10 u overuren; haar rit van 10:00 komt open</td></tr>
+                <tr><td><b>Rit 45 min later</b></td><td class="eur">€&nbsp;0</td><td>2 van 5</td><td class="eff">venster van DC Oss gemist</td></tr>
               </tbody>
             </table>
           </div>
-          <div class="keuze-sum"><span>Reden in het logboek: <b>op tijd en € 155 goedkoper dan de charter</b></span><span>Vandaag op Wognum tot nu: <b>€ 1.140</b> aan extra inzet, waarvan <b>€ 790</b> charters</span></div>
+          <div class="keuze-sum"><span>Reden in het logboek: <b>op tijd en €&nbsp;155 goedkoper dan de charter</b></span><span>Vandaag op Wognum tot nu: <b>€&nbsp;1.140</b> aan extra inzet, waarvan <b>€&nbsp;790</b> charters</span></div>
         </div>
         <div class="mock-foot">Bedragen zijn schattingen; straks uit de tarieven van charters en zzp'ers en uit de cao. Namen verzonnen.</div>
       </div>
@@ -1060,17 +1091,17 @@ figcaption b { color: var(--ink); }
         <div class="or">
           <div class="or-list">
             <ol>
-              <li class="or-i on"><span class="or-u bad">over 35 min</span><span class="or-t"><b>Koel · DC Zaandam</b><span>rit 4466 · laden 06:05 · 8:40 u</span></span><span class="or-c"><span class="or-r">Ziekmelding</span><span class="kans hi">kans 82 %</span></span></li>
-              <li class="or-i"><span class="or-u warn">over 1:10 u</span><span class="or-t"><b>Vries · DC Oss</b><span>rit 4471 · laden 06:40 · 7:50 u</span></span><span class="or-c"><span class="or-r">Ziekmelding</span><span class="kans lo">kans 47 %</span></span></li>
-              <li class="or-i"><span class="or-u calm">over 2:05 u</span><span class="or-t"><b>Droog · DC Raalte</b><span>rit 4480 · laden 07:35 · 9:15 u</span></span><span class="or-c"><span class="or-r">Extra rit klant</span><span class="kans mid">kans 64 %</span></span></li>
-              <li class="or-i"><span class="or-u calm">over 3:40 u</span><span class="or-t"><b>Koel · DC Tiel</b><span>rit 4493 · laden 09:10 · 8:05 u</span></span><span class="or-c"><span class="or-r">Voertuig uitgevallen</span><span class="kans hi">kans 91 %</span></span></li>
-              <li class="or-i"><span class="or-u calm">morgen</span><span class="or-t"><b>Koel · DC Zaandam</b><span>rit 4512 · laden 04:30 · 9:30 u</span></span><span class="or-c"><span class="or-r">Nieuw uit OTM5</span><span class="kans hi">kans 88 %</span></span></li>
+              <li class="or-i on"><span class="or-u bad">over 35 min</span><span class="or-t"><b>Koel · DC Zaandam</b><span>rit 4466 · laden 06:05 · 8:40 u</span></span><span class="or-c"><span class="or-r">Ziekmelding</span><span class="kans hi">kans 82&nbsp;%</span></span></li>
+              <li class="or-i"><span class="or-u warn">over 1:10 u</span><span class="or-t"><b>Vries · DC Oss</b><span>rit 4471 · laden 06:40 · 7:50 u</span></span><span class="or-c"><span class="or-r">Ziekmelding</span><span class="kans lo">kans 47&nbsp;%</span></span></li>
+              <li class="or-i"><span class="or-u calm">over 2:05 u</span><span class="or-t"><b>Droog · DC Raalte</b><span>rit 4480 · laden 07:35 · 9:15 u</span></span><span class="or-c"><span class="or-r">Extra rit klant</span><span class="kans mid">kans 64&nbsp;%</span></span></li>
+              <li class="or-i"><span class="or-u calm">over 3:40 u</span><span class="or-t"><b>Koel · DC Tiel</b><span>rit 4493 · laden 09:10 · 8:05 u</span></span><span class="or-c"><span class="or-r">Voertuig uitgevallen</span><span class="kans hi">kans 91&nbsp;%</span></span></li>
+              <li class="or-i"><span class="or-u calm">morgen</span><span class="or-t"><b>Koel · DC Zaandam</b><span>rit 4512 · laden 04:30 · 9:30 u</span></span><span class="or-c"><span class="or-r">Nieuw uit OTM5</span><span class="kans hi">kans 88&nbsp;%</span></span></li>
             </ol>
           </div>
           <div class="or-d">
             <h4>Koel · DC Zaandam · rit 4466</h4>
             <div class="or-meta">Laden 06:05–06:20 op Wognum · zes winkels · terug 14:45 · koeloplegger</div>
-            <div class="prog"><b>Kans op invulling 82 %.</b> Deze rit op een dinsdag werd de laatste elf weken 9 keer met eigen mensen gereden. Advies: eerst eigen chauffeurs, een charter pas na 05:50 bellen.</div>
+            <div class="prog"><b>Kans op invulling 82&nbsp;%.</b> Deze rit op een dinsdag werd de laatste elf weken 9 keer met eigen mensen gereden. Advies: eerst eigen chauffeurs, een charter pas na 05:50 bellen.</div>
             <div class="kgroup"><h5>Eigen chauffeurs</h5>
               <div class="kand"><span><b>Kees B.</b> <span class="w">· reserve, rust 13 u gehaald · 36 u deze week · koelbevoegd · wil vroeg</span></span><span class="btn pri">Wijs toe</span></div>
               <div class="kand"><span><b>Mirjam T.</b> <span class="w">· dienst van 10:00 kan naar voren · 41 u deze week</span></span><span class="btn">Wijs toe</span></div>
@@ -1083,7 +1114,7 @@ figcaption b { color: var(--ink); }
               <div class="kand"><span><b>Charter A</b> <span class="w">· regio Hoorn · koel beschikbaar</span></span><span class="btn">Bel</span></div>
               <div class="kand"><span><b>Charter B</b> <span class="w">· regio Alkmaar · bevestigt binnen 30 min</span></span><span class="btn">Bel</span></div>
             </div>
-            <div class="cost"><span>Kosten (schatting):</span><span>reserve <b>€ 0</b> extra</span><span>oproep <b>€ 275</b></span><span>charter <b>€ 510</b></span></div>
+            <div class="cost"><span>Kosten (schatting):</span><span>reserve <b>€&nbsp;0</b> extra</span><span>oproep <b>€&nbsp;275</b></span><span>charter <b>€&nbsp;510</b></span></div>
           </div>
         </div>
         <div class="mock-foot">Gesimuleerde voorbeelddata, namen verzonnen. Elk belletje komt in het logboek.</div>
@@ -1135,7 +1166,7 @@ figcaption b { color: var(--ink); }
         <div class="mock-bar"><span class="mock-title">Capaciteitsradar <small>· Wognum · diensten per week</small></span><span class="mock-tag">mockup</span></div>
         <div class="mock-body">
           <div class="legend"><span><i class="sw bar"></i>Vraag binnen de capaciteit</span><span><i class="sw tek"></i>Tekort: oproep of charter nodig</span><span><i class="sw line"></i>Capaciteit eigen chauffeurs</span></div>
-          <svg class="cap-svg" viewBox="0 0 640 262" role="img" aria-labelledby="cap-t cap-d">
+          <div class="chartwrap"><svg class="cap-svg" viewBox="0 0 640 262" role="img" aria-labelledby="cap-t cap-d">
 <title id="cap-t">Capaciteitsradar Wognum, week 44 tot 52</title>
 <desc id="cap-d">Gevraagde diensten per week tegen de capaciteit van eigen chauffeurs. Tekort in week 49: 8, week 50: 22, week 51: 51, week 52: 14 diensten. Gesimuleerd voorbeeld.</desc>
 <line class="grid" x1="46" x2="626" y1="226" y2="226"/><text class="tick" x="38" y="229.5" text-anchor="end">0</text>
@@ -1164,7 +1195,7 @@ figcaption b { color: var(--ink); }
 <path class="cap-line" d="M52,54.4 L104.4,54.4 L116.4,54.4 L168.9,54.4 L180.9,54.4 L233.3,54.4 L245.3,54.4 L297.8,54.4 L309.8,54.4 L362.2,54.4 L374.2,54.4 L426.7,54.4 L438.7,54.4 L491.1,54.4 L503.1,59.6 L555.6,59.6 L567.6,59.6 L620,59.6"/>
 <text class="axis" x="336" y="258" text-anchor="middle">week</text>
 <text class="axis" x="46" y="11" text-anchor="start">diensten per week</text>
-</svg>
+</svg></div>
           <p class="insight" style="margin-bottom: 0;"><b>Week 51: 51 diensten tekort.</b> Nu vastleggen bij oproepkrachten en charters, niet op de dag zelf bellen. De vraag komt uit de capaciteitsritten van de klant op donderdag, het seizoen en het verzuim.<sup class="fn"><a href="#ideeen-n2">2</a></sup></p>
         </div>
         <div class="mock-foot">Gesimuleerd voorbeeld. De echte prognose rekent uit acht tot twaalf weken historie.</div>
@@ -1243,26 +1274,26 @@ figcaption b { color: var(--ink); }
         <thead><tr><th scope="col" class="post">Post</th><th scope="col" class="how">Zo rekenen we</th><th scope="col" class="sc">Voorzichtig <span class="muted">(schatting)</span></th><th scope="col" class="sc">Midden <span class="muted">(schatting)</span></th><th scope="col" class="sc">Ruim <span class="muted">(schatting)</span></th></tr></thead>
         <tbody>
           <tr><th scope="row" class="post">Wachttijd bij DC's</th><td class="how">voertuigen × werkdagen × wachtminuten × deel dat we wegnemen × kostprijs per uur</td>
-            <td class="sc"><b>€&nbsp;481.000</b><span>35&nbsp;min · 5&nbsp;% · €&nbsp;55&nbsp;per&nbsp;uur</span><span>8.750&nbsp;uur</span></td>
-            <td class="sc"><b>€&nbsp;1.406.000</b><span>45&nbsp;min · 10&nbsp;% · €&nbsp;62,50&nbsp;per&nbsp;uur</span><span>22.500&nbsp;uur</span></td>
-            <td class="sc"><b>€&nbsp;3.150.000</b><span>60&nbsp;min · 15&nbsp;% · €&nbsp;70&nbsp;per&nbsp;uur</span><span>45.000&nbsp;uur</span></td></tr>
+            <td class="sc" data-l="Voorzichtig"><b>€&nbsp;481.000</b><span>35&nbsp;min · 5&nbsp;% · €&nbsp;55&nbsp;per&nbsp;uur</span><span>8.750&nbsp;uur</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;1.406.000</b><span>45&nbsp;min · 10&nbsp;% · €&nbsp;62,50&nbsp;per&nbsp;uur</span><span>22.500&nbsp;uur</span></td>
+            <td class="sc" data-l="Ruim"><b>€&nbsp;3.150.000</b><span>60&nbsp;min · 15&nbsp;% · €&nbsp;70&nbsp;per&nbsp;uur</span><span>45.000&nbsp;uur</span></td></tr>
           <tr><th scope="row" class="post">Charters en last-minute inhuur</th><td class="how">ritten op de dag zelf × werkdagen × deel dat eerder geregeld wordt × verschil per rit</td>
-            <td class="sc"><b>€&nbsp;150.000</b><span>20&nbsp;per&nbsp;dag · een&nbsp;kwart · €&nbsp;100</span><span>1.500&nbsp;ritten</span></td>
-            <td class="sc"><b>€&nbsp;375.000</b><span>30&nbsp;per&nbsp;dag · een&nbsp;derde · €&nbsp;125</span><span>3.000&nbsp;ritten</span></td>
-            <td class="sc"><b>€&nbsp;900.000</b><span>40&nbsp;per&nbsp;dag · de&nbsp;helft · €&nbsp;150</span><span>6.000&nbsp;ritten</span></td></tr>
+            <td class="sc" data-l="Voorzichtig"><b>€&nbsp;150.000</b><span>20&nbsp;per&nbsp;dag · een&nbsp;kwart · €&nbsp;100</span><span>1.500&nbsp;ritten</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;375.000</b><span>30&nbsp;per&nbsp;dag · een&nbsp;derde · €&nbsp;125</span><span>3.000&nbsp;ritten</span></td>
+            <td class="sc" data-l="Ruim"><b>€&nbsp;900.000</b><span>40&nbsp;per&nbsp;dag · de&nbsp;helft · €&nbsp;150</span><span>6.000&nbsp;ritten</span></td></tr>
           <tr><th scope="row" class="post">Planneruren</th><td class="how">planners × werkdagen × minuten per dag × kostprijs per uur</td>
-            <td class="sc"><b>€&nbsp;175.000</b><span>50&nbsp;planners · 20&nbsp;min</span><span>3.500&nbsp;uur</span></td>
-            <td class="sc"><b>€&nbsp;455.000</b><span>65&nbsp;planners · 40&nbsp;min</span><span>9.100&nbsp;uur</span></td>
-            <td class="sc"><b>€&nbsp;893.000</b><span>85&nbsp;planners · 60&nbsp;min</span><span>17.850&nbsp;uur</span></td></tr>
+            <td class="sc" data-l="Voorzichtig"><b>€&nbsp;175.000</b><span>50&nbsp;planners · 20&nbsp;min</span><span>3.500&nbsp;uur</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;455.000</b><span>65&nbsp;planners · 40&nbsp;min</span><span>9.100&nbsp;uur</span></td>
+            <td class="sc" data-l="Ruim"><b>€&nbsp;893.000</b><span>85&nbsp;planners · 60&nbsp;min</span><span>17.850&nbsp;uur</span></td></tr>
           <tr><th scope="row" class="post">Verloop van chauffeurs</th><td class="how">vertrekkers minder × kosten per vertrekker</td>
-            <td class="sc"><b>€&nbsp;50.000</b><span>10&nbsp;minder · €&nbsp;5.000</span></td>
-            <td class="sc"><b>€&nbsp;188.000</b><span>25&nbsp;minder · €&nbsp;7.500</span></td>
-            <td class="sc"><b>€&nbsp;400.000</b><span>40&nbsp;minder · €&nbsp;10.000</span></td></tr>
+            <td class="sc" data-l="Voorzichtig"><b>€&nbsp;50.000</b><span>10&nbsp;minder · €&nbsp;5.000</span></td>
+            <td class="sc" data-l="Midden"><b>€&nbsp;188.000</b><span>25&nbsp;minder · €&nbsp;7.500</span></td>
+            <td class="sc" data-l="Ruim"><b>€&nbsp;400.000</b><span>40&nbsp;minder · €&nbsp;10.000</span></td></tr>
         </tbody>
         <tfoot><tr><th scope="row" class="post">Per jaar, schatting</th><td class="how"></td>
-          <td class="sc"><b>€&nbsp;856.000</b><span>ongeveer 0,9 miljoen</span></td>
-          <td class="sc"><b>€&nbsp;2.424.000</b><span>ongeveer 2,4 miljoen</span></td>
-          <td class="sc"><b>€&nbsp;5.343.000</b><span>ongeveer 5,3 miljoen</span></td></tr></tfoot>
+          <td class="sc" data-l="Voorzichtig"><b>€&nbsp;856.000</b><span>ongeveer 0,9 miljoen</span></td>
+          <td class="sc" data-l="Midden"><b>€&nbsp;2.424.000</b><span>ongeveer 2,4 miljoen</span></td>
+          <td class="sc" data-l="Ruim"><b>€&nbsp;5.343.000</b><span>ongeveer 5,3 miljoen</span></td></tr></tfoot>
       </table>
     </div>
     <p class="small muted prose">Alle bedragen per jaar en schattingen, afgerond op duizend euro. De wachttijd is de grootste en de zachtste post: vrijgekomen uren worden pas geld als je ze inzet.</p>
@@ -1274,12 +1305,12 @@ figcaption b { color: var(--ink); }
         <li><span>Voertuigen die op een werkdag bij een DC komen: 1.000 van de 1.300.<sup class="fn"><a href="#opl-n1">1</a></sup> De rest zijn bussen, reserve en onderhoud.</span></li>
         <li><span>Wachttijd per truck per dag: 35, 45 of 60 minuten, de bandbreedte uit ons onderzoek.<sup class="fn"><a href="#opl-n2">2</a></sup></span></li>
         <li><span>Deel van die wachttijd dat een betere planning wegneemt: 5, 10 of 15 procent. De wachttijdradar zet starttijden om de drukte heen.</span></li>
-        <li><span>Kostprijs van een uur truck met chauffeur: € 55, € 62,50 of € 70. Een aanname, door jullie te vervangen.</span></li>
+        <li><span>Kostprijs van een uur truck met chauffeur: €&nbsp;55, €&nbsp;62,50 of €&nbsp;70. Een aanname, door jullie te vervangen.</span></li>
         <li><span>Ritten die op de dag zelf naar een charter of oproepkracht gaan: 20, 30 of 40 per werkdag, ongeveer 1 procent van 3.000 tot 4.000 ritten per dag.<sup class="fn"><a href="#opl-n3">3</a></sup></span></li>
-        <li><span>Deel daarvan dat met de capaciteitsradar en de flexibele schil eerder wordt geregeld: een kwart, een derde of de helft; verschil per rit tussen last-minute en vooraf: € 100, € 125 of € 150.</span></li>
-        <li><span>Planners: 50, 65 of 85, bij 15 tot 25 trucks per planner;<sup class="fn"><a href="#opl-n4">4</a></sup> 210 werkdagen per planner per jaar; € 50 per uur.</span></li>
+        <li><span>Deel daarvan dat met de capaciteitsradar en de flexibele schil eerder wordt geregeld: een kwart, een derde of de helft; verschil per rit tussen last-minute en vooraf: €&nbsp;100, €&nbsp;125 of €&nbsp;150.</span></li>
+        <li><span>Planners: 50, 65 of 85, bij 15 tot 25 trucks per planner;<sup class="fn"><a href="#opl-n4">4</a></sup> 210 werkdagen per planner per jaar; €&nbsp;50 per uur.</span></li>
         <li><span>Tijdwinst per planner per werkdag: 20, 40 of 60 minuten. De ochtendbriefing alleen al 20 tot 40 minuten (schatting); ruim telt minder bellen en geen Excel mee.</span></li>
-        <li><span>Chauffeurs: ongeveer 2.000, verloop 15 procent per jaar, dus 300 vertrekkers. Minder vertrekkers door het voorkeursbod en een planning die vaststaat: 10, 25 of 40, tegen € 5.000, € 7.500 of € 10.000 per vertrekker voor werving, inwerken en tijdelijke inhuur.</span></li>
+        <li><span>Chauffeurs: ongeveer 2.000, verloop 15 procent per jaar, dus 300 vertrekkers. Minder vertrekkers door het voorkeursbod en een planning die vaststaat: 10, 25 of 40, tegen €&nbsp;5.000, €&nbsp;7.500 of €&nbsp;10.000 per vertrekker voor werving, inwerken en tijdelijke inhuur.</span></li>
       </ol>
     </div>
 
