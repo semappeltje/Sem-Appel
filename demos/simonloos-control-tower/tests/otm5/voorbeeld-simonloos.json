@@ -1,0 +1,5241 @@
+{
+  "otmVersie": "5.9.0",
+  "datum": "2026-10-26",
+  "tijdstip": "2026-10-26T10:00:00.000+01:00",
+  "bron": "Simon Loos Control Tower (gesimuleerde dag)",
+  "locations": [
+    {
+      "entityType": "location",
+      "id": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+      "name": "Simon Loos Wognum",
+      "type": "operationalBase",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.693504,
+        "lon": 5.035636
+      },
+      "administrativeReference": {
+        "street": "Tender",
+        "houseNumber": "2",
+        "postalCode": "1687 JB",
+        "city": "Wognum",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "sp:Wognum",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "standplaats",
+          "plaats": "Wognum"
+        }
+      },
+      "subLocations": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "175d4989-b6c8-54b0-a8ed-02ac5eb0b006",
+            "name": "Dock 1",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693422,
+              "lon": 5.035412
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#1",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "9d2e49dd-ea9a-59a2-bf9d-aa53a9fab826",
+            "name": "Dock 2",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693421,
+              "lon": 5.035345
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#2",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "c154e528-25c6-5882-9d85-f36e2fb68cc5",
+            "name": "Dock 3",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.69342,
+              "lon": 5.035279
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#3",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "10fdd111-68db-51bd-9218-68a4b77ef106",
+            "name": "Dock 4",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.69342,
+              "lon": 5.035212
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#4",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "36464b70-8b8e-5af6-9b7e-b77afeb02aef",
+            "name": "Dock 5",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693419,
+              "lon": 5.035145
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#5",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "259e5955-18da-5fe2-893b-ae77c2a375cc",
+            "name": "Dock 6",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693418,
+              "lon": 5.035079
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#6",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "d1fa43cf-7e42-57d1-b45e-e5b06aae45a9",
+            "name": "Dock 7",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693417,
+              "lon": 5.035012
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#7",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "d5774718-7cfa-5aa0-90cd-fa82b9d39498",
+            "name": "Dock 8",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693416,
+              "lon": 5.034945
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#8",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "65037958-f438-57ed-a372-d32299fbc119",
+            "name": "Dock 9",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693416,
+              "lon": 5.034879
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#9",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "224a8a6a-88b8-5723-bab4-4924cad2c6da",
+            "name": "Dock 10",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693415,
+              "lon": 5.034812
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#10",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "828e2b89-2630-5887-b88b-967fe21c66d9",
+            "name": "Dock 11",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693414,
+              "lon": 5.034745
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#11",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+            "name": "Dock 12",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693413,
+              "lon": 5.034679
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#12",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "138e098f-5044-5d73-a200-ad01ee246caf",
+            "name": "Dock 13",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693412,
+              "lon": 5.034612
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#13",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "81ad812c-ed05-52e4-8114-3f931ac1032b",
+            "name": "Dock 14",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693412,
+              "lon": 5.034545
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#14",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "dc063252-2f49-5de3-bd79-2ebd0447b7c6",
+            "name": "Dock 15",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693411,
+              "lon": 5.034478
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#15",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "2d865f29-0c58-52bc-9cd6-299d404a5fb0",
+            "name": "Dock 16",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.69341,
+              "lon": 5.034412
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#16",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "e090792c-fbde-5f59-9964-add30928d023",
+            "name": "Dock 17",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693409,
+              "lon": 5.034345
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#17",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "5b43749c-001b-5db4-903b-7029e8d73f0d",
+            "name": "Dock 18",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693408,
+              "lon": 5.034278
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#18",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "d46a2f16-440f-57bd-bcca-7691950761b5",
+            "name": "Dock 19",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693408,
+              "lon": 5.034212
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#19",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "096e0935-4f1e-5db1-9530-43bc006600de",
+            "name": "Dock 20",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693407,
+              "lon": 5.034145
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#20",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "92b1f890-3034-5a93-aff6-af2877f3937c",
+            "name": "Dock 21",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693406,
+              "lon": 5.034078
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#21",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "a62cd9b0-994d-5b26-ba9d-9bb44e47d157",
+            "name": "Dock 22",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693405,
+              "lon": 5.034012
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#22",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "f14ab8ed-58c1-5823-a0f3-679a1b6656ac",
+            "name": "Dock 23",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693404,
+              "lon": 5.033945
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#23",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "50e2fdd4-f0fe-5bb3-a4f3-d99b627a6b0e",
+            "name": "Dock 24",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693403,
+              "lon": 5.033878
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#24",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "d5fec376-d0af-520a-b313-c85e09fa3c3f",
+            "name": "Dock 25",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693403,
+              "lon": 5.033812
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#25",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "7eaa7281-2ea3-5960-b727-a2a71f38a692",
+            "name": "Dock 26",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693402,
+              "lon": 5.033745
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#26",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "6cf8f421-fcc0-5610-907d-adabff2201d6",
+            "name": "Dock 27",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693401,
+              "lon": 5.033678
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#27",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "3dc6c89a-069a-5f3d-a672-3d6d245db0f2",
+            "name": "Dock 28",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.6934,
+              "lon": 5.033612
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#28",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "42206643-caf7-5a71-b5c7-abb4fdfad1f1",
+            "name": "Dock 29",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693399,
+              "lon": 5.033545
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#29",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "location",
+            "id": "6c1d2397-e9da-5317-8025-1f95769c4daa",
+            "name": "Dock 30",
+            "type": "other",
+            "otherLocationType": "dock",
+            "geoReference": {
+              "type": "latLonPointGeoReference",
+              "lat": 52.693399,
+              "lon": 5.033478
+            },
+            "externalIdentifiers": [
+              {
+                "id": "sp:Wognum#30",
+                "scheme": "simonloos:dock"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "entityType": "location",
+      "id": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+      "name": "Albert Heijn 't Erf, Leusden",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.1307,
+        "lon": 5.4283
+      },
+      "administrativeReference": {
+        "city": "Leusden",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0727",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Leusden"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+      "name": "Albert Heijn Hellestraat, Amersfoort",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.1551,
+        "lon": 5.386
+      },
+      "administrativeReference": {
+        "city": "Amersfoort",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0101",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Amersfoort"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+      "name": "AH Praamplein, Aalsmeer",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2682,
+        "lon": 4.7465
+      },
+      "administrativeReference": {
+        "city": "Aalsmeer",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0058",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Aalsmeer"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+      "name": "Albert Heijn Westwijkplein, Amstelveen",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2815,
+        "lon": 4.8259
+      },
+      "administrativeReference": {
+        "city": "Amstelveen",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0113",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Amstelveen"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+      "name": "Albert Heijn Poldermeesterplein Aalsmeer",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2749,
+        "lon": 4.7945
+      },
+      "administrativeReference": {
+        "city": "Aalsmeer",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0059",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Aalsmeer"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+      "name": "Albert Heijn Oegstgeest Terweeplein Kempenaerstraat",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.1771,
+        "lon": 4.4688
+      },
+      "administrativeReference": {
+        "city": "Oegstgeest",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0825",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Oegstgeest"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+      "name": "Albert Heijn Soestdijkkade, Leiden",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.1664,
+        "lon": 4.5061
+      },
+      "administrativeReference": {
+        "city": "Leiden",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0710",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Leiden"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "6315ab54-b368-538c-9107-76c5e4c589d9",
+      "name": "Albert Heijn Winkelhof, Leiderdorp",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.1631,
+        "lon": 4.5333
+      },
+      "administrativeReference": {
+        "city": "Leiderdorp",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0715",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Leiderdorp"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+      "name": "Albert Heijn Muiderbos Hoofddorp",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.3147,
+        "lon": 4.6595
+      },
+      "administrativeReference": {
+        "city": "Hoofddorp",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0632",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Hoofddorp"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+      "name": "Albert Heijn Blekersvaartweg, Heemstede",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.3562,
+        "lon": 4.6202
+      },
+      "administrativeReference": {
+        "city": "Heemstede",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0566",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Heemstede"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+      "name": "AH Zijlweg, Haarlem",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.3865,
+        "lon": 4.622
+      },
+      "administrativeReference": {
+        "city": "Haarlem",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0538",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Haarlem"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "f24540bc-fb6f-5785-abde-0df0118bc756",
+      "name": "Bezorgronde Noord-Scharwoude (Dorpsstraat)",
+      "type": "customer",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.703,
+        "lon": 4.8108
+      },
+      "administrativeReference": {
+        "city": "Noord-Scharwoude",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "bz-90",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "bezorg",
+          "plaats": "Noord-Scharwoude"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "823a1ca2-4369-5018-afa4-f13ceb2033a9",
+      "name": "Bezorgronde Oudkarspel (Dorpsstraat)",
+      "type": "customer",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.7138,
+        "lon": 4.804
+      },
+      "administrativeReference": {
+        "city": "Oudkarspel",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "bz-88",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "bezorg",
+          "plaats": "Oudkarspel"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "36a3d3f4-5842-5fdc-a727-b70476df05a0",
+      "name": "FrieslandCampina Domo Beilen",
+      "type": "customer",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.8569,
+        "lon": 6.5193
+      },
+      "administrativeReference": {
+        "city": "Beilen",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "fc-beilen",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "fabriek",
+          "formule": "FrieslandCampina",
+          "plaats": "Beilen"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "402343ca-8403-5c51-aae5-2ddf1fde56b7",
+      "name": "Albert Heijn Franeker",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 53.1873,
+        "lon": 5.5505
+      },
+      "administrativeReference": {
+        "city": "Franeker",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0484",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Franeker"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "5b68ebfd-d01c-534e-a0ce-5e88fcacf25d",
+      "name": "Albert Heijn Prins-Hendrikstraat Leeuwarden",
+      "type": "store",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 53.1992,
+        "lon": 5.7922
+      },
+      "administrativeReference": {
+        "city": "Leeuwarden",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "ah0702",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "winkel",
+          "formule": "Albert Heijn",
+          "plaats": "Leeuwarden"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "7663187b-69f1-53f0-a199-611579545447",
+      "name": "Cosun Protein Dinteloord",
+      "type": "customer",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 51.6142,
+        "lon": 4.4279
+      },
+      "administrativeReference": {
+        "city": "Dinteloord",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "cos-protein",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "fabriek",
+          "formule": "Cosun",
+          "plaats": "Dinteloord"
+        }
+      }
+    },
+    {
+      "entityType": "location",
+      "id": "3edd838b-dc1f-5af1-8aca-291d01bd1f87",
+      "name": "FrieslandCampina Wolvega",
+      "type": "customer",
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.8847,
+        "lon": 5.9982
+      },
+      "administrativeReference": {
+        "city": "Wolvega",
+        "country": "NL"
+      },
+      "externalIdentifiers": [
+        {
+          "id": "fc-wolvega",
+          "scheme": "simonloos:plek"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "fabriek",
+          "formule": "FrieslandCampina",
+          "plaats": "Wolvega"
+        }
+      }
+    }
+  ],
+  "actors": [
+    {
+      "entityType": "actor",
+      "id": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+      "name": "Simon Loos",
+      "type": "company",
+      "externalIdentifiers": [
+        {
+          "id": "simonloos",
+          "scheme": "simonloos:actor"
+        }
+      ]
+    },
+    {
+      "entityType": "actor",
+      "id": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+      "name": "Albert Heijn",
+      "type": "company",
+      "externalIdentifiers": [
+        {
+          "id": "Albert Heijn",
+          "scheme": "simonloos:klant"
+        }
+      ]
+    },
+    {
+      "entityType": "actor",
+      "id": "191adc62-eaae-538a-9adf-554aa0b3b3f7",
+      "name": "Albert Heijn Home Service",
+      "type": "company",
+      "externalIdentifiers": [
+        {
+          "id": "Albert Heijn Home Service",
+          "scheme": "simonloos:klant"
+        }
+      ]
+    },
+    {
+      "entityType": "actor",
+      "id": "be0471c0-1ab8-5ede-bd38-e6110f7eb345",
+      "name": "FrieslandCampina",
+      "type": "company",
+      "externalIdentifiers": [
+        {
+          "id": "FrieslandCampina",
+          "scheme": "simonloos:klant"
+        }
+      ]
+    },
+    {
+      "entityType": "actor",
+      "id": "2482720d-4f26-5cd0-8506-af21c3ec5539",
+      "name": "Cosun",
+      "type": "company",
+      "externalIdentifiers": [
+        {
+          "id": "Cosun",
+          "scheme": "simonloos:klant"
+        }
+      ]
+    },
+    {
+      "entityType": "actor",
+      "id": "16d8ac33-3ddf-5bc1-a608-6fb834e4673f",
+      "type": "person",
+      "externalIdentifiers": [
+        {
+          "id": "P-0014",
+          "scheme": "simonloos:personeelsnummer"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum"
+        }
+      }
+    },
+    {
+      "entityType": "actor",
+      "id": "abe1a65c-733a-5b28-827c-c4a6dd9d3df6",
+      "type": "person",
+      "externalIdentifiers": [
+        {
+          "id": "P-0015",
+          "scheme": "simonloos:personeelsnummer"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum"
+        }
+      }
+    }
+  ],
+  "vehicles": [
+    {
+      "entityType": "vehicle",
+      "id": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+      "name": "T-1008",
+      "vehicleType": "tractor",
+      "licensePlate": "23-RQL-7",
+      "fuels": [
+        {
+          "fuelType": "diesel"
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008",
+          "scheme": "simonloos:wagennummer"
+        },
+        {
+          "id": "23-RQL-7",
+          "scheme": "kenteken"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "soort": "trekker",
+          "model": "Mercedes-Benz Actros 1845",
+          "bereikKm": 1600,
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "vandaag": "inzet",
+          "klant": "Albert Heijn Home Service",
+          "lzv": false
+        }
+      },
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "break",
+            "id": "82f68577-b9d1-55cd-b9fb-ce1520f70d87",
+            "lifecycle": "planned",
+            "startTime": "2026-10-26T07:56:42.921+01:00",
+            "endTime": "2026-10-26T08:41:42.921+01:00",
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "k": "pauze",
+                "dienst": 0
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "wait",
+            "id": "89354f1b-48e2-5941-9faa-9e212831aa58",
+            "lifecycle": "planned",
+            "startTime": "2026-10-26T20:18:53.880+01:00",
+            "endTime": "2026-10-26T20:38:30.004+01:00",
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "reason": "op het terrein, tussen twee ritten",
+            "externalAttributes": {
+              "simonloos": {
+                "k": "terrein",
+                "dienst": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "transportEquipment": [
+    {
+      "entityType": "goods",
+      "type": "transportEquipment",
+      "id": "25a9f820-f7e5-5f22-a817-a85a3535505d",
+      "name": "O-5156",
+      "equipmentType": "trailer",
+      "equipmentSubType": "koel",
+      "licensePlate": "OQ-01-KH",
+      "externalIdentifiers": [
+        {
+          "id": "O-5156",
+          "scheme": "simonloos:opleggernummer"
+        },
+        {
+          "id": "OQ-01-KH",
+          "scheme": "kenteken"
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "temperatureConstraint",
+            "constraintType": "range",
+            "minimum": {
+              "value": 2,
+              "unit": "C"
+            },
+            "maximum": {
+              "value": 4,
+              "unit": "C"
+            }
+          }
+        }
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "bouwjaar": 2017,
+          "onderhoud": false,
+          "temp": [
+            2,
+            4
+          ],
+          "status": {
+            "st": "gekoppeld",
+            "plek": null,
+            "voertuig": "T-1112",
+            "geladen": true,
+            "sinds": "2026-10-26T07:37:35.917+01:00"
+          }
+        }
+      }
+    },
+    {
+      "entityType": "goods",
+      "type": "transportEquipment",
+      "id": "f15ead25-53eb-5b9b-8cb7-6502be269d09",
+      "name": "O-5157",
+      "equipmentType": "trailer",
+      "equipmentSubType": "koel",
+      "licensePlate": "OQ-65-LG",
+      "externalIdentifiers": [
+        {
+          "id": "O-5157",
+          "scheme": "simonloos:opleggernummer"
+        },
+        {
+          "id": "OQ-65-LG",
+          "scheme": "kenteken"
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "temperatureConstraint",
+            "constraintType": "range",
+            "minimum": {
+              "value": 2,
+              "unit": "C"
+            },
+            "maximum": {
+              "value": 4,
+              "unit": "C"
+            }
+          }
+        }
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "bouwjaar": 2018,
+          "onderhoud": false,
+          "temp": [
+            2,
+            4
+          ],
+          "status": {
+            "st": "gekoppeld",
+            "plek": null,
+            "voertuig": "T-1115",
+            "geladen": true,
+            "sinds": "2026-10-26T08:27:19.683+01:00"
+          }
+        }
+      }
+    },
+    {
+      "entityType": "goods",
+      "type": "transportEquipment",
+      "id": "2985803f-d17f-507f-b646-d25409c71f2d",
+      "name": "O-5158",
+      "equipmentType": "trailer",
+      "equipmentSubType": "koel",
+      "licensePlate": "OQ-09-XZ",
+      "externalIdentifiers": [
+        {
+          "id": "O-5158",
+          "scheme": "simonloos:opleggernummer"
+        },
+        {
+          "id": "OQ-09-XZ",
+          "scheme": "kenteken"
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "temperatureConstraint",
+            "constraintType": "range",
+            "minimum": {
+              "value": 2,
+              "unit": "C"
+            },
+            "maximum": {
+              "value": 4,
+              "unit": "C"
+            }
+          }
+        }
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "bouwjaar": 2025,
+          "onderhoud": false,
+          "temp": [
+            2,
+            4
+          ],
+          "status": {
+            "st": "leeg",
+            "plek": "terrein Wognum",
+            "voertuig": null,
+            "geladen": false,
+            "sinds": "2026-10-26T00:00:00.000+01:00"
+          }
+        }
+      }
+    },
+    {
+      "entityType": "goods",
+      "type": "transportEquipment",
+      "id": "ee48df61-e2fe-55de-a413-ffc5af656a0b",
+      "name": "O-5159",
+      "equipmentType": "trailer",
+      "equipmentSubType": "koel",
+      "licensePlate": "OQ-68-BH",
+      "externalIdentifiers": [
+        {
+          "id": "O-5159",
+          "scheme": "simonloos:opleggernummer"
+        },
+        {
+          "id": "OQ-68-BH",
+          "scheme": "kenteken"
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "temperatureConstraint",
+            "constraintType": "range",
+            "minimum": {
+              "value": 2,
+              "unit": "C"
+            },
+            "maximum": {
+              "value": 4,
+              "unit": "C"
+            }
+          }
+        }
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "bouwjaar": 2015,
+          "onderhoud": false,
+          "temp": [
+            2,
+            4
+          ],
+          "status": {
+            "st": "leeg",
+            "plek": "terrein Wognum",
+            "voertuig": null,
+            "geladen": false,
+            "sinds": "2026-10-26T00:00:00.000+01:00"
+          }
+        }
+      }
+    }
+  ],
+  "consignments": [
+    {
+      "entityType": "consignment",
+      "id": "b9e8a03f-6f74-575e-b142-ece47d1d2cbd",
+      "name": "T-1008/1",
+      "description": "AGF, 30 rolcontainers",
+      "status": "completed",
+      "goods": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "goods",
+            "type": "items",
+            "id": "a466584c-bfe7-5b2b-aa19-32a6f84f541f",
+            "description": "AGF, 30 rolcontainers",
+            "quantity": 30,
+            "packagingMaterial": "rolcontainers"
+          }
+        }
+      ],
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "reference",
+          "uuid": "81c63bab-6671-52be-9a38-7dd8ab342d75",
+          "entityType": "attachTransportEquipment"
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/1",
+          "scheme": "simonloos:rit"
+        }
+      ]
+    },
+    {
+      "entityType": "consignment",
+      "id": "79befda2-399f-5831-a3c2-5826c5df5058",
+      "name": "T-1008/2",
+      "description": "AGF, 30 rolcontainers",
+      "status": "inTransit",
+      "goods": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "goods",
+            "type": "items",
+            "id": "16721c88-5970-5eef-aecb-08370e660be9",
+            "description": "AGF, 30 rolcontainers",
+            "quantity": 30,
+            "packagingMaterial": "rolcontainers"
+          }
+        }
+      ],
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "reference",
+          "uuid": "acd6cbc0-918b-5c73-a5a4-04c03e6af3de",
+          "entityType": "attachTransportEquipment"
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/2",
+          "scheme": "simonloos:rit"
+        }
+      ]
+    },
+    {
+      "entityType": "consignment",
+      "id": "4fdea9f3-2da2-5d2a-966d-2741a934ca48",
+      "name": "T-1008/3",
+      "description": "Diepvries, 24 pallets",
+      "status": "confirmed",
+      "goods": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "goods",
+            "type": "items",
+            "id": "e40d17c1-a8d7-5de3-b8e2-3e13ae637f1f",
+            "description": "Diepvries, 24 pallets",
+            "quantity": 24,
+            "packagingMaterial": "pallets"
+          }
+        }
+      ],
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "reference",
+          "uuid": "a3c2979f-46cf-5e43-b6df-162809a1a8f0",
+          "entityType": "attachTransportEquipment"
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/3",
+          "scheme": "simonloos:rit"
+        }
+      ]
+    },
+    {
+      "entityType": "consignment",
+      "id": "2dfc1c02-7b3a-5763-ba48-94055f7e04c1",
+      "name": "T-1008/4",
+      "description": "Diepvries, 24 pallets",
+      "status": "confirmed",
+      "goods": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "entityType": "goods",
+            "type": "items",
+            "id": "32e33f68-27d0-52db-84f1-818bb7c39381",
+            "description": "Diepvries, 24 pallets",
+            "quantity": 24,
+            "packagingMaterial": "pallets"
+          }
+        }
+      ],
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "reference",
+          "uuid": "cb0785ed-55a7-592c-ab9a-2a498e7c7e14",
+          "entityType": "attachTransportEquipment"
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/4",
+          "scheme": "simonloos:rit"
+        }
+      ]
+    }
+  ],
+  "trips": [
+    {
+      "entityType": "trip",
+      "id": "ba4492d1-1ed6-575b-8c96-3b44ed43dbc4",
+      "name": "T-1008 rit 1",
+      "status": "completed",
+      "transportMode": "road",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "16d8ac33-3ddf-5bc1-a608-6fb834e4673f",
+          "entityType": "actor",
+          "roles": [
+            "driver"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "b65972d2-f7c6-5683-9f99-b88a6316200e",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T03:20:00.000+01:00",
+            "endTime": "2026-10-26T03:35:00.000+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "attachTransportEquipment",
+                  "id": "81c63bab-6671-52be-9a38-7dd8ab342d75",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T03:20:00.000+01:00",
+                  "endTime": "2026-10-26T03:35:00.000+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "25a9f820-f7e5-5f22-a817-a85a3535505d",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "375bea94-a033-5de4-a1f7-a1e98705c4ac",
+            "lifecycle": "planned",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T03:35:00.000+01:00",
+            "endTime": "2026-10-26T04:52:59.709+01:00",
+            "distance": {
+              "value": 89.2,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "a142ae69-45e8-5aa0-9fcf-0be33e86c35e",
+            "name": "Albert Heijn 't Erf, Leusden",
+            "lifecycle": "planned",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T04:52:59.709+01:00",
+            "endTime": "2026-10-26T05:31:43.376+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T04:50:00.000+01:00",
+                  "endTime": "2026-10-26T05:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "ab367d71-b148-55c6-bf60-5f3e698f82d2",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T04:52:59.709+01:00",
+                  "endTime": "2026-10-26T05:31:43.376+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "b9e8a03f-6f74-575e-b142-ece47d1d2cbd",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 0,
+                "km": 89.2
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "73ca366b-9be7-5f47-abf1-1192b66601c0",
+            "lifecycle": "planned",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T05:31:43.376+01:00",
+            "endTime": "2026-10-26T05:45:06.140+01:00",
+            "distance": {
+              "value": 10.6,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "5dbd0f62-8125-5fda-a603-d7e1ea15ec39",
+            "name": "Albert Heijn Hellestraat, Amersfoort",
+            "lifecycle": "planned",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T05:45:06.140+01:00",
+            "endTime": "2026-10-26T06:31:12.005+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T05:50:00.000+01:00",
+                  "endTime": "2026-10-26T06:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "6e08b593-3edc-5d54-87a1-254ab8b9e409",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T05:45:06.140+01:00",
+                  "endTime": "2026-10-26T05:50:06.140+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "6b9c0956-0530-5692-b802-6a54da3836b3",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T05:50:06.140+01:00",
+                  "endTime": "2026-10-26T06:31:12.005+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "b9e8a03f-6f74-575e-b142-ece47d1d2cbd",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 5,
+                "km": 99.8
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "a2fe4055-7f5f-5e1d-b461-d0e3546058e8",
+            "lifecycle": "planned",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T06:31:12.005+01:00",
+            "endTime": "2026-10-26T07:47:42.921+01:00",
+            "distance": {
+              "value": 84.8,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "02f0c851-cc4c-5dc6-84c5-049b085cd6b9",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T07:47:42.921+01:00",
+            "endTime": "2026-10-26T07:56:42.921+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "detachTransportEquipment",
+                  "id": "d161fe7a-8ffb-5a55-9580-cde867b55fb5",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T07:47:42.921+01:00",
+                  "endTime": "2026-10-26T07:56:42.921+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "25a9f820-f7e5-5f22-a817-a85a3535505d",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "138e098f-5044-5d73-a200-ad01ee246caf",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/1",
+          "scheme": "simonloos:rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "nr": 1,
+          "dienst": 0,
+          "standplaats": "Wognum",
+          "klant": "Albert Heijn",
+          "km": 184.5,
+          "status": "klaar",
+          "dienstStart": "2026-10-26T03:20:00.000+01:00",
+          "dienstEind": "2026-10-26T13:06:18.851+01:00",
+          "dienstRijMin": 305
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "4ee631b2-ff8a-5e53-adc9-4821e39046eb",
+      "name": "T-1008 rit 2",
+      "status": "inTransit",
+      "transportMode": "road",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "16d8ac33-3ddf-5bc1-a608-6fb834e4673f",
+          "entityType": "actor",
+          "roles": [
+            "driver"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "229c9136-9d86-5821-bec5-f26e5165a550",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T08:41:42.921+01:00",
+            "endTime": "2026-10-26T08:51:42.921+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "attachTransportEquipment",
+                  "id": "acd6cbc0-918b-5c73-a5a4-04c03e6af3de",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T08:41:42.921+01:00",
+                  "endTime": "2026-10-26T08:51:42.921+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "f15ead25-53eb-5b9b-8cb7-6502be269d09",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "81ad812c-ed05-52e4-8114-3f931ac1032b",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "31589340-452a-5c8c-b9e8-35ec7486c10f",
+            "lifecycle": "planned",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T08:51:42.921+01:00",
+            "endTime": "2026-10-26T09:47:20.749+01:00",
+            "distance": {
+              "value": 63.6,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "e332f71e-6b0f-522b-9193-3f7ac31bb46d",
+            "name": "AH Praamplein, Aalsmeer",
+            "lifecycle": "planned",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T09:47:20.749+01:00",
+            "endTime": "2026-10-26T10:32:14.766+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T09:50:00.000+01:00",
+                  "endTime": "2026-10-26T10:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "6e817cb4-cae1-55bd-8719-5d6d0545a683",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T09:47:20.749+01:00",
+                  "endTime": "2026-10-26T09:52:20.749+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "e687fcd7-8823-5e16-9c95-8bc9e470c134",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T09:52:20.749+01:00",
+                  "endTime": "2026-10-26T10:32:14.766+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "79befda2-399f-5831-a3c2-5826c5df5058",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 5,
+                "km": 63.6
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "5b52fa99-ab4c-53cb-8fb1-b0f37fc3962a",
+            "lifecycle": "planned",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T10:32:14.766+01:00",
+            "endTime": "2026-10-26T10:50:24.899+01:00",
+            "distance": {
+              "value": 15.9,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "3d112d1c-1fcb-56a9-8fe7-96504270d51d",
+            "name": "Albert Heijn Westwijkplein, Amstelveen",
+            "lifecycle": "planned",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T10:50:24.899+01:00",
+            "endTime": "2026-10-26T11:19:43.627+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T10:50:00.000+01:00",
+                  "endTime": "2026-10-26T11:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "5a4fb3c6-c183-5169-be17-a1461d2e6f6a",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T10:50:24.899+01:00",
+                  "endTime": "2026-10-26T10:51:24.899+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "6d78061f-f140-51c7-95dd-4f7e58616f9d",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T10:51:24.899+01:00",
+                  "endTime": "2026-10-26T11:19:43.627+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "79befda2-399f-5831-a3c2-5826c5df5058",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 1,
+                "km": 79.5
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "4832b1e1-9446-5b2b-9c39-a5a2c94f7145",
+            "lifecycle": "planned",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "00a57706-89ca-5a3e-9e16-f26a08cd29a7",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T11:19:43.627+01:00",
+            "endTime": "2026-10-26T11:29:55.514+01:00",
+            "distance": {
+              "value": 6.2,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "bfc37220-fc3b-56de-853b-a474d0ff8844",
+            "name": "Albert Heijn Poldermeesterplein Aalsmeer",
+            "lifecycle": "planned",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T11:29:55.514+01:00",
+            "endTime": "2026-10-26T12:04:20.466+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T11:20:00.000+01:00",
+                  "endTime": "2026-10-26T11:50:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "63b226bd-088a-5547-96e2-5a34b3c3eabb",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T11:29:55.514+01:00",
+                  "endTime": "2026-10-26T11:36:55.514+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "4d710d95-5f9b-5e2d-82d9-a8700782b021",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T11:36:55.514+01:00",
+                  "endTime": "2026-10-26T12:04:20.466+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "79befda2-399f-5831-a3c2-5826c5df5058",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 7,
+                "km": 85.7
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "e5f3465b-4868-51f8-86e5-2669d188dc25",
+            "lifecycle": "planned",
+            "sequenceNr": 7,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "67efb26a-e7a2-5797-8b20-57029968fc9d",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T12:04:20.466+01:00",
+            "endTime": "2026-10-26T12:57:18.851+01:00",
+            "distance": {
+              "value": 61,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "639f209f-d577-5403-8df3-cd897635319a",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 8,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T12:57:18.851+01:00",
+            "endTime": "2026-10-26T13:06:18.851+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "detachTransportEquipment",
+                  "id": "5774f039-3eb8-5902-be87-43da009a1be9",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T12:57:18.851+01:00",
+                  "endTime": "2026-10-26T13:06:18.851+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "f15ead25-53eb-5b9b-8cb7-6502be269d09",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/2",
+          "scheme": "simonloos:rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "nr": 2,
+          "dienst": 0,
+          "standplaats": "Wognum",
+          "klant": "Albert Heijn",
+          "km": 146.7,
+          "status": "onderweg",
+          "dienstStart": "2026-10-26T03:20:00.000+01:00",
+          "dienstEind": "2026-10-26T13:06:18.851+01:00",
+          "dienstRijMin": 305
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "6c0bcc3e-0ed2-52c2-8373-7299710e6b2b",
+      "name": "T-1008 rit 3",
+      "status": "confirmed",
+      "transportMode": "road",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "abe1a65c-733a-5b28-827c-c4a6dd9d3df6",
+          "entityType": "actor",
+          "roles": [
+            "driver"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "a9ee419b-15e2-5e39-b17b-e0c84d5dcbe9",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T13:55:00.000+01:00",
+            "endTime": "2026-10-26T14:10:00.000+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "attachTransportEquipment",
+                  "id": "a3c2979f-46cf-5e43-b6df-162809a1a8f0",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T13:55:00.000+01:00",
+                  "endTime": "2026-10-26T14:10:00.000+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "2985803f-d17f-507f-b646-d25409c71f2d",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "138e098f-5044-5d73-a200-ad01ee246caf",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "1e1a5b82-f585-5776-a66e-1c5db8c543b5",
+            "lifecycle": "planned",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T14:10:00.000+01:00",
+            "endTime": "2026-10-26T15:25:19.399+01:00",
+            "distance": {
+              "value": 83,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "d1b4e506-a106-5067-91b9-c882998e7ca1",
+            "name": "Albert Heijn Oegstgeest Terweeplein Kempenaerstraat",
+            "lifecycle": "planned",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T15:25:19.399+01:00",
+            "endTime": "2026-10-26T15:58:55.972+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T15:20:00.000+01:00",
+                  "endTime": "2026-10-26T15:50:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "d8dff6a3-2dd2-5cdd-b6f6-573c7ff83881",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T15:25:19.399+01:00",
+                  "endTime": "2026-10-26T15:27:19.399+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "379614a1-58aa-55c0-bfaf-f62c4523a01d",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T15:27:19.399+01:00",
+                  "endTime": "2026-10-26T15:58:55.972+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "4fdea9f3-2da2-5d2a-966d-2741a934ca48",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 2,
+                "km": 83
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "4c2ad6f3-c1b4-5cd3-9c07-878d0815d2af",
+            "lifecycle": "planned",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "66036c6a-1023-5eb1-a4bd-c0a49324138b",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T15:58:55.972+01:00",
+            "endTime": "2026-10-26T16:10:21.702+01:00",
+            "distance": {
+              "value": 7.8,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "6e253515-de3e-5171-a0a7-ea30601e2568",
+            "name": "Albert Heijn Soestdijkkade, Leiden",
+            "lifecycle": "planned",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T16:10:21.702+01:00",
+            "endTime": "2026-10-26T17:04:36.701+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T16:20:00.000+01:00",
+                  "endTime": "2026-10-26T16:50:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "de98381f-9587-59dd-9f04-5de685cd7d9e",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T16:10:21.702+01:00",
+                  "endTime": "2026-10-26T16:20:21.702+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "e5448b4c-922f-51c4-b572-86d800054de9",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T16:20:21.702+01:00",
+                  "endTime": "2026-10-26T17:04:36.701+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "4fdea9f3-2da2-5d2a-966d-2741a934ca48",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 10,
+                "km": 90.8
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "fc62d7d7-13bc-57fa-ae35-e46382d2ecf3",
+            "lifecycle": "planned",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "270a679b-e6ed-5839-b354-4392cb0bcebc",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "6315ab54-b368-538c-9107-76c5e4c589d9",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T17:04:36.701+01:00",
+            "endTime": "2026-10-26T17:27:08.474+01:00",
+            "distance": {
+              "value": 20.4,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "91dc5014-85ce-522b-971a-fd6f31008659",
+            "name": "Albert Heijn Winkelhof, Leiderdorp",
+            "lifecycle": "planned",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "6315ab54-b368-538c-9107-76c5e4c589d9",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T17:27:08.474+01:00",
+            "endTime": "2026-10-26T18:56:24.954+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T17:20:00.000+01:00",
+                  "endTime": "2026-10-26T17:50:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "9aed750b-f392-5f94-b47c-42156b41cec1",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T17:27:08.474+01:00",
+                  "endTime": "2026-10-26T17:32:08.474+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "6315ab54-b368-538c-9107-76c5e4c589d9",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "397fe8f2-5b25-520c-aa5e-91ccff30c9e7",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T17:32:08.474+01:00",
+                  "endTime": "2026-10-26T18:11:24.954+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "4fdea9f3-2da2-5d2a-966d-2741a934ca48",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "6315ab54-b368-538c-9107-76c5e4c589d9",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "break",
+                  "id": "6661b8f3-068e-5de6-93a1-fba19bf2521d",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T18:11:24.954+01:00",
+                  "endTime": "2026-10-26T18:56:24.954+01:00",
+                  "externalAttributes": {
+                    "simonloos": {}
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 5,
+                "km": 111.2
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "e226331e-bffc-5f4c-98be-dacfca7ef66a",
+            "lifecycle": "planned",
+            "sequenceNr": 7,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "6315ab54-b368-538c-9107-76c5e4c589d9",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T18:56:24.954+01:00",
+            "endTime": "2026-10-26T20:09:53.880+01:00",
+            "distance": {
+              "value": 81.5,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "e7fbfb35-db31-5e38-bc3e-d6900899dd7e",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 8,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T20:09:53.880+01:00",
+            "endTime": "2026-10-26T20:18:53.880+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "detachTransportEquipment",
+                  "id": "a3177bbf-f37d-5a95-9922-08178ef02af1",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T20:09:53.880+01:00",
+                  "endTime": "2026-10-26T20:18:53.880+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "2985803f-d17f-507f-b646-d25409c71f2d",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/3",
+          "scheme": "simonloos:rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "nr": 3,
+          "dienst": 1,
+          "standplaats": "Wognum",
+          "klant": "Albert Heijn",
+          "km": 192.7,
+          "status": "gepland",
+          "dienstStart": "2026-10-26T13:55:00.000+01:00",
+          "dienstEind": "2026-10-27T01:18:42.438+01:00",
+          "dienstRijMin": 312
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "fcaa08f4-0040-5a42-a1b6-eb0230a79f22",
+      "name": "T-1008 rit 4",
+      "status": "confirmed",
+      "transportMode": "road",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "abe1a65c-733a-5b28-827c-c4a6dd9d3df6",
+          "entityType": "actor",
+          "roles": [
+            "driver"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "b1125db6-579b-546a-a5ac-96e2d52d8be3",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T20:38:30.004+01:00",
+            "endTime": "2026-10-26T20:48:30.004+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "attachTransportEquipment",
+                  "id": "cb0785ed-55a7-592c-ab9a-2a498e7c7e14",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T20:38:30.004+01:00",
+                  "endTime": "2026-10-26T20:48:30.004+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "ee48df61-e2fe-55de-a413-ffc5af656a0b",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "59765225-c6a6-5f72-a7ee-4a556afab3bf",
+            "lifecycle": "planned",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T20:48:30.004+01:00",
+            "endTime": "2026-10-26T21:46:26.250+01:00",
+            "distance": {
+              "value": 62.2,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "99ede521-054a-57ed-8c60-e0765c614f91",
+            "name": "Albert Heijn Muiderbos Hoofddorp",
+            "lifecycle": "planned",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T21:46:26.250+01:00",
+            "endTime": "2026-10-26T22:35:19.118+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T21:50:00.000+01:00",
+                  "endTime": "2026-10-26T22:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "11a87e44-62b8-55ff-a3f4-a38d05645a50",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T21:46:26.250+01:00",
+                  "endTime": "2026-10-26T21:50:26.250+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "8fa70bf4-1fcc-51c7-9f2d-06f09bb11ddd",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T21:50:26.250+01:00",
+                  "endTime": "2026-10-26T22:35:19.118+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "2dfc1c02-7b3a-5763-ba48-94055f7e04c1",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 4,
+                "km": 62.2
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "9dff4ebd-4a6c-54ce-9459-e285258b456f",
+            "lifecycle": "planned",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "7c6eb98b-67ad-5d3f-ad6a-a4dd7dbbfecc",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T22:35:19.118+01:00",
+            "endTime": "2026-10-26T22:45:29.951+01:00",
+            "distance": {
+              "value": 6.5,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "5331d33d-16dd-561e-9211-bbc0b42e89bc",
+            "name": "Albert Heijn Blekersvaartweg, Heemstede",
+            "lifecycle": "planned",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T22:45:29.951+01:00",
+            "endTime": "2026-10-26T23:21:02.652+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T22:50:00.000+01:00",
+                  "endTime": "2026-10-26T23:20:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "818e16eb-00da-5229-9834-1fd8ab17c2d2",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T22:45:29.951+01:00",
+                  "endTime": "2026-10-26T22:50:29.951+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "aaeac9c2-2298-576e-b047-8f7f32fbc7c7",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T22:50:29.951+01:00",
+                  "endTime": "2026-10-26T23:21:02.652+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "2dfc1c02-7b3a-5763-ba48-94055f7e04c1",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 5,
+                "km": 68.7
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "31e85ca7-c34f-53f6-baf8-dedfcae4083f",
+            "lifecycle": "planned",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "f8d09f1a-263a-5ec4-bcea-69e433edee39",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T23:21:02.652+01:00",
+            "endTime": "2026-10-26T23:30:41.771+01:00",
+            "distance": {
+              "value": 5,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "5bedabaf-b807-552f-98cb-a24e548bfd03",
+            "name": "AH Zijlweg, Haarlem",
+            "lifecycle": "planned",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-26T23:30:41.771+01:00",
+            "endTime": "2026-10-27T00:17:55.053+01:00",
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T23:20:00.000+01:00",
+                  "endTime": "2026-10-26T23:50:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            },
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "wait",
+                  "id": "01855488-086d-5532-b5fe-67793163d163",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T23:30:41.771+01:00",
+                  "endTime": "2026-10-26T23:37:41.771+01:00",
+                  "reason": "wachten tot het lossen begint",
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+                    "entityType": "location"
+                  }
+                }
+              },
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "unload",
+                  "id": "d2517d00-0e70-5b6e-ae1c-9cb2fd40f06f",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-26T23:37:41.771+01:00",
+                  "endTime": "2026-10-27T00:17:55.053+01:00",
+                  "consignment": {
+                    "associationType": "reference",
+                    "uuid": "2dfc1c02-7b3a-5763-ba48-94055f7e04c1",
+                    "entityType": "consignment"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ],
+            "externalAttributes": {
+              "simonloos": {
+                "actie": "lossen",
+                "wacht": 7,
+                "km": 73.7
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "52b35d1b-34c1-592a-95cd-3978db6fd2e1",
+            "lifecycle": "planned",
+            "sequenceNr": 7,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "44619544-66a3-5d24-a9cc-0c3c059c0180",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-27T00:17:55.053+01:00",
+            "endTime": "2026-10-27T01:09:42.438+01:00",
+            "distance": {
+              "value": 58.8,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "354bab3f-d8d0-59a8-bb8a-87f5969184b1",
+            "name": "Simon Loos Wognum",
+            "lifecycle": "planned",
+            "sequenceNr": 8,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "startTime": "2026-10-27T01:09:42.438+01:00",
+            "endTime": "2026-10-27T01:18:42.438+01:00",
+            "actions": [
+              {
+                "associationType": "inline",
+                "entity": {
+                  "actionType": "detachTransportEquipment",
+                  "id": "edf4c187-ca5b-5a4d-893a-4147bdfca170",
+                  "lifecycle": "planned",
+                  "startTime": "2026-10-27T01:09:42.438+01:00",
+                  "endTime": "2026-10-27T01:18:42.438+01:00",
+                  "vehicle": {
+                    "associationType": "reference",
+                    "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+                    "entityType": "vehicle"
+                  },
+                  "transportEquipment": {
+                    "associationType": "reference",
+                    "uuid": "ee48df61-e2fe-55de-a413-ffc5af656a0b",
+                    "entityType": "goods"
+                  },
+                  "location": {
+                    "associationType": "reference",
+                    "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+                    "entityType": "location"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "externalIdentifiers": [
+        {
+          "id": "T-1008/4",
+          "scheme": "simonloos:rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "nr": 4,
+          "dienst": 1,
+          "standplaats": "Wognum",
+          "klant": "Albert Heijn",
+          "km": 132.5,
+          "status": "gepland",
+          "dienstStart": "2026-10-26T13:55:00.000+01:00",
+          "dienstEind": "2026-10-27T01:18:42.438+01:00",
+          "dienstRijMin": 312
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "bcc7cda3-6ec9-5ee6-a559-02c4a062769e",
+      "name": "Open rit P-9001",
+      "status": "requested",
+      "transportMode": "road",
+      "creationDate": "2026-10-25T20:45:00.000+01:00",
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "191adc62-eaae-538a-9adf-554aa0b3b3f7",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "6b6fc3ca-c622-503f-ae81-ecfd9bbdeb7a",
+            "lifecycle": "requested",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T18:15:00.000+01:00",
+                  "endTime": "2026-10-26T19:15:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "2f662137-0de0-594f-ad15-b7870ff5ba15",
+            "lifecycle": "requested",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "f24540bc-fb6f-5785-abde-0df0118bc756",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 17.1,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "c51181e0-d423-508d-96fb-28a6f79293a5",
+            "name": "Bezorgronde Noord-Scharwoude (Dorpsstraat)",
+            "lifecycle": "requested",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "f24540bc-fb6f-5785-abde-0df0118bc756",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 17.1
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "bb95952c-f3d3-55e1-9654-52f6d35281d2",
+            "lifecycle": "requested",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "f24540bc-fb6f-5785-abde-0df0118bc756",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "823a1ca2-4369-5018-afa4-f13ceb2033a9",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 1.4,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "372af718-9181-5c16-9832-e36aa779e23b",
+            "name": "Bezorgronde Oudkarspel (Dorpsstraat)",
+            "lifecycle": "requested",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "823a1ca2-4369-5018-afa4-f13ceb2033a9",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 18.5
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "9bed44ca-a0a1-542d-adac-8c7e72f8b7c4",
+            "lifecycle": "requested",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "823a1ca2-4369-5018-afa4-f13ceb2033a9",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "74c7424d-e116-567b-9d66-dd5143f77db7",
+            "lifecycle": "requested",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "vehicleTypeConstraint",
+            "vehicleTypes": [
+              "van"
+            ]
+          },
+          "enforceability": "enforced"
+        }
+      },
+      "externalIdentifiers": [
+        {
+          "id": "P-9001",
+          "scheme": "simonloos:open-rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "bezorg",
+          "klant": "Albert Heijn Home Service",
+          "soort": "bus",
+          "dag": "vandaag",
+          "reden": "nieuw uit OTM5",
+          "duur": 257,
+          "km": 36.1
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "c91355fb-ba45-5cb9-b842-4162bdcaad53",
+      "name": "Open rit P-9003",
+      "status": "requested",
+      "transportMode": "road",
+      "creationDate": "2026-10-26T09:45:00.000+01:00",
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "be0471c0-1ab8-5ede-bd38-e6110f7eb345",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "4bc5b15b-5cff-5791-af5b-6fa378861487",
+            "lifecycle": "requested",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T12:00:00.000+01:00",
+                  "endTime": "2026-10-26T13:00:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "c39f486f-9f1e-5892-b77b-b7239499f8ff",
+            "lifecycle": "requested",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "36a3d3f4-5842-5fdc-a727-b70476df05a0",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 159.4,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "48c5c753-1011-5611-8432-e6dea3127adf",
+            "name": "FrieslandCampina Domo Beilen",
+            "lifecycle": "requested",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "36a3d3f4-5842-5fdc-a727-b70476df05a0",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 159.4
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "a0db2e63-223d-5411-acd6-f7f5e0010d97",
+            "lifecycle": "requested",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "36a3d3f4-5842-5fdc-a727-b70476df05a0",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "ee2ca8e4-0d7a-5c69-a804-37462faec8ec",
+            "lifecycle": "requested",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "andConstraint",
+            "and": [
+              {
+                "type": "vehicleTypeConstraint",
+                "vehicleTypes": [
+                  "tractor"
+                ]
+              },
+              {
+                "type": "transportEquipmentTypeConstraint",
+                "equipmentTypes": [
+                  "trailer"
+                ],
+                "subEquipmentTypes": [
+                  "silo"
+                ]
+              }
+            ]
+          },
+          "enforceability": "enforced"
+        }
+      },
+      "externalIdentifiers": [
+        {
+          "id": "P-9003",
+          "scheme": "simonloos:open-rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "bulk",
+          "klant": "FrieslandCampina",
+          "soort": "trekker",
+          "oplegger": "silo",
+          "dag": "vandaag",
+          "reden": "uitval voertuig",
+          "duur": 383,
+          "km": 318.7
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "3b9c5ebd-3722-575f-8625-e3045fb3d142",
+      "name": "Open rit P-9008",
+      "status": "requested",
+      "transportMode": "road",
+      "creationDate": "2026-10-25T21:15:00.000+01:00",
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "e84ee01e-c37d-5c02-9b61-c7d02053ce5d",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "2eacd7f2-de2b-5674-9498-9b799ed8ab39",
+            "lifecycle": "requested",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T14:45:00.000+01:00",
+                  "endTime": "2026-10-26T15:45:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "4d4e2047-7322-5839-9a8a-63fb2f5e46dd",
+            "lifecycle": "requested",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "402343ca-8403-5c51-aae5-2ddf1fde56b7",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 77.7,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "25cd721c-b455-56c6-8102-01a4b87718cf",
+            "name": "Albert Heijn Franeker",
+            "lifecycle": "requested",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "402343ca-8403-5c51-aae5-2ddf1fde56b7",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 77.7
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "39734ee8-3dd8-51c1-b14e-e6fdbd193fd5",
+            "lifecycle": "requested",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "402343ca-8403-5c51-aae5-2ddf1fde56b7",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "5b68ebfd-d01c-534e-a0ce-5e88fcacf25d",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 20.4,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "de5000e3-151d-5c5b-b34f-2be89162f366",
+            "name": "Albert Heijn Prins-Hendrikstraat Leeuwarden",
+            "lifecycle": "requested",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "5b68ebfd-d01c-534e-a0ce-5e88fcacf25d",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 98.1
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "26dc3530-dafb-5197-a0ec-eae2c5ee8c95",
+            "lifecycle": "requested",
+            "sequenceNr": 5,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "5b68ebfd-d01c-534e-a0ce-5e88fcacf25d",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "7ad9d519-8a96-5349-a202-20ae53eaa412",
+            "lifecycle": "requested",
+            "sequenceNr": 6,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "andConstraint",
+            "and": [
+              {
+                "type": "vehicleTypeConstraint",
+                "vehicleTypes": [
+                  "tractor"
+                ]
+              },
+              {
+                "type": "transportEquipmentTypeConstraint",
+                "equipmentTypes": [
+                  "trailer"
+                ],
+                "subEquipmentTypes": [
+                  "droog"
+                ]
+              }
+            ]
+          },
+          "enforceability": "enforced"
+        }
+      },
+      "externalIdentifiers": [
+        {
+          "id": "P-9008",
+          "scheme": "simonloos:open-rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "winkel",
+          "klant": "Albert Heijn",
+          "soort": "trekker",
+          "oplegger": "droog",
+          "dag": "vandaag",
+          "reden": "nieuw uit OTM5",
+          "duur": 285,
+          "km": 191.5
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "2d8d74f0-62fa-571b-91b0-4da479703f5f",
+      "name": "Open rit P-9012",
+      "status": "requested",
+      "transportMode": "road",
+      "creationDate": "2026-10-25T22:30:00.000+01:00",
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "2482720d-4f26-5cd0-8506-af21c3ec5539",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "94036cb3-6cc3-5da2-9faa-e13d5a518bf6",
+            "lifecycle": "requested",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T16:00:00.000+01:00",
+                  "endTime": "2026-10-26T17:00:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "1170d8d5-ec06-55f8-b616-b2685a8d0fca",
+            "lifecycle": "requested",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "7663187b-69f1-53f0-a199-611579545447",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 156.5,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "9a78adae-42b2-5f92-ab8a-f007c4a7bf9b",
+            "name": "Cosun Protein Dinteloord",
+            "lifecycle": "requested",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "7663187b-69f1-53f0-a199-611579545447",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 156.5
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "feec5e0b-a45a-5d76-bf2e-d47fbf021ebd",
+            "lifecycle": "requested",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "7663187b-69f1-53f0-a199-611579545447",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "f5a57698-8725-5e17-bcdf-7126cb6dc8ac",
+            "lifecycle": "requested",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "andConstraint",
+            "and": [
+              {
+                "type": "vehicleTypeConstraint",
+                "vehicleTypes": [
+                  "tractor"
+                ]
+              },
+              {
+                "type": "transportEquipmentTypeConstraint",
+                "equipmentTypes": [
+                  "trailer"
+                ],
+                "subEquipmentTypes": [
+                  "silo"
+                ]
+              }
+            ]
+          },
+          "enforceability": "enforced"
+        }
+      },
+      "externalIdentifiers": [
+        {
+          "id": "P-9012",
+          "scheme": "simonloos:open-rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "bulk",
+          "klant": "Cosun",
+          "soort": "trekker",
+          "oplegger": "silo",
+          "dag": "vandaag",
+          "reden": "nieuw uit OTM5",
+          "duur": 439,
+          "km": 312.9
+        }
+      }
+    },
+    {
+      "entityType": "trip",
+      "id": "5ffa8de2-df4b-50fc-8844-e4cd4a5e7224",
+      "name": "Open rit P-9016",
+      "status": "requested",
+      "transportMode": "road",
+      "creationDate": "2026-10-26T07:30:00.000+01:00",
+      "actors": [
+        {
+          "associationType": "reference",
+          "uuid": "ced4a314-be5c-5152-9ccd-eaabb657baab",
+          "entityType": "actor",
+          "roles": [
+            "carrier"
+          ]
+        },
+        {
+          "associationType": "reference",
+          "uuid": "be0471c0-1ab8-5ede-bd38-e6110f7eb345",
+          "entityType": "actor",
+          "roles": [
+            "shipper"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "5d7f4ca6-18c6-58d0-87c0-aab3d691448c",
+            "lifecycle": "requested",
+            "sequenceNr": 0,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "constraint": {
+              "associationType": "inline",
+              "entity": {
+                "value": {
+                  "type": "timeWindowConstraint",
+                  "startTime": "2026-10-26T09:15:00.000+01:00",
+                  "endTime": "2026-10-26T10:15:00.000+01:00"
+                },
+                "enforceability": "enforced"
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "2c664ecd-1e7c-5b32-b0f2-2f1f4585addf",
+            "lifecycle": "requested",
+            "sequenceNr": 1,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "3edd838b-dc1f-5af1-8aca-291d01bd1f87",
+              "entityType": "location"
+            },
+            "distance": {
+              "value": 114.1,
+              "unit": "km"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "f81a4238-2499-547d-87e3-2b526820520c",
+            "name": "FrieslandCampina Wolvega",
+            "lifecycle": "requested",
+            "sequenceNr": 2,
+            "location": {
+              "associationType": "reference",
+              "uuid": "3edd838b-dc1f-5af1-8aca-291d01bd1f87",
+              "entityType": "location"
+            },
+            "externalAttributes": {
+              "simonloos": {
+                "km": 114.1
+              }
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "move",
+            "id": "9c08e56b-8956-5c2f-8fba-6b1cbc188f2b",
+            "lifecycle": "requested",
+            "sequenceNr": 3,
+            "transportMode": "road",
+            "from": {
+              "associationType": "reference",
+              "uuid": "3edd838b-dc1f-5af1-8aca-291d01bd1f87",
+              "entityType": "location"
+            },
+            "to": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        },
+        {
+          "associationType": "inline",
+          "entity": {
+            "actionType": "stop",
+            "id": "713a6e6c-831b-527e-b403-0893b8ccb152",
+            "lifecycle": "requested",
+            "sequenceNr": 4,
+            "location": {
+              "associationType": "reference",
+              "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+              "entityType": "location"
+            }
+          }
+        }
+      ],
+      "constraint": {
+        "associationType": "inline",
+        "entity": {
+          "value": {
+            "type": "andConstraint",
+            "and": [
+              {
+                "type": "vehicleTypeConstraint",
+                "vehicleTypes": [
+                  "tractor"
+                ]
+              },
+              {
+                "type": "transportEquipmentTypeConstraint",
+                "equipmentTypes": [
+                  "trailer"
+                ],
+                "subEquipmentTypes": [
+                  "silo"
+                ]
+              }
+            ]
+          },
+          "enforceability": "enforced"
+        }
+      },
+      "externalIdentifiers": [
+        {
+          "id": "P-9016",
+          "scheme": "simonloos:open-rit"
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "standplaats": "Wognum",
+          "divisie": "bulk",
+          "klant": "FrieslandCampina",
+          "soort": "trekker",
+          "oplegger": "silo",
+          "dag": "vandaag",
+          "reden": "extra rit klant",
+          "duur": 276,
+          "km": 228.2
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "eventType": "updateEvent",
+      "id": "c61dbcdd-9880-586b-af1c-6796c1a6f3f9",
+      "creationDate": "2026-10-26T03:20:00.000+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "attachTransportEquipment",
+        "id": "81c63bab-6671-52be-9a38-7dd8ab342d75",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T03:20:00.000+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "2da34fba-e315-5e8b-a7f0-e59c03a58ea3",
+          "entityType": "location"
+        },
+        "vehicle": {
+          "associationType": "reference",
+          "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+          "entityType": "vehicle"
+        },
+        "transportEquipment": {
+          "associationType": "reference",
+          "uuid": "25a9f820-f7e5-5f22-a817-a85a3535505d",
+          "entityType": "goods"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "dbbb282e-0e75-5bac-80af-6cdcebdb46cc",
+          "creationDate": "2026-10-26T03:20:00.000+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.69349383569221,
+            "lon": 5.03467667193669
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "koppel",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 1,
+          "oplegger": "O-5156",
+          "dock": 12
+        }
+      }
+    },
+    {
+      "eventType": "startMovingEvent",
+      "id": "984900d5-4a2e-5c81-9cff-422da26ef25f",
+      "creationDate": "2026-10-26T03:35:00.000+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.69373,
+        "lon": 5.03536
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "vertrek",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 1,
+          "dock": 12
+        }
+      }
+    },
+    {
+      "eventType": "stopMovingEvent",
+      "id": "7fd07ba5-cebc-52c9-b1e5-6e7784baaddd",
+      "creationDate": "2026-10-26T04:52:59.709+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.13092,
+        "lon": 5.42802
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "aankomst",
+          "plek": "ah0727",
+          "naam": "Albert Heijn 't Erf, Leusden",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "f3e2418c-f1fc-5eca-91c7-1c40578ce6f1",
+      "creationDate": "2026-10-26T04:52:59.709+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "unload",
+        "id": "ab367d71-b148-55c6-bf60-5f3e698f82d2",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T04:52:59.709+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "e41e51ef-c5d1-5862-9198-6758ed86bdbe",
+          "creationDate": "2026-10-26T04:52:59.709+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.13092,
+            "lon": 5.42802
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "los_start",
+          "plek": "ah0727",
+          "naam": "Albert Heijn 't Erf, Leusden",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "a79edc67-8e70-5685-8003-11c352d94595",
+      "creationDate": "2026-10-26T05:31:43.376+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "unload",
+        "id": "ab367d71-b148-55c6-bf60-5f3e698f82d2",
+        "lifecycle": "realized",
+        "endTime": "2026-10-26T05:31:43.376+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "b8922ac9-459d-5ac7-9fbe-f2a8a2a27616",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "1aa21c92-07e6-51f9-9917-31bf2585858e",
+          "creationDate": "2026-10-26T05:31:43.376+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.13092,
+            "lon": 5.42802
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "los_eind",
+          "plek": "ah0727",
+          "naam": "Albert Heijn 't Erf, Leusden",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "startMovingEvent",
+      "id": "a09bbcf2-733c-5a0d-9d53-4404b51bc2e3",
+      "creationDate": "2026-10-26T05:31:43.376+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.13092,
+        "lon": 5.42802
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "vertrek",
+          "plek": "ah0727",
+          "naam": "Albert Heijn 't Erf, Leusden",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "stopMovingEvent",
+      "id": "f77b5366-abe2-5216-a940-2ed874823d30",
+      "creationDate": "2026-10-26T05:45:06.140+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.15524,
+        "lon": 5.38662
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "aankomst",
+          "plek": "ah0101",
+          "naam": "Albert Heijn Hellestraat, Amersfoort",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "startWaitingEvent",
+      "id": "26dd0ee6-e3f0-553d-91d5-d3de527d6464",
+      "creationDate": "2026-10-26T05:45:06.140+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.15524,
+        "lon": 5.38662
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "wacht",
+          "plek": "ah0101",
+          "naam": "Albert Heijn Hellestraat, Amersfoort",
+          "rit": 1,
+          "duur": 5
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "1aa2b30a-6c7c-510b-9de5-a0c14a7a95de",
+      "creationDate": "2026-10-26T05:50:06.140+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "unload",
+        "id": "6b9c0956-0530-5692-b802-6a54da3836b3",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T05:50:06.140+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "311ebb7b-f6b9-5acc-8ab2-834cb3f7ab82",
+          "creationDate": "2026-10-26T05:50:06.140+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.15524,
+            "lon": 5.38662
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "los_start",
+          "plek": "ah0101",
+          "naam": "Albert Heijn Hellestraat, Amersfoort",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "3f947527-6fda-5d41-b2c5-5085eb29d024",
+      "creationDate": "2026-10-26T06:31:12.005+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "unload",
+        "id": "6b9c0956-0530-5692-b802-6a54da3836b3",
+        "lifecycle": "realized",
+        "endTime": "2026-10-26T06:31:12.005+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "37a6632e-1554-5b62-8a72-ceff28fa076b",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "19bfde50-2b34-5d65-a2d8-b2dbefe653a5",
+          "creationDate": "2026-10-26T06:31:12.005+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.15524,
+            "lon": 5.38662
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "los_eind",
+          "plek": "ah0101",
+          "naam": "Albert Heijn Hellestraat, Amersfoort",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "startMovingEvent",
+      "id": "b98bd736-bd39-5327-ad1a-13156aaf5c66",
+      "creationDate": "2026-10-26T06:31:12.005+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.15524,
+        "lon": 5.38662
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "vertrek",
+          "plek": "ah0101",
+          "naam": "Albert Heijn Hellestraat, Amersfoort",
+          "rit": 1
+        }
+      }
+    },
+    {
+      "eventType": "stopMovingEvent",
+      "id": "69b3f76d-b3ff-5af9-82e4-bb7229b9a583",
+      "creationDate": "2026-10-26T07:47:42.921+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.69373,
+        "lon": 5.035360000000001
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "aankomst",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 1,
+          "dock": 13
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "16a18659-c18c-5e74-a9f8-0244a955790b",
+      "creationDate": "2026-10-26T07:47:42.921+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "detachTransportEquipment",
+        "id": "d161fe7a-8ffb-5a55-9580-cde867b55fb5",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T07:47:42.921+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "138e098f-5044-5d73-a200-ad01ee246caf",
+          "entityType": "location"
+        },
+        "vehicle": {
+          "associationType": "reference",
+          "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+          "entityType": "vehicle"
+        },
+        "transportEquipment": {
+          "associationType": "reference",
+          "uuid": "25a9f820-f7e5-5f22-a817-a85a3535505d",
+          "entityType": "goods"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "1d88c0e2-4c04-5c70-b8e7-b3d57c148bd8",
+          "creationDate": "2026-10-26T07:47:42.921+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.69373,
+            "lon": 5.035360000000001
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "ontkoppel",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 1,
+          "oplegger": "O-5156",
+          "dock": 13
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "c7b94804-e070-5969-90a2-fb38a69641aa",
+      "creationDate": "2026-10-26T07:56:42.921+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "break",
+        "id": "82f68577-b9d1-55cd-b9fb-ce1520f70d87",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T07:56:42.921+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "32b70416-8718-5055-851b-c3ec7e452a17",
+          "creationDate": "2026-10-26T07:56:42.921+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.69349283569221,
+            "lon": 5.034609671936744
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "pauze_start",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum"
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "91f5dcfa-4941-5a4a-a782-8831d6ade5d1",
+      "creationDate": "2026-10-26T08:41:42.921+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "break",
+        "id": "82f68577-b9d1-55cd-b9fb-ce1520f70d87",
+        "lifecycle": "realized",
+        "endTime": "2026-10-26T08:41:42.921+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "fd5ba7d6-a89b-5b6e-947f-10ebc6a4bd7c",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "0146438b-5d3d-57f2-9eba-636e53514496",
+          "creationDate": "2026-10-26T08:41:42.921+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.693186,
+            "lon": 5.03248
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "pauze_eind",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum"
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "9347201b-f412-526a-bac4-f3d3cf194c07",
+      "creationDate": "2026-10-26T08:41:42.921+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "attachTransportEquipment",
+        "id": "acd6cbc0-918b-5c73-a5a4-04c03e6af3de",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T08:41:42.921+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "81ad812c-ed05-52e4-8114-3f931ac1032b",
+          "entityType": "location"
+        },
+        "vehicle": {
+          "associationType": "reference",
+          "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+          "entityType": "vehicle"
+        },
+        "transportEquipment": {
+          "associationType": "reference",
+          "uuid": "f15ead25-53eb-5b9b-8cb7-6502be269d09",
+          "entityType": "goods"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "5b5afff5-4ce7-58c6-bc5d-8f41f0665772",
+          "creationDate": "2026-10-26T08:41:42.921+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.693186,
+            "lon": 5.03248
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "koppel",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 2,
+          "oplegger": "O-5157",
+          "dock": 14
+        }
+      }
+    },
+    {
+      "eventType": "startMovingEvent",
+      "id": "e622406c-86c2-5ddf-b104-a94da178af67",
+      "creationDate": "2026-10-26T08:51:42.921+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.69349283569221,
+        "lon": 5.034542671936744
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "vertrek",
+          "plek": "sp:Wognum",
+          "naam": "Simon Loos Wognum",
+          "rit": 2,
+          "dock": 14
+        }
+      }
+    },
+    {
+      "eventType": "stopMovingEvent",
+      "id": "ac397429-6b19-57e3-a1c8-b423caeff28f",
+      "creationDate": "2026-10-26T09:47:20.749+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2682,
+        "lon": 4.746379999999999
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "aankomst",
+          "plek": "ah0058",
+          "naam": "AH Praamplein, Aalsmeer",
+          "rit": 2
+        }
+      }
+    },
+    {
+      "eventType": "startWaitingEvent",
+      "id": "0907ddc0-fd5c-579d-8595-1af2a449a254",
+      "creationDate": "2026-10-26T09:47:20.749+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2682,
+        "lon": 4.746379999999999
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "wacht",
+          "plek": "ah0058",
+          "naam": "AH Praamplein, Aalsmeer",
+          "rit": 2,
+          "duur": 5
+        }
+      }
+    },
+    {
+      "eventType": "updateEvent",
+      "id": "f1dd27f4-ec3b-584f-a9c9-46ef9c6a16bb",
+      "creationDate": "2026-10-26T09:52:20.749+01:00",
+      "lifecycle": "actual",
+      "entity": {
+        "entityType": "unload",
+        "id": "e687fcd7-8823-5e16-9c95-8bc9e470c134",
+        "lifecycle": "actual",
+        "startTime": "2026-10-26T09:52:20.749+01:00",
+        "location": {
+          "associationType": "reference",
+          "uuid": "2079c76e-2ea3-5523-8abd-540b31af39ec",
+          "entityType": "location"
+        }
+      },
+      "contextEvents": [
+        {
+          "eventType": "locationUpdateEvent",
+          "id": "45474a37-cdfc-50d6-8a33-ead2b73102b7",
+          "creationDate": "2026-10-26T09:52:20.749+01:00",
+          "lifecycle": "actual",
+          "vehicle": {
+            "associationType": "reference",
+            "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+            "entityType": "vehicle"
+          },
+          "geoReference": {
+            "type": "latLonPointGeoReference",
+            "lat": 52.2682,
+            "lon": 4.74638
+          }
+        }
+      ],
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "soort": "los_start",
+          "plek": "ah0058",
+          "naam": "AH Praamplein, Aalsmeer",
+          "rit": 2
+        }
+      }
+    },
+    {
+      "eventType": "locationUpdateEvent",
+      "id": "501f43ca-9781-590a-b395-2c93efd43c0a",
+      "creationDate": "2026-10-26T10:00:00.000+01:00",
+      "lifecycle": "actual",
+      "vehicle": {
+        "associationType": "reference",
+        "uuid": "6bdb8b8c-2b5c-5e0f-82d5-d552944ef86c",
+        "entityType": "vehicle"
+      },
+      "geoReference": {
+        "type": "latLonPointGeoReference",
+        "lat": 52.2682,
+        "lon": 4.74638,
+        "speed": {
+          "value": 0,
+          "unit": "km/h"
+        },
+        "heading": {
+          "value": 148.74963910563926,
+          "unit": "degrees"
+        }
+      },
+      "externalAttributes": {
+        "simonloos": {
+          "voertuig": "T-1008",
+          "st": "klant"
+        }
+      }
+    }
+  ]
+}

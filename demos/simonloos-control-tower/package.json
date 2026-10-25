@@ -7,14 +7,18 @@
     "dev": "vite",
     "build": "vite build && node tools/artifact.cjs",
     "build:site": "vite build -c vite.site.config.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:otm5": "node tests/otm5-check.mjs"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.1",
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "vite": "^6.3.5",
-    "vite-plugin-singlefile": "^2.2.0"
+    "vite-plugin-singlefile": "^2.2.0",
+    "yaml": "^2.9.1"
   },
   "dependencies": {
     "maplibre-gl": "^6.15.0",

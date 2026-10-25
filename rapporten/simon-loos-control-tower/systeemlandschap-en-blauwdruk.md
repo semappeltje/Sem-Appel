@@ -72,9 +72,10 @@ gratis.
 7. *Beheer:* inloggen via het SSO van Simon Loos, rollen (planner, regiomanager, directie, HR, hal), audit,
    monitoring, back-ups, hosting in de EU, een testomgeving naast productie.
 
-**Schaal (schatting voor 1.300 voertuigen):** 100.000 tot 150.000 posities per dag, 3.000 tot 4.000 ritten
-per dag, 15.000 stops, maanden historie: enkele gigabytes per jaar. Dat is bescheiden voor PostgreSQL op één
-goede server met een reserve; geen bijzondere infrastructuur nodig.
+**Schaal (schatting voor 1.300 voertuigen):** 0,5 tot 1 miljoen posities per dag (één positie per 30 tot 60
+seconden, gemiddeld 6,2 uur rijden per voertuig; gecorrigeerd na het OTM5-onderzoek), 3.000 tot 4.000 ritten per
+dag, 15.000 stops, maanden historie: tientallen gigabytes per jaar, een paar na compressie. Dat is bescheiden voor
+PostgreSQL met een tijdreeksuitbreiding op één goede server met een reserve; geen bijzondere infrastructuur nodig.
 
 ## 4. Testen: hoe we weten dat het klopt voordat het ergens om gaat
 
