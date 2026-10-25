@@ -20,10 +20,10 @@ De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-rev
 de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Ook de
 bundel met de drie punten uit de deltareview (a25ddba) en versie 3.2 met de 3D-wereld (tak
 ronde10/control-tower-33, `three.js` als vijfde bestand) zijn samengevoegd en live
-(`setup-astro-site` op 584a75a). Deze bundel bevat de tak `ronde10/control-tower-34`: een
-commit boven 584a75a met de nieuwe bundel (three.js wordt pas geladen bij de eerste klik op de
-kubus, bronregel volgt de tegels, paneel naast een open pagina), de 3D-stand in de opslaglijst
-en de meetbon. `git fetch <bundel> ronde10/control-tower-34` werkt in een kopie die 584a75a al
+(`setup-astro-site` op 584a75a). Deze bundel bevat de tak `ronde10/control-tower-34`: twee
+commits boven 584a75a met de nieuwe bundel (three.js wordt pas geladen bij de eerste klik op de
+kubus en app.js hangt er niet meer statisch aan, bronregel volgt de tegels, paneel naast een
+open pagina), de 3D-stand in de opslaglijst en de meetbon. `git fetch <bundel> ronde10/control-tower-34` werkt in een kopie die 584a75a al
 heeft. Daarna
 samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
 geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
