@@ -255,7 +255,7 @@ export function assistPanel(ctx) {
     body = L.length ? L.map(t => { const m = t.msgs[t.msgs.length - 1]; const dn = ctx.driverName(t) || t.id; return `<button class="obj" type="button" data-open="kaart:truck:${esc(t.id)}"><span class="av">${esc(initials(dn))}</span><span class="obj-t"><b>${esc(dn)} · ${esc(t.id)}</b><span>${m.me ? 'Jij: ' : ''}${esc(m.text)}</span></span><small>${hhmm(m.T)}</small></button>`; }).join('')
       : empty('Nog geen berichten vandaag', 'Open een voertuig of rit en stuur een bericht, of pas een voorstel toe: de chauffeur krijgt het voorgelezen in de cabine.', '', 'msg');
   }
-  return `<div class="pnl-h"><div class="pnl-t"><h2>${ic('spark', 18)}Assistent</h2><div class="sub">${props.length} voorstellen · ${ctx.applied.length} vandaag toegepast · ${ctx.msgCount()} berichten</div></div><div class="pnl-a"><button class="ib" type="button" id="closePanel" aria-label="Sluiten">${ic('x', 18)}</button></div></div>
+  return `<div class="pnl-h"><div class="pnl-t"><h2>${ic('spark', 18)}Assistent</h2><div class="sub">${props.length} ${props.length === 1 ? 'voorstel' : 'voorstellen'} · ${ctx.applied.length} vandaag toegepast · ${ctx.msgCount()} ${ctx.msgCount() === 1 ? 'bericht' : 'berichten'}</div></div><div class="pnl-a"><button class="ib" type="button" id="closePanel" aria-label="Sluiten">${ic('x', 18)}</button></div></div>
     <div class="tabs" role="tablist" style="padding:0 12px">${tabs.map(([k, n]) => `<button class="tab" type="button" role="tab" aria-selected="${tab === k}" data-atab="${k}">${n}${k === 'voorstellen' && props.length ? ` <span class="n">${props.length}</span>` : ''}</button>`).join('')}</div>
     <div class="pnl-b">${body}</div>`;
 }
