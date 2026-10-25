@@ -7,5 +7,5 @@ staat in map.js.patch) gebruikt de BRT Achtergrondkaart van Kadaster/PDOK: zonde
 host service.pdok.nl. Licht thema pastel, donker thema grijs. SafeTools is niet geraakt (daar staan de tegels uit).
 
 - index.html: de hele losse app in één bestand (8,8 MB), neerzetten als public/index.html van de demo-repo.
-- Externe hosts in deze build: service.pdok.nl (alleen als de online laag aanstaat), tiles.openfreemap.org (de
-  3D-gebouwen in de 3D-stand). Geen CARTO meer.
+- Externe host in deze build: service.pdok.nl, alleen als de online laag aanstaat. Geen CARTO meer (OpenFreeMap
+  zit pas in 4.0). Live gezet door de websitesessie op 25 oktober 2026, 09:55 UTC (deploy 6addd152).
