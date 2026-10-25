@@ -113,7 +113,9 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
 {
   const { page, ctx, errors, ext } = await open();
   const d0 = await page.evaluate(() => ({ ...window.SLCT.map.debug(), land: window.SLCT.map.map.getLayoutProperty('land', 'visibility'), mw: window.SLCT.map.map.getLayoutProperty('mw', 'visibility'), pl: window.SLCT.map.map.getLayoutProperty('pl-1', 'visibility'), notice: (window.__notices || []).join(' | ') }));
-  check(d0.onlineFailed && !d0.online && d0.base === 'kaart' && d0.land !== 'none' && d0.mw !== 'none' && d0.pl !== 'none', `terugval: online kaart geprobeerd (${[...ext].filter(h => /openfreemap/.test(h)).length ? 'OpenFreeMap' : 'geen verzoek'}), onlineFailed=${d0.onlineFailed}, ingebouwde kaart zichtbaar`);
+  // sinds 4.0 is zonder keuze de ingebouwde kaart de standaard: de losse versie vraagt niets van buiten tot de kijker zelf
+  // een online laag kiest (acceptatie-eis E); de terugval van een gekozen online laag toetsen de secties hieronder
+  check(!d0.online && d0.base === 'kaart' && !d0.onlineFailed && ![...ext].some(h => /openfreemap|pdok|cartocdn/.test(h)) && d0.land !== 'none' && d0.mw !== 'none' && d0.pl !== 'none', `zonder keuze de ingebouwde kaart: geen verzoek naar buiten (${[...ext].filter(h => /openfreemap|pdok|cartocdn/.test(h)).join(', ') || 'geen'}), ingebouwde kaart zichtbaar`);
   check(!/niet bereikbaar/.test(d0.notice), `terugval zonder melding als niemand de online kaart koos (${d0.notice || 'geen melding'})`);
   check(d0.vehicles > 1000 && d0.drawn >= d0.vehicles && !d0.fallback, `voertuiglaag (WebGL): ${d0.drawn} iconen voor ${d0.vehicles} voertuigen`);
 
@@ -286,7 +288,7 @@ const pickBase = (page, k) => page.evaluate(k => { const b = document.getElement
 const decided = (page, k, tier = 0) => page.waitForFunction(([k, tier]) => { const s = window.SLCT.map.debug().src[k]; return !!s && (s.failed || (s.ok && (s.tier || 0) >= tier)); }, [k, tier], { timeout: 20000, polling: 200 }).catch(() => {});
 const toSp = (page, z, name = 'Wognum') => page.evaluate(([z, name]) => { const sp = window.SLCT.fleet.trucks.find(t => t.base.n === name).base; window.SLCT.map.map.jumpTo({ center: [sp.lon, sp.lat], zoom: z, pitch: 0, bearing: 0 }); }, [z, name]);
 {
-  const { page, ctx, errors, ext } = await open({ ofm: 'ok' });
+  const { page, ctx, errors, ext } = await open({ ofm: 'ok', base: 'online' }); // de kijker koos eerder OpenStreetMap
   await toSp(page, 14); await page.waitForTimeout(2500); await decided(page, 'online');
   const o = await baseState(page);
   check(o.base === 'online' && o.src.online.ok && o.oroad === 'visible' && o.mw === 'none' && o.pl === 'none' && o.land === 'none' && o.site === 'visible' && o.sp === 'visible', 'online (OpenFreeMap): de vectortegel klopt; eigen land, wegen en namen uit, eigen terreinen en standplaatsen blijven');
@@ -310,7 +312,7 @@ const toSp = (page, z, name = 'Wognum') => page.evaluate(([z, name]) => { const 
   await ctx.close();
 }
 for (const ofm of ['leeg', 'png', 'fout']) {
-  const { page, ctx, errors } = await open({ ofm });
+  const { page, ctx, errors } = await open({ ofm, base: 'online' }); // een eerder gekozen online laag die nu niet werkt: stil terug
   await toSp(page, 12); await page.waitForTimeout(3000); await decided(page, 'online');
   const o = await baseState(page);
   check(o.base === 'kaart' && o.src.online.failed && o.mw === 'visible' && o.land === 'visible' && o.pl === 'visible' && !/niet bereikbaar/.test(o.notice) && /Natural Earth/.test(o.attr), `online ${ofm === 'leeg' ? 'met lege tegels' : ofm === 'png' ? 'met een plaatje als tegel (zoals een watermerk)' : 'onbereikbaar'}: telt niet als werkend, stil terug naar de ingebouwde kaart`);
