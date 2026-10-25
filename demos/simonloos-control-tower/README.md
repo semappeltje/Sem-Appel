@@ -507,7 +507,7 @@ oktober 2026), de divisies en de ligging van de pauzeplekken op het snelwegennet
 
 Sinds 4.0 staan de standplaatsen op hun echte adres (uit de vacatures op werkenbijsimonloos.nl, op het BAG-adrespunt
 gezet) met hun echte terrein, hoofdgebouw en parkeerrijen; geparkeerde voertuigen en opleggers staan in die rijen.
-Ritten gaan naar echte winkels van de klant van de standplaats (4.578 supermarkten en drogisterijen uit Overture Places,
+Ritten gaan naar echte winkels van de klant van de standplaats (4.574 supermarkten en drogisterijen uit Overture Places, zonder de vier vermeldingen op het adres of terrein van een standplaats of DC, zoals "Etos Wognum - Tender 2" op het hoofdkantoor,
 binnen 80 km, bezorging binnen 40 km naar woonstraten) en naar echte DC's, fabrieken en groothandels (157), en rijden de
 laatste kilometers over echte straten tot de poort of de weg voor de deur. Voor de 3D-wereld zijn er de echte
 gebouwen rond elke standplaats en elk DC (Overture Buildings, 16.196 contouren met hoogte), apart geladen. Welke winkel

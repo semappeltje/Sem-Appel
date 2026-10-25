@@ -95,7 +95,7 @@ Benaderingen en correcties bij de standplaatsen:
 
 ## Klanten (`klanten.json`)
 
-**Winkels: 4.578** uit Overture Places, alleen in Nederland (landcode van het adres), niet "permanently closed".
+**Winkels: 4.574** uit Overture Places, alleen in Nederland (landcode van het adres), niet "permanently closed".
 Een winkel hoort bij een formule als de naam met de formule begint (Albert Heijn of AH, Jumbo, Plus, Lidl, SPAR, Vomar,
 Aldi, Dirk, Etos) en de categorie een supermarkt of levensmiddelenwinkel is (Etos: drogisterij); DC's, kantoren,
 ophaalpunten en vacatures vallen af. Ontdubbeld per formule op postcode en huisnummer en binnen 70 m. De positie is het
@@ -104,17 +104,22 @@ betrouwbaarheid van minstens 0,9). Een winkel zonder eigen naam krijgt de straat
 
 | Formule | Winkels |
 | --- | ---: |
-| Albert Heijn | 1.197 |
+| Albert Heijn | 1.195 |
 | Jumbo | 743 |
-| Etos | 570 |
+| Etos | 569 |
 | SPAR | 493 |
 | Lidl | 476 |
 | Plus | 476 |
-| Aldi | 373 |
+| Aldi | 372 |
 | Dirk | 147 |
 | Vomar | 103 |
 
 - Etos is erbij omdat de standplaats Beverwijk volgens de vacature voor Etos rijdt (DC Etos, Rijnland 4).
+- Vier vermeldingen zijn geen winkel en vallen af (`tools/ct4/winkels_opschonen.py`, door `build_data.py` aangeroepen;
+  de nummers van de andere winkels blijven gelijk): "Etos Wognum - Tender 2" (het hoofdkantoor van Simon Loos, Tender 2),
+  "Albert Heijn Pegasusweg" in Tilburg (het adres van AH DC Tilburg, de standplaats), "AH Pijnacker" in Delfgauw (op het
+  terrein van AH DC Pijnacker) en "Aldi Holding Bv" in Culemborg (DC en kantoor van Aldi). De regel: "Tender", "holding" of
+  "hoofdkantoor" in de naam, binnen 25 m van het adrespunt van een standplaats of DC, of op het terrein van een standplaats.
 - Deen en Coop zijn weggelaten: beide formules bestaan niet meer (Deen in 2023 overgenomen en omgebouwd, Coop in 2024 opgegaan in Plus). Overture had nog 72 Coop- en 16 Deen-vermeldingen op plekken zonder andere supermarkt; dat zijn oude gegevens.
 - 22 winkels op de Waddeneilanden hebben geen wegverbinding met het vasteland (`eiland: 1`); ze krijgen de dichtstbijzijnde knoop maar worden niet in ritten gebruikt. AH to go (stations, tankstations) blijft op de kaart maar niet in de winkelritten.
 
@@ -140,7 +145,7 @@ aansluit) en een toegangsroute in `toegang.json` (polyline van die knoop tot de 
 
 - `graph.json`: de routeergraaf van 3.0 (snelwegen, autowegen en N-wegen uit dezelfde release), nagebouwd met `tools/ct4/graph_rebuild.py` (identiek aan de vorige versie). Waar een toegangsroute halverwege een kant van de graaf uitkomt, is die kant daar gesplitst: 1.617 knopen en evenveel kanten erbij, achteraan, zodat de bestaande nummers niet veranderen (49.257 knopen, 67.944 kanten).
 - Toegangsroutes: het volledige wegennet voor auto's (alle wegklassen tot en met service en woonerf, 2,69 miljoen segmenten) met een Dijkstra vanuit alle aansluitpunten op de graaf tegelijk; kosten naar wegklasse (inritten en parkeerstroken langzaam). Een plek wordt vastgeklikt op de dichtstbijzijnde weg (90 % binnen 37 m); de route eindigt op dat klikpunt. Mediaan 1,2 km, 90 % korter dan 2,9 km, langste 10,7 km (Sellingen).
-- `toegang.json` (342 kB): 4.907 toegangsroutes.
+- `toegang.json` (342 kB): 4.903 toegangsroutes.
 
 ## Gebouwen (`buildings.json`, alleen voor 3D)
 
@@ -235,5 +240,7 @@ Volgorde, met een werkmap buiten de repo voor de parquet-bestanden:
 6. `docks.py` (door `build_data.py` aangeroepen, ook los te draaien): docks en hun plek per standplaats in places.json; met een tweede argument een plaatje per standplaats.
 7. `afdelingen.py` (door `build_data.py` aangeroepen na `docks.py`): de afdelingen per standplaats in places.json; met een tweede argument een plaatje per standplaats.
 8. `charters.py` (los, deterministisch): de verzonnen charters in `charters.json`.
+9. `winkels_opschonen.py` (door `build_data.py` aangeroepen, ook los te draaien op `src/data`): winkels op het adres of terrein
+   van een standplaats of DC en het hoofdkantoor eruit (zie "Klanten").
 
 Bestandsgroottes: places.json 151 kB, klanten.json 593 kB, toegang.json 342 kB, graph.json 3.915 kB, roads_display.json 2.350 kB, buildings.json 2.407 kB, charters.json 9 kB.
