@@ -35,8 +35,9 @@ export function createLayers(root) {
     pop.style.left = '0px'; pop.style.top = '0px'; pop.style.maxHeight = '';
     popTrigger = trigger; popOnClose = onClose || null; if (trigger) trigger.setAttribute('aria-expanded', 'true');
     // de popover blijft hetzelfde element: wat onBind er aan luisteraars bij zet, hoort bij deze ene keer openen en
-    // verdwijnt bij sluiten (anders telt elke keer openen een klik-luisteraar op, en doet een keuze het meer keer)
-    if (onBind) { popAc = new AbortController(); const sig = popAc.signal; onBind(new Proxy(pop, { get: (t, k) => k === 'addEventListener' ? (type, fn, o) => t.addEventListener(type, fn, { ...(o && typeof o === 'object' ? o : { capture: !!o }), signal: sig }) : (v => (typeof v === 'function' ? v.bind(t) : v))(Reflect.get(t, k)) })); }
+    // verdwijnt bij sluiten (anders telt elke keer openen een klik-luisteraar op, en doet een keuze het meer keer).
+    // Lezen en schrijven gaan naar de popover zelf (een setter als innerHTML mag niet op de proxy draaien).
+    if (onBind) { popAc = new AbortController(); const sig = popAc.signal; onBind(new Proxy(pop, { get: (t, k) => k === 'addEventListener' ? (type, fn, o) => t.addEventListener(type, fn, { ...(o && typeof o === 'object' ? o : { capture: !!o }), signal: sig }) : (v => (typeof v === 'function' ? v.bind(t) : v))(Reflect.get(t, k)), set: (t, k, v) => { t[k] = v; return true; } })); }
     const ref = at ? punt(at.x, at.y) : trigger; const placement = at ? 'bottom-start' : align === 'right' ? 'bottom-end' : 'bottom-start';
     if (ref) { const upd = () => place(ref, pop, placement); upd(); if (!at && trigger && trigger.isConnected) stopAuto = autoUpdate(trigger, pop, upd, { animationFrame: false }); }
     if (focus) { const f = pop.querySelector('[autofocus]') || pop.querySelector('.menu-i.on') || focusables(pop)[0]; if (f) f.focus({ preventScroll: true }); }
