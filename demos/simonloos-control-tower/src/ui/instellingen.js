@@ -11,7 +11,7 @@ const KEYS = {
   'sl-werkgebied': 'Werkgebied: regio\'s, divisies, rol en standplaats', 'sl-role': 'Rol (bekijk als)', 'sl-theme': 'Thema', 'sl-nav': 'Menu ingeklapt of niet',
   'sl-acties': 'Acties van vandaag: zaken, notities, toegepaste voorstellen, berichten, logboek', 'sl-views': 'Opgeslagen weergaven', 'sl-instellingen': 'Je naam en meldingsnormen',
   'sl-kolommen': 'Gekozen kolommen per tabel', 'sl-lostijden': 'Overgenomen lostijden', 'sl-rest': 'Je beoordelingen van pauzeplekken', 'sl-overdracht': 'Overdracht naar de volgende dienst',
-  'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter, dimmen en bezorgbussen op de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
+  'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter, dimmen en bezorgbussen op de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-tabelweergaven': 'Opgeslagen weergaven per tabel', 'sl-meldweergave': 'Meldingen als lijst of als bord', 'sl-pbhint': 'Uitleg bij het planbord gelezen', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
 };
 function stored(store) { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sl-')) out.push([k, (localStorage.getItem(k) || '').length]); } } catch { /* geen opslag */ } return out.sort((a, b) => a[0].localeCompare(b[0])); }
 const kb = n => n < 1024 ? `${n} tekens` : `${(n / 1024).toFixed(1).replace('.', ',')} kB`;
