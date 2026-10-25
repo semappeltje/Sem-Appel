@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "vite": "^6.3.5",
     "vite-plugin-singlefile": "^2.2.0"
   },

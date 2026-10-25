@@ -1,194 +1,371 @@
-// 3D-wereld: de kaart als speelgoedlandschap in de stijl van Simon Loos (rood, wit, zachte grijzen en groenen),
-// getekend met three.js in een eigen laag van MapLibre (CustomLayerInterface, renderingMode "3d"). Alles is
-// procedureel uit boxen, cilinders en kegels; geen modellen of texturen van buiten, geen enkel verzoek naar buiten.
-// Posities komen uit de simulatie (voertuigen met hun koers, losse opleggers), de depots uit places.json, de bomen
-// staan op vaste plekken (eigen seed) rond de depots en in de bebouwde vlakken. De maten groeien mee met uitzoomen,
-// zoals de iconen op de 2D-kaart, zodat de wereld op elk zoomniveau leesbaar blijft.
+// 3D-wereld van de Control Tower: een eigen laag van MapLibre (CustomLayerInterface, renderingMode "3d") die met three.js
+// tekent. Laagpolygonaal maar realistisch van verhouding: voertuigen op ware grootte (trekker met oplegger 16,5 m, 4 m
+// hoog) die alleen bij uitzoomen meegroeien zodat ze vindbaar blijven, standplaatsen op hun echte terrein met de hal
+// uit de gebouwgegevens, genummerde docks, kantoren met ramen, parkeerrijen, poort, hagen, lichtmasten en bomen, een
+// zon met schaduwen, zachte nevel in de verte en 's nachts koplampen, verlichte ramen en lichtpoelen. Procedureel, op
+// vier bomen en twee fabrieksdetails na (CC0-modellen uit assets-3d, ingebakken in deze bundel); niets komt van buiten.
+//
+// Geen imports uit de app zelf: standplaatsen, statuskleuren, bebouwing, winkels en DC's komen via opts.data, de
+// gebouwcontouren via een dynamische import van ./buildings.js (of een lader in opts.data). Zo blijft deze module (met
+// three.js) een eigen, pas bij de eerste klik geladen bundel, zonder dat app.js er statisch aan hangt.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-// Geen imports uit de app zelf: de standplaatsen, statuskleuren en bebouwing komen mee via opts.data. Zo blijft deze
-// module (met three.js) een eigen, pas bij de eerste klik geladen bundel, zonder dat app.js er statisch aan hangt.
+import { clamp, mercX, mercY, mpuAt, metersPerPixel, hashStr, hash } from './scene3d/util.js';
+import { paletteMaterial, disposePalette } from './scene3d/palette.js';
+import { buildModels, wheelGeometry } from './scene3d/vehicles.js';
+import { decalMesh, pushDecal, beginDecals, endDecals, hazeMesh, skyTexture } from './scene3d/fx.js';
+import { createWorld } from './scene3d/world.js';
 
-const C = {
-  rood: 0xE3001F, wit: 0xF7F8F9, glas: 0xB9CFE3, chassis: 0x343A42, wiel: 0x1F2327, asfalt: 0xC7CCD2, muur: 0xE9EBEE,
-  dak: 0xE6E9ED, dock: 0x5B6471, stam: 0x7A5C40, boom: [0x3F8F5C, 0x5CAA6E, 0x2E7A4A], lamp: 0xFFFFFF,
-};
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-// vaste toevalsreeks per plek (los van de simulatie): twee getallen in, een getal 0..1 uit
-const hash = (a, b) => { let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-const mpp = (lat, z) => 156543.03392 * Math.cos(lat * Math.PI / 180) / 2 ** z;   // meters per pixel
+// Gebouwcontouren (src/buildings.js, een eigen bundel van 2,4 MB): pas geladen als de 3D-wereld aangaat. De kaart kan een
+// lader meegeven (opts.data.laadGebouwen, uit places.js); anders laadt deze module het bestand zelf. Het pad staat
+// tussen haakjes: dan zet Vite er geen preload-hulpje omheen. Dat hulpje zou anders in de three-bundel belanden, en
+// app.js zou het daar statisch uit importeren (dan laadt three.js bij elke paginalading). Rollup bundelt het pad wel
+// gewoon. Lukt het laden niet, dan komen er procedurele depots.
+const ownBuildingsLoader = () => import(/* @vite-ignore */ ('./buildings.js'));
 
-// ---------- bouwstenen met vertexkleuren (één materiaal per mesh) ----------
-function colored(g, hex) { const c = new THREE.Color(hex); const n = g.attributes.position.count; const a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; }
-const box = (w, h, d, x, y, z, hex) => colored(new THREE.BoxGeometry(w, h, d).translate(x, y, z), hex);
-const cone = (r, h, x, y, z, hex) => colored(new THREE.ConeGeometry(r, h, 6).translate(x, y, z), hex);
-const cyl = (r, h, x, y, z, hex) => colored(new THREE.CylinderGeometry(r, r * 1.15, h, 7).translate(x, y, z), hex);
-const merge = parts => mergeGeometries(parts, false);
-const wheels = (zs, w) => zs.flatMap(z => [box(0.45, 1.0, 1.0, -w / 2, 0.5, z, C.wiel), box(0.45, 1.0, 1.0, w / 2, 0.5, z, C.wiel)]);
-// een cabine met de neus naar het noorden (−z): rood, met een lichte ruit
-const cab = zFront => [box(2.5, 2.3, 2.3, 0, 2.35, zFront + 1.15, C.rood), box(2.2, 0.75, 0.25, 0, 2.75, zFront, C.glas), box(2.3, 0.5, 2.3, 0, 1.0, zFront + 1.15, C.chassis)];
-const trailerBody = z0 => [box(2.55, 2.75, 13.6, 0, 2.6, z0, C.wit), box(2.62, 0.38, 13.5, 0, 2.25, z0, C.rood), box(2.2, 0.45, 7, 0, 1.0, z0 + 3.2, C.chassis), ...wheels([z0 + 3.2, z0 + 4.5, z0 + 5.8], 2.3)];
-// voertuigsoorten: geometrie, hoogte en plek van het statuslampje
-const MODELS = {
-  trekker: { g: () => merge([...cab(-8.25), ...wheels([-6.7, -4.3], 2.3), box(2.2, 0.5, 4.2, 0, 0.95, -5.9, C.chassis), ...trailerBody(1.1)]), lamp: [0, 3.8, -7.1] },
-  solo: { g: () => merge([...cab(-3.0), ...wheels([-1.5, 1.6], 2.3), box(2.2, 0.5, 4.8, 0, 0.95, -0.2, C.chassis), box(1.4, 0.25, 1.4, 0, 1.3, 1.2, C.chassis)]), lamp: [0, 3.8, -1.85] },
-  bakwagen: { g: () => merge([...cab(-5.0), ...wheels([-3.4, 2.9, 4.2], 2.3), box(2.2, 0.5, 8, 0, 0.95, 1.0, C.chassis), box(2.5, 2.6, 7.2, 0, 2.5, 1.4, C.wit), box(2.56, 0.36, 7.1, 0, 2.2, 1.4, C.rood)]), lamp: [0, 3.8, -3.85] },
-  bus: { g: () => merge([box(2.1, 1.9, 5.9, 0, 1.55, 0, C.wit), box(2.16, 0.32, 5.8, 0, 1.25, 0, C.rood), box(1.9, 0.7, 0.25, 0, 1.95, -2.9, C.glas), box(2.0, 0.3, 1.2, 0, 2.55, -1.8, C.rood), ...wheels([-1.8, 1.8], 1.9)]), lamp: [0, 2.9, 0.4] },
-};
-const LOOSE = { g: () => merge([...trailerBody(0), box(0.25, 1.25, 0.25, -0.8, 0.62, -4.8, C.chassis), box(0.25, 1.25, 0.25, 0.8, 0.62, -4.8, C.chassis)]), lamp: [0, 4.3, -5.5] };
-const TREE = hex => merge([cyl(0.35, 2.2, 0, 1.1, 0, C.stam), cone(2.4, 6.2, 0, 5.1, 0, hex)]);
-// een huis: lichte muren, donker zadeldak (een platte kegel met vier zijden), iets variatie in grootte per instantie
-const HOUSE = () => { const roof = new THREE.ConeGeometry(6.3, 3.0, 4); roof.rotateY(Math.PI / 4); roof.translate(0, 7.0, 0); return merge([box(9, 5.5, 9, 0, 2.75, 0, 0xF4F1EA), colored(roof, 0x9C928A)]); };
-
-// een depot in meters rond zijn ankerpunt: loods met rode daklijst en docks aan de zuidkant, kantoor, terrein;
-// het hoofdkantoor krijgt een toren. Grootte naar het aantal voertuigen van de standplaats.
-function depotGeometry(s) {
-  const f = s.fleet || 20; const W = clamp(44 + f * 0.34, 56, 120), D = clamp(30 + f * 0.1, 34, 56); const parts = [];
-  parts.push(box(W, 10, D, 0, 5, 0, C.muur), box(W + 1.6, 1.3, D + 1.6, 0, 10.4, 0, C.rood), box(W - 1.5, 0.5, D - 1.5, 0, 11.3, 0, C.dak));
-  const n = Math.max(3, Math.floor(W / 9)); for (let i = 0; i < n; i++) parts.push(box(4.2, 4.6, 0.7, -W / 2 + 6 + i * (W - 12) / (n - 1), 2.3, D / 2 + 0.35, C.dock));
-  parts.push(box(W, 0.6, 5, 0, 5.2, D / 2 + 2.5, C.rood));
-  const ox = -W / 2 - 16, oz = -D / 2 + 8;
-  parts.push(box(20, 8, 14, ox, 4, oz, C.wit), box(20.4, 1.1, 14.4, ox, 3.0, oz, C.glas), box(20.4, 1.1, 14.4, ox, 6.2, oz, C.glas), box(12, 1.6, 0.5, ox, 9, oz + 7.2, C.rood));
-  if (s.hub) { const tx = -W / 2 - 34, tz = -D / 2 - 14; parts.push(box(16, 36, 16, tx, 18, tz, C.wit)); for (let y = 3; y < 34; y += 4) parts.push(box(16.5, 1.3, 16.5, tx, y, tz, C.glas)); parts.push(box(17.5, 1.8, 17.5, tx, 36.5, tz, C.rood)); }
-  return { geom: merge(parts), W, D };
-}
-// bomen rond een depot: vaste plekken (seed per standplaats), in een ring rond het terrein
-function depotTrees(i, W, D) { const out = []; const n = 12 + Math.floor(hash(i, 7) * 8); for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + hash(i, k) * 0.5; const rx = W / 2 + 40 + hash(i, k + 100) * 50, rz = D / 2 + 60 + hash(i, k + 300) * 70; out.push([Math.cos(a) * rx, Math.sin(a) * rz + 12, Math.floor(hash(i, k + 200) * 3)]); } return out; }
-// bomen in de bebouwing: een raster van ongeveer 600 m met een vaste verschuiving per punt, binnen de vlakken van urban.json
-function urbanTrees(urban) {
-  const out = []; const inside = (ring, x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c; } return c; };
-  urban.forEach((ring, ri) => {
-    let x0 = 180, x1 = -180, y0 = 90, y1 = -90; for (const [x, y] of ring) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-    const dx = 0.0088, dy = 0.0054; let gi = 0;
-    for (let y = y0; y <= y1; y += dy) for (let x = x0; x <= x1; x += dx, gi++) { const jx = (hash(ri, gi) - 0.5) * dx * 0.9, jy = (hash(ri, gi + 9999) - 0.5) * dy * 0.9; if (inside(ring, x + jx, y + jy)) out.push([x + jx, y + jy, Math.floor(hash(ri, gi + 777) * 3)]); }
-  });
-  return out;
-}
+const KINDS = ['trekker', 'solo', 'bakwagen', 'bus'];
+const LODS = ['hi', 'mid', 'lo'];
+const SUN = { light: { az: 205, el: 42, color: 0xFFF0DA, i: 3.3 }, dark: { az: 160, el: 38, color: 0x9DB6E8, i: 0.32 } };
 
 export function createScene3d(map, maplibregl, opts) {
   const { SP, ST, TRST, urban } = opts.data;
-  const scene = new THREE.Scene(); const camera = new THREE.Camera(); camera.matrixAutoUpdate = false;
-  const hemi = new THREE.HemisphereLight(0xFFFFFF, 0xD2D8DF, 2.2); const sun = new THREE.DirectionalLight(0xFFFFFF, 2.4); sun.position.set(-0.55, 1, -0.65);
-  scene.add(hemi, sun);
-  const matLit = () => new THREE.MeshLambertMaterial({ vertexColors: true });
-  const matLamp = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-  const MAXV = 1400, MAXT = 1800, MAXTREE = 2600;
-  const veh = {}; for (const [k, m] of Object.entries(MODELS)) { const mesh = new THREE.InstancedMesh(m.g(), matLit(), MAXV); mesh.count = 0; mesh.frustumCulled = false; mesh.userData.kind = k; scene.add(mesh); veh[k] = { mesh, lamp: m.lamp, ids: [] }; }
-  const lamps = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), matLamp, MAXV); lamps.count = 0; lamps.frustumCulled = false; scene.add(lamps);
-  const loose = new THREE.InstancedMesh(LOOSE.g(), matLit(), MAXT); loose.count = 0; loose.frustumCulled = false; loose.userData.kind = 'oplegger'; scene.add(loose);
-  const tlamps = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), matLamp, MAXT); tlamps.count = 0; tlamps.frustumCulled = false; scene.add(tlamps);
-  const trees = C.boom.map(hex => { const m = new THREE.InstancedMesh(TREE(hex), matLit(), MAXTREE); m.count = 0; m.frustumCulled = false; scene.add(m); return m; });
-  const houses = new THREE.InstancedMesh(HOUSE(), matLit(), 1600); houses.count = 0; houses.frustumCulled = false; scene.add(houses);
-  const depots = SP.map((s, i) => { const { geom, W, D } = depotGeometry(s); const mesh = new THREE.Mesh(geom, matLit()); mesh.frustumCulled = false; scene.add(mesh); return { s, mesh, W, D, trees: depotTrees(i, W, D), local: [0, 0] }; });
-  const depotByName = new Map(depots.map(d => [d.s.n, d]));
-  const yards = new THREE.InstancedMesh(colored(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), C.asfalt), matLit(), SP.length); yards.count = SP.length; yards.frustumCulled = false; scene.add(yards);
-  let urbanPts = null;
+  let theme = opts.theme || 'light';
+  const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let on = false, renderer = null, O = null, kV = 1, kB = 1, kT = 1, zoom = 0, theme = opts.theme || 'light';
-  let vehicles = [], trailers = [];
-  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), S = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0), TMP = new THREE.Vector3();
+  // ---------- scene, camera, licht ----------
+  const T0 = performance.now();
+  const scene = new THREE.Scene();
+  const camera = new THREE.Camera(); camera.matrixAutoUpdate = false; camera.matrixWorldAutoUpdate = false;
+  const sun = new THREE.DirectionalLight(0xFFFFFF, 2.6); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 2.6; sun.shadow.bias = -0.0004;
+  const hemi = new THREE.HemisphereLight(0xDCE7F2, 0xB7BFAA, 0.5);
+  scene.add(sun, sun.target, hemi);
+  scene.fog = new THREE.Fog(0xE8ECEA, 2000, 8000);
+  const sky = { light: skyTexture(false), dark: skyTexture(true) }; scene.environment = sky.light; scene.environmentIntensity = 0.8;
+  const haze = hazeMesh(); scene.add(haze);
+  const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ color: 0x1B2638, opacity: 0.28, depthWrite: false }));
+  shadowPlane.receiveShadow = true; shadowPlane.frustumCulled = false; shadowPlane.renderOrder = 2; shadowPlane.material.polygonOffset = true; shadowPlane.material.polygonOffsetFactor = 2; shadowPlane.material.polygonOffsetUnits = 2; scene.add(shadowPlane);
+
+  // ---------- voertuigen: per soort drie detailniveaus, plus wielen, statuslampjes en vlakken op de grond ----------
+  const pal = paletteMaterial(); const models = buildModels();
+  // voertuigen: hetzelfde palet, maar de lichten (koplampen, achterlichten, markeringen) per exemplaar aan of uit
+  const palV = paletteMaterial();
+  palV.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aLights;\nvarying float vLights;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvLights = aLights;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vLights;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vLights;');
+  };
+  palV.customProgramCacheKey = () => 'voertuiglichten';
+  const MAXV = 1500, MAXT = 1900, MAXW = 2600;
+  const inst = (geo, mat, max) => { const m = new THREE.InstancedMesh(geo, mat, max); m.count = 0; m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.visible = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return m; };
+  const vm = {}; for (const k of [...KINDS, 'oplegger']) for (const l of LODS) { const max = k === 'oplegger' ? MAXT : MAXV; const m = inst(models[k][l], palV, max); const a = new THREE.InstancedBufferAttribute(new Float32Array(max), 1); a.setUsage(THREE.DynamicDrawUsage); m.geometry.setAttribute('aLights', a); vm[k + l] = m; }
+  const wheels = inst(wheelGeometry(12), pal, MAXW);
+  const beaconGeo = new THREE.BoxGeometry(0.86, 0.17, 0.34); beaconGeo.translate(0, 0.085, 0);
+  const beacons = new THREE.InstancedMesh(beaconGeo, new THREE.MeshBasicMaterial({ color: 0xFFFFFF, toneMapped: false }), MAXV + MAXT); beacons.count = 0; beacons.frustumCulled = false; beacons.setColorAt(0, new THREE.Color()); beacons.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(beacons);
+  const decals = decalMesh(9000, false), glows = decalMesh(5000, true); scene.add(decals, glows);
+  // winkels en DC's van de klantenlijst (WINKELS, DCS) als de kaart ze meegeeft; zonder die lijsten generieke panden
+  const given = opts.data.laadGebouwen || opts.data.loadBuildings;
+  const buildingsLoader = typeof given === 'function' ? () => Promise.resolve(given()).then(m => (m && m.default ? m : { default: m })) : ownBuildingsLoader;
+  const world = createWorld({ scene, SP, urban, buildingsLoader, pal, theme, shops: opts.data.shops || opts.data.WINKELS || [], dcs: opts.data.DCS || [] });
+
+  // ---------- toestand ----------
+  let on = false, renderer = null, O = null, epoch = 0, zoom = map.getZoom(), shadowsOn = true;
+  let vehicles = [], trailers = [], selId = null, hoverId = null;
+  const L = new THREE.Matrix4(), G = new THREE.Matrix4(), invG = new THREE.Matrix4(), CW = new THREE.Matrix4();
+  const eye = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3(), tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
   const ROTX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+  const view = { focus: [0, 0], R: 1000, zoom: 0, camDist: 1000, mpp: 1, box: [0, 0, 0, 0], ppm: 1, pitch: 0 };
+  const motion = new Map();            // per voertuig: vorige positie en afgelegde weg (voor draaiende wielen)
+  let pickList = [];                   // wat er dit beeld getekend is: voor klik en aanwijzen
+  // tijden: createMs (deze functie), rendererMs (WebGL-renderer op de kaart), firstRenderMs (eerste beeld, met het
+  // vertalen van de shaders), firstFrameMs (van aanzetten tot het eerste beeld), renderMs (gemiddelde per beeld)
+  const stats = { createMs: 0, rendererMs: 0, firstRenderMs: 0, firstFrameMs: 0, frames: 0, renderMs: 0, enabledAt: 0 };
+  let groundColor = null, groundCheck = 0;
 
-  // oorsprong van de scene: de kaartpositie, in Mercator; alles ligt in meters rond dat punt (precies genoeg voor WebGL)
-  function setOrigin() { const c = map.getCenter(); const mc = maplibregl.MercatorCoordinate.fromLngLat([c.lng, c.lat]); O = { x: mc.x, y: mc.y, mpu: mc.meterInMercatorCoordinateUnits(), lon: c.lng, lat: c.lat }; }
-  const local = (lon, lat) => { const mc = maplibregl.MercatorCoordinate.fromLngLat([lon, lat]); return [(mc.x - O.x) / O.mpu, (mc.y - O.y) / O.mpu]; };
-  function needsOrigin() { if (!O) return true; const c = map.getCenter(); const [x, z] = local(c.lng, c.lat); return Math.hypot(x, z) > 2500; }
-  // schaal per zoomniveau: voertuigen houden ongeveer dezelfde grootte op het scherm (zoals de iconen op de platte
-  // kaart); gebouwen en bomen schalen mee maar kleiner, zodat een loods zo'n vier trucks breed blijft
-  function scales() { const z = map.getZoom(); const m = mpp(map.getCenter().lat, z); const kV = clamp(3.3 * m, 1, 40); return { kV, kB: Math.max(1, kV * 0.5), kT: Math.max(1, Math.min(kV * 0.9, 26)), z }; }
-  // voertuigen iets breder en hoger dan echt: dat leest beter van bovenaf (speelgoedverhouding)
-  const put = (mesh, i, x, z, bearing, k, chunky) => { P.set(x, 0, z); Q.setFromAxisAngle(UP, -bearing * Math.PI / 180); if (chunky) S.set(k * 1.3, k * 1.2, k); else S.set(k, k, k); M.compose(P, Q, S); mesh.setMatrixAt(i, M); };
-  const putLamp = (mesh, i, x, z, bearing, k, off, hex) => { const a = -bearing * Math.PI / 180; const lx = off[0] * k * 1.3, ly = off[1] * k * 1.2, lz = off[2] * k; P.set(x + lx * Math.cos(a) + lz * Math.sin(a), ly, z - lx * Math.sin(a) + lz * Math.cos(a)); Q.identity(); S.set(k * 1.2, k * 1.2, k * 1.2); M.compose(P, Q, S); mesh.setMatrixAt(i, M); mesh.setColorAt(i, TMP_COLOR.set(hex)); };
-  const TMP_COLOR = new THREE.Color();
+  function setOrigin() {
+    const c = map.getCenter(); O = { x: mercX(c.lng), y: mercY(c.lat), mpu: mpuAt(c.lat), lon: c.lng, lat: c.lat };
+    L.makeTranslation(O.x, O.y, 0).scale(tmp.set(O.mpu, -O.mpu, O.mpu)).multiply(ROTX);
+    epoch++; world.setOrigin(O);
+  }
+  const lx = lon => (mercX(lon) - O.x) / O.mpu, lz = lat => (mercY(lat) - O.y) / O.mpu;
+  function needsOrigin() { if (!O) return true; const c = map.getCenter(); return Math.hypot(lx(c.lng), lz(c.lat)) > 2500; }
 
-  // parkeerplekken op het terrein: voertuigen in rijen ten zuiden van de loods, opleggers ten noorden; in meters maal de voertuigschaal
-  // plek van de loods in gebouwschaal, afstand tussen de rijen in voertuigschaal
-  const slotV = (d, i) => [(-d.W / 2 + 4) * kB + (2.2 + (i % 5) * 4.6) * kV, (d.D / 2 + 14) * kB + (10 + Math.floor(i / 5) * 21) * kV];
-  const slotT = (d, i) => [(-d.W / 2 + 2) * kB + (2.2 + (i % 7) * 4.6) * kV, (-d.D / 2 - 8) * kB - (8 + Math.floor(i / 7) * 19) * kV];
+  // De camera van MapLibre ontleden: G zet scene-meters om naar het scherm. Het oog is het punt waar x, y en w van het
+  // scherm nul worden; de kijkrichting volgt uit de eerste twee rijen. Met een echte camerastand werken licht, glans en
+  // nevel van three.js zoals bedoeld.
+  const A3 = new THREE.Matrix3();
+  function deriveCamera() {
+    const e = G.elements; const r = k => [e[k], e[4 + k], e[8 + k], e[12 + k]]; const r0 = r(0), r1 = r(1), r3 = r(3);
+    A3.set(r0[0], r0[1], r0[2], r1[0], r1[1], r1[2], r3[0], r3[1], r3[2]).invert();
+    eye.set(-r0[3], -r1[3], -r3[3]).applyMatrix3(A3);
+    fwd.set(r0[1] * r1[2] - r0[2] * r1[1], r0[2] * r1[0] - r0[0] * r1[2], r0[0] * r1[1] - r0[1] * r1[0]); if (fwd.x * r3[0] + fwd.y * r3[1] + fwd.z * r3[2] < 0) fwd.negate(); fwd.normalize();
+    up.set(r0[1] * fwd.z - r0[2] * fwd.y, r0[2] * fwd.x - r0[0] * fwd.z, r0[0] * fwd.y - r0[1] * fwd.x); if (up.x * r1[0] + up.y * r1[1] + up.z * r1[2] < 0) up.negate(); up.normalize();
+    const zA = tmp.copy(fwd).negate(), xA = tmp2.crossVectors(up, zA).normalize(); const yA = new THREE.Vector3().crossVectors(zA, xA);
+    CW.makeBasis(xA, yA, zA).setPosition(eye);
+    camera.matrix.copy(CW); camera.matrixWorld.copy(CW); camera.matrixWorldInverse.copy(CW).invert();
+    camera.projectionMatrix.multiplyMatrices(G, CW); camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    invG.copy(G).invert();
+  }
+  // waar een kijkstraal door het scherm (−1..1) de grond raakt
+  const gp = new THREE.Vector4();
+  function ground(nx, ny, maxD) {
+    gp.set(nx, ny, 1, 1).applyMatrix4(invG); const dx = gp.x / gp.w - eye.x, dy = gp.y / gp.w - eye.y, dz = gp.z / gp.w - eye.z;
+    let t = dy < -1e-9 ? -eye.y / dy : Infinity; const tMax = maxD / Math.max(1e-9, Math.hypot(dx, dz)); if (t > tMax) t = tMax;   // niet verder dan maxD (horizontaal)
+    return [eye.x + dx * t, eye.z + dz * t];
+  }
+  function computeView() {
+    const c = map.getCenter(); zoom = map.getZoom(); view.zoom = zoom; view.pitch = map.getPitch();
+    view.focus = [lx(c.lng), lz(c.lat)]; view.camDist = Math.hypot(eye.x - view.focus[0], eye.y, eye.z - view.focus[1]);
+    view.mpp = metersPerPixel(c.lat, zoom);
+    const maxD = view.camDist * 6;
+    const pts = [ground(-1, -1, maxD), ground(1, -1, maxD), ground(-1, 1, maxD), ground(1, 1, maxD), ground(0, 0, maxD)];
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, R = 0; for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); R = Math.max(R, Math.hypot(x - view.focus[0], z - view.focus[1])); }
+    view.box = [x0, z0, x1, z1]; view.R = clamp(R, 300, view.camDist * 4.5);
+    // pixels per meter op diepte 1 (de projectie van MapLibre draagt een vaste schaal in w mee: daarom gedeeld door de w-rij)
+    const H = map.getCanvas().clientHeight || 600; const pe = camera.projectionMatrix.elements; view.ppm = 0.5 * H * pe[5] / Math.max(1e-9, -pe[11]);
+  }
+  // de zon volgt het zichtbare gebied: een schaduwcamera om de onderste vier vijfde van het beeld, in stapjes van een texel
+  const sunDir = new THREE.Vector3();
+  function placeSun() {
+    const S = SUN[theme === 'dark' ? 'dark' : 'light']; const az = S.az * Math.PI / 180, el = S.el * Math.PI / 180;
+    sunDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).normalize();
+    const want = zoom >= (shadowsOn ? 11.8 : 12.0); if (want !== shadowsOn) { shadowsOn = want; sun.castShadow = want; shadowPlane.visible = want; }
+    if (!shadowsOn) return;
+    const maxD = view.camDist * 3.2; const pts = [ground(-1, -1, maxD), ground(1, -1, maxD), ground(-1, 0.55, maxD), ground(1, 0.55, maxD), ground(0, 0.2, maxD)];
+    const zl = sunDir, xl = tmp.set(0, 1, 0).cross(zl).normalize().clone(), yl = new THREE.Vector3().crossVectors(zl, xl);
+    let cx = 0, cz = 0; for (const [x, z] of pts) { cx += x / pts.length; cz += z / pts.length; }
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity; for (const [x, z] of pts) { const dx = x - cx, dz = z - cz; const u = dx * xl.x + dz * xl.z, v = dx * yl.x + dz * yl.z; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    // hooguit 2,6 km breed (een texel van ruim een meter); verder weg geen schaduw, de nevel neemt het daar over
+    const pad = 30 + view.mpp * 20; let size = Math.max(u1 - u0, v1 - v0) + pad * 2; size = Math.min(size, 2600);
+    const texel = size / sun.shadow.mapSize.x;
+    const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2; const ccx = cx + xl.x * cu + yl.x * cv, ccz = cz + xl.z * cu + yl.z * cv;
+    const su = Math.round((ccx * xl.x + ccz * xl.z) / texel) * texel, sv = Math.round((ccx * yl.x + ccz * yl.z) / texel) * texel; const sw = (ccx * zl.x + ccz * zl.z);
+    const fx = xl.x * su + yl.x * sv + zl.x * sw, fz = xl.z * su + yl.z * sv + zl.z * sw; const fy = xl.y * su + yl.y * sv + zl.y * sw;
+    const D = size + 400; sun.target.position.set(fx, fy, fz); sun.position.set(fx + zl.x * D, fy + zl.y * D, fz + zl.z * D);
+    sun.target.updateMatrixWorld(); sun.updateMatrixWorld();
+    view.shadowR = size * 0.5; const cam = sun.shadow.camera; cam.left = -size / 2; cam.right = size / 2; cam.top = size / 2; cam.bottom = -size / 2; cam.near = 10; cam.far = D * 2 + 200; cam.updateProjectionMatrix();
+    sun.shadow.normalBias = texel * 1.4; sun.shadow.bias = -0.00025;
+    shadowPlane.position.set(cx, 0.02 * Math.max(1, view.mpp), cz); shadowPlane.scale.set(size * 1.5, 1, size * 1.5); shadowPlane.updateMatrixWorld();
+  }
+  // grondkleur van de kaart (voor de nevel): de achtergrondlaag van de stijl, wat de kaart ook laat zien
+  function readGround() {
+    try { const ids = map.getLayersOrder ? map.getLayersOrder() : map.getStyle().layers.map(l => l.id); for (const id of ids) { const l = map.getLayer(id); if (l && l.type === 'background') { const v = map.getPaintProperty(id, 'background-color'); if (typeof v === 'string') { const c = new THREE.Color(); c.setStyle(v); return c; } if (v && typeof v === 'object' && 'r' in v) return new THREE.Color(v.r, v.g, v.b); } } } catch { /* stijl nog niet klaar */ }
+    return null;
+  }
+  function atmosphere() {
+    const now = performance.now(); if (!groundColor || now - groundCheck > 1500) { groundCheck = now; groundColor = readGround() || groundColor; }
+    const dark = theme === 'dark'; const base = groundColor ? groundColor.clone() : new THREE.Color(dark ? 0x12161C : 0xE8ECE6);
+    const fogC = dark ? base.clone().lerp(new THREE.Color(0x1A2230), 0.35) : base.clone().lerp(new THREE.Color(0xE6EDF3), 0.35);
+    scene.fog.color.copy(fogC);
+    const pitchK = clamp((view.pitch - 12) / 38, 0, 1);
+    scene.fog.near = view.camDist * 1.55; scene.fog.far = view.camDist * (4.6 + (1 - pitchK) * 6);
+    const u = haze.material.uniforms; u.uInv.value.copy(invG); u.uEye.value.copy(eye); u.uFwd.value.copy(fwd); u.uColor.value.copy(fogC); u.uNear.value = view.camDist * 1.45; u.uFar.value = view.camDist * 4.2; u.uMax.value = (dark ? 0.5 : 0.62) * pitchK;
+    haze.visible = pitchK > 0.02;
+  }
 
-  function rebuildVehicles() {
-    if (!on || !O) return;
-    for (const v of Object.values(veh)) { v.mesh.count = 0; v.ids.length = 0; } let nl = 0; const parked = new Map();
+  // ---------- grootte van voertuigen ----------
+  // Dichtbij op ware grootte; bij uitzoomen groeien ze mee zodat een truck ongeveer 20 pixels lang blijft (net als de
+  // iconen op de platte kaart vindbaar; ware grootte vanaf zoom 15,4). Op het terrein geparkeerd hooguit 1,3 keer (ze staan in vakken).
+  const scaleMove = () => Math.max(1, 1.2 * view.mpp);
+  const scalePark = () => Math.min(scaleMove(), 1.3);
+
+  // ---------- per beeld: voertuigen, opleggers, wielen, lampjes, vlakken ----------
+  const mV = new THREE.Matrix4(), mL = new THREE.Matrix4(), mW = new THREE.Matrix4(), qA = new THREE.Quaternion(), qB = new THREE.Quaternion(), vP = new THREE.Vector3(), vS = new THREE.Vector3();
+  const AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0);
+  let wn = 0, bn = 0;
+  function putM(mesh, i, x, y, z, ang, k) { const e = mesh.instanceMatrix.array, o = i * 16, c = Math.cos(ang) * k, s = Math.sin(ang) * k; e[o] = c; e[o + 1] = 0; e[o + 2] = -s; e[o + 3] = 0; e[o + 4] = 0; e[o + 5] = k; e[o + 6] = 0; e[o + 7] = 0; e[o + 8] = s; e[o + 9] = 0; e[o + 10] = c; e[o + 11] = 0; e[o + 12] = x; e[o + 13] = y; e[o + 14] = z; e[o + 15] = 1; }
+  function inView(x, z, m) { const b = view.box; return x > b[0] - m && x < b[2] + m && z > b[1] - m && z < b[3] + m; }
+  const C = new THREE.Color();
+  // Eerst alle kandidaten verzamelen met hun grootte op het scherm, dan de grootste (tot HI stuks) in het volle detail met
+  // draaiende wielen, de rest als middenmodel of blok. Zo blijft de prijs per beeld vast, hoe dicht je ook inzoomt.
+  const HI = 60; const pool = []; let np = 0;
+  function cand(kind, id, x, z, ang, k, statusHex, opt) {
+    const md = models[kind]; const depth = Math.max(1, (x - eye.x) * fwd.x + (0 - eye.y) * fwd.y + (z - eye.z) * fwd.z); const px = md.half[1] * 2 * k * view.ppm / depth;
+    if (px < 1.2) return;
+    const c = pool[np] || (pool[np] = {}); np++;
+    c.kind = kind; c.id = id; c.x = x; c.z = z; c.ang = ang; c.k = k; c.st = statusHex; c.parked = !!opt.parked; c.halo = !!opt.halo; c.moving = !!opt.moving; c.depth = depth; c.px = px;
+  }
+  function draw(c, lod) {
+    const { kind, id, x, z, ang, k } = c; const md = models[kind];
+    const mesh = vm[kind + lod]; const i = mesh.count; if (i >= mesh.instanceMatrix.count) return; putM(mesh, i, x, 0, z, ang, k); mesh.count = i + 1; mesh.geometry.attributes.aLights.array[i] = c.parked ? 0 : 1;
+    // wielen dichtbij: elk wiel apart, gedraaid naar de afgelegde weg
+    if (lod === 'hi') {
+      // draaihoek voor een wiel van 0,5 m: afstand sinds het vorige beeld gedeeld door de straal, hooguit 0,42 rad per beeld
+      // (sneller zou bij vijf spaken terugdraaien lijken); bij minder beweging staan de wielen stil
+      const mo = motion.get(id); let s = mo ? mo.s : hash(hashStr(id), 1) * 6.28;
+      if (mo && mo.ep === epoch && !c.parked && !reduced()) s += Math.min(Math.hypot(x - mo.x, z - mo.z) / (0.5 * k), 0.42);
+      motion.set(id, { x, z, s, ep: epoch });
+      mV.makeRotationY(ang).scale(vS.set(k, k, k)).setPosition(x, 0, z);
+      for (const [wx, wz, r, w] of md.wheels) {
+        if (wn >= MAXW) break; const left = wx < 0; const spin = (left ? 1 : -1) * s * 0.5 / r;
+        qA.setFromAxisAngle(AY, left ? Math.PI : 0); qB.setFromAxisAngle(AX, spin); qA.multiply(qB);
+        mL.compose(vP.set(wx, r, wz), qA, vS.set(w, r, r)); mW.multiplyMatrices(mV, mL); mW.toArray(wheels.instanceMatrix.array, wn * 16); wn++;
+      }
+    }
+    // statuslampje op het dak (dichtbij en middenafstand)
+    if (lod !== 'lo' && c.st != null && bn < beacons.instanceMatrix.count) {
+      const [ox, oy, oz] = md.lamp; const cs = Math.cos(ang), sn = Math.sin(ang); putM(beacons, bn, x + (ox * cs + oz * sn) * k, oy * k, z + (-ox * sn + oz * cs) * k, ang, k); beacons.setColorAt(bn, C.set(c.st)); bn++;
+    }
+    // vlakken op de grond: contactschaduw, rand in de statuskleur, selectie en aanwijzen, koplampbundel 's nachts
+    // breedtes in meters, maar nooit smaller dan een paar pixels (mpx: meters per pixel op de plek van het voertuig)
+    const [hw, hl] = md.half; const yd = 0.05 * k; const dark = theme === 'dark'; const mpx = c.depth / view.ppm;
+    pushDecal(decals, x, yd, z, ang, hw * k, hl * k, 0.8 * k, Math.max(1.3 * k, 2.2 * mpx), 0x000000, dark ? 0.5 : 0.34, 0);
+    if (c.st != null && c.halo) pushDecal(decals, x, yd * 1.2, z, ang, hw * k, hl * k, 0.9 * k, Math.max(1.5 * k, 3.4 * mpx), C.set(c.st).getHex(), dark ? 0.9 : 0.66, 1);
+    const gap = 1.1 * k + 3 * mpx, ring = Math.max(0.35 * k, 2.2 * mpx);
+    if (id === selId) pushDecal(decals, x, yd * 1.4, z, ang, hw * k + gap, hl * k + gap, 1.2 * k + gap, ring, 0xE3001F, 1, 2);
+    else if (id === hoverId) pushDecal(decals, x, yd * 1.4, z, ang, hw * k + gap, hl * k + gap, 1.2 * k + gap, ring * 0.75, dark ? 0xEEF1F5 : 0x15181E, 0.75, 3);
+    if (dark && c.moving && md.front != null) { const cs = Math.cos(ang), sn = Math.sin(ang); const fz2 = md.front * k; pushDecal(glows, x + fz2 * sn, yd, z + fz2 * cs, ang, 3.4 * k, 16 * k, 0, 0, 0xFFE3B0, 0.4, 5); }
+    pickList.push({ id, trailer: kind === 'oplegger', x, z, ang, k, hw, hl, h: md.height, depth: c.depth });
+  }
+  function updateVehicles() {
+    for (const m of Object.values(vm)) m.count = 0; wheels.count = 0; beacons.count = 0; wn = 0; bn = 0; np = 0; pickList = [];
+    beginDecals(decals); beginDecals(glows);
+    const kM = scaleMove(), kP = scalePark(); const margin = 40 * kM;
+    // voertuigen
     for (const f of vehicles) {
-      const v = veh[f.k] || veh.trekker; if (v.mesh.count >= MAXV) continue;
-      let x, z, b = f.b || 0;
-      if (f.st === 'terrein') { if (zoom < 12 || !depotByName.has(f.base)) continue; const d = depotByName.get(f.base); const n = parked.get(d) || 0; if (n >= 25) continue; parked.set(d, n + 1); const [sx, sz] = slotV(d, n); x = d.local[0] + sx; z = d.local[1] + sz; b = 0; }
-      else { [x, z] = local(f.lon, f.lat); }
-      const i = v.mesh.count++; v.ids[i] = f.id; put(v.mesh, i, x, z, b, kV, true);
-      if (nl < MAXV) { putLamp(lamps, nl++, x, z, b, kV, v.lamp, (ST[f.st] || ST.terrein).color); }
+      const kind = models[f.k] && f.k !== 'oplegger' ? f.k : 'trekker'; const st = ST[f.st] || ST.terrein || { color: '#9CA3AF' };
+      // aan een dock van de eigen standplaats (f.dock, 1 tot n, zoals hal-scherm en planbord): achteruit tegen die deur
+      // (alleen opzoeken als hij in de buurt van het beeld is: dat bereidt zijn standplaats voor)
+      const dock = +f.dock >= 1 && zoom >= 13 && f.st !== 'onderweg' && f.st !== 'vertraagd' && f.st !== 'klant' && inView(lx(f.lon), lz(f.lat), 400) ? world.dockPose(f.base, +f.dock, models[kind].half[1] - 0.15) : null;
+      if (dock) { if (!inView(dock.x, dock.z, 30)) continue; cand(kind, f.id, dock.x, dock.z, dock.ang, kP, st.color, { parked: true }); continue; }
+      if (f.st === 'terrein') {
+        // geparkeerd: precies op zijn plek in de rij, met de koers van die rij (beide komen zo uit de simulatie)
+        if (zoom < 13) continue; const x = lx(f.lon), z = lz(f.lat); if (!inView(x, z, 30)) continue;
+        cand(kind, f.id, x, z, -(f.b || 0) * Math.PI / 180, kP, null, { parked: true });
+      } else {
+        let x = lx(f.lon), z = lz(f.lat); if (!inView(x, z, margin)) continue; let ang = -(f.b || 0) * Math.PI / 180;
+        // bij de klant: met de achterkant tegen een dock van het pand (dichtbij; verder weg blijft hij op zijn stopplek)
+        if (f.st === 'klant' && kM < 1.6) { const br = (f.b || 0) * Math.PI / 180; const p = world.customer(f.lon, f.lat, Math.atan2(-Math.cos(br), Math.sin(br)), f.id, models[kind].half[1] - 0.15, f.base); if (p) { x = p.x; z = p.z; ang = p.ang; } }
+        cand(kind, f.id, x, z, ang, kM, st.color, { halo: true, moving: f.st === 'onderweg' || f.st === 'vertraagd' });
+      }
     }
-    for (const v of Object.values(veh)) v.mesh.instanceMatrix.needsUpdate = true;
-    lamps.count = nl; lamps.instanceMatrix.needsUpdate = true; if (lamps.instanceColor) lamps.instanceColor.needsUpdate = true;
-  }
-  function rebuildTrailers() {
-    if (!on || !O) return;
-    loose.count = 0; loose.userData.ids = []; let nl = 0; const parked = new Map();
+    // losse opleggers: op het terrein op hun plek in de rij (de koers van die rij; aan een dock als f.dock er is), bij een
+    // klant tegen de gevel als die bekend is
     for (const f of trailers) {
-      if (loose.count >= MAXT) break; let x, z, b = 0;
-      if (f.st === 'klaar' || f.st === 'leeg') { if (zoom < 12 || !depotByName.has(f.base)) continue; const d = depotByName.get(f.base); const n = parked.get(d) || 0; if (n >= 28) continue; parked.set(d, n + 1); const [sx, sz] = slotT(d, n); x = d.local[0] + sx; z = d.local[1] + sz; }
-      else { [x, z] = local(f.lon, f.lat); let hs = 0; for (let c = 0; c < f.id.length; c++) hs = (hs * 31 + f.id.charCodeAt(c)) | 0; b = hash(hs, 3) * 50 - 25; x += (hash(hs, 5) - 0.5) * 9 * kV; z += (hash(hs, 6) - 0.5) * 9 * kV; }
-      const i = loose.count++; loose.userData.ids[i] = f.id; put(loose, i, x, z, b, kV, true);
-      putLamp(tlamps, nl++, x, z, b, kV, LOOSE.lamp, (TRST[f.st] || TRST.leeg).color);
+      const st = TRST[f.st] || { color: '#9CA3AF' };
+      if (f.st === 'klaar' || f.st === 'leeg' || f.st === 'onderhoud') {
+        // (de koers en het dock pas opzoeken als hij in beeld is: dat bereidt zijn standplaats voor)
+        if (zoom < 13) continue; let x = lx(f.lon), z = lz(f.lat); if (!inView(x, z, 60)) continue;
+        let ang = f.b != null ? -f.b * Math.PI / 180 : world.rowHeading(f.base, f.lon, f.lat); if (ang == null) ang = 0;
+        const dock = +f.dock >= 1 ? world.dockPose(f.base, +f.dock, models.oplegger.half[1] - 0.2) : null; if (dock) { x = dock.x; z = dock.z; ang = dock.ang; if (!inView(x, z, 30)) continue; }
+        cand('oplegger', f.id, x, z, ang, kP, st.color, { parked: true });
+      } else {
+        let x = lx(f.lon), z = lz(f.lat); if (!inView(x, z, margin)) continue;
+        const h = hashStr(f.id); const dock = kM < 1.6 ? world.customer(f.lon, f.lat, hash(h, 2) * Math.PI, f.id, models.oplegger.half[1] - 0.2, f.base) : null; let ang;
+        if (dock) { x = dock.x; z = dock.z; ang = dock.ang; } else { ang = (hash(h, 3) * 50 - 25) * Math.PI / 180 + (f.b ? -f.b * Math.PI / 180 : 0); x += (hash(h, 5) - 0.5) * 9 * kM; z += (hash(h, 6) - 0.5) * 9 * kM; }
+        cand('oplegger', f.id, x, z, ang, kM, st.color, { halo: true });
+      }
     }
-    loose.instanceMatrix.needsUpdate = true; tlamps.count = nl; tlamps.instanceMatrix.needsUpdate = true; if (tlamps.instanceColor) tlamps.instanceColor.needsUpdate = true;
+    // detailniveau: de grootste op het scherm eerst; geparkeerd alleen in vol detail als hij echt groot in beeld staat
+    const list = pool.slice(0, np).sort((a, b) => b.px - a.px); let hiLeft = HI;
+    for (const c of list) { const lod = hiLeft > 0 && c.px >= (c.parked ? 64 : 30) ? 'hi' : c.px >= 7 ? 'mid' : 'lo'; if (lod === 'hi') hiLeft--; draw(c, lod); }
+    world.endParking();
+    if (motion.size > (vehicles.length + trailers.length) * 2 + 400) { const keep = new Set([...vehicles.map(v => v.id), ...trailers.map(t => t.id)]); for (const id of motion.keys()) if (!keep.has(id)) motion.delete(id); }
+    // lichtpoelen van lantaarnpalen en docks 's nachts
+    if (theme === 'dark' && zoom >= 13.2) for (const [x, z, r] of world.pools()) if (inView(x, z, r)) pushDecal(glows, x, 0.08, z, 0, r, r, 0, 0, 0xFFD9A0, r > 15 ? 0.3 : 0.34, 4);
+    for (const m of Object.values(vm)) { m.visible = m.count > 0; if (m.count) { m.instanceMatrix.needsUpdate = true; m.geometry.attributes.aLights.needsUpdate = true; } }
+    wheels.count = wn; wheels.visible = wn > 0; if (wn) wheels.instanceMatrix.needsUpdate = true;
+    beacons.count = bn; beacons.visible = bn > 0; if (bn) { beacons.instanceMatrix.needsUpdate = true; beacons.instanceColor.needsUpdate = true; }
+    endDecals(decals); endDecals(glows);
   }
-  function rebuildStatic() {
-    if (!on || !O) return;
-    depots.forEach((d, i) => {
-      d.local = local(d.s.lon, d.s.lat); d.mesh.position.set(d.local[0], 0, d.local[1]); d.mesh.scale.setScalar(kB); d.mesh.updateMatrix();
-      const rows = zoom >= 12; const left = (-d.W / 2 - 10) * kB, right = Math.max((d.W / 2 + 10) * kB, left + 6 * kB + 7.2 * 4.6 * kV); const top = -(d.D / 2 + 8) * kB - (rows ? (8 + 3 * 19 + 8) * kV : 6 * kB), bottom = (d.D / 2 + 14) * kB + (rows ? (10 + 4 * 21 + 10) * kV : 8 * kB);
-      P.set(d.local[0] + (left + right) / 2, 0, d.local[1] + (top + bottom) / 2); Q.identity(); S.set(right - left, 0.6 * kB, bottom - top); M.compose(P, Q, S); yards.setMatrixAt(i, M);
-      d.yard = [d.local[0] + left - 60 * kB, d.local[0] + right + 60 * kB, d.local[1] + top - 60 * kB, d.local[1] + bottom + 60 * kB];
-    });
-    yards.instanceMatrix.needsUpdate = true;
-    const counts = [0, 0, 0]; const b = map.getBounds(); const pad = 0.15; const x0 = b.getWest() - pad, x1 = b.getEast() + pad, y0 = b.getSouth() - pad, y1 = b.getNorth() + pad;
-    const place = (x, z, v) => { const m = trees[v]; if (m.count >= MAXTREE) return; put(m, m.count++, x, z, hash(Math.round(x), Math.round(z)) * 360, kT); };
-    for (const m of trees) m.count = 0;
-    if (zoom >= 10.5) for (const d of depots) { if (d.s.lon < x0 || d.s.lon > x1 || d.s.lat < y0 || d.s.lat > y1) continue; for (const [tx, tz, v] of d.trees) place(d.local[0] + tx * kB, d.local[1] + tz * kB, v); }
-    houses.count = 0;
-    if (zoom >= 11.2) { if (!urbanPts) urbanPts = urbanTrees(urban); const step = zoom < 12.5 ? 3 : 1; for (let i = 0; i < urbanPts.length; i += step) { const [lon, lat, v] = urbanPts[i]; if (lon < x0 || lon > x1 || lat < y0 || lat > y1) continue; const [x, z] = local(lon, lat); if (depots.some(d => d.yard && x > d.yard[0] && x < d.yard[1] && z > d.yard[2] && z < d.yard[3])) continue; if (zoom >= 12.5 && i % 3 === 1) { if (houses.count < 1600) { const g = hash(i, 11); const kh = kT * 0.62; P.set(x, 0, z); Q.setFromAxisAngle(UP, Math.floor(hash(i, 12) * 4) * Math.PI / 2 + (hash(i, 13) - 0.5) * 0.4); S.set(kh * (0.8 + g * 0.5), kh * (0.8 + g * 0.3), kh * (0.8 + hash(i, 14) * 0.6)); M.compose(P, Q, S); houses.setMatrixAt(houses.count++, M); } } else place(x, z, v); } }
-    for (const m of trees) m.instanceMatrix.needsUpdate = true; houses.instanceMatrix.needsUpdate = true;
-    counts.length = 0;
+
+  // ---------- samen met de 3D-gebouwen van OpenFreeMap (laag ofm-3d van de kaart, alleen online) ----------
+  // Waar deze wereld echte gebouwcontouren tekent (standplaatsen en DC's uit buildings.js), laat de OFM-laag zijn eigen
+  // blokken weg (filter op afstand tot die gebieden); en zolang OFM echte gebouwen laat zien, tekent deze wereld geen
+  // verzonnen huizen uit urban.json. Zonder die laag gebeurt hier niets.
+  let ofmTick = 0, ofmFilterSet = null;
+  function ofmCheck() {
+    const now = performance.now(); if (now - ofmTick < 1000) return; ofmTick = now;
+    const id = 'ofm-3d'; let vis = false;
+    try { vis = !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; } catch { vis = false; }
+    world.setOfm(vis && zoom >= 13);
+    if (!vis || !world.ready()) return;
+    const zones = world.coverage(); if (!zones) return;
+    try { const cur = map.getFilter(id); if (cur && JSON.stringify(cur) === ofmFilterSet) return; const f = ['>', ['distance', zones], 0]; map.setFilter(id, f); ofmFilterSet = JSON.stringify(map.getFilter(id)); } catch { /* deze kaart kent het filter niet: dan blijven de OFM-blokken */ }
   }
-  // bij elke verplaatsing van de kaart: nieuwe schaal of oorsprong nodig? Dan alles opnieuw plaatsen.
-  function refresh(force) {
-    if (!on) return; const sc = scales(); const kChanged = Math.abs(Math.log2(sc.kV / kV)) > 0.03 || Math.abs(Math.log2(sc.kB / kB)) > 0.03; const zChanged = Math.abs(sc.z - zoom) > 0.25;
-    if (force || kChanged || needsOrigin() || zChanged) { if (force || needsOrigin()) setOrigin(); kV = sc.kV; kB = sc.kB; kT = sc.kT; zoom = sc.z; rebuildStatic(); rebuildVehicles(); rebuildTrailers(); }
-  }
+
+  // ---------- de laag in MapLibre ----------
   const layer = {
     id: 'scene3d', type: 'custom', renderingMode: '3d',
-    onAdd(m, gl) { renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true }); renderer.autoClear = false; },
+    onAdd(m, gl) {
+      if (renderer) return;
+      const t = performance.now(); renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true }); stats.rendererMs = Math.round(performance.now() - t);
+      renderer.autoClear = false; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = theme === 'dark' ? 1.15 : 1.06;
+    },
     render(gl, args) {
-      if (!on || !O) return;
-      // MapLibre 5+ geeft een object met de projectie (Mercator-eenheden naar het scherm); oudere versies de matrix zelf
+      if (!on || !renderer) return;
+      const t0 = performance.now();
+      if (needsOrigin()) setOrigin();
       const matrix = args && args.defaultProjectionData ? args.defaultProjectionData.mainMatrix : args && args.modelViewProjectionMatrix ? args.modelViewProjectionMatrix : args;
-      const m = new THREE.Matrix4().fromArray(matrix);
-      const l = new THREE.Matrix4().makeTranslation(O.x, O.y, 0).scale(new THREE.Vector3(O.mpu, -O.mpu, O.mpu)).multiply(ROTX);
-      camera.projectionMatrix = m.multiply(l); camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-      renderer.resetState(); renderer.render(scene, camera);
+      G.fromArray(matrix).multiply(L); deriveCamera(); computeView();
+      ofmCheck(); world.update(view); const t1 = performance.now(); placeSun(); atmosphere(); updateVehicles(); const t2 = performance.now();
+      renderer.resetState(); renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+      renderer.render(scene, camera); const t3 = performance.now();
+      stats.phase = { wereld: +(stats.phase ? stats.phase.wereld * 0.9 + (t1 - t0) * 0.1 : t1 - t0).toFixed(1), voertuigen: +(stats.phase ? stats.phase.voertuigen * 0.9 + (t2 - t1) * 0.1 : t2 - t1).toFixed(1), tekenen: +(stats.phase ? stats.phase.tekenen * 0.9 + (t3 - t2) * 0.1 : t3 - t2).toFixed(1) };
+      const dt = performance.now() - t0; stats.frames++; stats.renderMs = stats.renderMs * 0.9 + dt * 0.1;
+      if (stats.frames === 1) { stats.firstFrameMs = Math.round(performance.now() - stats.enabledAt); stats.firstRenderMs = Math.round(dt); }
     },
   };
   map.addLayer(layer);
-  map.on('move', () => refresh(false));
+  // valt de laag weg (een nieuwe kaartstijl), dan komt hij terug
+  const onStyle = () => { if (!map.getLayer('scene3d')) { try { map.addLayer(layer); } catch { /* stijl nog niet klaar */ } } groundColor = null; };
+  map.on('styledata', onStyle);
+  const onMove = () => { if (on) map.triggerRepaint(); };
+  map.on('move', onMove);
 
-  // klik en aanwijzen: een straal door de scene (de projectiematrix van de kaart teruggerekend), raak de voertuigen en opleggers
-  const ray = new THREE.Raycaster(); const pickable = [...Object.values(veh).map(v => v.mesh), loose];
+  // ---------- klik en aanwijzen: een straal door de scene tegen de omtrek van elk getekend voertuig ----------
+  const pv = new THREE.Vector4();
   function pick(pt) {
-    if (!on || !O) return null; const el = map.getCanvas(); const w = el.clientWidth || el.width, h = el.clientHeight || el.height;
-    const nx = (pt.x / w) * 2 - 1, ny = -(pt.y / h) * 2 + 1;
-    const a = new THREE.Vector3(nx, ny, -1).applyMatrix4(camera.projectionMatrixInverse), b = new THREE.Vector3(nx, ny, 1).applyMatrix4(camera.projectionMatrixInverse);
-    ray.set(a, b.sub(a).normalize()); const hits = ray.intersectObjects(pickable, false); if (!hits.length) return null;
-    const hit = hits[0]; const mesh = hit.object; const kind = mesh.userData.kind; const id = kind === 'oplegger' ? mesh.userData.ids[hit.instanceId] : veh[kind].ids[hit.instanceId];
-    return id ? { id, trailer: kind === 'oplegger' } : null;
+    if (!on || !O || !pickList.length) return null; const el = map.getCanvas(); const w = el.clientWidth || el.width, h = el.clientHeight || el.height;
+    const nx = (pt.x / w) * 2 - 1, ny = -(pt.y / h) * 2 + 1; pv.set(nx, ny, 1, 1).applyMatrix4(invG); const dx0 = pv.x / pv.w - eye.x, dy0 = pv.y / pv.w - eye.y, dz0 = pv.z / pv.w - eye.z; const dl = Math.hypot(dx0, dy0, dz0); const dx = dx0 / dl, dy = dy0 / dl, dz = dz0 / dl;
+    let best = null, bt = Infinity;
+    for (const p of pickList) {
+      // straal in het eigen vlak van het voertuig (draaien om y), met een kleine marge van een paar pixels
+      const tol = 5 * p.depth / view.ppm; const hw = p.hw * p.k + tol, hl = p.hl * p.k + tol, hh = p.h * p.k + tol;
+      const c = Math.cos(-p.ang), s = Math.sin(-p.ang); const ox = eye.x - p.x, oz = eye.z - p.z;
+      const o = [ox * c + oz * s, eye.y, -ox * s + oz * c], d = [dx * c + dz * s, dy, -dx * s + dz * c];
+      let t0 = 0, t1 = Infinity; const lo = [-hw, -tol, -hl], hi = [hw, hh, hl]; let ok = true;
+      for (let a = 0; a < 3; a++) { if (Math.abs(d[a]) < 1e-9) { if (o[a] < lo[a] || o[a] > hi[a]) { ok = false; break; } continue; } let ta = (lo[a] - o[a]) / d[a], tb = (hi[a] - o[a]) / d[a]; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) { ok = false; break; } }
+      if (ok && t0 < bt) { bt = t0; best = p; }
+    }
+    return best ? { id: best.id, trailer: best.trailer } : null;
   }
   let hoverT = 0;
-  map.on('click', e => { if (!on) return; const hit = pick(e.point); if (hit) { e.preventDefault(); if (hit.trailer) opts.onSelectTrailer && opts.onSelectTrailer(hit.id); else opts.onSelectTruck && opts.onSelectTruck(hit.id); } });
-  map.on('mousemove', e => { if (!on) return; const now = Date.now(); if (now - hoverT < 70) return; hoverT = now; const hit = pick(e.point); map.getCanvas().style.cursor = hit ? 'pointer' : ''; opts.onHover && opts.onHover(hit && !hit.trailer ? hit.id : null, e.point); });
+  const onClick = e => { if (!on) return; const hit = pick(e.point); if (hit) { e.preventDefault(); if (hit.trailer) opts.onSelectTrailer && opts.onSelectTrailer(hit.id); else opts.onSelectTruck && opts.onSelectTruck(hit.id); } };
+  const onMouse = e => { if (!on) return; const now = Date.now(); if (now - hoverT < 70) return; hoverT = now; const hit = pick(e.point); map.getCanvas().style.cursor = hit ? 'pointer' : ''; const id = hit ? hit.id : null; if (id !== hoverId) { hoverId = id; map.triggerRepaint(); } opts.onHover && opts.onHover(hit && !hit.trailer ? hit.id : null, e.point); };
+  map.on('click', onClick); map.on('mousemove', onMouse);
 
-  function setTheme(t) { theme = t; const dark = t === 'dark'; hemi.color.set(dark ? 0x9FB0C6 : 0xFFFFFF); hemi.groundColor.set(dark ? 0x1E242B : 0xD2D8DF); hemi.intensity = dark ? 1.3 : 2.2; sun.intensity = dark ? 1.3 : 2.4; const mul = dark ? 0x9AA3AE : 0xFFFFFF; for (const d of depots) d.mesh.material.color.set(mul); yards.material.color.set(dark ? 0x7F8893 : 0xFFFFFF); for (const m of trees) m.material.color.set(dark ? 0x8E99A6 : 0xFFFFFF); houses.material.color.set(dark ? 0x8A929D : 0xFFFFFF); if (on) map.triggerRepaint(); }
-  function enable(v) { on = v; if (v) { refresh(true); } map.triggerRepaint(); }
-  function setVehicles(list) { vehicles = list; if (on) { rebuildVehicles(); map.triggerRepaint(); } }
-  function setTrailers(list) { trailers = list; if (on) { rebuildTrailers(); map.triggerRepaint(); } }
-  setTheme(theme);
-  return { enable, isOn: () => on, setVehicles, setTrailers, setTheme, pick, refresh: () => refresh(true) };
+  // ---------- thema ----------
+  function setTheme(t) {
+    theme = t; const dark = t === 'dark'; const S = SUN[dark ? 'dark' : 'light'];
+    sun.color.setHex(S.color); sun.intensity = S.i;
+    hemi.color.setHex(dark ? 0x8EA2C4 : 0xDCE8F5); hemi.groundColor.setHex(dark ? 0x141920 : 0xB9C1AE); hemi.intensity = dark ? 0.55 : 0.62;
+    scene.environment = dark ? sky.dark : sky.light; scene.environmentIntensity = dark ? 0.55 : 0.72;
+    if (renderer) renderer.toneMappingExposure = dark ? 1.15 : 1.06;
+    pal.emissiveIntensity = palV.emissiveIntensity = dark ? 1.8 : 0; shadowPlane.material.opacity = dark ? 0.35 : 0.28; shadowPlane.material.color.setHex(dark ? 0x000000 : 0x1B2638);
+    world.setTheme(t); groundColor = null; if (on) map.triggerRepaint();
+  }
+  function enable(v) {
+    on = !!v;
+    if (on) { stats.enabledAt = performance.now(); stats.frames = 0; setOrigin(); }
+    else { hoverId = null; map.getCanvas().style.cursor = ''; if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    map.triggerRepaint();
+  }
+  // De kaart roept setVehicles per beeld aan: alleen de lijst bewaren; de instance-matrices worden in render() één keer per
+  // beeld bijgewerkt, met de camera van dat beeld (wat buiten beeld valt kost dan niets).
+  function setVehicles(list) { vehicles = list || []; if (on) map.triggerRepaint(); }
+  function setTrailers(list) { trailers = list || []; if (on) map.triggerRepaint(); }
+  function setSelected(id) { selId = id || null; if (on) map.triggerRepaint(); }
+  function dispose() {
+    on = false; map.off('styledata', onStyle); map.off('move', onMove); map.off('click', onClick); map.off('mousemove', onMouse);
+    if (map.getLayer('scene3d')) map.removeLayer('scene3d');
+    world.dispose(); scene.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && o.material !== pal) o.material.dispose(); } });
+    pal.dispose(); palV.dispose(); disposePalette(); sky.light.dispose(); sky.dark.dispose(); if (sun.shadow.map) sun.shadow.map.dispose();
+  }
+  // geometrieën en texturen die deze wereld zelf bezit: meer op de GPU dan dit zou een lek zijn
+  function owned() { const g = new Set(), t = new Set(); scene.traverse(o => { if (o.geometry) g.add(o.geometry); const m = o.material; if (m) for (const k of ['map', 'emissiveMap', 'roughnessMap', 'metalnessMap']) if (m[k]) t.add(m[k]); }); return { geometries: g.size, textures: t.size }; }
+  setTheme(theme); stats.createMs = Math.round(performance.now() - T0);
+  return {
+    enable, isOn: () => on, setVehicles, setTrailers, setTheme, pick, refresh: () => { if (on) { setOrigin(); map.triggerRepaint(); } }, setSelected, dispose,
+    ready: () => world.loading, stats: () => ({ ...stats, ...world.stats(), drawn: pickList.length, shadows: shadowsOn, view: { ppm: +view.ppm.toFixed(1), camDist: Math.round(view.camDist), R: Math.round(view.R), mpp: +view.mpp.toFixed(2), k: +scaleMove().toFixed(2) }, zoom: +zoom.toFixed(2), owned: owned(), info: renderer ? { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs ? renderer.info.programs.length : 0 } : null }),
+  };
 }

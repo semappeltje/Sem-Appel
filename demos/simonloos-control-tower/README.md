@@ -46,7 +46,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | Werkgebied | eerste keer, daarna knop Werkgebied | Drie stappen: regio's, ritten, rol en standplaats; bewaard in de browser, niet elke keer opnieuw |
 | Rollen | Bekijk als in de topbalk | Planner, regiomanager, directie, HR; bepaalt welke delen van truck- en persoonspagina's zichtbaar zijn |
 | Kaart | Kaart | Voertuigen als iconen in de statuskleur met hun rijrichting (van veraf stippen, nooit clusters), losse opleggers met toets o of de chip Los, klikbare statusfilters, voertuig- en opleggerkaartje bij selectie, kaartlagen (online tegels, gedimde standplaatsen, pauzeplekken) |
-| 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt en wordt een speelgoedlandschap in de huisstijl: voertuigen als rode trekkers met witte opleggers, bakwagens en bussen op koers, losse opleggers op steunpoten (op het terrein in rijen, bij klanten waar ze staan), depots met een loods met rode daklijst en docks, kantoor en terrein (Wognum met kantoortoren), bomen en huizen in de bebouwing, licht en donker; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
+| 3D-wereld | knop met de kubus op de kaart, of toets d | De kaart kantelt naar een wereld op ware grootte: trekkers met opleggers, bakwagens en bussen op koers, geparkeerd op hun plek in de rijen; de standplaatsen op hun echte terrein met de hal uit de gebouwgegevens, genummerde docks, poort, lichtmasten en de buurt eromheen; bij een klant achteruit tegen een dock; zon met schaduw, licht en donker; volgen (toets f) zet de camera schuin achter het voertuig; klik en aanwijzen werken als op de platte kaart |
 | Meldingen | bel of toets m | Drie kerngetallen, uitzonderingen (vertraging, rijtijd, accu, techniek, koeling, oplegger te laat opgehaald) afvinken, toewijzen aan een collega of op later zetten; blijft staan na een herlaad |
 | Voertuigpagina | klik op Open voertuig of een rij in Voertuigen | Chauffeurs van vandaag per dienst en de oplegger erachter; Historie (laatste twaalf diensten, wie reed het vaakst), Vandaag (diensten en dagplan), Cijfers (chauffeurswisselingen, verbruik per chauffeur), Onderhoud (RDW, werkorder), Documenten |
 | Opleggerpaneel en -pagina | klik op een oplegger op de kaart, in een paneel of in Opleggers | Status, waar hij staat of achter welke trekker hij hangt, lading, temperatuur bij koel en vries, sinds wanneer, ophaalmoment; pagina met APK, ATP, onderhoud en documenten |
@@ -109,21 +109,73 @@ Control Tower").
 ## 3D-wereld
 
 De 3D-stand (knop met de kubus naast Kaartlagen, toets d, bewaard als `sl-3d`) is een eigen laag van
-MapLibre (`CustomLayerInterface`, `renderingMode: '3d'`) die met **three.js** tekent (`src/scene3d.js`).
-Alles is procedureel uit boxen, cilinders en kegels: geen modellen of texturen van buiten, dus geen
-enkel verzoek naar buiten (ook ingebed in SafeTail). De camera van MapLibre wordt elke frame
-overgenomen (de projectiematrix uit `defaultProjectionData.mainMatrix`), de scene ligt in meters rond
-de kaartpositie (verschuift mee als de kaart meer dan 2,5 km opschuift) en de maten groeien mee met
-uitzoomen, zoals de iconen op de platte kaart: voertuigen houden ongeveer dezelfde grootte op het
-scherm, gebouwen en bomen schalen de helft mee. Voertuigen en losse opleggers zijn instanced meshes
-(een trekking per soort), met een lampje in de statuskleur op het dak; standplaatsen zijn een mesh per
-depot (loods, docks, kantoor, toren voor het hoofdkantoor) met een terrein dat de parkeerrijen omvat;
-bomen staan op vaste plekken (eigen seed, niet de toevalsreeks van de simulatie) rond de depots en in de
-bebouwde vlakken van `urban.json`, huizen op een derde van die punten vanaf zoom 12,5. Klik en aanwijzen
-gaan via een straal door de scene (raycast op de instanced meshes). In de 3D-stand krijgt de grond een
-zacht speelgoedpalet (paint-waarden van de bestaande lagen, die bij uitzetten terugkomen); volgen zet de
-camera schuin achter het voertuig met de koers als kaartrichting (bij "minder beweging" springt de
-camera en draait hij niet mee). Zonder WebGL is er geen knop.
+MapLibre (`CustomLayerInterface`, `renderingMode: '3d'`) die met **three.js** tekent. `src/scene3d.js` maakt
+de scene, de camera (elk beeld overgenomen uit `defaultProjectionData.mainMatrix`), het licht en de
+voertuigen. In `src/scene3d/` staan de wereld (`world.js`: terreinen, gebouwen, docks, poort, bomen,
+huizen, winkels), de voertuigmodellen (`vehicles.js`), het kleurenpalet (`palette.js`), getekende texturen
+en vlakken op de grond (`fx.js`), bouwgeometrie (`geom.js`), bomen, hagen en huizen (`nature.js`), de
+CC0-modellen (`assets.js`) en hulpfuncties (`util.js`).
+
+**Wat je ziet.** Alles op ware grootte: een trekker met oplegger is 16,5 m lang en 4 m hoog. Bij uitzoomen
+groeien rijdende voertuigen mee tot ongeveer 20 pixels (ware grootte vanaf zoom 15,4); geparkeerde hooguit
+1,3 keer, zodat ze in hun vak blijven. Een standplaats ligt op zijn echte terrein (`terrein` uit
+`places.json`) als verhard vlak. De hal en de andere eigen gebouwen komen uit `buildings.js` (`d: 1` en
+`hal`); de panden eromheen zonder `d` zijn de buurt, in minder detail en pas vanaf zoom 13,2, elk in een
+eigen gevel- en dakkleur. Zonder hoogte in de gegevens is een loods 10,5 m (de hal 11,5 m), een kantoor
+drie lagen en een klein pand een woonhuis met een kap. Opleggers, containers en overkappingen die in de
+gegevens als gebouw staan, laat de wereld weg.
+
+Geparkeerde voertuigen en losse opleggers staan op hun plek in de parkeerrijen (`rijen`) met de koers van
+de rij; de vakken zijn getekend. Rijen die buiten de terreinring vallen, krijgen hun eigen verharding. De
+docks staan waar de gegevens ze zetten: `sp.dockPlek` geeft per dock de deur in de gevel van de hal en de
+koers van de gevel af, en de wereld nummert ze in die volgorde, 1 tot n, met een bord boven elke deur
+(hetzelfde nummer als op het hal-scherm en het planbord). Een voertuig dat laadt, lost of koppelt, staat
+al op zijn plek voor die deur (`pos` uit de simulatie). Zonder `dockPlek` zoekt de wereld zelf de lange
+zijde van de hal waar de rijen staan (het aantal uit `sp.docks`, anders uit de lengte van de gevel),
+nummert van links naar rechts gezien vanaf het terrein en zet een voertuig met een `dock` achteruit aan
+die deur. De poort ligt waar de toegangsroute (`toegang`) het terrein op
+komt: slagbomen, een portiersloge, een bord en lantaarnpalen langs de inrit; populieren langs de laatste
+450 m van die weg, lichtmasten tussen de rijen, een haag en bomen rond het terrein (nooit op het terrein of
+in een gebouw). Een fabriek uit de DC-lijst (`soort: 'fabriek'`) krijgt silo's, een schoorsteen en
+liggende tanks.
+
+Bij een klant staat een vrachtwagen of oplegger achteruit tegen een dock: van het echte DC-gebouw als dat
+er is, anders van een supermarkt op het winkelpunt (`WINKELS`) of naast de stopplek (glazen pui, gevelband
+in de kleur van de formule, klantenparkeerplaats), of van een distributiehal bij een DC uit de lijst
+zonder gebouwgegevens. Woonhuizen (rijtjes en vrijstaand, met kap) en bomen staan in de bebouwing van
+`urban.json`, niet op een terrein en niet binnen 320 m van een plek met echte gebouwen.
+
+**Licht.** Een zon met schaduw (schaduwkaart van 2048 px die het zichtbare gebied volgt, in stappen van
+een texel), hemellicht, ACES-tonemapping, nevel in de kleur van de kaart en een zachte voetschaduw rond
+gebouwen. Donker: maanlicht, koplampen en achterlichten op rijdende voertuigen (geparkeerde staan uit),
+verlichte ramen, en lichtpoelen onder lantaarnpalen, lichtmasten en docks.
+
+**Modellen van buiten.** Vier bomen (linde, eik, populier, den) en de schoorsteen en tank bij fabrieken
+zijn CC0-modellen van Kenney uit `assets-3d/` (herkomst en licentie in de README daar). Ze komen met `?url`
+als data-URL in de three-bundel: geen los bestand en geen verzoek naar buiten. `tools/build-assets.mjs`
+zet een nieuw model op dezelfde manier klaar (glTF-Transform, in de devDependencies). Vrachtwagens,
+opleggers, bakwagens en bussen blijven procedureel: er is geen CC0-model van een Europese trekker met
+oplegger. De Kenney-hallen en -auto's gebruikt de wereld niet: de echte contouren zeggen meer, en een
+vast model uitrekken naar een contour vervormt ramen en deuren.
+
+**Laden en prijs.** Geen imports uit de app: standplaatsen, statuskleuren, bebouwing, winkels (`WINKELS`)
+en DC's (`DCS`) komen via `opts.data`, de gebouwen via een dynamische import van `./buildings.js` (zonder
+dat bestand: een procedurele loods met kantoor). Zo blijven three.js, de wereld en de modellen een eigen
+bundel die pas bij de eerste klik op de kubus laadt. Een plek wordt pas voorbereid en gebouwd als hij in de
+buurt van het beeld komt (de dichtstbijzijnde eerst, ongeveer 14 ms per beeld), de buurt een beeld later.
+Voertuigen, bomen, huizen en auto's zijn instanced meshes; de grootste 60 voertuigen in beeld krijgen het
+volle model met draaiende wielen, de rest een eenvoudiger model of een blok; bomen in vol detail vanaf
+zoom 16,3. Bij Wognum zijn dat 45 tot 55 tekenopdrachten en 85.000 tot 230.000 driehoeken per beeld (het meest
+vlak boven het terrein), op zoom 11 ongeveer 40. Klik en aanwijzen gaan via een straal tegen de omtrek van elk getekend
+voertuig. Zonder WebGL is er geen knop.
+
+**Aanroep.** `createScene3d(map, maplibregl, { theme, data: { SP, ST, TRST, urban, WINKELS?, DCS? },
+onSelectTruck, onSelectTrailer, onHover })` geeft `{ enable, isOn, setVehicles, setTrailers, setTheme,
+pick, refresh, setSelected, dispose, ready, stats }`. Een voertuig is `{ id, st, b, k, base, lon, lat,
+dock? }`, een oplegger `{ id, st, base, lon, lat, b?, dock? }` (zonder `b` neemt een oplegger op het
+terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekozen voertuig.
+`tests/3d-check.mjs` controleert bouwtijd, tekenopdrachten en driehoeken per zoom, klikken, geheugen na
+drie keer uit en aan, en consolefouten.
 
 ## Kaart en wegen
 
