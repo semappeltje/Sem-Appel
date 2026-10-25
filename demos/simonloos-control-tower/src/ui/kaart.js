@@ -32,7 +32,7 @@ export function renderMapbar(ctx) {
     F.trIds ? `<button class="mc x" type="button" data-clear="trids" title="Selectie loslaten">${fmt(F.trIds.size)} geselecteerde opleggers ${ic('x', 13)}</button>` : '',
   ].join('');
   const h = `<div class="mapchips" role="toolbar" aria-label="Filters op de kaart">${chips}${extra}</div>`;
-  if (el.dataset.h !== h) { const f = el.contains(document.activeElement) ? document.activeElement.dataset : null; el.innerHTML = h; el.dataset.h = h; if (f) { const sel = f.st ? `[data-st="${f.st}"]` : f.trl || f.clear ? '[data-trl]' : null; // een gesloten chip: de focus blijft in de balk const x = sel && el.querySelector(sel); if (x) x.focus(); } }
+  if (el.dataset.h !== h) { const f = el.contains(document.activeElement) ? document.activeElement.dataset : null; el.innerHTML = h; el.dataset.h = h; if (f) { const sel = f.st ? `[data-st="${f.st}"]` : f.trl || f.clear ? '[data-trl]' : null; /* een gesloten chip: de focus blijft in de balk */ const x = sel && el.querySelector(sel); if (x) x.focus(); } }
 }
 export function bindMapbar(ctx) {
   const el = ctx.$('mapbar'); const F = ctx.F;
