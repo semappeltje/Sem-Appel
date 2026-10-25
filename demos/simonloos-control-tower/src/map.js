@@ -333,6 +333,7 @@ export function createMap(container, opts) {
   // ---------- voertuigen: interpolatie per beeld ----------
   let buildMs = 0, stepMs = 0; // gemiddelde tijd per beeld (voertuiglaag en spoor vullen) en per stap (nieuwe standen), in ms
   let lastTrucks = null, lastDims = null, needBuild = false, raf = 0, lastBuild = 0, frameEma = 16, lastFrame = 0, heavy = false, builds = 0, steps = 0;
+  let wasMoving = false;
   const shown = () => { const el = map.getContainer(); return !(typeof document !== 'undefined' && document.hidden) && el.offsetWidth > 0 && el.offsetHeight > 0 && !!el.offsetParent; };
   // de plekken aan de docks (voor elk soort voertuig): daarheen en daarvandaan springt een voertuig, het glijdt niet
   // (en welk dock het is, voor de 3D-wereld: die zet het voertuig achteruit tegen die deur)
@@ -366,6 +367,9 @@ export function createMap(container, opts) {
     if (!shown()) { motion.snapAll(); return false; } // andere weergave of verborgen tabblad: niets doen
     const dt = lastFrame ? now - lastFrame : 16; lastFrame = now; frameEma = frameEma * 0.9 + clamp(dt, 4, 250) * 0.1; heavy = frameEma > 24;
     const moving = motion.tick(now);
+    // het beeld waarop de tussenstanden hun doel bereiken moet ook getekend worden: anders blijft het voertuig (2D en 3D) één
+    // beeld voor zijn echte stand staan tot de volgende stap, en wijst een klik of de hover ernaast
+    if (wasMoving && !moving) needBuild = true; wasMoving = moving;
     const following = followTick(now, dt);
     const anim = (hoverId && now - hoverSince < 160) || (hoverOut && now - hoverOut.t < 160) || ((selId || selPoint) && now - selSince < 260) || !!mark;
     const busy = moving || following || anim;
