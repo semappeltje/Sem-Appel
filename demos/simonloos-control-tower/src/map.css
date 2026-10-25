@@ -1,0 +1,52 @@
+/* Kaart: bedieningselementen in de stijl van de brief (dunne lijnen, radius 6 en 8, schaduw alleen omdat ze zweven),
+   de schaalbalk en een compacte bronvermelding. Alles onder .slct .slmap, zodat een pagina eromheen er niets van merkt.
+   De kleuren komen uit de tokens van de app (--bg, --line, --text, --muted), met een eigen waarde als die ontbreken. */
+.slct .slmap {
+  --m-bg: var(--bg, #FFFFFF); --m-line: var(--line, #E3E6EA); --m-text: var(--text, #15181E); --m-muted: var(--muted, #5F6775);
+  --m-hover: var(--bg3, #EEF0F3); --m-sh: 0 1px 2px rgba(17, 20, 28, .10), 0 2px 6px rgba(17, 20, 28, .08);
+  font-family: var(--font, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+.slct[data-theme=dark] .slmap { --m-sh: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .35); }
+.slct .slmap .maplibregl-canvas { outline: none; }
+.slct .slmap .maplibregl-canvas:focus-visible { outline: 2px solid var(--focus, #2563EB); outline-offset: -2px; }
+
+/* zoomknoppen en kompas */
+.slct .slmap .slz { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; margin: 0 0 10px 0; float: right; clear: both; pointer-events: auto; }
+.slct .slmap .slz-g { display: flex; flex-direction: column; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 8px; box-shadow: var(--m-sh); overflow: hidden; }
+.slct .slmap .slz button { width: 32px; height: 32px; display: grid; place-items: center; color: var(--m-text); background: transparent; border: 0; padding: 0; cursor: pointer; transition: background-color .16s cubic-bezier(.2, .7, .2, 1); }
+.slct .slmap .slz-g button + button { border-top: 1px solid var(--m-line); }
+.slct .slmap .slz button:hover { background: var(--m-hover); }
+.slct .slmap .slz button:active { background: var(--m-line); }
+.slct .slmap .slz button:focus-visible { outline: 2px solid var(--focus, #2563EB); outline-offset: -2px; }
+.slct .slmap .slz .slz-c { width: 32px; height: 32px; border-radius: 50%; background: var(--m-bg); border: 1px solid var(--m-line); box-shadow: var(--m-sh); color: var(--m-muted); }
+.slct .slmap .slz .slz-c[hidden] { display: none; }
+.slct .slmap .slz .slz-c svg { transition: transform .2s cubic-bezier(.2, .7, .2, 1); }
+
+/* schaalbalk: een dunne lijn met de afstand erboven, zoals in Google Maps */
+.slct .slmap .maplibregl-ctrl-scale {
+  background: transparent !important; border: 1.5px solid var(--m-muted) !important; border-top: 0 !important; color: var(--m-muted) !important;
+  font-size: 10px !important; line-height: 13px !important; height: 13px !important; padding: 0 4px !important; box-shadow: none !important;
+  text-shadow: 0 0 2px var(--m-bg), 0 0 2px var(--m-bg); opacity: .9; margin: 0 0 10px 0 !important; font-variant-numeric: tabular-nums;
+}
+
+/* bronvermelding: een klein (i) dat openklapt, in het papier van de kaart */
+.slct .slmap .maplibregl-ctrl-attrib { font-size: 10px !important; line-height: 16px; color: var(--m-muted) !important; background: transparent !important; box-shadow: none !important; }
+.slct .slmap .maplibregl-ctrl-attrib a { color: inherit !important; text-decoration: none; }
+.slct .slmap .maplibregl-ctrl-attrib a:hover { text-decoration: underline; }
+.slct .slmap .maplibregl-ctrl-attrib.maplibregl-compact { min-height: 22px; margin: 0 0 10px 0 !important; padding: 2px 26px 2px 10px !important; border-radius: 11px; background: var(--m-bg) !important; background: color-mix(in srgb, var(--m-bg) 88%, transparent) !important; border: 1px solid var(--m-line); max-width: min(560px, calc(100cqw - 80px)); }
+.slct .slmap .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) { padding: 0 !important; width: 22px; min-height: 22px; }
+.slct .slmap .maplibregl-ctrl-attrib-button { width: 22px !important; height: 20px !important; top: 0 !important; right: 0 !important; left: auto !important; opacity: .65; border-radius: 50%; background-size: 16px 16px; }
+.slct .slmap .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib.maplibregl-compact { padding: 2px 10px 2px 26px !important; }
+.slct .slmap .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib-button { left: 0 !important; right: auto !important; }
+.slct[data-theme=dark] .slmap .maplibregl-ctrl-attrib-button { filter: invert(1); }
+
+/* geen WebGL: de melding vult de kaart (de stijl van .nomap staat in style.css) */
+
+@container slct (max-width: 640px) {
+  .slct .slmap .slz-g { display: none; }
+  .slct .slmap .maplibregl-ctrl-scale { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slct .slmap .slz button, .slct .slmap .slz .slz-c svg { transition: none; }
+}
