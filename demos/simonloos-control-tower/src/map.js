@@ -798,7 +798,7 @@ export function createMap(container, opts) {
   function set3d(v) {
     three = !!v; if (!ready) { onReady.push(() => set3d(three)); return; }
     if (three && !scene3d) {
-      if (!loading3d) loading3d = import('./scene3d.js').then(mod => { scene3d = mod.createScene3d(map, maplibregl, { theme, data: { SP, ST, TRST, urban, WINKELS, DCS, laadGebouwen }, onSelectTruck: opts.onSelectTruck, onSelectTrailer: opts.onSelectTrailer, onHover: opts.onHover }); raiseLabels(); apply3d(); sel3d(); }).catch(err => { console.warn('3D-wereld niet geladen', err); loading3d = null; three = false; apply3d(); if (opts.on3dFailed) opts.on3dFailed(); });
+      if (!loading3d) loading3d = import('./scene3d.js').then(mod => { scene3d = mod.createScene3d(map, maplibregl, { theme, klok: clock || null, data: { SP, ST, TRST, urban, WINKELS, DCS, laadGebouwen }, onSelectTruck: opts.onSelectTruck, onSelectTrailer: opts.onSelectTrailer, onHover: opts.onHover }); raiseLabels(); apply3d(); sel3d(); }).catch(err => { console.warn('3D-wereld niet geladen', err); loading3d = null; three = false; apply3d(); if (opts.on3dFailed) opts.on3dFailed(); });
       return;
     }
     apply3d();

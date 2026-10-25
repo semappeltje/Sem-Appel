@@ -75,11 +75,27 @@ export function hazeMesh() {
   const m = new THREE.Mesh(g, mat); m.frustumCulled = false; m.renderOrder = -100; return m;
 }
 
-// ---------- lucht als omgeving (alleen voor glans en weerspiegeling) ----------
-export function skyTexture(dark) {
+// ---------- sluier over de kaart: vermenigvuldigt wat de kaart al tekende (onder de 3D-wereld) met één kleur ----------
+// 's Avonds en 's nachts gaat een lichte kaart zo mee de avond in; de namen op de kaart liggen erboven en blijven
+// leesbaar. Wit (niets) overdag; de mesh is dan verborgen.
+export function veilMesh() {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(1, 1, 1) } },
+    vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: 'uniform vec3 uColor; void main() { gl_FragColor = vec4(uColor, 1.0); }',
+    depthTest: false, depthWrite: false, transparent: true,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.SrcColorFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+  });
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; m.renderOrder = -200; m.visible = false; return m;
+}
+
+// ---------- lucht als omgeving (alleen voor glans en weerspiegeling): dag, schemer of nacht ----------
+export function skyTexture(kind) {
   const c = document.createElement('canvas'); c.width = 64; c.height = 32; const g = c.getContext('2d');
   const gr = g.createLinearGradient(0, 0, 0, 32);
-  if (dark) { gr.addColorStop(0, '#0A1220'); gr.addColorStop(0.47, '#1B2636'); gr.addColorStop(0.53, '#141A21'); gr.addColorStop(1, '#0B0E12'); }
+  if (kind === 'nacht') { gr.addColorStop(0, '#0A1220'); gr.addColorStop(0.47, '#1B2636'); gr.addColorStop(0.53, '#141A21'); gr.addColorStop(1, '#0B0E12'); }
+  else if (kind === 'schemer') { gr.addColorStop(0, '#1E2C4E'); gr.addColorStop(0.36, '#3E5682'); gr.addColorStop(0.47, '#C9876A'); gr.addColorStop(0.5, '#E4A576'); gr.addColorStop(0.55, '#2C2F36'); gr.addColorStop(1, '#14161A'); }
   else { gr.addColorStop(0, '#9FC3E6'); gr.addColorStop(0.42, '#DCE9F4'); gr.addColorStop(0.5, '#F4F1EA'); gr.addColorStop(0.56, '#B9C2B2'); gr.addColorStop(1, '#8E9A8A'); }
   g.fillStyle = gr; g.fillRect(0, 0, 64, 32);
   const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; return t;
@@ -150,14 +166,35 @@ export function houseTextures() {
 export function roofTexture() {
   return tex(canvas(64, 64, (g) => { g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, 64, 64); for (let y = 0; y < 64; y += 8) { g.fillStyle = 'rgba(0,0,0,.16)'; g.fillRect(0, y, 64, 2); for (let x = (y / 8) % 2 ? 0 : 4; x < 64; x += 8) { g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(x, y, 1, 8); } } noise(g, 64, 64, 10, 5); }));
 }
-// Asfalt en betonplaten van het terrein: fijne ruis, betonvoegen per 5 m (u, v = meters / 20)
-export function yardTexture(dark) {
-  return tex(canvas(256, 256, (g) => {
-    g.fillStyle = dark ? '#2A2F36' : '#8E959D'; g.fillRect(0, 0, 256, 256);
-    noise(g, 256, 256, dark ? 10 : 14, 21);
-    // een paar vlekken en reparatiestroken, zodat het geen effen vlak is
+// Asfalt van het terrein (u, v = meters / 40, 512 px: 7,8 cm per pixel): zachte vlekken, een paar gerepareerde stroken
+// met strakke randen, gevoegde scheuren, olievlekken en daaroverheen een lichte korrel (fijne ruis met lichte en donkere
+// steentjes). De korrel is een tegel van 128 px die over het vlak herhaalt: één tekenopdracht op het canvas in plaats van
+// een rekenronde over alle 262.000 pixels (scheelt tientallen milliseconden bij het bouwen). Vaste toevalsreeks: elke
+// keer hetzelfde.
+export function yardTexture() {
+  return tex(canvas(512, 512, (g) => {
     let sd = 5; const r = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
-    for (let i = 0; i < 14; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '40,44,50' : '255,255,255'},${0.025 + r() * 0.035})`; g.beginPath(); g.ellipse(r() * 256, r() * 256, 10 + r() * 40, 6 + r() * 22, r() * 3, 0, 7); g.fill(); }
+    g.fillStyle = '#878D94'; g.fillRect(0, 0, 512, 512);
+    // zachte vlekken (slijtage, nieuwer en ouder asfalt)
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '52,56,62' : '250,250,248'},${0.03 + r() * 0.04})`; g.beginPath(); g.ellipse(r() * 512, r() * 512, 24 + r() * 90, 14 + r() * 50, r() * 3, 0, 7); g.fill(); }
+    // gerepareerde stroken: donkerder, strakke randen
+    for (let i = 0; i < 4; i++) { const w = 30 + r() * 70, h = 20 + r() * 40; g.save(); g.translate(r() * 512, r() * 512); g.rotate(r() < 0.5 ? 0 : Math.PI / 2); g.fillStyle = 'rgba(48,52,58,.16)'; g.fillRect(-w / 2, -h / 2, w, h); g.strokeStyle = 'rgba(30,33,38,.22)'; g.lineWidth = 1.2; g.strokeRect(-w / 2, -h / 2, w, h); g.restore(); }
+    // gevoegde scheuren: dunne kronkellijnen met bitumen
+    g.strokeStyle = 'rgba(28,30,34,.32)'; g.lineWidth = 1.6; g.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { let x = r() * 512, y = r() * 512, a = r() * 6.28; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 9; k++) { a += (r() - 0.5) * 0.9; x += Math.cos(a) * 9; y += Math.sin(a) * 9; g.lineTo(x, y); } g.stroke(); }
+    // olievlekken (waar trucks stilstaan)
+    for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(26,28,32,${0.05 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * 512, r() * 512, 3 + r() * 8, 2 + r() * 5, r() * 3, 0, 7); g.fill(); }
+    // de korrel als doorzichtige tegel: wit maakt lichter, zwart donkerder (op dit grijs: ruis van ongeveer plus en min
+    // 7, lichte steentjes plus 26, donkere min 22)
+    const T = 128, tile = document.createElement('canvas'); tile.width = tile.height = T; const tg = tile.getContext('2d');
+    const img = tg.createImageData(T, T), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const q = r(), n = r() - 0.5;
+      if (q < 0.035) { d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = 55; }
+      else if (q < 0.06) { d[i + 3] = 42; }
+      else { const v = n > 0 ? 255 : 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = Math.round(Math.abs(n) * 30); }
+    }
+    tg.putImageData(img, 0, 0); g.fillStyle = g.createPattern(tile, 'repeat'); g.fillRect(0, 0, 512, 512);
   }));
 }
 // Dockschort en laadvloer voor de deuren: lichte betonplaten van 6 bij 6 m met voegen

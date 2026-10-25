@@ -75,10 +75,21 @@ export function houseGeometries() {
   const t = [0, 0, 2, 0, 2, 1, 0, 0, 2, 1, 0, 1, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 2, 0, 0, 0, 0.5, 1, 1, 0, 0, 0, 0.5, 1, 1, 0];
   roof.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); roof.setAttribute('uv', new THREE.Float32BufferAttribute(t, 2)); roof.computeVertexNormals();
   // de topgevels krijgen de muurkleur niet (het dak is één tint); ze zijn klein en vallen weg onder de overstek
-  return { body: prep(body), roof };
+  // Schilddak: de nok korter dan het huis, aan de koppen schuine vlakken (HIP: hoeveel de nok aan elke kant inkort)
+  const HIP = 0.28, hip = new THREE.BufferGeometry();
+  const hv = [
+    -0.5, 0, 0.5, 0.5, 0, 0.5, 0.5 - HIP, 1, 0, -0.5, 0, 0.5, 0.5 - HIP, 1, 0, -0.5 + HIP, 1, 0,
+    0.5, 0, -0.5, -0.5, 0, -0.5, -0.5 + HIP, 1, 0, 0.5, 0, -0.5, -0.5 + HIP, 1, 0, 0.5 - HIP, 1, 0,
+    0.5, 0, 0.5, 0.5, 0, -0.5, 0.5 - HIP, 1, 0, -0.5, 0, -0.5, -0.5, 0, 0.5, -0.5 + HIP, 1, 0,
+  ];
+  const ht = [0, 0, 2, 0, 1.7, 1, 0, 0, 1.7, 1, 0.3, 1, 0, 0, 2, 0, 1.7, 1, 0, 0, 1.7, 1, 0.3, 1, 0, 0, 1, 0, 0.5, 1, 0, 0, 1, 0, 0.5, 1];
+  hip.setAttribute('position', new THREE.Float32BufferAttribute(hv, 3)); hip.setAttribute('uv', new THREE.Float32BufferAttribute(ht, 2)); hip.computeVertexNormals();
+  return { body: prep(body), roof, hip };
 }
-export const WALLS = [0x9A5A44, 0x8A4E3C, 0xB06A4E, 0xE9E3D6, 0xD8CDB8, 0xF2EFE8, 0x7C4A3A];
-export const ROOFS = [0x3E4349, 0x4A4F56, 0x8B4A3A, 0xA0563F, 0x5A3D33, 0x2F3338];
+// gevels: rode, bruine en gele baksteen, pleister in gebroken wit en grijs; daken: antraciet en grijs, rode en bruine
+// pannen. Gedekte tinten, zodat het geen speelgoeddorp wordt.
+export const WALLS = [0x9A5A44, 0x8A4E3C, 0xB06A4E, 0xE9E3D6, 0xD8CDB8, 0xF2EFE8, 0x7C4A3A, 0xC4A677, 0x5F3E34, 0xBDBFBB, 0x8E7A66];
+export const ROOFS = [0x3E4349, 0x4A4F56, 0x8B4A3A, 0xA0563F, 0x5A3D33, 0x2F3338, 0x6B6E70];
 
 // Haag: een blok met een iets lichtere bovenkant, per exemplaar geschaald naar de lengte van het stuk
 export function hedgeGeometry() {

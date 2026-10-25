@@ -2,7 +2,8 @@
 // tekent. Laagpolygonaal maar realistisch van verhouding: voertuigen op ware grootte (trekker met oplegger 16,5 m, 4 m
 // hoog) die alleen bij uitzoomen meegroeien zodat ze vindbaar blijven, standplaatsen op hun echte terrein met de hal
 // uit de gebouwgegevens, genummerde docks, kantoren met ramen, parkeerrijen, poort, hagen, lichtmasten en bomen, een
-// zon met schaduwen, zachte nevel in de verte en 's nachts koplampen, verlichte ramen en lichtpoelen. Procedureel, op
+// zon met schaduwen die met de klok van de simulatie meedraait (nacht, schemer, gouden uur, dag), zachte nevel in de verte
+// en vanaf de schemer koplampen, verlichte ramen en lichtpoelen. Procedureel, op
 // vier bomen en twee fabrieksdetails na (CC0-modellen uit assets-3d, ingebakken in deze bundel); niets komt van buiten.
 //
 // Geen imports uit de app zelf: standplaatsen, statuskleuren, bebouwing, winkels en DC's komen via opts.data, de
@@ -12,8 +13,10 @@ import * as THREE from 'three';
 import { clamp, mercX, mercY, mpuAt, metersPerPixel, hashStr, hash } from './scene3d/util.js';
 import { paletteMaterial, disposePalette } from './scene3d/palette.js';
 import { buildModels, wheelGeometry } from './scene3d/vehicles.js';
-import { decalMesh, pushDecal, beginDecals, endDecals, hazeMesh, skyTexture } from './scene3d/fx.js';
+import { decalMesh, pushDecal, beginDecals, endDecals, hazeMesh, skyTexture, veilMesh } from './scene3d/fx.js';
 import { createWorld } from './scene3d/world.js';
+import { lichtOp, vandaag, zonOpOnder } from './scene3d/licht.js';
+import { createSigns } from './scene3d/borden.js';
 
 // Gebouwcontouren (src/buildings.js, een eigen bundel van 2,4 MB): pas geladen als de 3D-wereld aangaat. De kaart kan een
 // lader meegeven (opts.data.laadGebouwen, uit places.js); anders laadt deze module het bestand zelf. Het pad staat
@@ -24,7 +27,6 @@ const ownBuildingsLoader = () => import(/* @vite-ignore */ ('./buildings.js'));
 
 const KINDS = ['trekker', 'solo', 'bakwagen', 'bus'];
 const LODS = ['hi', 'mid', 'lo'];
-const SUN = { light: { az: 205, el: 42, color: 0xFFF0DA, i: 3.3 }, dark: { az: 160, el: 38, color: 0x9DB6E8, i: 0.32 } };
 
 export function createScene3d(map, maplibregl, opts) {
   const { SP, ST, TRST, urban } = opts.data;
@@ -40,8 +42,8 @@ export function createScene3d(map, maplibregl, opts) {
   const hemi = new THREE.HemisphereLight(0xDCE7F2, 0xB7BFAA, 0.5);
   scene.add(sun, sun.target, hemi);
   scene.fog = new THREE.Fog(0xE8ECEA, 2000, 8000);
-  const sky = { light: skyTexture(false), dark: skyTexture(true) }; scene.environment = sky.light; scene.environmentIntensity = 0.8;
-  const haze = hazeMesh(); scene.add(haze);
+  const sky = { dag: skyTexture('dag'), schemer: skyTexture('schemer'), nacht: skyTexture('nacht') };   // de omgeving zet applyLight()
+  const haze = hazeMesh(), veil = veilMesh(); scene.add(haze, veil);
   const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ color: 0x1B2638, opacity: 0.28, depthWrite: false }));
   shadowPlane.receiveShadow = true; shadowPlane.frustumCulled = false; shadowPlane.renderOrder = 2; shadowPlane.material.polygonOffset = true; shadowPlane.material.polygonOffsetFactor = 2; shadowPlane.material.polygonOffsetUnits = 2; scene.add(shadowPlane);
 
@@ -65,8 +67,12 @@ export function createScene3d(map, maplibregl, opts) {
   const given = opts.data.laadGebouwen || opts.data.loadBuildings;
   const buildingsLoader = typeof given === 'function' ? () => Promise.resolve(given()).then(m => (m && m.default ? m : { default: m })) : ownBuildingsLoader;
   const world = createWorld({ scene, SP, urban, buildingsLoader, pal, theme, shops: opts.data.shops || opts.data.WINKELS || [], dcs: opts.data.DCS || [] });
+  // naamborden van de afdelingen (sp.afdelingen), vanaf zoom 15,5
+  const signs = createSigns(); scene.add(signs.mesh);
 
   // ---------- toestand ----------
+  // licht uit de klok (zie applyLight): de waarden van nu, de sleutel van de laatste berekening en de lampen (0 tot 1)
+  let vast = null, licht = null, lichtKey = '', lampK = 0; const usedEnv = new Set(); const fogTmp = new THREE.Color(), SCHADUW = new THREE.Color(0x1B2638), ZWART = new THREE.Color(0x000000), WIT = new THREE.Color(0xFFFFFF);
   let on = false, renderer = null, O = null, epoch = 0, zoom = map.getZoom(), shadowsOn = true;
   let vehicles = [], trailers = [], selId = null, hoverId = null;
   const L = new THREE.Matrix4(), G = new THREE.Matrix4(), invG = new THREE.Matrix4(), CW = new THREE.Matrix4();
@@ -125,7 +131,7 @@ export function createScene3d(map, maplibregl, opts) {
   // de zon volgt het zichtbare gebied: een schaduwcamera om de onderste vier vijfde van het beeld, in stapjes van een texel
   const sunDir = new THREE.Vector3();
   function placeSun() {
-    const S = SUN[theme === 'dark' ? 'dark' : 'light']; const az = S.az * Math.PI / 180, el = S.el * Math.PI / 180;
+    const az = licht.az * Math.PI / 180, el = licht.el * Math.PI / 180;
     sunDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).normalize();
     const want = zoom >= (shadowsOn ? 11.8 : 12.0); if (want !== shadowsOn) { shadowsOn = want; sun.castShadow = want; shadowPlane.visible = want; }
     if (!shadowsOn) return;
@@ -152,12 +158,16 @@ export function createScene3d(map, maplibregl, opts) {
   }
   function atmosphere() {
     const now = performance.now(); if (!groundColor || now - groundCheck > 1500) { groundCheck = now; groundColor = readGround() || groundColor; }
-    const dark = theme === 'dark'; const base = groundColor ? groundColor.clone() : new THREE.Color(dark ? 0x12161C : 0xE8ECE6);
-    const fogC = dark ? base.clone().lerp(new THREE.Color(0x1A2230), 0.35) : base.clone().lerp(new THREE.Color(0xE6EDF3), 0.35);
+    // de kleur van de kaart, gemengd met de nevel van het uur (overdag lichtblauwgrijs, 's avonds blauw, 's nachts donker)
+    const base = groundColor ? groundColor.clone() : new THREE.Color(theme === 'dark' ? 0x12161C : 0xE8ECE6);
+    const lum = base.r * 0.2126 + base.g * 0.7152 + base.b * 0.0722;
+    const fogC = base.lerp(fogTmp.setHex(licht.nevel), 0.6);
+    // de sluier over de kaart: op een lichte kaart vol, op een donkere kaart (al nacht) bijna niets
+    const vc = veil.material.uniforms.uColor.value.setHex(licht.sluier); vc.lerp(WIT, 1 - Math.min(1, lum * 1.1)); veil.visible = vc.r < 0.995 || vc.g < 0.995 || vc.b < 0.995;
     scene.fog.color.copy(fogC);
     const pitchK = clamp((view.pitch - 12) / 38, 0, 1);
     scene.fog.near = view.camDist * 1.55; scene.fog.far = view.camDist * (4.6 + (1 - pitchK) * 6);
-    const u = haze.material.uniforms; u.uInv.value.copy(invG); u.uEye.value.copy(eye); u.uFwd.value.copy(fwd); u.uColor.value.copy(fogC); u.uNear.value = view.camDist * 1.45; u.uFar.value = view.camDist * 4.2; u.uMax.value = (dark ? 0.5 : 0.62) * pitchK;
+    const u = haze.material.uniforms; u.uInv.value.copy(invG); u.uEye.value.copy(eye); u.uFwd.value.copy(fwd); u.uColor.value.copy(fogC); u.uNear.value = view.camDist * 1.45; u.uFar.value = view.camDist * 4.2; u.uMax.value = (0.62 - 0.12 * lampK) * pitchK;
     haze.visible = pitchK > 0.02;
   }
 
@@ -204,15 +214,16 @@ export function createScene3d(map, maplibregl, opts) {
     if (lod !== 'lo' && c.st != null && bn < beacons.instanceMatrix.count) {
       const [ox, oy, oz] = md.lamp; const cs = Math.cos(ang), sn = Math.sin(ang); putM(beacons, bn, x + (ox * cs + oz * sn) * k, oy * k, z + (-ox * sn + oz * cs) * k, ang, k); beacons.setColorAt(bn, C.set(c.st)); bn++;
     }
-    // vlakken op de grond: contactschaduw, rand in de statuskleur, selectie en aanwijzen, koplampbundel 's nachts
-    // breedtes in meters, maar nooit smaller dan een paar pixels (mpx: meters per pixel op de plek van het voertuig)
-    const [hw, hl] = md.half; const yd = 0.05 * k; const dark = theme === 'dark'; const mpx = c.depth / view.ppm;
+    // vlakken op de grond: contactschaduw, rand in de statuskleur, selectie en aanwijzen, koplampbundel vanaf de schemer
+    // breedtes in meters, maar nooit smaller dan een paar pixels (mpx: meters per pixel op de plek van het voertuig);
+    // de kleuren volgen het licht (een donkere grond 's nachts), niet het thema van de interface
+    const [hw, hl] = md.half; const yd = 0.05 * k; const dark = licht.donker > 0.5; const mpx = c.depth / view.ppm;
     pushDecal(decals, x, yd, z, ang, hw * k, hl * k, 0.8 * k, Math.max(1.3 * k, 2.2 * mpx), 0x000000, dark ? 0.5 : 0.34, 0);
     if (c.st != null && c.halo) pushDecal(decals, x, yd * 1.2, z, ang, hw * k, hl * k, 0.9 * k, Math.max(1.5 * k, 3.4 * mpx), C.set(c.st).getHex(), dark ? 0.9 : 0.66, 1);
     const gap = 1.1 * k + 3 * mpx, ring = Math.max(0.35 * k, 2.2 * mpx);
     if (id === selId) pushDecal(decals, x, yd * 1.4, z, ang, hw * k + gap, hl * k + gap, 1.2 * k + gap, ring, 0xE3001F, 1, 2);
     else if (id === hoverId) pushDecal(decals, x, yd * 1.4, z, ang, hw * k + gap, hl * k + gap, 1.2 * k + gap, ring * 0.75, dark ? 0xEEF1F5 : 0x15181E, 0.75, 3);
-    if (dark && c.moving && md.front != null) { const cs = Math.cos(ang), sn = Math.sin(ang); const fz2 = md.front * k; pushDecal(glows, x + fz2 * sn, yd, z + fz2 * cs, ang, 3.4 * k, 16 * k, 0, 0, 0xFFE3B0, 0.4, 5); }
+    if (lampK > 0.05 && c.moving && md.front != null) { const cs = Math.cos(ang), sn = Math.sin(ang); const fz2 = md.front * k; pushDecal(glows, x + fz2 * sn, yd, z + fz2 * cs, ang, 3.4 * k, 16 * k, 0, 0, 0xFFE3B0, 0.4 * lampK, 5); }
     pickList.push({ id, trailer: kind === 'oplegger', x, z, ang, k, hw, hl, h: md.height, depth: c.depth });
   }
   function updateVehicles() {
@@ -259,8 +270,8 @@ export function createScene3d(map, maplibregl, opts) {
     for (const c of list) { const lod = hiLeft > 0 && c.px >= (c.parked ? 64 : 30) ? 'hi' : c.px >= 7 ? 'mid' : 'lo'; if (lod === 'hi') hiLeft--; draw(c, lod); }
     world.endParking();
     if (motion.size > (vehicles.length + trailers.length) * 2 + 400) { const keep = new Set([...vehicles.map(v => v.id), ...trailers.map(t => t.id)]); for (const id of motion.keys()) if (!keep.has(id)) motion.delete(id); }
-    // lichtpoelen van lantaarnpalen en docks 's nachts
-    if (theme === 'dark' && zoom >= 13.2) for (const [x, z, r] of world.pools()) if (inView(x, z, r)) pushDecal(glows, x, 0.08, z, 0, r, r, 0, 0, 0xFFD9A0, r > 15 ? 0.3 : 0.34, 4);
+    // lichtpoelen van lantaarnpalen, lichtmasten en docks, vanaf de schemer
+    if (lampK > 0.05 && zoom >= 13.2) for (const [x, z, r] of world.pools()) if (inView(x, z, r)) pushDecal(glows, x, 0.08, z, 0, r, r, 0, 0, 0xFFD9A0, (r > 15 ? 0.42 : 0.4) * lampK, 4);
     for (const m of Object.values(vm)) { m.visible = m.count > 0; if (m.count) { m.instanceMatrix.needsUpdate = true; m.geometry.attributes.aLights.needsUpdate = true; } }
     wheels.count = wn; wheels.visible = wn > 0; if (wn) wheels.instanceMatrix.needsUpdate = true;
     beacons.count = bn; beacons.visible = bn > 0; if (bn) { beacons.instanceMatrix.needsUpdate = true; beacons.instanceColor.needsUpdate = true; }
@@ -289,7 +300,7 @@ export function createScene3d(map, maplibregl, opts) {
       if (renderer) return;
       const t = performance.now(); renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true }); stats.rendererMs = Math.round(performance.now() - t);
       renderer.autoClear = false; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = theme === 'dark' ? 1.15 : 1.06;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = licht ? licht.exp : 1.06;
     },
     render(gl, args) {
       if (!on || !renderer) return;
@@ -297,7 +308,9 @@ export function createScene3d(map, maplibregl, opts) {
       if (needsOrigin()) setOrigin();
       const matrix = args && args.defaultProjectionData ? args.defaultProjectionData.mainMatrix : args && args.modelViewProjectionMatrix ? args.modelViewProjectionMatrix : args;
       G.fromArray(matrix).multiply(L); deriveCamera(); computeView();
-      ofmCheck(); world.update(view); const t1 = performance.now(); placeSun(); atmosphere(); updateVehicles(); const t2 = performance.now();
+      applyLight(false); ofmCheck(); world.update(view); const t1 = performance.now(); placeSun(); atmosphere(); updateVehicles();
+      { const el = map.getCanvas(); const near = zoom >= 15.3; signs.update(near ? world.signs() : [], camera, el.clientWidth || 1, el.clientHeight || 1, zoom, 1 - 0.22 * licht.donker, near ? world.signsFree() : []); }
+      const t2 = performance.now();
       renderer.resetState(); renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
       renderer.render(scene, camera); const t3 = performance.now();
       stats.phase = { wereld: +(stats.phase ? stats.phase.wereld * 0.9 + (t1 - t0) * 0.1 : t1 - t0).toFixed(1), voertuigen: +(stats.phase ? stats.phase.voertuigen * 0.9 + (t2 - t1) * 0.1 : t2 - t1).toFixed(1), tekenen: +(stats.phase ? stats.phase.tekenen * 0.9 + (t3 - t2) * 0.1 : t3 - t2).toFixed(1) };
@@ -334,16 +347,45 @@ export function createScene3d(map, maplibregl, opts) {
   const onMouse = e => { if (!on) return; const now = Date.now(); if (now - hoverT < 70) return; hoverT = now; const hit = pick(e.point); map.getCanvas().style.cursor = hit ? 'pointer' : ''; const id = hit ? hit.id : null; if (id !== hoverId) { hoverId = id; map.triggerRepaint(); } opts.onHover && opts.onHover(hit && !hit.trailer ? hit.id : null, e.point); };
   map.on('click', onClick); map.on('mousemove', onMouse);
 
-  // ---------- thema ----------
-  function setTheme(t) {
-    theme = t; const dark = t === 'dark'; const S = SUN[dark ? 'dark' : 'light'];
-    sun.color.setHex(S.color); sun.intensity = S.i;
-    hemi.color.setHex(dark ? 0x8EA2C4 : 0xDCE8F5); hemi.groundColor.setHex(dark ? 0x141920 : 0xB9C1AE); hemi.intensity = dark ? 0.55 : 0.62;
-    scene.environment = dark ? sky.dark : sky.light; scene.environmentIntensity = dark ? 0.55 : 0.72;
-    if (renderer) renderer.toneMappingExposure = dark ? 1.15 : 1.06;
-    pal.emissiveIntensity = palV.emissiveIntensity = dark ? 1.8 : 0; shadowPlane.material.opacity = dark ? 0.35 : 0.28; shadowPlane.material.color.setHex(dark ? 0x000000 : 0x1B2638);
-    world.setTheme(t); groundColor = null; if (on) map.triggerRepaint();
+  // ---------- licht uit de klok van de simulatie ----------
+  // De kaart kan de klok meegeven (opts.klok of opts.data.klok: een object met simTime in minuten na middernacht,
+  // Nederlandse tijd, zoals de staat van de app, en eventueel datum [jaar, maand, dag]); zonder die optie leest de wereld
+  // de klok van de app (window.SLCT.state), en anders de echte tijd. De dag is die van de simulatie: vandaag.
+  // setClock(minuten, datum?) zet een vaste tijd (tests, schermafbeeldingen); setClock(null) volgt de klok weer.
+  const klokBron = () => opts.klok || (opts.data && opts.data.klok) || (typeof window !== 'undefined' && window.SLCT && window.SLCT.state) || null;
+  function klokNu() {
+    if (vast) return vast;
+    const k = klokBron(); let min = k ? +k.simTime : NaN; if (!isFinite(min)) { const d = new Date(); min = d.getHours() * 60 + d.getMinutes(); }
+    return { min: ((min % 1440) + 1440) % 1440, datum: k && Array.isArray(k.datum) ? k.datum : vandaag() };
   }
+  // Het thema van de interface verandert alleen de kaart en de interface, niet het daglicht. In het donkere thema is het
+  // daglicht wel iets gedempt (DIM), zodat de wereld niet als een lamp op een donkere kaart ligt; de nacht blijft gelijk.
+  const DIM = 0.82;
+  function applyLight(force) {
+    const { min, datum } = klokNu(); const key = `${datum.join('-')}|${Math.round(min * 2)}|${theme}`;   // per halve minuut
+    if (!force && key === lichtKey) return; lichtKey = key;
+    licht = lichtOp(datum, min); licht.min = min; licht.datum = datum; lampK = licht.lampen;
+    const dim = theme === 'dark' ? 1 - (1 - DIM) * (1 - licht.donker) : 1;
+    sun.color.setHex(licht.zon); sun.intensity = licht.zi * dim;
+    hemi.color.setHex(licht.hb); hemi.groundColor.setHex(licht.hg); hemi.intensity = licht.hi * dim;
+    const env = licht.zonH > 1 ? sky.dag : licht.zonH > -8 ? sky.schemer : sky.nacht; if (scene.environment !== env) { scene.environment = env; usedEnv.add(env); }
+    scene.environmentIntensity = licht.env * dim;
+    if (renderer) renderer.toneMappingExposure = licht.exp * (theme === 'dark' ? 1 - 0.06 * (1 - licht.donker) : 1);
+    pal.emissiveIntensity = palV.emissiveIntensity = 1.8 * lampK;
+    shadowPlane.material.opacity = licht.schaduw; shadowPlane.material.color.copy(SCHADUW).lerp(ZWART, licht.donker);
+    world.setLicht(licht);
+  }
+  // wat het licht nu is (voor de check en de README): staat, zonnestand, lampen, en zonsopgang en -ondergang die dag
+  let opOnder = null, opOnderDag = '';
+  const hm = m => m == null ? null : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
+  const rond = m => m == null ? null : Math.round(m);   // zon op en onder op de hele minuut, zoals in een almanak
+  function lichtStats() {
+    if (!licht) return null; const dag = licht.datum.join('-'); if (dag !== opOnderDag) { opOnderDag = dag; opOnder = zonOpOnder(licht.datum); }
+    return { staat: licht.staat, tijd: hm(licht.min), datum: dag, zonH: +licht.zonH.toFixed(1), zonAz: Math.round(licht.zonAz), lampen: +licht.lampen.toFixed(2), donker: +licht.donker.toFixed(2), zon: +sun.intensity.toFixed(2), op: hm(rond(opOnder.op)), onder: hm(rond(opOnder.onder)), thema: theme };
+  }
+  function setClock(min, datum) { vast = min == null ? null : { min: ((+min % 1440) + 1440) % 1440, datum: Array.isArray(datum) ? datum : vandaag() }; applyLight(true); if (on) map.triggerRepaint(); }
+  // ---------- thema ----------
+  function setTheme(t) { theme = t; world.setTheme(t); groundColor = null; applyLight(true); if (on) map.triggerRepaint(); }
   function enable(v) {
     on = !!v;
     if (on) { stats.enabledAt = performance.now(); stats.frames = 0; setOrigin(); }
@@ -358,14 +400,15 @@ export function createScene3d(map, maplibregl, opts) {
   function dispose() {
     on = false; map.off('styledata', onStyle); map.off('move', onMove); map.off('click', onClick); map.off('mousemove', onMouse);
     if (map.getLayer('scene3d')) map.removeLayer('scene3d');
-    world.dispose(); scene.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && o.material !== pal) o.material.dispose(); } });
-    pal.dispose(); palV.dispose(); disposePalette(); sky.light.dispose(); sky.dark.dispose(); if (sun.shadow.map) sun.shadow.map.dispose();
+    world.dispose(); signs.dispose(); scene.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && o.material !== pal) o.material.dispose(); } });
+    pal.dispose(); palV.dispose(); disposePalette(); for (const t of Object.values(sky)) t.dispose(); if (sun.shadow.map) sun.shadow.map.dispose();
   }
-  // geometrieën en texturen die deze wereld zelf bezit: meer op de GPU dan dit zou een lek zijn
-  function owned() { const g = new Set(), t = new Set(); scene.traverse(o => { if (o.geometry) g.add(o.geometry); const m = o.material; if (m) for (const k of ['map', 'emissiveMap', 'roughnessMap', 'metalnessMap']) if (m[k]) t.add(m[k]); }); return { geometries: g.size, textures: t.size }; }
+  // geometrieën en texturen die deze wereld zelf bezit: meer op de GPU dan dit zou een lek zijn (een lucht die als
+  // omgeving gebruikt is, telt twee keer: de textuur en de voorgefilterde versie die three.js ervan maakt)
+  function owned() { const g = new Set(), t = new Set(); scene.traverse(o => { if (o.geometry) g.add(o.geometry); const m = o.material; if (m) { for (const k of ['map', 'emissiveMap', 'roughnessMap', 'metalnessMap']) if (m[k]) t.add(m[k]); if (m.uniforms && m.uniforms.uMap) t.add(m.uniforms.uMap.value); } }); return { geometries: g.size, textures: t.size + usedEnv.size * 2 }; }
   setTheme(theme); stats.createMs = Math.round(performance.now() - T0);
   return {
-    enable, isOn: () => on, setVehicles, setTrailers, setTheme, pick, refresh: () => { if (on) { setOrigin(); map.triggerRepaint(); } }, setSelected, dispose,
-    ready: () => world.loading, stats: () => ({ ...stats, ...world.stats(), drawn: pickList.length, shadows: shadowsOn, view: { ppm: +view.ppm.toFixed(1), camDist: Math.round(view.camDist), R: Math.round(view.R), mpp: +view.mpp.toFixed(2), k: +scaleMove().toFixed(2) }, zoom: +zoom.toFixed(2), owned: owned(), info: renderer ? { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs ? renderer.info.programs.length : 0 } : null }),
+    enable, isOn: () => on, setVehicles, setTrailers, setTheme, setClock, pick, refresh: () => { if (on) { setOrigin(); map.triggerRepaint(); } }, setSelected, dispose,
+    ready: () => world.loading, stats: () => ({ ...stats, ...world.stats(), licht: lichtStats(), borden: signs.mesh.count, drawn: pickList.length, shadows: shadowsOn, view: { ppm: +view.ppm.toFixed(1), camDist: Math.round(view.camDist), R: Math.round(view.R), mpp: +view.mpp.toFixed(2), k: +scaleMove().toFixed(2) }, zoom: +zoom.toFixed(2), owned: owned(), info: renderer ? { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs ? renderer.info.programs.length : 0 } : null }),
   };
 }

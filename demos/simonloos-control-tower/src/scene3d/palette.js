@@ -65,6 +65,16 @@ const ENTRIES = {
   kast: [0xF1F0EA, 0.5, 0.0, null],
   alu: [0xC3C8CE, 0.34, 0.6, null],
   rooster: [0x8C939B, 0.55, 0.3, null],
+  // terrein (ronde van het licht en de details): pallets, zeecontainers in gedekte kleuren (geen merk), de laadpalen met
+  // een groen lampje dat 's avonds zichtbaar is, en veiligheidsgeel voor wielgeleiders en paaltjes
+  hout: [0xA88A62, 0.88, 0.0, null],
+  contBlauw: [0x3F5B73, 0.62, 0.3, null],
+  contRood: [0x8A3E31, 0.66, 0.25, null],
+  contGroen: [0x56705C, 0.64, 0.25, null],
+  contGrijs: [0x8E959C, 0.6, 0.35, null],
+  laadLed: [0x2E3B42, 0.3, 0.0, 0x5CD08E],
+  veiligGeel: [0xF2C230, 0.5, 0.1, null],
+  haag: [0x4F8A48, 0.95, 0.0, null],          // haag langs een voortuin (bij de huizen uit de gebouwgegevens)
 };
 export const P = {}; Object.keys(ENTRIES).forEach((k, i) => { P[k] = i; });
 

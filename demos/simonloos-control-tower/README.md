@@ -112,9 +112,10 @@ De 3D-stand (knop met de kubus naast Kaartlagen, toets d, bewaard als `sl-3d`) i
 MapLibre (`CustomLayerInterface`, `renderingMode: '3d'`) die met **three.js** tekent. `src/scene3d.js` maakt
 de scene, de camera (elk beeld overgenomen uit `defaultProjectionData.mainMatrix`), het licht en de
 voertuigen. In `src/scene3d/` staan de wereld (`world.js`: terreinen, gebouwen, docks, poort, bomen,
-huizen, winkels), de voertuigmodellen (`vehicles.js`), het kleurenpalet (`palette.js`), getekende texturen
-en vlakken op de grond (`fx.js`), bouwgeometrie (`geom.js`), bomen, hagen en huizen (`nature.js`), de
-CC0-modellen (`assets.js`) en hulpfuncties (`util.js`).
+huizen, winkels), de voertuigmodellen (`vehicles.js`), het kleurenpalet (`palette.js`), het licht uit de klok
+(`licht.js`), de naamborden van de afdelingen (`borden.js`), getekende texturen en vlakken op de grond
+(`fx.js`), bouwgeometrie (`geom.js`), bomen, hagen en huizen (`nature.js`), de CC0-modellen (`assets.js`)
+en hulpfuncties (`util.js`).
 
 **Wat je ziet.** Alles op ware grootte: een trekker met oplegger is 16,5 m lang en 4 m hoog. Bij uitzoomen
 groeien rijdende voertuigen mee tot ongeveer 20 pixels (ware grootte vanaf zoom 15,4); geparkeerde hooguit
@@ -139,16 +140,49 @@ komt: slagbomen, een portiersloge, een bord en lantaarnpalen langs de inrit; pop
 in een gebouw). Een fabriek uit de DC-lijst (`soort: 'fabriek'`) krijgt silo's, een schoorsteen en
 liggende tanks.
 
+Het terrein is asfalt met een lichte korrel, gerepareerde stroken, gevoegde scheuren en olievlekken (een
+getekende textuur van 40 bij 40 m). Parkeervakken en dockvakken zijn wit, de gangpaden voor de rijen hebben
+een onderbroken middenlijn, bij elk dock staan gele wielgeleiders en aan de koppen van de dockstrook liggen
+betonblokken. Het laadplein ligt waar `sp.afdelingen` het zegt (soort `laadplein`), anders bij de rij die het
+dichtst bij het kantoor ligt: laadpalen op een betonnen eiland langs een rij, één paal per twee plekken (het
+aantal uit `sp.laadpunten`, anders zoals `laadpunten()` in `places.js`: hub 24, warehouse 12, anders 4),
+met een trafokast en gele paaltjes. Verder stapels pallets langs een gevel van de hal zonder docks, een paar
+zeecontainers in gedekte kleuren langs de rand, en een tankstation als de notitie of de afdelingen dat
+noemen. Alles staat op een vaste plek per standplaats (een toevalsreeks op de naam), nooit op een rij, een
+schort, de inrit of tegen een lamp.
+
+**Naamborden.** De afdelingen uit `sp.afdelingen` (`{ naam, soort, p: [lon, lat], gebouw?, bron }`) krijgen
+vanaf zoom 15,5 een rustig wit bord met de naam in kleine kapitalen, zoals de docknummers: op het dak van het
+gebouw (`gebouw` is de index in `buildings.json` van die standplaats), boven de dockdeuren of boven het
+gebied. De borden houden een vaste maat op het scherm en wijken voor elkaar: raken twee borden elkaar, dan
+blijft het belangrijkste staan (kantoor, hal, garage en wasstraat, docks, laadplein, opleggers, poort).
+Zonder `afdelingen` zijn er geen borden. Eén tekening voor alle borden: een atlas met de namen (de
+systeemletter) en een instanced vlak dat in de shader naar het scherm draait (`borden.js`).
+
 Bij een klant staat een vrachtwagen of oplegger achteruit tegen een dock: van het echte DC-gebouw als dat
 er is, anders van een supermarkt op het winkelpunt (`WINKELS`) of naast de stopplek (glazen pui, gevelband
 in de kleur van de formule, klantenparkeerplaats), of van een distributiehal bij een DC uit de lijst
-zonder gebouwgegevens. Woonhuizen (rijtjes en vrijstaand, met kap) en bomen staan in de bebouwing van
-`urban.json`, niet op een terrein en niet binnen 320 m van een plek met echte gebouwen.
+zonder gebouwgegevens. Woonhuizen (rijtjes en vrijstaand) en bomen staan in de bebouwing van
+`urban.json`, niet op een terrein en niet binnen 320 m van een plek met echte gebouwen. Woonhuizen, ook die
+uit de gebouwgegevens, hebben een zadeldak, een schilddak of een plat dak, in gedekte kleuren (rode, bruine
+en gele baksteen, wit en grijs pleisterwerk; antraciet, grijze en rode pannen), en een deel heeft een lage
+haag langs de voortuin.
 
-**Licht.** Een zon met schaduw (schaduwkaart van 2048 px die het zichtbare gebied volgt, in stappen van
-een texel), hemellicht, ACES-tonemapping, nevel in de kleur van de kaart en een zachte voetschaduw rond
-gebouwen. Donker: maanlicht, koplampen en achterlichten op rijdende voertuigen (geparkeerde staan uit),
-verlichte ramen, en lichtpoelen onder lantaarnpalen, lichtmasten en docks.
+**Licht.** Het licht komt uit de klok van de simulatie, niet uit het thema. `licht.js` rekent de stand van
+de zon boven Wognum (52,7 graden noord) uit voor de dag en het uur van de simulatie, in Nederlandse tijd met
+zomer- en wintertijd. Op zondag 25 oktober 2026, de dag dat de klok een uur teruggaat, komt de zon op om
+07:24 en gaat ze onder om 17:23; op zaterdag 24 oktober was dat 08:22 en 18:26. Vier staten lopen vloeiend
+in elkaar over: nacht (de zon meer dan 8 graden onder de horizon), schemer met het blauwe uur, gouden uur
+(tot 6 graden boven de horizon) en dag. De richting en lengte van de schaduwen, de kleur en sterkte van het
+zonlicht (oranje bij een lage zon, 's nachts het maanlicht), het hemellicht, de lucht in glans en glas, de
+nevel en de belichting lopen mee. Lampen gaan aan vanaf de schemer en zijn overdag uit: lichtmasten,
+lantaarnpalen en docks (met een lichtpoel op de grond), verlichte ramen en dockborden, koplampen en
+achterlichten van rijdende voertuigen (geparkeerde staan uit) en het lampje van de laadpalen. 's Avonds en
+'s nachts ligt een donkerblauwe sluier over een lichte kaart, zodat kaart en wereld samen de avond in gaan;
+de namen op de kaart liggen erboven en blijven leesbaar. Het donkere thema verandert alleen de kaart en de
+interface: 's middags is de wereld dan nog steeds bij daglicht, iets gedempt, zodat hij niet als een lamp op
+de donkere kaart ligt. Verder een schaduwkaart van 2048 px die het zichtbare gebied volgt (in stappen van een
+texel), ACES-tonemapping en een zachte voetschaduw rond gebouwen.
 
 **Modellen van buiten.** Vier bomen (linde, eik, populier, den) en de schoorsteen en tank bij fabrieken
 zijn CC0-modellen van Kenney uit `assets-3d/` (herkomst en licentie in de README daar). Ze komen met `?url`
@@ -166,16 +200,24 @@ buurt van het beeld komt (de dichtstbijzijnde eerst, ongeveer 14 ms per beeld), 
 Voertuigen, bomen, huizen en auto's zijn instanced meshes; de grootste 60 voertuigen in beeld krijgen het
 volle model met draaiende wielen, de rest een eenvoudiger model of een blok; bomen in vol detail vanaf
 zoom 16,3. Bij Wognum zijn dat 45 tot 55 tekenopdrachten en 85.000 tot 230.000 driehoeken per beeld (het meest
-vlak boven het terrein), op zoom 11 ongeveer 40. Klik en aanwijzen gaan via een straal tegen de omtrek van elk getekend
-voertuig. Zonder WebGL is er geen knop.
+vlak boven het terrein), op zoom 11 ongeveer 40. De sluier, de borden en de schilddaken zijn elk één tekening
+(de schilddaken twee: dichtbij en ver); laadpalen, pallets, containers, wielgeleiders en betonblokken zitten in
+de tekening van de plek zelf. Klik en aanwijzen gaan via een straal tegen de omtrek van elk getekend voertuig.
+Zonder WebGL is er geen knop.
 
-**Aanroep.** `createScene3d(map, maplibregl, { theme, data: { SP, ST, TRST, urban, WINKELS?, DCS? },
+**Aanroep.** `createScene3d(map, maplibregl, { theme, klok?, data: { SP, ST, TRST, urban, WINKELS?, DCS? },
 onSelectTruck, onSelectTrailer, onHover })` geeft `{ enable, isOn, setVehicles, setTrailers, setTheme,
-pick, refresh, setSelected, dispose, ready, stats }`. Een voertuig is `{ id, st, b, k, base, lon, lat,
-dock? }`, een oplegger `{ id, st, base, lon, lat, b?, dock? }` (zonder `b` neemt een oplegger op het
-terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekozen voertuig.
-`tests/3d-check.mjs` controleert bouwtijd, tekenopdrachten en driehoeken per zoom, klikken, geheugen na
-drie keer uit en aan, en consolefouten.
+setClock, pick, refresh, setSelected, dispose, ready, stats }`. Een voertuig is `{ id, st, b, k, base, lon,
+lat, dock? }`, een oplegger `{ id, st, base, lon, lat, b?, dock? }` (zonder `b` neemt een oplegger op het
+terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekozen voertuig. `klok` is een
+object met `simTime` (minuten na middernacht, Nederlandse tijd) en eventueel `datum` (`[jaar, maand, dag]`);
+zonder die optie leest de wereld de klok van de app (`window.SLCT.state`), en anders de echte tijd. De dag is
+die van de simulatie: vandaag. `setClock(minuten, datum?)` zet een vaste tijd (tests, schermafbeeldingen),
+`setClock(null)` volgt de klok weer. `stats().licht` geeft de staat, de stand van de zon, de lampen en de
+tijden van zonsopgang en -ondergang; `stats().borden` het aantal getekende borden.
+`tests/3d-check.mjs` controleert bouwtijd, tekenopdrachten en driehoeken per zoom, de zon boven Wognum
+(zonsopgang en -ondergang op drie dagen), dag, schemer en nacht op een vaste dag, het donkere thema
+overdag, de naamborden bij Wognum, klikken, geheugen na drie keer uit en aan, en consolefouten.
 
 **Huisstijl.** Naar Sems schaalmodellen van Simon Loos (foto's in `rapporten/simon-loos-control-tower/fotos-modellen/`).
 De cabine is boven wit: dak, zonneklep, het vlak rond de voorruit en de deuren tot onder de ruit. Onder is ze

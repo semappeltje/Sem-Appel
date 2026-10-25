@@ -7,7 +7,7 @@
 // Alles in meters; elke plek heeft een eigen vlak rond zijn ankerpunt en wordt pas gebouwd als hij in beeld komt.
 import * as THREE from 'three';
 import { P, paletteMaterial } from './palette.js';
-import { Builder, walls, flat, parapet, gable, gableEnds, line, obox, skirt } from './geom.js';
+import { Builder, walls, flat, parapet, gable, gableEnds, hip, line, obox, skirt } from './geom.js';
 import { clamp, hash, hashStr, rng, mercX, mercY, mpuAt, ringArea, cleanRing, centroid, inRing, bbox, nearestOnRing, edgeNormal, mainAxis, rot, offsetRing, rectHitsRing, rectInRing, hull, readRing, decodeRing } from './util.js';
 import { treeGeometries, TREE_TINTS, TRUNK, houseGeometries, WALLS, ROOFS, hedgeGeometry } from './nature.js';
 import { carGeometry } from './vehicles.js';
@@ -25,10 +25,11 @@ const lonLat = (mx, my) => [mx * 360 - 180, 360 / Math.PI * Math.atan(Math.exp((
 export function readBuildings(mod) {
   let src = mod && (mod.default || mod.BUILDINGS || mod.buildings || mod.data || mod); if (typeof src === 'function') src = src();
   const out = new Map(); if (!src || typeof src !== 'object') return out;
-  const item = b => {
+  // i: de plek in de oorspronkelijke lijst (sp.afdelingen verwijst met gebouw naar die index)
+  const item = (b, i) => {
     const r = readRing(b); if (!r) return null; const pr = b && typeof b === 'object' && !Array.isArray(b) ? b : null; const pp = pr && pr.properties;
     const h = pr ? +(pr.h ?? pr.height ?? (pp && (pp.h ?? pp.height ?? pp.render_height)) ?? 0) : 0; const own = !!(pr && (pr.d === 1 || pr.d === true || (pp && pp.d)));
-    return { p: r, h: h > 0 ? h : 0, own };
+    return { p: r, h: h > 0 ? h : 0, own, i };
   };
   for (const [k, v] of Object.entries(src)) {
     const list = Array.isArray(v) ? v : v && v.type === 'FeatureCollection' ? v.features : v && Array.isArray(v.buildings) ? v.buildings : null; if (!list) continue;
@@ -38,11 +39,10 @@ export function readBuildings(mod) {
 }
 
 export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, shops: shopPoints, dcs }) {
-  const dark = () => theme === 'dark';
   // ---------- materialen (gedeeld) ----------
   const wh = warehouseTextures(true), whN = warehouseTextures(false), of = officeTextures(), ho = houseTextures();
   const M = {
-    yard: new THREE.MeshStandardMaterial({ map: yardTexture(false), roughness: 0.93, metalness: 0 }),
+    yard: new THREE.MeshStandardMaterial({ map: yardTexture(), roughness: 0.93, metalness: 0 }),
     apron: new THREE.MeshStandardMaterial({ map: apronTexture(), roughness: 0.9, metalness: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
     wallSL: new THREE.MeshStandardMaterial({ map: wh.map, emissiveMap: wh.emissive, emissive: 0xFFFFFF, emissiveIntensity: 0, roughness: 0.62, metalness: 0.05 }),
     wallN: new THREE.MeshStandardMaterial({ map: whN.map, emissiveMap: whN.emissive, emissive: 0xFFFFFF, emissiveIntensity: 0, roughness: 0.66, metalness: 0.05 }),
@@ -60,6 +60,9 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     plate: new THREE.MeshStandardMaterial({ map: dockNumberTexture(), roughness: 0.55, metalness: 0, emissive: 0xFFFFFF, emissiveIntensity: 0, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
   };
   M.plate.emissiveMap = M.plate.map;
+  // markeringen (vakken, dockvakken, rijbanen): het palet, iets naar de camera geschoven, zodat ze ook op het betonnen
+  // dockschort (dat zelf al naar voren is geschoven) altijd boven liggen
+  M.marks = paletteMaterial({ polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
   // de buurt: dezelfde texturen met een kleur per pand
   M.wallNV = M.wallN.clone(); M.wallNV.vertexColors = true; M.officeV = M.office.clone(); M.officeV.vertexColors = true; M.roofV = M.roofFlat.clone(); M.roofV.vertexColors = true;
   litWindows(M.office, 0.62); litWindows(M.houseVC, 0.42); litWindows(M.house, 0.42, true); litWindows(M.wallSL, 0.9); litWindows(M.wallN, 0.6); litWindows(M.wallNV, 0.5); litWindows(M.officeV, 0.55);
@@ -119,7 +122,7 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     // gebouwen: eigen (d: 1) en de buurt; zonder die vlag bepaalt de ligging op het terrein (of bij het adres) wat eigen is
     d.rows = readRows(d, s.rijen);
     const hasFlags = items.some(b => b.own);
-    d.buildings = items.map(b => building(d, b.p.map(([lo, la]) => d.toLocal(lo, la)), b.h, b.own)).filter(b => b && !looseObject(d, b));
+    d.buildings = items.map(b => { const o = building(d, b.p.map(([lo, la]) => d.toLocal(lo, la)), b.h, b.own); if (o) o.src = b.i; return o; }).filter(b => b && !looseObject(d, b));
     if (!hasFlags) for (const b of d.buildings) b.own = d.terrain ? inRing(b.c[0], b.c[1], d.terrain) || ringFrac(b.ring, d.terrain) > 0.5 : Math.hypot(b.c[0] - d.addr[0], b.c[1] - d.addr[1]) < 160 && b.area > 300;
     // de hal (hoofdgebouw) uit places.json; staat hij niet tussen de gebouwen, dan erbij
     const halLL = readRing(s.hal);
@@ -139,6 +142,10 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     d.factory = s.soort === 'fabriek' && d.terrain ? factoryLayout(d) : null;
     d.hedges = d.kind === 'depot' && d.terrain ? hedgesAround(d) : []; d.lamps = d.kind === 'depot' && d.terrain ? lampsFor(d) : []; d.floods = d.kind === 'depot' && d.terrain ? floodsFor(d) : [];
     d.trees = [...treesAround(d), ...(d.kind === 'depot' ? poplarsAlong(d, s.toegang) : [])]; d.cars = carsAtOffices(d);
+    // afdelingen (borden), laadplein en de spullen op het terrein
+    d.afd = readAfdelingen(d, s.afdelingen);
+    d.laad = d.kind === 'depot' && d.terrain ? chargerPlaza(d, s) : null;
+    d.spul = d.kind === 'depot' && d.terrain ? yardItems(d, s) : null;
   }
   // verharding voor de parkeerrijen die (deels) buiten het terrein liggen: een rechthoek om de vakken van zo'n rij
   function rowYards(d) {
@@ -453,6 +460,148 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     return out;
   }
 
+  // ---------- afdelingen, laadplein en spullen op het terrein ----------
+  // Afdelingen uit de gegevens (sp.afdelingen: [{ naam, soort, p: [lon, lat], gebouw?, bron }]): een naambord op het dak
+  // van het gebouw (gebouw: de index in de gebouwen van de plek), boven de dockdeuren of boven het gebied. Zonder dat
+  // veld geen borden. prio: wat voorgaat als twee borden elkaar op het scherm raken.
+  const AFD_PRIO = { kantoor: 0, loods: 1, garage: 2, wasstraat: 2, docks: 3, laadplein: 4, opleggers: 5, poort: 6 };
+  function readAfdelingen(d, list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const a of list) {
+      if (!a || !a.naam || !Array.isArray(a.p) || !isFinite(+a.p[0]) || !isFinite(+a.p[1])) continue;
+      let [x, z] = d.toLocal(+a.p[0], +a.p[1]); const b = a.gebouw != null ? d.buildings.find(o => o.src === +a.gebouw) : null; let y;
+      if (b) y = b.h + (b.kind === 'loods' ? 1.6 : 1.2);
+      else if (a.soort === 'docks' && d.docks.length) {
+        // boven de deuren, iets van de gevel af (het punt uit de gegevens ligt vaak op de gevel zelf)
+        let k = d.docks[0], kd = Infinity; for (const q of d.docks) { const dd = Math.hypot(q.x - x, q.z - z); if (dd < kd) { kd = dd; k = q; } }
+        x = k.x + k.nx * 2.5 + (x - k.x) * 0.3; z = k.z + k.nz * 2.5 + (z - k.z) * 0.3; y = 7.4;
+      } else y = a.soort === 'opleggers' ? 5.6 : 4.6;
+      out.push({ naam: String(a.naam).slice(0, 40), soort: String(a.soort || ''), x, z, y, prio: AFD_PRIO[a.soort] ?? 7 });
+    }
+    return out;
+  }
+  // Laadplein: laadpalen voor de elektrische trekkers op een betonnen eiland langs een rij, één paal per twee plekken,
+  // met een trafokast en gele paaltjes aan de koppen. Waar: het laadplein uit de afdelingen (soort laadplein), anders de
+  // rij die het dichtst bij het kantoor ligt. Hoeveel: sp.laadpunten, anders zoals laadpunten() in places.js (hub 24,
+  // warehouse 12, anders 4). Het eiland komt achter de rij, of voor de neuzen als daar een andere rij staat.
+  const LAADPUNTEN = s => Math.max(0, Math.round(+s.laadpunten || (s.hub ? 24 : s.wh ? 12 : 4)));
+  function nearRowOne(r, x, z, m) { const vx = x - r.p0[0], vz = z - r.p0[1]; const along = vx * r.dir[0] + vz * r.dir[1], across = vx * r.nose[0] + vz * r.nose[1]; return along > -r.sp / 2 - m && along < (r.n - 0.5) * r.sp + m && Math.abs(across) < 9.5 + m; }
+  function chargerPlaza(d, s) {
+    const n = LAADPUNTEN(s); if (!n || !d.rows.length) return null;
+    const a = Array.isArray(s.afdelingen) ? s.afdelingen.find(q => q && q.soort === 'laadplein' && Array.isArray(q.p)) : null;
+    const office = d.buildings.find(b => b.own && b.kind === 'kantoor') || d.buildings.find(b => b.hal);
+    const target = a ? d.toLocal(+a.p[0], +a.p[1]) : office ? office.c : d.addr;
+    // de rijen bij het doel (hun dichtstbijzijnde plek binnen 160 m), dichtstbij eerst; hooguit drie eilanden
+    const cand = [];
+    for (const r of d.rows) { if (r.dock || r.n < 2) continue; let bj = 0, bd = Infinity; for (let j = 0; j < r.n; j++) { const dd = Math.hypot(r.p0[0] + r.dir[0] * j * r.sp - target[0], r.p0[1] + r.dir[1] * j * r.sp - target[1]); if (dd < bd) { bd = dd; bj = j; } } if (bd < 160) cand.push({ r, j: bj, dist: bd }); }
+    cand.sort((p, q) => p.dist - q.dist);
+    const islands = [], posts = []; let left = Math.ceil(n / 2);
+    for (const { r, j } of cand) {
+      if (left <= 0 || islands.length >= 3) break;
+      const k = Math.min(left, Math.floor(r.n / 2)); if (k < 1) continue;
+      const j0 = clamp(j - k + 1, 0, Math.max(0, r.n - 2 * k));
+      const at = (along, fwd) => [r.p0[0] + r.dir[0] * along + r.nose[0] * fwd, r.p0[1] + r.dir[1] * along + r.nose[1] * fwd];
+      const others = d.rows.filter(q => q !== r);
+      const clear = fwd => { for (let q = 0; q <= 2 * k; q++) { const [x, z] = at((j0 + q - 0.5) * r.sp, fwd); if (!free(d, x, z) || nearBuilding(d, x, z, 1) || others.some(o => nearRowOne(o, x, z, 0.3)) || posts.some(p => Math.hypot(p[0] - x, p[1] - z) < 3)) return false; } return true; };
+      const fwd = clear(-10.2) ? -10.2 : clear(9.4) ? 9.4 : null; if (fwd == null) continue;
+      const own = []; for (let q = 0; q < k; q++) own.push(at((j0 + 2 * q + 0.5) * r.sp, fwd));
+      islands.push({ r, posts: own, fwd, from: (j0 - 0.5) * r.sp, to: (j0 + 2 * k - 0.5) * r.sp }); posts.push(...own); left -= k;
+    }
+    return islands.length ? { islands, posts, n: Math.min(n, posts.length * 2) } : null;
+  }
+  // Spullen op het terrein: stapels pallets langs een gevel van de hal zonder docks, een paar zeecontainers langs de rand
+  // van het terrein (gedekte kleuren, geen merk) en een tankstation als de notitie of de afdelingen dat noemen. Vaste
+  // plekken per standplaats (een toevalsreeks op de naam); nooit op een rij, een schort, de inrit of tegen een lamp.
+  const CONT = [P.contBlauw, P.contRood, P.contGroen, P.contGrijs];
+  function yardItems(d, s) {
+    const r = rng(d.seed ^ 0x5A11); const out = { pallets: [], containers: [], tank: null }; const taken = [];
+    const lamps = [...(d.lamps || []), ...(d.floods || [])];
+    const okAt = (x, z, m) => free(d, x, z) && !nearBuilding(d, x, z, m) && !nearRow(d, x, z, m) && !(d.aprons || []).some(q => inRing(x, z, q) || nearestOnRing(x, z, q).d < m)
+      && !(d.entrance && Math.hypot(x - d.entrance.x, z - d.entrance.z) < 32) && !(d.cars || []).some(c => Math.hypot(x - c[0], z - c[1]) < 3 + m)
+      && !lamps.some(l => Math.hypot(x - l[0], z - l[1]) < 1.5 + m) && !taken.some(t => Math.hypot(x - t[0], z - t[1]) < t[2] + m)
+      && !(d.laad && d.laad.posts.some(p => Math.hypot(x - p[0], z - p[1]) < 5 + m));
+    // pallets: hooguit drie groepjes van twee tot zes stapels, 2,2 m van een gevel van de hal waar geen docks zitten
+    const hal = d.buildings.find(b => b.hal) || d.buildings.filter(b => b.own && b.kind === 'loods').sort((p, q) => q.area - p.area)[0];
+    if (hal) {
+      const edges = [];
+      for (let i = 0; i < hal.ring.length; i++) {
+        const a = hal.ring[i], c = hal.ring[(i + 1) % hal.ring.length]; const L = Math.hypot(c[0] - a[0], c[1] - a[1]); if (L < 14) continue; const nn = edgeNormal(hal.ring, i);
+        const ux = (c[0] - a[0]) / L, uz = (c[1] - a[1]) / L;
+        if (d.docks.some(k => { const u = (k.x - a[0]) * ux + (k.z - a[1]) * uz, v = (k.x - a[0]) * nn[0] + (k.z - a[1]) * nn[1]; return u > -6 && u < L + 6 && Math.abs(v) < 5; })) continue;
+        edges.push({ a, L, nn, ux, uz });
+      }
+      for (let t = 0; t < 36 && out.pallets.length < 14 && edges.length; t++) {
+        const e = edges[Math.floor(r() * edges.length)]; const s0 = 3 + r() * Math.max(1, e.L - 14); const cnt = 2 + Math.floor(r() * 5); const cells = [];
+        for (let q = 0; q < cnt; q++) { const along = s0 + q * 1.5; if (along > e.L - 2) break; const x = e.a[0] + e.ux * along + e.nn[0] * 2.2, z = e.a[1] + e.uz * along + e.nn[1] * 2.2; if (!okAt(x, z, 0.6)) break; cells.push([x, z]); }
+        if (cells.length < 2) continue;
+        for (const [x, z] of cells) out.pallets.push([x, z, Math.atan2(e.uz, e.ux), 4 + Math.floor(r() * 9)]);
+        const m = cells[Math.floor(cells.length / 2)]; taken.push([m[0], m[1], cells.length * 0.9 + 1]);
+      }
+    }
+    // zeecontainers: 20 of 40 voet, evenwijdig aan de rand, 5,5 m binnen het terrein; op een hub soms twee hoog
+    const want = s.hub ? 4 : s.wh ? 3 : 1 + Math.floor(r() * 2); const In = offsetRing(d.terrain, -5.5);
+    for (let t = 0; t < 80 && out.containers.length < want && In.length > 2; t++) {
+      const i = Math.floor(r() * In.length); const a = In[i], c = In[(i + 1) % In.length]; const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      const len = r() < 0.45 ? 6.06 : 12.19; if (L < len + 6) continue; const ux = (c[0] - a[0]) / L, uz = (c[1] - a[1]) / L;
+      const along = len / 2 + 3 + r() * (L - len - 6); const x = a[0] + ux * along, z = a[1] + uz * along;
+      if (![[0, 0], [len / 2 - 0.3, 0], [-len / 2 + 0.3, 0], [0, 1.0], [0, -1.0]].every(([u, v]) => okAt(x + ux * u - uz * v, z + uz * u + ux * v, 0.8))) continue;
+      out.containers.push([x, z, Math.atan2(uz, ux), len, CONT[Math.floor(r() * CONT.length)], s.hub && r() < 0.35 ? CONT[Math.floor(r() * CONT.length)] : null]);
+      taken.push([x, z, len / 2 + 1.5]);
+    }
+    // tankstation (notitie of afdeling): een overkapping van 12 bij 7 m met twee pompeilanden, bij de afdeling of bij de inrit
+    const tk = Array.isArray(s.afdelingen) ? s.afdelingen.find(q => q && /tank/i.test(q.soort || '') && Array.isArray(q.p)) : null;
+    if (tk || /tankstation|brandstof|dieselpomp|\btank\b|\bpomp\b/i.test(s.note || '')) {
+      const pts = []; if (tk) pts.push(d.toLocal(+tk.p[0], +tk.p[1]));
+      if (d.entrance) { const e = d.entrance; for (let q = 0; q < 24; q++) { const ang = q * 0.785, rr = 34 + (q >> 3) * 12; pts.push([e.x + e.nx * 30 + Math.cos(ang) * rr, e.z + e.nz * 30 + Math.sin(ang) * rr]); } }
+      for (const [x, z] of pts) { const a = d.axis || 0; if ([[0, 0], [6, 3.5], [-6, 3.5], [6, -3.5], [-6, -3.5]].every(([u, v]) => { const [ox, oz] = rot(u, v, a); return okAt(x + ox, z + oz, 1.5); })) { out.tank = [x, z, a]; break; } }
+    }
+    return out;
+  }
+  // laadpalen, eiland, trafokast en paaltjes (per eiland)
+  function chargerGeo(Bd, d) {
+    if (!d.laad) return;
+    for (const Lp of d.laad.islands) {
+      const r = Lp.r; const a = Math.atan2(r.dir[1], r.dir[0]);
+      const at = (along, fwd) => [r.p0[0] + r.dir[0] * along + r.nose[0] * fwd, r.p0[1] + r.dir[1] * along + r.nose[1] * fwd];
+      const [ix, iz] = at((Lp.from + Lp.to) / 2, Lp.fwd); obox(Bd, ix, 0.08, iz, Lp.to - Lp.from + 1.2, 0.16, 1.5, a, PU(P.beton));
+      for (const [x, z] of Lp.posts) {
+        obox(Bd, x, 1.1, z, 0.55, 1.9, 0.32, a, PU(P.wit)); obox(Bd, x, 1.75, z, 0.42, 0.42, 0.34, a, PU(P.laadLed));
+        obox(Bd, x, 2.1, z, 0.58, 0.08, 0.36, a, PU(P.grijsLicht)); obox(Bd, x, 1.15, z, 0.12, 0.5, 0.42, a, PU(P.inkt));
+      }
+      for (const end of [Lp.from - 0.4, Lp.to + 0.4]) for (const off of [-0.45, 0.45]) { const [x, z] = at(end, Lp.fwd + off); obox(Bd, x, 0.66, z, 0.16, 1.0, 0.16, a, PU(P.veiligGeel)); }
+      const [tx, tz] = at(Lp.to + 2.4, Lp.fwd); if (free(d, tx, tz) && !nearRow(d, tx, tz, 0)) { obox(Bd, tx, 1.12, tz, 2.6, 2.1, 1.4, a, PU(P.grijsLicht)); obox(Bd, tx, 2.24, tz, 2.8, 0.14, 1.6, a, PU(P.hek)); }
+    }
+  }
+  function yardItemsGeo(Bd, d) {
+    const S = d.spul; if (!S) return;
+    for (const [x, z, a, k] of S.pallets) { const h = k * 0.144; obox(Bd, x, h / 2, z, 1.2, h, 0.8, a, PU(P.hout)); obox(Bd, x, 0.05, z, 1.22, 0.1, 0.82, a, PU(P.rubber)); }
+    for (const [x, z, a, len, col, top] of S.containers) {
+      for (const [y0, cc] of [[0, col], ...(top ? [[2.59, top]] : [])]) {
+        obox(Bd, x, y0 + 1.295, z, len, 2.59, 2.44, a, PU(cc));
+        // ribbels op de zijwanden en de deuren aan de kop
+        for (let u = -len / 2 + 0.9; u < len / 2 - 0.5; u += 1.1) for (const sd of [-1, 1]) { const [ox, oz] = rot(u, sd * 1.23, a); obox(Bd, x + ox, y0 + 1.3, z + oz, 0.12, 2.3, 0.04, a, PU(P.hek)); }
+        const [dx, dz] = rot(len / 2 + 0.01, 0, a); for (const v of [-0.6, 0.6]) { const [vx, vz] = rot(0, v, a); obox(Bd, x + dx + vx, y0 + 1.3, z + dz + vz, 0.04, 2.3, 0.07, a, PU(P.staal)); }
+      }
+    }
+    if (S.tank) {
+      const [x, z, a] = S.tank; const P0 = (u, v) => { const [ox, oz] = rot(u, v, a); return [x + ox, z + oz]; };
+      for (const [u, v] of [[-5, -2.6], [5, -2.6], [-5, 2.6], [5, 2.6]]) { const [cx, cz] = P0(u, v); obox(Bd, cx, 2.7, cz, 0.35, 5.4, 0.35, a, PU(P.grijsLicht)); }
+      obox(Bd, x, 5.6, z, 12, 0.5, 7, a, PU(P.wit)); obox(Bd, x, 5.3, z, 12.1, 0.12, 7.1, a, PU(P.dakrand));
+      for (const v of [-1.6, 1.6]) { const [cx, cz] = P0(0, v); obox(Bd, cx, 0.12, cz, 4.4, 0.24, 1.2, a, PU(P.beton)); for (const u of [-1.2, 1.2]) { const [px, pz] = P0(u, v); obox(Bd, px, 1.1, pz, 0.6, 1.8, 0.45, a, PU(P.grijsLicht)); obox(Bd, px, 1.55, pz, 0.44, 0.36, 0.47, a, PU(P.inkt)); } }
+    }
+  }
+  // dockstrook: gele wielgeleiders bij elke deur en betonblokken langs de koppen van het schort (1 tot 11 m van de gevel)
+  function dockGuardsGeo(Bd, d) {
+    for (const k of d.docks) { const a = Math.atan2(k.nz, k.nx); for (const sd of [-1, 1]) obox(Bd, k.x + k.ux * sd * 1.62 + k.nx * 2.4, 0.16, k.z + k.uz * sd * 1.62 + k.nz * 2.4, 3.6, 0.32, 0.12, a, PU(P.veiligGeel)); }
+    for (const ap of d.aprons || []) {
+      for (const [P0, P1] of [[ap[0], ap[3]], [ap[1], ap[2]]]) {
+        const L = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]); if (L < 3) continue; const ux = (P1[0] - P0[0]) / L, uz = (P1[1] - P0[1]) / L; const a = Math.atan2(uz, ux);
+        for (let t = 1.0; t + 1.6 <= Math.min(L, 11.5); t += 1.75) { const x = P0[0] + ux * (t + 0.8), z = P0[1] + uz * (t + 0.8); if (!free(d, x, z) || nearBuilding(d, x, z, 0.3)) continue; obox(Bd, x, 0.4, z, 1.6, 0.8, 0.8, a, PU(P.beton)); }
+      }
+    }
+  }
+
   // ---------- meshes van een standplaats of DC ----------
   // Eigen gebouwen in vol detail (vanaf zoom 11), de buurt eenvoudiger en pas vanaf 13,2.
   // Eerst de eigen plek (terrein, eigen gebouwen, docks, poort), een beeld later de buurt (veel kleine panden).
@@ -486,15 +635,17 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     const g = new THREE.Group(); g.name = d.name; d.group = g;
     const own = d.buildings.filter(b => b.own || d.shop);
     // terrein (asfalt en beton) met markeringen
-    const yard = new Builder(); if (d.terrain) flat(yard, d.terrain, 0.04, 20); for (const r of d.siteYard || []) flat(yard, r, 0.04, 20);
+    const yard = new Builder(); if (d.terrain) flat(yard, d.terrain, 0.04, 40); for (const r of d.siteYard || []) flat(yard, r, 0.04, 40);
     addTo(g, yard.empty ? null : yard.geometry(), M.yard, 11.4, false, true);
     const apron = new Builder(); for (const r of d.aprons || []) flat(apron, cleanRing(r), 0.055, 6); addTo(g, apron.empty ? null : apron.geometry(), M.apron, 14, false, true);
-    const mk = new Builder(), mkSlots = new Builder(); marks(d, mk, mkSlots); addTo(g, mk.empty ? null : mk.geometry(), pal, 15, false, true); addTo(g, mkSlots.empty ? null : mkSlots.geometry(), pal, 16.2, false, true);
+    const mk = new Builder(), mkSlots = new Builder(); marks(d, mk, mkSlots); addTo(g, mk.empty ? null : mk.geometry(), M.marks, 15, false, true); addTo(g, mkSlots.empty ? null : mkSlots.geometry(), M.marks, 16.2, false, true);
     // eigen gebouwen in vol detail
     const B = mkB(); for (const b of own) buildingGeo(d, b, B); addStyles(g, B, 11, false);
     // docks, slagboom, portiersloge, bord, lantaarnpalen, dakdetails, silo's (een palet)
     for (const k of d.docks) dockGeo(B.det, k);
     if (d.entrance && d.kind === 'depot') gateGeo(d, B.det);
+    if (!d.shop) dockGuardsGeo(B.det, d);
+    chargerGeo(B.det, d); yardItemsGeo(B.det, d);
     for (const [x, z, a] of d.lamps || []) lampGeo(B.det, x, z, a);
     for (const [x, z, a] of d.floods || []) floodGeo(B.det, x, z, a);
     if (d.factory) for (const [x, z, r, h] of d.factory.silos) siloGeo(B.det, x, z, r, h);
@@ -505,7 +656,7 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     if (d.factory) addPieces(d);
     addSkirts(g, own, 13.4);
     root.add(g); place(d);
-    d.pools = [...(d.lamps || []).map(([x, z, a]) => [x + Math.cos(a) * 1.1, z + Math.sin(a) * 1.1, 9]), ...(d.floods || []).map(([x, z]) => [x, z, 24]), ...d.docks.map(k => [k.x + k.nx * 4, k.z + k.nz * 4, 5])];
+    d.pools = [...(d.lamps || []).map(([x, z, a]) => [x + Math.cos(a) * 1.1, z + Math.sin(a) * 1.1, 9]), ...(d.floods || []).map(([x, z]) => [x, z, 24]), ...d.docks.map(k => [k.x + k.nx * 4.5, k.z + k.nz * 4.5, 6.5])];
     d.nbDone = !d.buildings.some(b => !b.own && !d.shop);
     d.buildMs = performance.now() - t0;
   }
@@ -548,7 +699,7 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     }
     return Bd.geometry();
   }
-  const BRICK = WALLS, TILE = ROOFS;
+  const BRICK = WALLS, TILE = ROOFS; const FLAT_ROOF = new THREE.Color(0x55595D);
   function buildingGeo(d, b, B) {
     const r = b.ring;
     if (b.kind === 'huis') {
@@ -557,12 +708,20 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
       const fill = b.area / Math.max(1, len * wid); const eave = clamp(b.h * 0.62, 2.8, 7); const ridge = Math.max(eave + 1.5, Math.min(b.h, eave + wid * 0.6));
       const col = new THREE.Color(BRICK[Math.floor(hash(b.seed, 1) * BRICK.length)]); const tile = new THREE.Color(TILE[Math.floor(hash(b.seed, 2) * TILE.length)]);
       const n0 = B.hw.pos.length; walls(B.hw, r, 0, eave, 6, 5.6); B.hw.col = (B.hw.col || []).concat(colorRun(col, (B.hw.pos.length - n0) / 3));
-      if (fill > 0.72) {
+      // dak: zadeldak (zes op de tien), schilddak of plat (een donker vlak op de goot); vaste keuze per huis
+      const rk = hash(b.seed, 3);
+      if (fill > 0.72 && rk < 0.9) {
         const [ccx, ccz] = rot((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2, a); const cx = b.c[0] + ccx, cz = b.c[1] + ccz;
         const along = len >= wid; const hl = (along ? len : wid) / 2, hw = (along ? wid : len) / 2; const ang = along ? a : a + Math.PI / 2;
-        const m0 = B.ht.pos.length; gable(B.ht, cx, cz, hl, hw, ang, eave, ridge, 0.35, 4); B.ht.col = (B.ht.col || []).concat(colorRun(tile, (B.ht.pos.length - m0) / 3));
-        const m1 = B.hw.pos.length; gableEnds(B.hw, cx, cz, hl, hw, ang, eave, ridge, 6, 5.6); B.hw.col = B.hw.col.concat(colorRun(col, (B.hw.pos.length - m1) / 3));
-      } else { const m0 = B.ht.pos.length; flat(B.ht, r, eave, 4); B.ht.col = (B.ht.col || []).concat(colorRun(tile, (B.ht.pos.length - m0) / 3)); }
+        const m0 = B.ht.pos.length; (rk < 0.62 ? gable : hip)(B.ht, cx, cz, hl, hw, ang, eave, ridge, 0.35, 4); B.ht.col = (B.ht.col || []).concat(colorRun(tile, (B.ht.pos.length - m0) / 3));
+        if (rk < 0.62) { const m1 = B.hw.pos.length; gableEnds(B.hw, cx, cz, hl, hw, ang, eave, ridge, 6, 5.6); B.hw.col = B.hw.col.concat(colorRun(col, (B.hw.pos.length - m1) / 3)); }
+      } else { const m0 = B.ht.pos.length; flat(B.ht, r, eave, 4); B.ht.col = (B.ht.col || []).concat(colorRun(rk >= 0.9 ? FLAT_ROOF : tile, (B.ht.pos.length - m0) / 3)); }
+      // een lage haag langs de voortuin (de langste gevel), in twee stukken met het pad ertussen; niet bij elk huis
+      if (B.det && hash(b.seed, 5) < 0.45) {
+        let bi = 0, bl = 0; for (let i = 0; i < r.length; i++) { const p = r[i], q = r[(i + 1) % r.length]; const L = Math.hypot(q[0] - p[0], q[1] - p[1]); if (L > bl) { bl = L; bi = i; } }
+        const p = r[bi], q = r[(bi + 1) % r.length]; const nn = edgeNormal(r, bi); const ux = (q[0] - p[0]) / bl, uz = (q[1] - p[1]) / bl; const seg = bl / 2 - 0.7;
+        if (seg > 1) for (const sd of [-1, 1]) { const t = bl / 2 + sd * (0.7 + seg / 2); const x = p[0] + ux * t + nn[0] * 2.6, z = p[1] + uz * t + nn[1] * 2.6; if (!nearBuilding(d, x, z, 0.8)) obox(B.det, x, 0.5, z, seg, 1.0, 0.6, Math.atan2(uz, ux), PU(P.haag)); }
+      }
       return;
     }
     if (b.kind === 'winkel') {
@@ -660,7 +819,7 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
   }
   // markeringen: de vakken van de parkeerrijen (of van de eigen indeling), geleidelijnen voor de docks, stopstreep bij de poort
   function marks(d, mk, mkSlots) {
-    const W = PU(P.witLijn), Y = PU(P.oranje); const y = 0.07;
+    const W = PU(P.witLijn); const y = 0.07;
     // rijen uit de gegevens: scheidingslijnen tussen de plekken (langs de neusrichting) en een achterlijn
     for (const r of d.rows) {
       if (r.dock) continue;   // een rij aan de docks heeft de gele geleidelijnen van de docks
@@ -679,7 +838,20 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
       const T = d.terrain; const tb = bbox(T.map(p => rot(p[0], p[1], -a)));
       for (const v of d.aisles || []) for (let u = tb[0] + 4; u < tb[2] - 6; u += 7) { const [x0, z0] = rot(u, v, a), [x1, z1] = rot(u + 3, v, a); if (!inRing(x0, z0, T) || !inRing(x1, z1, T) || nearBuilding(d, (x0 + x1) / 2, (z0 + z1) / 2, 4)) continue; if ((d.aprons || []).some(r => inRing((x0 + x1) / 2, (z0 + z1) / 2, r))) continue; line(mk, x0, z0, x1, z1, 0.16, y, W); }
     }
-    for (const k of d.docks) for (const s of [-1, 1]) { const bx = k.x + k.ux * s * 1.75, bz = k.z + k.uz * s * 1.75; line(mk, bx + k.nx * 1.2, bz + k.nz * 1.2, bx + k.nx * 14, bz + k.nz * 14, 0.13, y, Y); }
+    // dockvakken: twee witte lijnen per deur, van de gevel tot 17 m het terrein op
+    for (const k of d.docks) for (const s of [-1, 1]) { const bx = k.x + k.ux * s * 1.75, bz = k.z + k.uz * s * 1.75; line(mk, bx + k.nx * 1.2, bz + k.nz * 1.2, bx + k.nx * 17, bz + k.nz * 17, 0.14, 0.095, W); }
+    // rijbanen: een onderbroken middenlijn in het gangpad voor elke rij (15,5 m voor de lijn van de plekken); niet waar al
+    // een streep ligt, niet in een rij, op een schort of tegen een gebouw
+    const dashes = [];
+    if (d.terrain) for (const r of d.rows) {
+      if (r.n < 3) continue;
+      for (let along = -r.sp / 2; along < (r.n - 0.5) * r.sp - 3; along += 9) {
+        const x0 = r.p0[0] + r.dir[0] * along + r.nose[0] * 15.5, z0 = r.p0[1] + r.dir[1] * along + r.nose[1] * 15.5, x1 = x0 + r.dir[0] * 3, z1 = z0 + r.dir[1] * 3; const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+        if (!inRing(x0, z0, d.terrain) || !inRing(x1, z1, d.terrain) || nearRow(d, mx, mz, 1) || nearBuilding(d, mx, mz, 3) || (d.aprons || []).some(q => inRing(mx, mz, q))) continue;
+        if (dashes.some(([px, pz]) => Math.hypot(px - mx, pz - mz) < 5)) continue;
+        dashes.push([mx, mz]); line(mk, x0, z0, x1, z1, 0.15, y, W);
+      }
+    }
     if (d.entrance && d.kind === 'depot') { const e = d.entrance; const ux = -e.nz, uz = e.nx; const cx = e.x + e.nx * 9, cz = e.z + e.nz * 9; line(mk, cx - ux * 6.5, cz - uz * 6.5, cx + ux * 6.5, cz + uz * 6.5, 0.4, y, W); for (let s = 12; s < 40; s += 6) { const mx = e.x + e.nx * (s + 1.5), mz = e.z + e.nz * (s + 1.5); if (nearRow(d, mx, mz, 0) || nearBuilding(d, mx, mz, 1)) break; line(mk, e.x + e.nx * s, e.z + e.nz * s, e.x + e.nx * (s + 3), e.z + e.nz * (s + 3), 0.15, y, W); } }
   }
 
@@ -798,7 +970,8 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
   function initPieces() {
     for (const k of ['tank', 'chimney']) { if (PIECE[k]) continue; const a = assets[k]; if (!a) continue; PIECE[k] = { geometry: a.geometry, material: new THREE.MeshStandardMaterial({ map: a.map, color: 0xFFFFFF, roughness: k === 'tank' ? 0.5 : 0.8, metalness: k === 'tank' ? 0.15 : 0 }) }; }
   }
-  const houseSet = near => { const body = mk(HG.body, M.house, MAXH, near), roof = mk(HG.roof, M.houseRoof, MAXH, near); body.setColorAt(0, new THREE.Color()); roof.setColorAt(0, new THREE.Color()); return { body, roof }; };
+  // huizen: muren, zadeldaken en schilddaken (een plat dak is een schilddak van 35 cm hoog), elk een eigen tekening
+  const houseSet = near => { const body = mk(HG.body, M.house, MAXH, near), roof = mk(HG.roof, M.houseRoof, MAXH, near), hip = mk(HG.hip, M.houseRoof, MAXH, near); for (const m of [body, roof, hip]) m.setColorAt(0, new THREE.Color()); return { body, roof, hip }; };
   const houses = [houseSet(true), houseSet(false)];
   const hedges = mk(hedgeGeo, M.hedge, MAXHE, true);
   // geparkeerde auto's: palet zonder eigen licht (hun lampen branden niet), de lakkleur per exemplaar
@@ -826,8 +999,8 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     const now = performance.now(); if (!force && natureKey === key && now - lastNature.t < 180) return false;
     natureKey = key; lastNature = { fx: view.focus[0], fz: view.focus[1], R: view.R, t: now };
     for (const t of Object.values(treeMeshes)) { t.crown.count = 0; t.trunk.count = 0; }
-    for (const h of houses) { h.body.count = 0; h.roof.count = 0; } hedges.count = 0; for (const m of cars) m.count = 0;
-    if (tier === 0) { for (const t of Object.values(treeMeshes)) t.crown.visible = t.trunk.visible = false; for (const h of houses) h.body.visible = h.roof.visible = false; hedges.visible = false; for (const m of cars) m.visible = false; return true; }
+    for (const h of houses) { h.body.count = 0; h.roof.count = 0; h.hip.count = 0; } hedges.count = 0; for (const m of cars) m.count = 0;
+    if (tier === 0) { for (const t of Object.values(treeMeshes)) t.crown.visible = t.trunk.visible = false; for (const h of houses) h.body.visible = h.roof.visible = h.hip.visible = false; hedges.visible = false; for (const m of cars) m.visible = false; return true; }
     const lod = tier >= 3 ? 'hi' : 'lo'; const kinds = KINDS_T;
     const R = view.R * 1.25, R2 = R * R; const fx = view.focus[0], fz = view.focus[1]; const S2 = (view.shadowR || 1300) ** 2;
     const isNear = (x, z) => (x - fx) * (x - fx) + (z - fz) * (z - fz) < S2;
@@ -859,17 +1032,25 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
       const r = rng(seed); const a = r() * Math.PI;
       if (r() < 0.6) {
         if (tier < 2 || ofm) { for (let k = 0; k < 3; k++) { const ox = (r() - 0.5) * 50, oz = (r() - 0.5) * 50; if (!blocked(x + ox, z + oz, false)) addTree(x + ox, z + oz, 0, 0.8 + r() * 0.5, Math.floor(r() * 5), r() * 6.28); } continue; }
-        const rows = 1 + Math.floor(r() * 3); const terr = r() < 0.55; const wall = Math.floor(r() * WALLS.length), roof = Math.floor(r() * ROOFS.length);
+        // rijtjes (één gevel en één dak voor de hele rij, meestal een zadeldak, soms plat) of vrijstaande huizen (elk een
+        // eigen gevel en dak: zadeldak, schilddak of plat); voortuinen met een lage haag (met een opening voor het pad)
+        const rows = 1 + Math.floor(r() * 3); const terr = r() < 0.55; const wall = Math.floor(r() * WALLS.length), roof = Math.floor(r() * ROOFS.length); const rowRoof = r() < 0.8 ? 0 : 2;
         for (let row = 0; row < rows; row++) {
           const n = terr ? 4 + Math.floor(r() * 4) : 2 + Math.floor(r() * 3); const depth = terr ? 9 : 9 + r() * 3; const eave = terr ? 5.8 : 3.0 + r() * 3.2; const off = (row - (rows - 1) / 2) * (depth + 16);
+          const front = off > 0.1 ? -1 : 1;   // de voorkant naar de straat tussen de rijen
           let u = -n * (terr ? 3.2 : 7);
           for (let k = 0; k < n; k++) {
             const w = terr ? 5.8 + r() * 0.8 : 8 + r() * 3; const cu = u + w / 2; u += w + (terr ? 0 : 5 + r() * 6);
             const [ox, oz] = rot(cu, off, a); const hx = x + ox, hz = z + oz; if (blocked(hx, hz, true)) continue; const H = houses[isNear(hx, hz) ? 0 : 1]; const i = H.body.count; if (i >= MAXH) break;
             const wc = terr ? wall : Math.floor(r() * WALLS.length), rc = terr ? roof : Math.floor(r() * ROOFS.length); const rh = (terr ? depth : Math.min(w, depth)) * 0.55;
-            setInst(H.body, i, hx, 0, hz, -a, w, eave, depth); H.body.setColorAt(i, C.setHex(WALLS[wc]));
-            setInst(H.roof, i, hx, eave, hz, -a, w + (terr ? 0.02 : 0.7), rh, depth + 0.8); H.roof.setColorAt(i, C.setHex(ROOFS[rc]));
-            H.body.count = H.roof.count = i + 1;
+            const rt = r(); const kind = terr ? rowRoof : rt < 0.6 ? 0 : rt < 0.88 ? 1 : 2; const RM = kind === 0 ? H.roof : H.hip; const j = RM.count;
+            setInst(H.body, i, hx, 0, hz, -a, w, eave, depth); H.body.setColorAt(i, C.setHex(WALLS[wc])); H.body.count = i + 1;
+            if (j < MAXH) { setInst(RM, j, hx, eave, hz, -a, w + (terr ? 0.02 : 0.7), kind === 2 ? 0.35 : rh, depth + 0.8); RM.setColorAt(j, C.setHex(kind === 2 ? 0x55595D : ROOFS[rc])); RM.count = j + 1; }
+            if (tier >= 3 && r() < (terr ? 0.4 : 0.5)) {
+              // een haag langs de voortuin, 2,6 m voor de gevel, in twee stukken met het pad ertussen
+              const hh = 0.85 + r() * 0.35, half = (w + (terr ? 0 : 2.4)) / 2;
+              for (const sd of [-1, 1]) { const segL = half - 0.7; if (segL < 0.8) continue; const [qx, qz] = rot(cu + sd * (0.7 + segL / 2), off + front * (depth / 2 + 2.6), a); if (blocked(x + qx, z + qz, false)) continue; const hi = hedges.count; if (hi >= MAXHE) break; setInst(hedges, hi, x + qx, 0, z + qz, -a, segL, hh, 0.6); const v = r(); hedges.setColorAt(hi, C.setRGB(0.88 + v * 0.2, 0.9 + v * 0.18, 0.86 + v * 0.14)); hedges.count = hi + 1; }
+            }
           }
         }
         for (let k = 0; k < 2 + Math.floor(r() * 4); k++) { const [ox, oz] = rot((r() - 0.5) * 70, (r() < 0.5 ? -1 : 1) * (14 + r() * 16), a); if (!blocked(x + ox, z + oz, false)) addTree(x + ox, z + oz, r() < 0.55 ? 0 : r() < 0.6 ? 3 : 1, 0.75 + r() * 0.45, Math.floor(r() * 5), r() * 6.28); }
@@ -879,7 +1060,7 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
       }
     }
     for (const [k, t] of Object.entries(treeMeshes)) { const on = k.startsWith(lod) && t.crown.count > 0; t.crown.visible = t.trunk.visible = on; t.crown.instanceMatrix.needsUpdate = t.trunk.instanceMatrix.needsUpdate = true; if (t.crown.instanceColor) t.crown.instanceColor.needsUpdate = true; }
-    for (const h of houses) { h.body.visible = h.roof.visible = tier >= 2 && h.body.count > 0; for (const m of [h.body, h.roof]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } }
+    for (const h of houses) { for (const m of [h.body, h.roof, h.hip]) { m.visible = tier >= 2 && m.count > 0; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } }
     hedges.instanceMatrix.needsUpdate = true; if (hedges.instanceColor) hedges.instanceColor.needsUpdate = true;
     for (const m of cars) { m.visible = tier >= 2 && m.count > 0; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
     hedges.visible = tier >= 2 && hedges.count > 0;
@@ -928,16 +1109,27 @@ export function createWorld({ scene, SP, urban, buildingsLoader, pal, theme, sho
     coverCache = polys.length ? { type: 'MultiPolygon', coordinates: polys } : false; return coverCache || null;
   }
   let ofm = false; function setOfm(v) { if (v !== ofm) { ofm = v; natureKey = ''; } }
-  function setTheme(t) {
-    theme = t; const k = dark() ? 1 : 0;
-    M.yard.color.setHex(dark() ? 0x69717B : 0xFFFFFF); M.apron.color.setHex(dark() ? 0x59606A : 0xFFFFFF);
+  // het thema van de interface verandert de wereld niet: het licht komt uit de klok van de simulatie (setLicht)
+  function setTheme(t) { theme = t; }
+  // licht uit de klok (scene3d.js, licht.js): ramen en dockborden branden vanaf de schemer, en 's nachts is het terrein
+  // donkerder, zodat de lichtpoelen en de verlichte gevels eruit springen
+  const WIT = new THREE.Color(0xFFFFFF), YARD_N = new THREE.Color(0x737B85), APRON_N = new THREE.Color(0x646B74);
+  function setLicht(L) {
+    const k = L.lampen;
+    M.yard.color.copy(WIT).lerp(YARD_N, L.donker); M.apron.color.copy(WIT).lerp(APRON_N, L.donker);
     for (const m of [M.office, M.officeV, M.houseVC, M.house, M.wallSL, M.wallN, M.wallNV]) m.emissiveIntensity = k * (m === M.wallSL || m === M.wallN || m === M.wallNV ? 0.9 : 1.15);
     M.plate.emissiveIntensity = k * 0.32;
   }
   function stats() { let tris = 0; root.traverseVisible(o => { if (o.isMesh && o.visible) { const n = (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; tris += o.isInstancedMesh ? n * o.count : n; } }); return { depotsBuilt: depots.filter(d => d.built).length, sitesBuilt: sites.filter(d => d.built).length, nbBuilt: [...depots, ...sites].filter(d => d.nbGroup).length, sites: sites.length, realDepots: depots.filter(d => d.buildings && d.buildings.some(b => b.own) && !d.procedural).length, layoutMs: Math.round(prepMs), prepared: [...depots, ...sites].filter(d => d.prepared && !d.shop).length, assetMs, pieceMs, kenneyTrees, docks: depots.reduce((a, d) => a + (d.docks ? d.docks.length : 0), 0), tris: Math.round(tris), buildMs: Math.round([...depots, ...sites].reduce((a, d) => a + (d.buildMs || 0), 0)), nbMs: Math.round([...depots, ...sites].reduce((a, d) => a + (d.nbMs || 0), 0)) }; }
   function dispose() { root.traverse(o => { if (o.isMesh) { o.geometry.dispose(); } }); for (const m of Object.values(M)) { for (const k of ['map', 'emissiveMap']) if (m[k]) m[k].dispose(); m.dispose(); } for (const pc of Object.values(PIECE)) { if (pc.material.map) pc.material.map.dispose(); pc.material.dispose(); pc.geometry.dispose(); } palCars.dispose(); scene.remove(root); }
   setTheme(theme);
-  return { loading, update, updateNature, setOrigin, endParking, dockAt, dockPose, customer, rowHeading, setTheme, stats, dispose, coverage, setOfm, depots, sites: () => sites, ready: () => ready, root, pools: () => { const out = []; for (const d of [...depots, ...sites]) if (d.group && d.group.visible && d.pools) for (const [x, z, r] of d.pools) { const [sx, sz] = toScene(d, x, z); out.push([sx, sz, r * d.sc]); } return out; } };
+  // de naamborden van de afdelingen in beeld (zichtbare plekken met sp.afdelingen), in scene-meters
+  const signList = [];
+  function signs() { signList.length = 0; for (const d of depots) { if (!d.group || !d.group.visible || !d.afd || !d.afd.length) continue; for (const a of d.afd) { const [x, z] = toScene(d, a.x, a.z); signList.push({ naam: a.naam, prio: a.prio, x, y: a.y * d.sc, z }); } } return signList; }
+  // de naam van de standplaats die de kaart zelf bij het adres zet (een ruit met de naam rechts ervan): daar geen bord
+  const freeList = [];
+  function signsFree() { freeList.length = 0; for (const d of depots) { if (!d.group || !d.group.visible || !d.afd || !d.afd.length || !isFinite(+d.s.lon)) continue; const [lx, lz] = d.toLocal(+d.s.lon, +d.s.lat); const [x, z] = toScene(d, lx, lz); freeList.push([x, 0, z, 12, 18 + 8 * d.name.length, 12, 12]); } return freeList; }
+  return { loading, update, updateNature, setOrigin, endParking, dockAt, dockPose, customer, rowHeading, setTheme, setLicht, signs, signsFree, stats, dispose, coverage, setOfm, depots, sites: () => sites, ready: () => ready, root, pools: () => { const out = []; for (const d of [...depots, ...sites]) if (d.group && d.group.visible && d.pools) for (const [x, z, r] of d.pools) { const [sx, sz] = toScene(d, x, z); out.push([sx, sz, r * d.sc]); } return out; } };
 }
 
 // verlichte ramen 's nachts: niet elk raam brandt (vaste toevalsreeks per raam), zodat gevels levendig ogen

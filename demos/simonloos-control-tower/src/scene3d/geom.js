@@ -9,8 +9,12 @@ export class Builder {
     // zorg dat de driehoek tegen de klok in draait, gezien vanaf de kant waar n naartoe wijst (de voorkant voor three.js)
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
-    if (cx * n[0] + cy * n[1] + cz * n[2] < 0) { [b, c] = [c, b]; [ub, uc] = [uc, ub]; }
-    this.pos.push(...a, ...b, ...c); this.nor.push(...n, ...n, ...n); this.uv.push(...ua, ...ub, ...uc);
+    if (cx * n[0] + cy * n[1] + cz * n[2] < 0) { const t = b; b = c; c = t; const w = ub; ub = uc; uc = w; }
+    // losse waarden in plaats van spreiden (...a): dezelfde getallen in dezelfde volgorde, twee tot drie keer zo snel; dit
+    // is de drukste regel van het bouwen van de wereld
+    this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    this.nor.push(n[0], n[1], n[2], n[0], n[1], n[2], n[0], n[1], n[2]);
+    this.uv.push(ua[0], ua[1], ub[0], ub[1], uc[0], uc[1]);
   }
   quad(a, b, c, d, n, ua, ub, uc, ud) { this.tri(a, b, c, n, ua, ub, uc); this.tri(a, c, d, n, ua, uc, ud); }
   get empty() { return this.pos.length === 0; }
@@ -61,6 +65,20 @@ export function gable(B, cx, cz, hl, hw, a, e, r, over, uvM) {
     const e0 = P(-L, side * Wd, e - over * 0.5), e1 = P(L, side * Wd, e - over * 0.5);
     const nx = -s * side, nz = c * side; const slope = (Wd) / Math.max(0.1, r - e + over * 0.5); const ny = slope; const k = Math.hypot(nx, ny, nz);
     B.quad(e0, e1, r1, r0, [nx / k, ny / k, nz / k], [0, 0], [2 * L / uvM, 0], [2 * L / uvM, Wd / uvM], [0, Wd / uvM]);
+  }
+}
+// schilddak over dezelfde rechthoek: de nok aan beide koppen ingekort, met schuine dakvlakken aan de koppen
+export function hip(B, cx, cz, hl, hw, a, e, r, over, uvM) {
+  const c = Math.cos(a), s = Math.sin(a); const P = (u, v, y) => [cx + u * c - v * s, y, cz + u * s + v * c];
+  const L = hl + over, Wd = hw + over, ye = e - over * 0.5, H = Math.max(0.1, r - ye), k = Math.min(Wd, L * 0.45);
+  const r0 = P(-L + k, 0, r), r1 = P(L - k, 0, r);
+  for (const side of [-1, 1]) {
+    const nx = -s * side, nz = c * side, ny = Wd / H, q = Math.hypot(nx, ny, nz);
+    B.quad(P(-L, side * Wd, ye), P(L, side * Wd, ye), r1, r0, [nx / q, ny / q, nz / q], [0, 0], [2 * L / uvM, 0], [(2 * L - k) / uvM, Wd / uvM], [k / uvM, Wd / uvM]);
+  }
+  for (const end of [-1, 1]) {
+    const nx = c * end, nz = s * end, ny = k / H, q = Math.hypot(nx, ny, nz);
+    B.tri(P(end * L, -Wd, ye), P(end * L, Wd, ye), end < 0 ? r0 : r1, [nx / q, ny / q, nz / q], [0, 0], [2 * Wd / uvM, 0], [Wd / uvM, k / uvM]);
   }
 }
 // topgevels (de driehoeken onder het zadeldak) van een rechthoekig huis

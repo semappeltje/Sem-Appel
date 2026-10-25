@@ -1,5 +1,7 @@
 // Controle van de 3D-wereld (src/scene3d.js) in een echte browser: bouwtijd, beeldsnelheid in 2D en 3D, klikken en
-// aanwijzen via de straal (pick), geen consolefouten, en geen geheugengroei na drie keer 3D uit en aan.
+// aanwijzen via de straal (pick), geen consolefouten, en geen geheugengroei na drie keer 3D uit en aan. Verder het licht
+// uit de klok (zonsopgang en -ondergang in Wognum, dag, schemer en nacht, het donkere thema overdag) en de naamborden
+// van de afdelingen (sp.afdelingen) bij Wognum.
 //
 //   npm run build && (cd dist && python3 -m http.server 8773 --bind 127.0.0.1) &
 //   node tests/3d-check.mjs [http://127.0.0.1:8773/index.html]
@@ -66,6 +68,29 @@ check(out.calls11 <= 90 && out.tris11 <= 250000, `zoom 11 (overzicht): ${out.cal
 check(out.calls136 <= 120 && out.tris136 <= 450000, `zoom 13,6 (Wognum): ${out.calls136} tekenopdrachten, ${out.tris136} driehoeken (hooguit 120 en 450.000)`);
 check(out.calls16 <= 150 && out.tris16 <= 450000, `zoom 16 (Wognum): ${out.calls16} tekenopdrachten, ${out.tris16} driehoeken (hooguit 150 en 450.000)`);
 console.log(`INFO beeldsnelheid (software-GPU, alleen ter informatie): 2D ${out.fps2d}, 3D op 11 ${out.fps3d_11}, op 13,6 ${out.fps3d_136}, op 16 ${out.fps3d_16}`);
+
+// 2b. licht uit de klok van de simulatie (src/scene3d/licht.js): de zon boven Wognum op een vaste dag, en in de browser
+// dag, schemer en nacht op die dag; het donkere thema verandert het daglicht niet in nacht
+const Z = await import(new URL('../src/scene3d/licht.js', import.meta.url));
+const hm = m => { if (m == null) return '-'; const r = Math.round(m); return `${String(Math.floor(r / 60)).padStart(2, '0')}:${String(r % 60).padStart(2, '0')}`; };
+const z24 = Z.zonOpOnder([2026, 10, 24]), z25 = Z.zonOpOnder([2026, 10, 25]), zJ = Z.zonOpOnder([2026, 6, 21]);
+check(Math.abs(z24.op - 502) < 4 && Math.abs(z24.onder - 1106) < 4 && Math.abs(z25.op - 444) < 4 && Math.abs(z25.onder - 1043) < 4 && Math.abs(zJ.onder - 1328) < 5,
+  `zon in Wognum: 24 oktober op ${hm(z24.op)}, onder ${hm(z24.onder)} (zomertijd); 25 oktober ${hm(z25.op)} en ${hm(z25.onder)} (wintertijd); 21 juni onder ${hm(zJ.onder)}`);
+const DAG = [2026, 10, 25];
+const lightAt = async (t, label) => { await page.evaluate(([t, d]) => window.SLCT.map.scene3d().setClock(t, d), [t, DAG]); await page.waitForTimeout(900); const l = (await s3()).licht; out['licht' + label] = l; return l; };
+await jump({ center: SP, zoom: 16, pitch: 60, bearing: -18 }); await page.waitForTimeout(1500);
+const l12 = await lightAt(720, '12'), l18 = await lightAt(1080, '18'), l23 = await lightAt(1380, '23'), l0630 = await lightAt(390, '0630');
+check(l12.staat === 'dag' && l12.lampen === 0 && l12.zon > 2.5, `12:00: ${l12.staat}, zon ${l12.zon} op ${l12.zonH} graden uit ${l12.zonAz} graden, lampen ${l12.lampen}`);
+check(l18.staat === 'schemer' && l18.lampen > 0.9 && l18.donker < 0.9, `18:00: ${l18.staat} (blauw uur, zon ${l18.zonH} graden), lampen ${l18.lampen}`);
+check(l23.staat === 'nacht' && l23.lampen === 1 && l23.donker === 1 && l0630.lampen === 1, `23:00 en 06:30: ${l23.staat} en ${l0630.staat}, lampen aan`);
+const st16 = await s3(); out.borden16 = st16.borden;
+check(st16.borden >= 3, `naamborden van de afdelingen bij Wognum op zoom 16: ${st16.borden}`);
+// het donkere thema van de interface: 's middags nog steeds dag (iets gedempt), geen nacht
+await page.click('#themeBtn'); await page.waitForTimeout(600);
+const ld = await lightAt(720, 'Donker12');
+check(ld.thema === 'dark' && ld.staat === 'dag' && ld.donker === 0 && ld.zon > 2, `donker thema om 12:00: ${ld.staat}, zon ${ld.zon} (licht thema ${l12.zon})`);
+await page.click('#themeBtn'); await page.waitForTimeout(600);
+await page.evaluate(() => window.SLCT.map.scene3d().setClock(null));
 
 // 3. klikken en aanwijzen: een rijdend voertuig dichtbij, op zoom 16,5 recht in beeld
 const tgt = await page.evaluate(() => {
