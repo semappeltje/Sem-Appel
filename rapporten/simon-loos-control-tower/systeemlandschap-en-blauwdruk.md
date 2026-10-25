@@ -106,11 +106,11 @@ wordt pas weggehaald als het aantoonbaar niets meer doet. Elke stap heeft een we
 | Stap | Wat | Naast wat | Klaar als | Wat uit kan |
 |---|---|---|---|---|
 | 0. Verkennen (4 tot 6 weken) | Interviews met planners en chauffeurs, een dienst meelopen op Wognum en Zaandam, de systemen en koppelingen in kaart, voorbeelddata, AVG en OR, de meetlat | Alles blijft | De functielijst (elk Excel-blad), de datalijst, de pilotafspraak | Niets |
-| 1. Lezen en kijken (8 tot 10 weken) | Inname van OTM5, Navitrans-exports, posities en tacho; de control tower op één standplaats, alleen lezen; zaken en overdracht | ORTEC, Navitrans, Excel, Simacan | Planners kijken er elke ochtend in; de pariteitstests slagen | Niets |
-| 2. Dienstbouw in schaduw, dan leidend (12 weken) | Werkvoorraad, dienstbouw met toetsing, voorstellen; eerst schaduw naast ORTEC en Excel, dan leidend op één standplaats; dispatch terug naar Navitrans en Trimble | ORTEC (schaduw), Excel | Vier weken niet slechter dan het handplan; planners willen niet terug | Excel voor dienstbouw op die standplaats |
-| 3. De flexibele schil en de chauffeurskant (8 weken) | Charters en oproepkrachten in het systeem, beschikbaarheid en voorkeuren, bevestigen via de tablet of WhatsApp, voorkeursbod | Telefoon en Excel | Elke inzet loopt via het systeem | Charterlijsten in Excel, belrondes |
-| 4. Tactisch en prognoses (8 weken) | Capaciteitsradar, wachttijdradar, roosters weken vooruit met cao-toets, laadplanning voor e-trucks | Roosters in Excel of HR | Het weekplan komt uit het systeem | Roosterbladen |
-| 5. Uitrol en klantlink (per standplaats 2 tot 4 weken) | Standplaats voor standplaats, in volgorde van baat; ETA-link naar winkels; rapporten voor de directie | ORTEC per standplaats | Alle standplaatsen leidend | ORTEC-dispatch; ORD in Maasdam via een adapter |
+| 1. Lezen en kijken (10 tot 14 weken) | Inname van OTM5, Navitrans-exports, posities en tacho; de control tower op één standplaats, alleen lezen; zaken en overdracht | ORTEC, Navitrans, Excel, Simacan | Planners kijken er elke ochtend in; de pariteitstests slagen | Niets |
+| 2. Dienstbouw in schaduw, dan leidend (14 tot 22 weken) | Werkvoorraad, dienstbouw met toetsing, voorstellen; eerst schaduw naast ORTEC en Excel, dan leidend op één standplaats; dispatch terug naar Navitrans en Trimble | ORTEC (schaduw), Excel | Vier weken niet slechter dan het handplan; planners willen niet terug | Excel voor dienstbouw op die standplaats |
+| 3. De flexibele schil en de chauffeurskant (8 tot 12 weken) | Charters en oproepkrachten in het systeem, beschikbaarheid en voorkeuren, bevestigen via de tablet of WhatsApp, voorkeursbod | Telefoon en Excel | Elke inzet loopt via het systeem | Charterlijsten in Excel, belrondes |
+| 4. Tactisch en prognoses (8 tot 12 weken) | Capaciteitsradar, wachttijdradar, roosters weken vooruit met cao-toets, laadplanning voor e-trucks | Roosters in Excel of HR | Het weekplan komt uit het systeem | Roosterbladen |
+| 5. Uitrol en klantlink (in golven, 12 tot 18 maanden) | Standplaats voor standplaats, in volgorde van baat; ETA-link naar winkels; rapporten voor de directie | ORTEC per standplaats | Alle standplaatsen leidend | ORTEC-dispatch; ORD in Maasdam via een adapter |
 | 6. Opruimen | Contracten opzeggen in de volgorde van de opzegtermijnen, data archiveren, adapters weghalen, documentatie | | Alleen Navitrans (orders, facturatie), Trimble, Simacan (klant) blijven | ORTEC, ORD, alle Excel |
 
 Voorwaarden om zonder schade te kunnen stoppen bij elke stap: het oude systeem blijft tot de stap erna
@@ -130,9 +130,11 @@ bepalen de volgorde van stap 6, niet andersom; de klant (AH) wordt vooraf meegen
   anders wordt het een eiland.
 - **Niet alles tegelijk.** De verleiding is groot om ook facturatie, HR en onderhoud mee te nemen. Niet doen:
   elk daarvan heeft een eigenaar, een leverancier en een risico. Eerst de planning en de dag.
-- **Team en tijd (schatting).** Een proef van stap 0 tot en met 2 op één standplaats vraagt een klein vast
-  team (twee tot vier ontwikkelaars, een planner als domeineigenaar, iemand van ICT, de OR op afstand) en
-  ongeveer zes maanden. Alles daarna schaalt per standplaats.
+- **Wie en hoe lang (schatting).** Sem bouwt het zelf, met AI als versneller zoals bij de demo, en een tweede
+  ontwikkelaar die het systeem kent als achtervang. Een proef van stap 0 tot en met 2 op één standplaats vraagt
+  daarnaast een planner als domeineigenaar, iemand van ICT en de OR op afstand, en ongeveer zeven tot tien maanden.
+  De uitrol gaat in golven, met per regio een planner als kartrekker. De kosten en baten staan in het voorstel,
+  hoofdstuk 6.
 
 ## 7. Wat we moeten doorvragen, specifiek over de systemen
 
