@@ -130,8 +130,9 @@ bepalen de volgorde van stap 6, niet andersom; de klant (AH) wordt vooraf meegen
   anders wordt het een eiland.
 - **Niet alles tegelijk.** De verleiding is groot om ook facturatie, HR en onderhoud mee te nemen. Niet doen:
   elk daarvan heeft een eigenaar, een leverancier en een risico. Eerst de planning en de dag.
-- **Wie en hoe lang (schatting).** Sem bouwt het zelf, met AI als versneller zoals bij de demo, en een tweede
-  ontwikkelaar die het systeem kent als achtervang. Een proef van stap 0 tot en met 2 op één standplaats vraagt
+- **Wie en hoe lang (schatting).** Sem bouwt het zelf via SafeTail, met AI als versneller zoals bij de demo, en
+  een tweede ontwikkelaar die het systeem kent als achtervang, het liefst van Simon Loos zelf. Heeft Simon Loos eigen
+  ontwikkelaars, dan stuurt Sem hen aan. Een proef van stap 0 tot en met 2 op één standplaats vraagt
   daarnaast een planner als domeineigenaar, iemand van ICT en de OR op afstand, en ongeveer zeven tot tien maanden.
   De uitrol gaat in golven, met per regio een planner als kartrekker. De kosten en baten staan in het voorstel,
   hoofdstuk 6.
