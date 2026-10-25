@@ -6,9 +6,8 @@
 // zoals de iconen op de 2D-kaart, zodat de wereld op elk zoomniveau leesbaar blijft.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import urban from './data/urban.json';
-import { SP, ST } from './places.js';
-import { TRST } from './fleet.js';
+// Geen imports uit de app zelf: de standplaatsen, statuskleuren en bebouwing komen mee via opts.data. Zo blijft deze
+// module (met three.js) een eigen, pas bij de eerste klik geladen bundel, zonder dat app.js er statisch aan hangt.
 
 const C = {
   rood: 0xE3001F, wit: 0xF7F8F9, glas: 0xB9CFE3, chassis: 0x343A42, wiel: 0x1F2327, asfalt: 0xC7CCD2, muur: 0xE9EBEE,
@@ -56,7 +55,7 @@ function depotGeometry(s) {
 // bomen rond een depot: vaste plekken (seed per standplaats), in een ring rond het terrein
 function depotTrees(i, W, D) { const out = []; const n = 12 + Math.floor(hash(i, 7) * 8); for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2 + hash(i, k) * 0.5; const rx = W / 2 + 40 + hash(i, k + 100) * 50, rz = D / 2 + 60 + hash(i, k + 300) * 70; out.push([Math.cos(a) * rx, Math.sin(a) * rz + 12, Math.floor(hash(i, k + 200) * 3)]); } return out; }
 // bomen in de bebouwing: een raster van ongeveer 600 m met een vaste verschuiving per punt, binnen de vlakken van urban.json
-function urbanTrees() {
+function urbanTrees(urban) {
   const out = []; const inside = (ring, x, y) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c; } return c; };
   urban.forEach((ring, ri) => {
     let x0 = 180, x1 = -180, y0 = 90, y1 = -90; for (const [x, y] of ring) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
@@ -67,6 +66,7 @@ function urbanTrees() {
 }
 
 export function createScene3d(map, maplibregl, opts) {
+  const { SP, ST, TRST, urban } = opts.data;
   const scene = new THREE.Scene(); const camera = new THREE.Camera(); camera.matrixAutoUpdate = false;
   const hemi = new THREE.HemisphereLight(0xFFFFFF, 0xD2D8DF, 2.2); const sun = new THREE.DirectionalLight(0xFFFFFF, 2.4); sun.position.set(-0.55, 1, -0.65);
   scene.add(hemi, sun);
@@ -146,7 +146,7 @@ export function createScene3d(map, maplibregl, opts) {
     for (const m of trees) m.count = 0;
     if (zoom >= 10.5) for (const d of depots) { if (d.s.lon < x0 || d.s.lon > x1 || d.s.lat < y0 || d.s.lat > y1) continue; for (const [tx, tz, v] of d.trees) place(d.local[0] + tx * kB, d.local[1] + tz * kB, v); }
     houses.count = 0;
-    if (zoom >= 11.2) { if (!urbanPts) urbanPts = urbanTrees(); const step = zoom < 12.5 ? 3 : 1; for (let i = 0; i < urbanPts.length; i += step) { const [lon, lat, v] = urbanPts[i]; if (lon < x0 || lon > x1 || lat < y0 || lat > y1) continue; const [x, z] = local(lon, lat); if (depots.some(d => d.yard && x > d.yard[0] && x < d.yard[1] && z > d.yard[2] && z < d.yard[3])) continue; if (zoom >= 12.5 && i % 3 === 1) { if (houses.count < 1600) { const g = hash(i, 11); const kh = kT * 0.62; P.set(x, 0, z); Q.setFromAxisAngle(UP, Math.floor(hash(i, 12) * 4) * Math.PI / 2 + (hash(i, 13) - 0.5) * 0.4); S.set(kh * (0.8 + g * 0.5), kh * (0.8 + g * 0.3), kh * (0.8 + hash(i, 14) * 0.6)); M.compose(P, Q, S); houses.setMatrixAt(houses.count++, M); } } else place(x, z, v); } }
+    if (zoom >= 11.2) { if (!urbanPts) urbanPts = urbanTrees(urban); const step = zoom < 12.5 ? 3 : 1; for (let i = 0; i < urbanPts.length; i += step) { const [lon, lat, v] = urbanPts[i]; if (lon < x0 || lon > x1 || lat < y0 || lat > y1) continue; const [x, z] = local(lon, lat); if (depots.some(d => d.yard && x > d.yard[0] && x < d.yard[1] && z > d.yard[2] && z < d.yard[3])) continue; if (zoom >= 12.5 && i % 3 === 1) { if (houses.count < 1600) { const g = hash(i, 11); const kh = kT * 0.62; P.set(x, 0, z); Q.setFromAxisAngle(UP, Math.floor(hash(i, 12) * 4) * Math.PI / 2 + (hash(i, 13) - 0.5) * 0.4); S.set(kh * (0.8 + g * 0.5), kh * (0.8 + g * 0.3), kh * (0.8 + hash(i, 14) * 0.6)); M.compose(P, Q, S); houses.setMatrixAt(houses.count++, M); } } else place(x, z, v); } }
     for (const m of trees) m.instanceMatrix.needsUpdate = true; houses.instanceMatrix.needsUpdate = true;
     counts.length = 0;
   }
