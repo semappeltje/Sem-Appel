@@ -50,7 +50,7 @@ function tractorParts(detail, spoiler) {
   return p;
 }
 // koppelschotel (zichtbaar bij de trekker solo): plaat met een V-sleuf naar achteren
-function fifthWheel() {
+export function fifthWheel() {
   const s = new THREE.Shape(); const R = 0.46; const a0 = Math.PI / 2 + 0.32, a1 = Math.PI / 2 + 2 * Math.PI - 0.32;
   s.moveTo(Math.cos(a0) * R, Math.sin(a0) * R);
   for (let k = 1; k <= 16; k++) { const a = a0 + (a1 - a0) * k / 16; s.lineTo(Math.cos(a) * R, Math.sin(a) * R); }

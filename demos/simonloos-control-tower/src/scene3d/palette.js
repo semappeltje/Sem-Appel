@@ -52,6 +52,12 @@ const ENTRIES = {
   dakrand: [0x8B929A, 0.6, 0.3, null],        // bovenkant van de borstwering (van boven een rand om het dak)
   autoLak: [0xFFFFFF, 0.3, 0.15, null],       // carrosserie van een auto (de kleur komt per exemplaar)
   winkelLicht: [0xE8EEF2, 0.2, 0.0, 0xFFF1D8],
+  // voor de voertuigportretten (varianten.js): band van een vriesoplegger, roestvrij staal, zeil, chroom, accupakket
+  ijsblauw: [0x4FA8DC, 0.45, 0.0, null],
+  rvs: [0xD9DEE3, 0.2, 0.85, null],
+  zeil: [0xEEF0EE, 0.78, 0.0, null],
+  chroom: [0xE6E9EC, 0.14, 0.9, null],
+  accu: [0x5A626B, 0.48, 0.35, null],
 };
 export const P = {}; Object.keys(ENTRIES).forEach((k, i) => { P[k] = i; });
 

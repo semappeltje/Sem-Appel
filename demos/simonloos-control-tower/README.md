@@ -177,6 +177,20 @@ terrein de koers van zijn rij). `setSelected(id)` zet de rode ring om het gekoze
 `tests/3d-check.mjs` controleert bouwtijd, tekenopdrachten en driehoeken per zoom, klikken, geheugen na
 drie keer uit en aan, en consolefouten.
 
+**Voertuigbeelden.** De beelden van voertuigen en opleggers op de voertuig- en opleggerpagina en in de
+hoverkaart zijn renders van onze eigen 3D-modellen, geen foto's. Elke trekker heeft de cabinevorm van zijn
+merk (DAF XF, Scania R, Volvo FH, Mercedes Actros en eActros 600), zonder merktekens. Een elektrische trekker
+heeft accupakketten en een laadklep in plaats van de tank. Verder: met of zonder koeloplegger, de bakwagen
+in drie vormen, de bestelbus, en elke opleggersoort los op de steunpoten. Alles in de Simon Loos-kleuren en
+met een fictief kenteken op het model (met een C, die Nederlandse kentekens niet hebben); de app zet het
+echte kenteken als tekst ernaast. De modellen staan in `src/scene3d/varianten.js`. `tools/render-portretten.mjs`
+rendert ze met Playwright en de software-GPU: 26 beelden van 640 x 400 px, WebP met een doorzichtige
+achtergrond, elk hooguit 25 KB en samen ongeveer 560 KB. Twee keer draaien geeft dezelfde bestanden. De
+beelden staan in `src/assets/portretten/`. `src/portretten.js` neemt ze met `?inline` op in de bundel
+(geen los bestand, geen fetch) en kiest met `portretVan(voertuig, oplegger?)` en
+`portretVanOplegger(oplegger)` het juiste beeld, met een alt-tekst. `tests/portretten-check.mjs`
+controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de simulatie.
+
 ## Kaart en wegen
 
 - **Wegen en water: OpenStreetMap via Overture Maps** (release 2026-10-21.0, licentie
