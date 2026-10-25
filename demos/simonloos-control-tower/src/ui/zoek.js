@@ -1,8 +1,11 @@
 // Zoeken in de topbalk op MiniSearch (MIT): voertuigen (nummer, kenteken met en zonder streepjes, chauffeur), opleggers,
 // chauffeurs, standplaatsen (met hun klanten en formules), winkels en DC's (alle winkels en DC's uit places.js), plaatsen,
 // ritten, pauzeplekken, weergaven en acties. Tikfouten mogen ("wognm" vindt Wognum), een kenteken mag zonder streepjes
-// ("67JQZ"), een formule vindt de standplaatsen die ervoor rijden ("lidl"). Meldingen en werkorders veranderen door de
-// dag en worden bij elke zoekvraag apart bekeken. De index wordt gebouwd als de app klaar is (een keer, ongeveer 100 ms).
+// ("67JQZ") en met een tikfout, ook twee omgewisselde tekens ("37QJJ7" vindt 37-JQJ-7), een formule vindt de standplaatsen
+// die ervoor rijden ("lidl"), en de naam van een plaats of standplaats (ook met een tikfout: "purmrend") zet die plek
+// bovenaan. Meldingen en werkorders veranderen door de dag en worden bij elke zoekvraag apart bekeken. De index wordt een
+// keer gebouwd als de app klaar is; daarna werkt hij alleen bij wat een actie op het plan veranderde (ritten, open ritten,
+// de chauffeurs op een voertuig), zodat ook de eerste zoekvraag na een toewijzing binnen 100 ms antwoord geeft.
 // Enter opent de bovenste (of gekozen) suggestie; wat een plek heeft, opent op de kaart en de kaart vliegt ernaartoe.
 // Toetsen: / of Ctrl K zet de focus in het veld, pijltjes kiezen, Enter opent, Esc sluit. Rollen: combobox en listbox.
 import MiniSearch from 'minisearch';
@@ -20,23 +23,63 @@ const zonder = s => String(s || '').replace(/[-\s]/g, '');
 // klanten en formules van alle standplaatsen, genormaliseerd per woord (een keer opgebouwd)
 let formule = null;
 const FORMULE = () => formule || (formule = new Set(SP.flatMap(sp => [sp.klant, ...(sp.formules || [])]).flatMap(x => String(x || '').split(/[\s,/]+/)).map(norm).filter(w => w.length >= 3)));
+// Hoeveel tikfouten scheiden twee woorden: een teken anders, erbij of eraf, of twee buren omgewisseld (optimal string
+// alignment). MiniSearch telt een omwisseling als twee fouten, daarom vond "37QJJ7" het kenteken 37-JQJ-7 niet. Rekent
+// niet verder dan max: daarboven geeft hij max + 1.
+function afstand(a, b, max) {
+  if (a === b) return 0;
+  const n = a.length, m = b.length; if (Math.abs(n - m) > max) return max + 1;
+  let p2 = null, p1 = new Array(m + 1); for (let j = 0; j <= m; j++) p1[j] = j;
+  let vorigeMin = 0;
+  for (let i = 1; i <= n; i++) {
+    const c = new Array(m + 1); c[0] = i; let rijMin = i;
+    for (let j = 1; j <= m; j++) {
+      let v = Math.min(p1[j] + 1, c[j - 1] + 1, p1[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (p2 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, p2[j - 2] + 1);
+      c[j] = v; if (v < rijMin) rijMin = v;
+    }
+    // een omwisseling kijkt twee rijen terug: pas stoppen als ook de vorige rij al boven de grens zat
+    if (rijMin > max && vorigeMin > max) return max + 1;
+    vorigeMin = rijMin; p2 = p1; p1 = c;
+  }
+  return Math.min(p1[m], max + 1);
+}
+// Een kenteken: vijf tot acht letters en cijfers (zonder streepjes), met minstens een van elk.
+const lijktKenteken = k => /^[A-Z0-9]{5,8}$/.test(k) && /\d/.test(k) && /[A-Z]/.test(k);
+// Hoeveel tikfouten bij een naam van een plaats of standplaats mogen: geen bij korte namen, een vanaf vier tekens, twee
+// vanaf tien.
+const maxFout = n => (n >= 10 ? 2 : n >= 4 ? 1 : 0);
 
 export function createSearch(ctx) {
   let el = null, input = null, list = null, items = [], act = 0, recent = [], idx = null, idxVer = -1, docs = null;
+  // kentekens (zonder streepjes, hoofdletters) en de namen van plaatsen en standplaatsen, voor de tikfouten hierboven
+  let kentekens = [], namen = [];
+  // de onderdelen die door de dag veranderen (ritten, open ritten, de chauffeurs op een voertuig): per sleutel het
+  // document en zijn inhoud, zodat een nieuwe planversie alleen bijwerkt wat anders is
+  const dyn = new Map(); let bijgewerkt = { ms: 0, nieuw: 0, anders: 0, weg: 0 }, gebouwd = null;
 
   // ---------- index ----------
+  const ritDoc = r => ['Rit', r.id, `${r.klant} · ${r.t.id} · ${r.dest.slice(0, 2).join(', ')}`, [r.t.id, r.klant, zonder(r.id), ...r.dest].join(' '), r.id];
+  const openDoc = p => { const v = vensterAbs(p); return ['Open rit', p.klant || p.id, `${p.sp} · laden ${v ? hhmm(v[0]) : ''}${p.dag === 'morgen' ? ' morgen' : ''}`, [p.id, zonder(p.id), p.sp, p.klant, p.reden, 'open'].join(' '), p.id]; };
+  const voertuigDoc = t => ['Voertuig', t.id, `${KIND[t.kind].n} · ${t.base.n} · ${t.plate}`, [t.plate, zonder(t.plate), zonder(t.id), t.model, KIND[t.kind].n, ...t.diensten.map(d => d.driver)].join(' '), t.id];
+  // alles wat door de dag kan veranderen, met een vaste sleutel
+  function dynamisch(add) {
+    const { fleet, R } = ctx;
+    for (const t of fleet.trucks) add(`v:${t.id}`, voertuigDoc(t));
+    for (const r of R.all()) add(`r:${r.id}`, ritDoc(r));
+    for (const p of poolAlles(ctx)) add(`o:${p.id}`, openDoc(p));
+  }
   function bouw() {
-    const { fleet, people, R } = ctx; const D = []; let n = 0;
-    const add = (type, label, sub, kw, ref, extra = {}) => D.push({ id: n++, type, label, sub, kw, ref, ...extra });
-    for (const t of fleet.trucks) add('Voertuig', t.id, `${KIND[t.kind].n} · ${t.base.n} · ${t.plate}`, [t.plate, zonder(t.plate), zonder(t.id), t.model, KIND[t.kind].n, ...t.diensten.map(d => d.driver)].join(' '), t.id);
+    const t0 = performance.now(); const { fleet, people, R } = ctx; const D = []; let n = 0;
+    const add = (type, label, sub, kw, ref, extra = {}) => { D.push({ id: n, type, label, sub, kw, ref, ...extra }); return n++; };
+    dyn.clear();
+    dynamisch((key, [type, label, sub, kw, ref]) => { const id = add(type, label, sub, kw, ref); dyn.set(key, { id, sig: `${label}\u0001${sub}\u0001${kw}` }); });
     for (const tr of fleet.trailers) add('Oplegger', tr.id, `${TRT[tr.type].n} · ${tr.base.n} · ${tr.plate}`, [tr.plate, zonder(tr.plate), zonder(tr.id), TRT[tr.type].n].join(' '), tr.id);
     for (const p of people.persons) add('Chauffeur', p.name, `${p.role} · ${p.base.n}`, [p.base.n, p.role].join(' '), p.id);
     for (const sp of SP) add('Standplaats', sp.n, `${sp.fleet} voertuigen · ${sp.regio} · ${sp.klant}`, [sp.klant, ...(sp.formules || []), sp.prov, sp.regio, sp.adres && typeof sp.adres === 'object' ? `${sp.adres.straat} ${sp.adres.postcode} ${sp.adres.plaats}` : sp.adres || ''].join(' '), sp.n);
     for (const w of WINKELS) if (!w.eiland) add('Winkel', plekNaam(w), `${w.formule} · ${w.plaats}`, [w.formule, w.plaats].join(' '), w.id);
     for (const d of DCS) add('DC', d.naam, `${SOORT[d.soort] || 'DC'} ${d.formule || ''} · ${d.plaats}`, [d.formule, d.plaats, d.soort].join(' '), d.id, { soort: SOORT[d.soort] || 'DC' });
     const seen = new Set(); for (const c of [...CITIES, ...TOWNS]) { if (seen.has(c.n)) continue; seen.add(c.n); add('Plaats', c.n, 'plaats', '', c.n, { lon: c.lon, lat: c.lat }); }
-    for (const r of R.all()) add('Rit', r.id, `${r.klant} · ${r.t.id} · ${r.dest.slice(0, 2).join(', ')}`, [r.t.id, r.klant, zonder(r.id), ...r.dest].join(' '), r.id);
-    for (const p of poolAlles(ctx)) { const v = vensterAbs(p); add('Open rit', p.klant || p.id, `${p.sp} · laden ${v ? hhmm(v[0]) : ''}${p.dag === 'morgen' ? ' morgen' : ''}`, [p.id, zonder(p.id), p.sp, p.klant, p.reden, 'open'].join(' '), p.id); }
     for (const c of charters(ctx)) add('Charter', c.naam, `charter · ${c.plaats}`, [c.id, c.contactpersoon, c.plaats, c.regio, ...c.opleggers, 'charter'].join(' '), c.id);
     for (const o of oproepkrachten(ctx)) add('Oproepkracht', o.naam, `${SOORT_FLEX[o.soort] || o.soort} · ${o.standplaats}`, [o.id, o.standplaats, SOORT_FLEX[o.soort] || '', 'oproep flex'].join(' '), o.id);
     for (const p of ctx.rest.places) add('Pauzeplek', p.n, p.sub, p.n.replace('Pauzeplek ', ''), p.id);
@@ -48,11 +91,42 @@ export function createSearch(ctx) {
       tokenize: s => String(s).split(/[\s·,/()]+/).filter(Boolean), processTerm: t => norm(t) || null,
       searchOptions: { prefix: true, fuzzy: 0.2, boost: { label: 3, kw: 2 }, combineWith: 'AND' },
     });
-    ms.addAll(D); docs = D; idx = ms; idxVer = R.ver();
+    ms.addAll(D); docs = D; idx = ms; idxVer = R.ver(); gebouwd = { ms: Math.round(performance.now() - t0), om: Math.round(performance.now()) };
+    // de kentekens van voertuigen en opleggers en de namen van plaatsen en standplaatsen veranderen niet door de dag
+    kentekens = D.filter(d => d.type === 'Voertuig' || d.type === 'Oplegger').map(d => ({ k: zonder((d.type === 'Voertuig' ? fleet.byId.get(d.ref) : fleet.trailerById.get(d.ref)).plate).toUpperCase(), id: d.id }));
+    namen = D.filter(d => d.type === 'Plaats' || d.type === 'Standplaats').map(d => ({ n: norm(d.label).replace(/\s+/g, ' '), id: d.id, sp: d.type === 'Standplaats' }));
   }
-  const klaar = () => { if (!idx || idxVer !== ctx.R.ver()) bouw(); return idx; };
-  // na het laden in een rustig moment bouwen, zodat de eerste toets meteen antwoord geeft
+  // een nieuwe planversie (toewijzen, verplaatsen, een voorstel): alleen de veranderde documenten bijwerken
+  function werkBij() {
+    const t0 = performance.now(); const v = ctx.R.ver(); const tel = { nieuw: 0, anders: 0, weg: 0 }; const gezien = new Set();
+    dynamisch((key, [type, label, sub, kw, ref]) => {
+      gezien.add(key); const sig = `${label}\u0001${sub}\u0001${kw}`; const o = dyn.get(key);
+      if (o && o.sig === sig) return;
+      if (o) { const d = { id: o.id, type, label, sub, kw, ref }; docs[o.id] = d; idx.replace(d); o.sig = sig; tel.anders++; return; }
+      const d = { id: docs.length, type, label, sub, kw, ref }; docs.push(d); idx.add(d); dyn.set(key, { id: d.id, sig }); tel.nieuw++;
+    });
+    for (const [key, o] of dyn) if (!gezien.has(key)) { idx.discard(o.id); docs[o.id] = null; dyn.delete(key); tel.weg++; }
+    idxVer = v; bijgewerkt = { ms: Math.round((performance.now() - t0) * 10) / 10, ...tel };
+  }
+  const klaar = () => { if (!idx) bouw(); else if (idxVer !== ctx.R.ver()) werkBij(); return idx; };
+  // na het laden in een rustig moment bouwen, zodat de eerste toets meteen antwoord geeft; en na een wijziging in het plan
+  // alvast bijwerken als de browser even niets te doen heeft, zodat ook de eerste toets daarna snel is
+  const rustig = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 200));
   setTimeout(() => { try { klaar(); } catch { /* later */ } }, 1500);
+  let wacht = false;
+  setInterval(() => { if (!idx || wacht || idxVer === ctx.R.ver()) return; wacht = true; rustig(() => { wacht = false; try { klaar(); } catch { /* bij de volgende zoekvraag */ } }); }, 800);
+  // kentekens met een tikfout (ook twee omgewisselde tekens), het kenteken zelf eerst
+  function kentekenTreffers(q) {
+    const k = zonder(q).toUpperCase(); if (!lijktKenteken(k)) return [];
+    const out = []; for (const x of kentekens) { const d = afstand(k, x.k, 1); if (d <= 1) out.push({ id: x.id, d }); }
+    return out.sort((a, b) => a.d - b.d).slice(0, 8);
+  }
+  // de naam van een plaats of standplaats, ook met een tikfout: een standplaats gaat voor een plaats met dezelfde naam
+  function naamTreffers(nq) {
+    const max = maxFout(nq.length); if (nq.length < 3) return [];
+    const out = []; for (const x of namen) { const d = afstand(nq, x.n, max); if (d <= max) out.push({ id: x.id, d, sp: x.sp }); }
+    return out.sort((a, b) => a.d - b.d || b.sp - a.sp).slice(0, 4);
+  }
 
   // een voertuig, oplegger of persoon opent als pagina; de kaart in die pagina vliegt erheen (ctx.vliegBijDock)
   const pagina = h => { if (ctx.vliegBijDock) ctx.vliegBijDock(); ctx.go(h); };
@@ -84,13 +158,22 @@ export function createSearch(ctx) {
       return G;
     }
     const res = klaar().search(q); const per = new Map();
-    for (const h of res) { const d = docs[h.id]; const g = GROEP[d.type] || d.type; let e = per.get(g); if (!e) { e = { type: g, items: [], best: h.score }; per.set(g, e); } if (e.items.length < (g === 'Plaatsen' || g === 'Weergaven' ? 3 : 4)) { const it = item(d); if (it) e.items.push(it); } }
+    // voorrang, met hun groep bovenaan: een kenteken (ook met een tikfout) en de naam van een plaats of standplaats (een
+    // standplaats voor een plaats met dezelfde naam); daarna wat MiniSearch vindt
+    const top = res.length ? res[0].score : 1; const nq = norm(q).replace(/\s+/g, ' ');
+    const voor = [...kentekenTreffers(q).map(x => ({ id: x.id, score: top * (x.d ? 2 : 3), best: 1.5e9 })), ...naamTreffers(nq).map(x => ({ id: x.id, score: top * (3 - x.d), best: x.sp ? 2e9 : 1.9e9 }))];
+    const al = new Set(voor.map(x => x.id));
+    for (const h of [...voor, ...res.filter(x => !al.has(x.id))]) {
+      const d = docs[h.id]; if (!d) continue; const g = GROEP[d.type] || d.type; let e = per.get(g);
+      if (!e) { e = { type: g, items: [], best: h.best || h.score }; per.set(g, e); } else if (h.best && h.best > e.best) e.best = h.best;
+      if (e.items.length < (g === 'Plaatsen' || g === 'Weergaven' ? 3 : 4)) { const it = item(d); if (it) e.items.push(it); }
+    }
     // een klant of formule ("lidl", "jumbo"): eerst de standplaatsen die ervoor rijden
     const toks = q.split(/\s+/).map(norm).filter(Boolean);
     if (toks.some(w => w.length >= 3 && FORMULE().has(w))) { const g = per.get('Standplaatsen'); if (g) g.best = 1e9; }
     G.push(...per.values());
     // meldingen en werkorders: veranderen door de dag, dus hier los bekeken
-    const nq = norm(q); const has = s => norm(s).includes(nq);
+    const has = s => norm(s).includes(nq);
     const Z = nq.length >= 2 ? ctx.Z.scoped().filter(z => z.present || z.status === 'opgelost').filter(z => has(`${z.obj} ${z.kind} ${z.text}`)).slice(0, 3) : [];
     if (Z.length) G.push({ type: 'Meldingen', items: Z.map(z => ({ icon: 'alert', label: `${z.kind} · ${z.obj}`, sub: z.text, type: 'Melding', run: () => ctx.go(`melding/${z.id}`) })), best: 5 });
     const wo = nq.length >= 3 && ('werkorder'.startsWith(nq) || /storing|garage|werkplaats|onderhoud/.test(nq));
@@ -134,5 +217,6 @@ export function createSearch(ctx) {
     el.querySelector('#zoekClose').addEventListener('click', () => close());
   }
   function focus() { if (!input) return; if (ctx.narrow()) el.classList.add('open'); input.focus(); input.select(); render(); }
-  return { mount, focus, close, find, isOpen: () => list && !list.hidden, index: () => klaar() };
+  // index() voor de controles; bijgewerkt() zegt wat de laatste nieuwe planversie kostte (ms en het aantal documenten)
+  return { mount, focus, close, find, isOpen: () => list && !list.hidden, index: () => klaar(), bijgewerkt: () => ({ ...bijgewerkt, gebouwd }) };
 }
