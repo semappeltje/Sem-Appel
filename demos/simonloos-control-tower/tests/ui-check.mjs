@@ -561,7 +561,9 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
     window.SLCT.ui.ctx.R.bump(); const t0 = performance.now(); const c = vraag('purmrend'); const ms = performance.now() - t0;
     i.value = ''; i.blur(); return { id: t.id, wissel, a, b, c, ms: +ms.toFixed(1) };
   });
-  check(zk.a.includes(zk.id) && zk.b === 'Plaats: Purmerend' && zk.c === 'Plaats: Purmerend' && zk.ms < 100, `zoeken: "${zk.wissel}" (twee tekens omgewisseld) geeft ${zk.a}; "purmerend" en "purmrend" geven de plaats bovenaan; eerste zoekvraag na een nieuwe planversie ${zk.ms} ms (hooguit 100)`);
+  // de zoekvraag wachtte niet op het bijwerken; de index is direct daarna bij
+  await p.waitForTimeout(400); const zkBij = await p.evaluate(() => window.SLCT.ui.ctx.search.bijgewerkt());
+  check(zk.a.includes(zk.id) && zk.b === 'Plaats: Purmerend' && zk.c === 'Plaats: Purmerend' && zk.ms < 100 && zkBij.bij, `zoeken: "${zk.wissel}" (twee tekens omgewisseld) geeft ${zk.a}; "purmerend" en "purmrend" geven de plaats bovenaan; eerste zoekvraag na een nieuwe planversie ${zk.ms} ms (hooguit 100), de index daarna bijgewerkt in ${zkBij.ms} ms`);
   await p.evaluate(() => window.SLCT.ui.ctx.search.close(false));
   // J9. "Naar de inhoud": de eerste tab-stop, en daarna de briefing
   await p.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.scrollTo(0, 0); }); await p.waitForTimeout(200);

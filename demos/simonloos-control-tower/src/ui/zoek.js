@@ -109,6 +109,14 @@ export function createSearch(ctx) {
     idxVer = v; bijgewerkt = { ms: Math.round((performance.now() - t0) * 10) / 10, ...tel };
   }
   const klaar = () => { if (!idx) bouw(); else if (idxVer !== ctx.R.ver()) werkBij(); return idx; };
+  // Een zoekvraag wacht nooit op het bijwerken: na een nieuwe planversie zoekt hij meteen in de index die er is en werkt
+  // hij die direct daarna bij (meestal heeft de rustige bijwerker hieronder dat al gedaan); staat de lijst dan nog open,
+  // dan tekent hij hem opnieuw, met wat er net bij kwam.
+  let straks = false;
+  function bijwerkenStraks() {
+    if (straks) return; straks = true;
+    setTimeout(() => { straks = false; if (!idx || idxVer === ctx.R.ver()) return; try { werkBij(); } catch { return; } if (list && !list.hidden && input && input.value.trim()) render(); }, 0);
+  }
   // na het laden in een rustig moment bouwen, zodat de eerste toets meteen antwoord geeft; en na een wijziging in het plan
   // alvast bijwerken als de browser even niets te doen heeft, zodat ook de eerste toets daarna snel is
   const rustig = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 200));
@@ -157,7 +165,7 @@ export function createSearch(ctx) {
       G.push({ type: 'Weergaven', items: VIEWS.slice(0, 6).map(([k, n, icon]) => ({ icon, label: n, sub: 'open deze weergave', type: 'Weergave', run: () => ctx.navTo(k) })), best: 0 });
       return G;
     }
-    const res = klaar().search(q); const per = new Map();
+    const oud = !!idx && idxVer !== ctx.R.ver(); const res = (oud ? idx : klaar()).search(q); if (oud) bijwerkenStraks(); const per = new Map();
     // voorrang, met hun groep bovenaan: een kenteken (ook met een tikfout) en de naam van een plaats of standplaats (een
     // standplaats voor een plaats met dezelfde naam); daarna wat MiniSearch vindt
     const top = res.length ? res[0].score : 1; const nq = norm(q).replace(/\s+/g, ' ');
@@ -218,5 +226,5 @@ export function createSearch(ctx) {
   }
   function focus() { if (!input) return; if (ctx.narrow()) el.classList.add('open'); input.focus(); input.select(); render(); }
   // index() voor de controles; bijgewerkt() zegt wat de laatste nieuwe planversie kostte (ms en het aantal documenten)
-  return { mount, focus, close, find, isOpen: () => list && !list.hidden, index: () => klaar(), bijgewerkt: () => ({ ...bijgewerkt, gebouwd }) };
+  return { mount, focus, close, find, isOpen: () => list && !list.hidden, index: () => klaar(), bijgewerkt: () => ({ ...bijgewerkt, gebouwd, bij: idxVer === ctx.R.ver() }) };
 }
