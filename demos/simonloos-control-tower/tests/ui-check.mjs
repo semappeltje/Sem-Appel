@@ -11,6 +11,7 @@
 // Met de kaart van 4.0 (alleen met WebGL): volgen doet de kaart (mapApi.follow), een treffer van buiten de kaart vliegt
 // erheen met een ring (mapApi.flyTo), een klik op een voertuig in beeld laat de kaart staan, een DC opent zijn paneel.
 import { createRequire } from 'node:module';
+import zlib from 'node:zlib';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const [, , port = '8774', mode = 'gl', variant = 'plain'] = process.argv;
 const url = /^\d+$/.test(port) ? `http://127.0.0.1:${port}/index.html` : port;
@@ -456,6 +457,193 @@ check(v2 === 'v-kaart' && vm === 'v-meldingen', `cijfertoetsen en m wisselen van
   await p2.evaluate(() => { location.hash = '#meldingen'; }); await p2.waitForTimeout(600);
   check(await p2.evaluate(() => !!document.querySelector('#v-meldingen .ml, #v-meldingen .empty')), '390 px: meldingen als lijst met twee regels per zaak');
   await c2.close();
+}
+
+// ======================= J. eindcontrole 4.0: kaart vanuit elke weergave, belmenu, zoeken, planbord, herladen =======================
+// Een eigen pagina met het werkgebied Wognum (zoals de planner van Wognum om 05:30), zodat niets afhangt van wat hierboven
+// gebeurde. De kaart wordt gemeten op het moment dat de camera landt (moveend), met lopende klok (12x): het doel moet dan
+// in het midden van het vrije deel staan (onder de filterbalk, boven de tijdbalk, links van of boven het paneel).
+const WOGNUM = { regios: [], divs: ['winkel', 'netwerk', 'bulk', 'dranken', 'bezorg'], role: 'planner', sp: 'Wognum' };
+async function paginaWognum(vp = { width: 1440, height: 900 }) {
+  const r = await nieuwePagina(vp); const p = r.page;
+  await p.goto(url, { waitUntil: 'load' });
+  await p.evaluate(w => { try { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify(w)); } catch { /* geen opslag */ } }, WOGNUM);
+  await p.reload({ waitUntil: 'load' }); await p.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 300_000, polling: 500 }); await p.waitForTimeout(1200);
+  // de meting: het vrije deel uit de opmaak en waar het doel (voertuig-id of [lon, lat]) daarin staat (0 tot 1, 0,5 is het midden)
+  await p.evaluate(() => {
+    window.__vrij = () => {
+      const m = window.SLCT.map.map; const C = m.getCanvas().getBoundingClientRect(); const tb = document.getElementById('timebar').getBoundingClientRect();
+      let top = C.top; for (const k of document.getElementById('mapbar').children) { const b = k.getBoundingClientRect(); if (b.width && b.height) top = Math.max(top, b.bottom); }
+      const pn = document.getElementById('panel'); const P = pn.classList.contains('open') ? pn.getBoundingClientRect() : null; const nar = document.getElementById('app').clientWidth <= 760;
+      const V = { l: C.left, t: top, r: C.right, b: Math.min(C.bottom, tb.height ? tb.top : C.bottom) }; if (P) { if (nar) V.b = Math.min(V.b, P.top); else V.r = Math.min(V.r, P.left); }
+      return { V, C };
+    };
+    window.__meet = () => { const d = window.__doel; const { V, C } = window.__vrij(); const m = window.SLCT.map.map; let ll = d; if (typeof d === 'string') { const v = window.SLCT.map.vehiclePos(d); ll = v ? [v.lon, v.lat] : null; } if (!ll) return null; const q = m.project(ll); return { fx: +((q.x + C.left - V.l) / (V.r - V.l)).toFixed(2), fy: +((q.y + C.top - V.t) / (V.b - V.t)).toFixed(2), zoom: +m.getZoom().toFixed(1) }; };
+    window.__lnd = []; window.SLCT.map.map.on('moveend', () => { try { const x = window.__meet(); if (x) window.__lnd.push(x); } catch { /* geen doel */ } });
+  });
+  return { ...r, p };
+}
+const klokLoopt = p => p.evaluate(() => { const S = window.SLCT; S.state.simTime = 330; S.state.speed = 12; S.state.playing = true; S.ui.frame(true); S.ui.ctx.refreshAll(); });
+const stilKaart = async p => { await p.waitForTimeout(250); await p.waitForFunction(() => !window.SLCT.map.map.isMoving(), null, { timeout: 20000, polling: 150 }).catch(() => {}); await p.waitForTimeout(250); };
+const landing = p => p.evaluate(() => window.__lnd[window.__lnd.length - 1] || null);
+const inMidden = x => !!x && x.fx > 0.35 && x.fx < 0.65 && x.fy > 0.35 && x.fy < 0.65;
+// een PNG van Playwright uitpakken (8 bits, RGB of RGBA, zonder interlace), voor de pixeltoets van de arcering
+function pngPixels(buf) {
+  let o = 8, w = 0, h = 0, ct = 0; const idat = [];
+  while (o < buf.length) { const len = buf.readUInt32BE(o); const type = buf.toString('ascii', o + 4, o + 8); const data = buf.subarray(o + 8, o + 8 + len); if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); ct = data[9]; } else if (type === 'IDAT') idat.push(data); else if (type === 'IEND') break; o += 12 + len; }
+  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const out = Buffer.alloc(h * st);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (st + 1)]; const src = raw.subarray(y * (st + 1) + 1, (y + 1) * (st + 1)); const row = out.subarray(y * st, (y + 1) * st); const prev = y ? out.subarray((y - 1) * st, y * st) : null;
+    for (let x = 0; x < st; x++) {
+      const a = x >= bpp ? row[x - bpp] : 0, b = prev ? prev[x] : 0, c = prev && x >= bpp ? prev[x - bpp] : 0; let v = src[x];
+      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1; else if (f === 4) { const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c); v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+      row[x] = v & 255;
+    }
+  }
+  return { w, h, px: (x, y) => { const i = y * st + x * bpp; return [out[i], out[i + 1], out[i + 2]]; } };
+}
+// kleurwissels langs een paar rijen: een arcering geeft er veel, een egaal blok weinig
+const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Math.round(img.h * 0.5), Math.round(img.h * 0.7)]) { let prev = img.px(2, y); for (let x = 3; x < img.w - 2; x++) { const c = img.px(x, y); if (Math.abs(c[0] - prev[0]) + Math.abs(c[1] - prev[1]) + Math.abs(c[2] - prev[2]) > 45) n++; prev = c; } } return n; };
+{
+  const { ctx: cj, p } = await paginaWognum();
+  // J1. vanaf het Overzicht (niet vanaf de kaart) naar de kaart: een gebeurtenis opent het voertuig midden in het vrije deel
+  if (mode === 'gl') {
+    await klokLoopt(p); await p.waitForTimeout(1500);
+    // zoeken en klikken in een stap: met lopende klok tekent de lijst steeds opnieuw
+    const id = await p.evaluate(() => { const b = document.querySelector('#v-overzicht [data-ov="log"] [data-open^="kaart:truck:"]'); if (!b) return null; const id = b.dataset.open.split(':')[2]; window.__doel = id; window.__lnd = []; b.click(); return id; });
+    if (id) {
+      await stilKaart(p);
+      const l = await landing(p); const st = await p.evaluate(() => ({ h: decodeURIComponent(location.hash), view: document.querySelector('#views > .view.on').id, loopt: window.SLCT.state.playing }));
+      check(inMidden(l) && st.view === 'v-kaart' && st.h === `#voertuig/${id}` && st.loopt, `vanaf het Overzicht naar de kaart (gebeurtenis, klok loopt): ${id} landt op ${l ? `${l.fx}, ${l.fy}` : 'niets'} van het vrije deel (0,5 is het midden), ${st.h}`);
+    } else note('geen gebeurtenis met een voertuig op het Overzicht');
+    // J3. zoeken op een plaats vanaf het Overzicht: de plaats bovenaan, Enter zet de kaart erop en het adres op #plaats/...
+    await p.evaluate(() => window.SLCT.ui.ctx.go('view:overzicht')); await p.waitForTimeout(600);
+    await p.evaluate(() => { window.__doel = null; const i = document.getElementById('zoekIn'); i.focus(); i.value = ''; });
+    await p.keyboard.type('purmrend', { delay: 15 }); await p.waitForTimeout(250);
+    const topPl = await p.evaluate(() => { const x = document.querySelector('#zoekL .sg-item'); return x ? `${x.querySelector('.sg-type').textContent}: ${x.querySelector('b').textContent}` : ''; });
+    const plek = await p.evaluate(async () => { const d = await window.SLCT.map.map.getSource('places').getData(); const f = d.features.find(x => x.properties.n === 'Purmerend'); return f ? f.geometry.coordinates : null; });
+    await p.evaluate(ll => { window.__doel = ll; window.__lnd = []; }, plek);
+    await p.keyboard.press('Enter'); await stilKaart(p);
+    const lp = await landing(p); const hp = await p.evaluate(() => decodeURIComponent(location.hash));
+    check(topPl === 'Plaats: Purmerend' && hp === '#plaats/Purmerend' && inMidden(lp), `zoeken "purmrend" vanaf het Overzicht: ${topPl} bovenaan, Enter zet de kaart erop (${lp ? `${lp.fx}, ${lp.fy}` : 'niets'}) en het adres op ${hp}`);
+    // J4. Route op de kaart vanuit Open ritten: de hele route in het vrije deel, het midden in het midden, adres #route/...
+    await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(1200);
+    const rk = await p.evaluate(() => { const b = document.querySelector('#v-openritten [data-orkaart]'); if (!b) return false; b.click(); return true; });
+    await stilKaart(p);
+    if (rk) {
+      const rt = await p.evaluate(async () => { const m = window.SLCT.map.map; const { V, C } = window.__vrij(); const d = await m.getSource('route').getData(); const pts = d.features.flatMap(f => f.geometry.type === 'LineString' ? f.geometry.coordinates : []); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of pts) { const s = m.project(q); x0 = Math.min(x0, s.x + C.left); x1 = Math.max(x1, s.x + C.left); y0 = Math.min(y0, s.y + C.top); y1 = Math.max(y1, s.y + C.top); } return { n: pts.length, past: x0 >= V.l && x1 <= V.r && y0 >= V.t && y1 <= V.b, cx: +(((x0 + x1) / 2 - V.l) / (V.r - V.l)).toFixed(2), cy: +(((y0 + y1) / 2 - V.t) / (V.b - V.t)).toFixed(2), z: +m.getZoom().toFixed(1), h: decodeURIComponent(location.hash) }; });
+      check(rt.n > 1 && rt.past && Math.abs(rt.cx - 0.5) < 0.1 && Math.abs(rt.cy - 0.5) < 0.1 && /^#route\//.test(rt.h), `Route op de kaart: de route past in het vrije deel (midden ${rt.cx}, ${rt.cy}; zoom ${rt.z}), adres ${rt.h}`);
+    } else note('geen open rit met een route');
+  }
+  // J5. het belmenu: een keuze opent de zaak, met de muis en met Enter
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:overzicht')); await p.waitForTimeout(500);
+  const heeftZaak = await p.evaluate(() => window.SLCT.ui.ctx.Z.open().length > 0);
+  if (heeftZaak) {
+    await p.click('#bellBtn'); await p.waitForTimeout(300);
+    const z1 = await p.evaluate(() => { const b = document.querySelector('#popover [data-open^="melding/"]'); return b ? b.dataset.open : null; });
+    await p.click('#popover [data-open^="melding/"]'); await p.waitForTimeout(700);
+    const s1 = await p.evaluate(() => ({ h: decodeURIComponent(location.hash), pagina: !document.getElementById('sheet').hidden, pop: !document.getElementById('popover').hidden }));
+    check(z1 && s1.h === `#${z1}` && s1.pagina && !s1.pop, `belmenu met de muis: ${z1} opent als pagina (${s1.h}), het menu is dicht`);
+    await p.evaluate(() => window.SLCT.ui.ctx.closePage()); await p.waitForTimeout(300);
+    await p.focus('#bellBtn'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);
+    const z2 = await p.evaluate(() => { const a = document.activeElement; return a && a.closest('#popover') && a.dataset.open ? a.dataset.open : null; });
+    await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+    const s2 = await p.evaluate(() => ({ h: decodeURIComponent(location.hash), pagina: !document.getElementById('sheet').hidden }));
+    check(z2 && s2.h === `#${z2}` && s2.pagina, `belmenu met het toetsenbord: Enter op de bel, Enter op ${z2} opent de zaak (${s2.h})`);
+    await p.evaluate(() => window.SLCT.ui.ctx.closePage()); await p.waitForTimeout(300);
+  } else note('geen open zaak voor het belmenu');
+  // J6. zoeken: een kenteken met twee omgewisselde tekens, een plaats bovenaan, en snel na een wijziging in het plan
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:overzicht')); await p.waitForTimeout(400);
+  const zk = await p.evaluate(() => {
+    const t = window.SLCT.fleet.trucks.find(x => x.base.n === 'Wognum' && x.kind === 'trekker'); const k = t.plate.replace(/-/g, ''); const wissel = k.slice(0, 2) + k[3] + k[2] + k.slice(4);
+    const i = document.getElementById('zoekIn'); i.focus(); const vraag = q => { i.value = q; i.dispatchEvent(new Event('input', { bubbles: true })); const x = document.querySelector('#zoekL .sg-item'); return x ? `${x.querySelector('.sg-type').textContent}: ${x.querySelector('b').textContent}` : ''; };
+    const a = vraag(wissel); const b = vraag('purmerend');
+    window.SLCT.ui.ctx.R.bump(); const t0 = performance.now(); const c = vraag('purmrend'); const ms = performance.now() - t0;
+    i.value = ''; i.blur(); return { id: t.id, wissel, a, b, c, ms: +ms.toFixed(1) };
+  });
+  check(zk.a.includes(zk.id) && zk.b === 'Plaats: Purmerend' && zk.c === 'Plaats: Purmerend' && zk.ms < 100, `zoeken: "${zk.wissel}" (twee tekens omgewisseld) geeft ${zk.a}; "purmerend" en "purmrend" geven de plaats bovenaan; eerste zoekvraag na een nieuwe planversie ${zk.ms} ms (hooguit 100)`);
+  await p.evaluate(() => window.SLCT.ui.ctx.search.close(false));
+  // J9. "Naar de inhoud": de eerste tab-stop, en daarna de briefing
+  await p.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.scrollTo(0, 0); }); await p.waitForTimeout(200);
+  await p.evaluate(() => { const a = document.createElement('a'); a.href = '#'; a.id = '__start'; document.body.prepend(a); a.focus(); }); await p.evaluate(() => document.getElementById('__start').remove());
+  await p.keyboard.press('Tab'); const sk1 = await p.evaluate(() => ({ cls: document.activeElement.className, txt: document.activeElement.textContent, top: Math.round(document.activeElement.getBoundingClientRect().top) }));
+  await p.keyboard.press('Enter'); await p.waitForTimeout(200); const sk2 = await p.evaluate(() => document.activeElement.id);
+  await p.keyboard.press('Tab'); const sk3 = await p.evaluate(() => document.activeElement.className);
+  check(sk1.cls === 'skip' && sk1.txt === 'Naar de inhoud' && sk1.top >= 0 && sk2 === 'ovBrief' && /brief-i/.test(sk3), `"Naar de inhoud" is de eerste tab-stop (zichtbaar op ${sk1.top} px), Enter gaat naar de briefing (${sk2}), de volgende Tab is de eerste regel (${sk3})`);
+  // J11. het Overzicht: een begrip voor onderweg, de dag van het werkgebied, en geen twee briefingregels naar dezelfde zaak
+  await klokLoopt(p); await p.evaluate(() => { window.SLCT.state.playing = false; window.SLCT.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
+  const ovz = await p.evaluate(() => { const L = [...document.querySelectorAll('#v-overzicht .brief-i')].map(b => ({ k: b.querySelector('.brief-k').textContent.trim(), open: b.dataset.open || '', t: b.textContent })); const sp = L.find(x => x.k === 'Speelt'); const kpi = [...document.querySelectorAll('#v-overzicht .kpi')].map(k => k.textContent).join(' | '); return { L, onderwegBrief: sp ? (sp.t.match(/(\d[\d.]*) voertuig(?:en)? onderweg/) || [])[1] : null, onderwegKpi: (kpi.match(/van (\d[\d.]*) onderweg/) || [])[1], dag: (document.querySelector('#v-overzicht [data-ov="dag"]') || {}).textContent || '' }; });
+  const doelen = ovz.L.map(x => x.open).filter(x => /^(melding|openritten)\//.test(x));
+  check(ovz.onderwegBrief && ovz.onderwegBrief === ovz.onderwegKpi && /^De dag in Wognum:/.test(ovz.dag) && new Set(doelen).size === doelen.length, `Overzicht om 05:30: onderweg ${ovz.onderwegBrief} in de briefing en ${ovz.onderwegKpi} bij Vandaag, "${ovz.dag.split(':')[0]}", ${doelen.length} briefingregels naar ${new Set(doelen).size} verschillende zaken of ritten`);
+  // J13. Rit inplannen: het voertuig van de rit heet zo ("met T-1007 (vrij)"), niet "op T-1007"
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(1200);
+  const kd = await p.evaluate(() => [...document.querySelectorAll('#v-openritten .kd-n small')].map(x => x.textContent));
+  check(kd.length > 0 && !kd.some(x => / op [TBV]-\d/.test(x)) && (kd.some(x => /met [TBV]-\d+ \(vrij\)/.test(x)) || kd.every(x => !/[TBV]-\d/.test(x))), `Rit inplannen: kandidaten zeggen "${(kd.find(x => /met /.test(x)) || kd[0] || '').trim()}" in plaats van "op T-..."`);
+  // J7. een aangevraagde rit op het planbord: zichtbaar gearceerd (pixels, licht en donker) met "gevraagd" erbij
+  // een open rit van vandaag met een eigen chauffeur en een vrij voertuig (dan komt hij op het voertuig, niet in een eigen rij)
+  const ritten = await p.evaluate(() => [...document.querySelectorAll('#v-openritten .or-list [data-or]')].map(b => b.dataset.or).slice(0, 8));
+  let kies = null;
+  for (const rid of ritten) {
+    await p.evaluate(rid => window.SLCT.ui.ctx.go(`openritten/${rid}`), rid); await p.waitForTimeout(700);
+    kies = await p.evaluate(() => { const b = [...document.querySelectorAll('#v-openritten [data-kies^="eigen:"]')].find(x => /met [TBV]-\d/.test((x.closest('.kd-i') || x).textContent)); if (!b) return null; const id = window.SLCT.ui.ctx.ui.or.cur; b.click(); return id; });
+    if (kies) break;
+  }
+  await p.waitForTimeout(900);
+  if (kies) {
+    await p.evaluate(id => { location.hash = `#planbord/R-${id}`; }, kies); await p.waitForTimeout(2500);
+    const sel = `.sg-task.aangevraagd[data-task-id="R-${kies}"]`;
+    const st = await p.evaluate(s => { const t = document.querySelector(s); if (!t) return null; const a = t.querySelector('.sg-arc'); const av = t.querySelector('.sg-av'); const cs = a ? getComputedStyle(a) : null; const r = t.getBoundingClientRect(), ra = a ? a.getBoundingClientRect() : null; return { arc: !!a && cs.display !== 'none' && /repeating-linear-gradient/.test(cs.backgroundImage) && Math.abs(ra.width - r.width) < 2, av: av ? av.textContent : '', avZicht: !!av && av.offsetWidth > 0, w: Math.round(r.width) }; }, sel);
+    if (st) {
+      const vgl = await p.evaluate(s => { const t = document.querySelector(s); const row = t.closest('.sg-row') ? null : null; const L = [...document.querySelectorAll('.sg-task.pb-rit.st-gepland:not(.aangevraagd)')].filter(x => { const r = x.getBoundingClientRect(); return r.width > 60 && r.left >= 0 && r.right <= innerWidth && r.top > 0 && r.bottom < innerHeight; }); return L[0] ? L[0].dataset.taskId : null; }, sel);
+      const meetPx = async () => { await p.addStyleTag({ content: '.slct .sg-task .sg-l{visibility:hidden!important}' }).catch(() => {}); const a = await (await p.$(sel)).screenshot(); const b = vgl ? await (await p.$(`.sg-task[data-task-id="${vgl}"]`)).screenshot() : null; await p.evaluate(() => { for (const s of document.querySelectorAll('style')) if (s.textContent.includes('.sg-l{visibility:hidden!important}')) s.remove(); }); return { av: wissels(pngPixels(a)), gewoon: b ? wissels(pngPixels(b)) : null }; };
+      const licht = await meetPx();
+      await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme()); await p.waitForTimeout(900);
+      const donker = await meetPx();
+      await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme()); await p.waitForTimeout(300);
+      const ok = px => px.av >= 12 && (px.gewoon === null || px.av > px.gewoon * 2);
+      check(st.arc && st.av === 'gevraagd' && st.avZicht && ok(licht) && ok(donker), `planbord: R-${kies} wacht op een ja en is gearceerd boven de segmenten (kleurwissels licht ${licht.av} tegen ${licht.gewoon} bij een gewone rit, donker ${donker.av} tegen ${donker.gewoon}), met "${st.av}" erbij`);
+    } else check(false, `planbord: R-${kies} staat niet als aangevraagde rit op het bord`);
+  } else note('geen kandidaat om toe te wijzen');
+  // J8. herladen: de stand van het planbord (per chauffeur, zoom, morgen) en de dag van Open ritten komen terug
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:planbord')); await p.waitForTimeout(1500);
+  await p.selectOption('#pbPer', 'chauffeur'); await p.waitForTimeout(500); await p.selectOption('#pbZoom', '6'); await p.waitForTimeout(400);
+  await p.click('#v-planbord [data-pbdag="morgen"]'); await p.waitForTimeout(900);
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(800);
+  await p.click('#v-openritten [data-ordag="morgen"]'); await p.waitForTimeout(500);
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:planbord')); await p.waitForTimeout(800);
+  await p.reload({ waitUntil: 'load' }); await p.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 300_000, polling: 500 }); await p.waitForTimeout(1500);
+  const pbna = await p.evaluate(() => ({ view: document.querySelector('#views > .view.on').id, per: (document.getElementById('pbPer') || {}).value, zoom: (document.getElementById('pbZoom') || {}).value, dag: (document.querySelector('#v-planbord [data-pbdag][aria-pressed="true"]') || {}).textContent }));
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(800);
+  const orna = await p.evaluate(() => (document.querySelector('#v-openritten [data-ordag][aria-pressed="true"]') || {}).dataset.ordag);
+  check(pbna.view === 'v-planbord' && pbna.per === 'chauffeur' && pbna.zoom === '6' && pbna.dag === 'Morgen' && orna === 'morgen', `herladen: het planbord staat weer per ${pbna.per}, ${pbna.zoom} uur, ${pbna.dag}; Open ritten weer op ${orna}`);
+  // J10. het hal-scherm toont geen hele namen: voornaam en de eerste letter van de achternaam
+  await p.evaluate(() => { location.hash = '#hal/Wognum'; }); await p.waitForTimeout(800);
+  const hal = await p.evaluate(() => [...document.querySelectorAll('#hal .halline .drv')].map(x => x.textContent));
+  check(hal.length > 0 && hal.every(x => x === '–' || /^\S+( \S+)* [A-ZÀ-Ý]\.$/.test(x)), `hal-scherm: alleen voornaam en eerste letter van de achternaam (${[...new Set(hal)].slice(0, 3).join(', ')})`);
+  await p.evaluate(() => window.SLCT.ui.ctx.hashTo('')); await p.waitForTimeout(400);
+  // J12. het vertrekbord op Standplaatsen past in zijn vak: geen afgesneden status
+  await p.evaluate(() => { location.hash = '#standplaatsen/Wognum'; }); await p.waitForTimeout(1200);
+  const vb = await p.evaluate(() => { const t = document.querySelector('#v-standplaatsen .vb-t'); if (!t) return null; const box = t.parentElement; const bx = box.getBoundingClientRect(); const st = [...t.querySelectorAll('tbody td.c-st .badge')]; return { tabel: Math.round(t.getBoundingClientRect().width), vak: Math.round(box.clientWidth), uit: st.filter(x => x.getBoundingClientRect().right > bx.right + 0.5 || x.scrollWidth > x.clientWidth + 1).length, n: st.length }; });
+  check(vb && vb.tabel <= vb.vak && vb.uit === 0 && vb.n > 0, `vertrekbord: tabel ${vb && vb.tabel} px in een vak van ${vb && vb.vak} px, ${vb && vb.uit} van ${vb && vb.n} statussen afgesneden`);
+  // J14. de regiomanager ziet geen rijgedrag per chauffeur (een prestatiebeeld kan alleen met de OR)
+  await p.evaluate(() => window.SLCT.ui.ctx.setRole('regiomanager')); await p.waitForTimeout(300);
+  await p.evaluate(() => { location.hash = '#persoon/P-0001/rijden'; }); await p.waitForTimeout(900);
+  const rm = await p.evaluate(() => ({ lock: !!document.querySelector('#sheet .locked'), kpi: /Harde remmingen/.test(document.getElementById('sheet').textContent) }));
+  check(rm.lock && !rm.kpi, 'regiomanager: het tabblad Rijden van een chauffeur is afgeschermd (geen harde remmingen of overtredingen per chauffeur)');
+  await p.evaluate(() => window.SLCT.ui.ctx.setRole('planner'));
+  await cj.close();
+}
+// J2. vanaf het Overzicht naar de kaart op een telefoon (390 px): het voertuig midden in het deel boven het paneel
+if (mode === 'gl') {
+  const { ctx: c3, p } = await paginaWognum({ width: 390, height: 844 });
+  await klokLoopt(p); await p.waitForTimeout(1500);
+  const id = await p.evaluate(() => { const b = document.querySelector('#v-overzicht [data-ov="log"] [data-open^="kaart:truck:"]'); if (!b) return null; const id = b.dataset.open.split(':')[2]; window.__doel = id; window.__lnd = []; b.click(); return id; });
+  if (id) {
+    await stilKaart(p);
+    const l = await landing(p); const top = await p.evaluate(() => { const { V } = window.__vrij(); return { t: Math.round(V.t), b: Math.round(V.b), topbalk: Math.round(document.getElementById('topbar').getBoundingClientRect().bottom) }; });
+    check(inMidden(l) && top.t > top.topbalk, `390 px: vanaf het Overzicht naar de kaart landt ${id} op ${l ? `${l.fx}, ${l.fy}` : 'niets'} van het deel tussen de filterbalk (${top.t} px) en het paneel (${top.b} px), niet tegen de topbalk`);
+  } else note('390 px: geen gebeurtenis met een voertuig');
+  await c3.close();
 }
 
 const realErrors = errors.filter(e => !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED/.test(e));
