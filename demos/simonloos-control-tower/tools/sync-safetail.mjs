@@ -4,7 +4,7 @@
 //   npm run build:site
 //   node tools/sync-safetail.mjs ../../../website      # pad naar de website-repo (SafeTail-V-O-F/Website)
 //
-// Kopieert app.js, data.js, maplibre.js, three.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
+// Kopieert app.js, data.js, maplibre.js, three.js, buildings.js en app.css naar <repo>/public/intern/control-tower/app/ en schrijft daar
 // VERSIE.json (commit en datum van deze repo, bestandsgroottes). De pagina src/pages/intern/control-tower.astro in
 // die repo laadt deze bestanden en toont de versie. Daarna in de website-repo: npm run build, npm test, committen
 // (DEPLOY.md, "SafeTools · Control Tower").
@@ -18,10 +18,12 @@ const dist = path.join(app, 'dist-site');
 const target = process.argv[2];
 if (!target) { console.error('Gebruik: node tools/sync-safetail.mjs <pad naar de website-repo>'); process.exit(1); }
 const doel = path.join(path.resolve(target), 'public', 'intern', 'control-tower', 'app');
-const FILES = ['app.js', 'data.js', 'maplibre.js', 'three.js', 'app.css'];
+const FILES = ['app.js', 'data.js', 'maplibre.js', 'three.js', 'buildings.js', 'app.css'];
 for (const f of FILES) if (!existsSync(path.join(dist, f))) { console.error(`${f} ontbreekt in dist-site/: draai eerst npm run build:site`); process.exit(1); }
 // three.js mag alleen dynamisch geladen worden (bij de eerste klik op de kubus): een statische import in app.js zou het bij elke paginalading ophalen
 if (/from\s*["']\.\/three\.js["']/.test(readFileSync(path.join(dist, 'app.js'), 'utf8'))) { console.error('app.js importeert three.js statisch; scene3d.js mag niets uit de app importeren (geef het mee via opts.data)'); process.exit(1); }
+// buildings.js (2,4 MB gebouwen voor de 3D-wereld) ook alleen dynamisch: import('./buildings.js'), nooit statisch
+if (/from\s*["']\.\/buildings\.js["']/.test(readFileSync(path.join(dist, 'app.js'), 'utf8')) || /from\s*["']\.\/buildings\.js["']/.test(readFileSync(path.join(dist, 'data.js'), 'utf8'))) { console.error('buildings.js wordt statisch geïmporteerd; laad het met import(\'./buildings.js\') in de 3D-laag'); process.exit(1); }
 mkdirSync(doel, { recursive: true });
 const bestanden = {};
 for (const f of FILES) { copyFileSync(path.join(dist, f), path.join(doel, f)); bestanden[f] = statSync(path.join(doel, f)).size; }

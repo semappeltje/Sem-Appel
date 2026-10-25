@@ -69,12 +69,43 @@ function tree(a) {
   }
   tr = { dist, prev, prevE }; treeCache.set(a, tr); return tr;
 }
-// Pad als lijst knoop-ids (zoals voorheen); de kanten worden in buildPath weer opgezocht.
-export function shortestPath(a, b) {
-  const { dist, prev } = tree(a);
-  if (dist[b] === Infinity) return [a, b];
-  const path = []; for (let c = b; c !== -1; c = prev[c]) path.unshift(c); return path;
+// Een boom vooraf rekenen (de standplaatsen): elke rit van of naar die knoop gebruikt hem daarna.
+export function warmTree(a) { tree(a); }
+// Snelste route tussen twee willekeurige knopen (winkel naar winkel) met A*: de schatting is de hemelsbrede afstand
+// tegen de hoogste snelheid, dus de uitkomst is dezelfde als met een volledige boom. Hergebruikte arrays met een stempel.
+const gS = new Float64Array(nodes.length), stampA = new Int32Array(nodes.length), doneA = new Int32Array(nodes.length), prevA = new Int32Array(nodes.length);
+let stamp = 0; const pairCache = new Map();
+function astar(a, b) {
+  stamp++; const tb = nodes[b]; const h = v => kmBetween(nodes[v], tb) / 85;
+  const heap = new Heap(); gS[a] = 0; stampA[a] = stamp; prevA[a] = -1; heap.push(h(a), a);
+  while (heap.size) {
+    const [, u] = heap.pop();
+    if (doneA[u] === stamp) continue; doneA[u] = stamp;
+    if (u === b) break;
+    const gu = gS[u], nb = adj[u];
+    for (let k = 0; k < nb.length; k += 2) {
+      const v = nb[k]; if (doneA[v] === stamp) continue;
+      const ng = gu + costOf(nb[k + 1]);
+      if (stampA[v] !== stamp || ng < gS[v]) { stampA[v] = stamp; gS[v] = ng; prevA[v] = u; heap.push(ng + h(v), v); }
+    }
+  }
+  if (stampA[b] !== stamp) return [a, b];
+  const path = []; for (let c = b; c !== -1; c = prevA[c]) path.push(c); return path.reverse();
 }
+// Pad als lijst knoop-ids (zoals voorheen); de kanten worden in buildPath weer opgezocht. Een gerekende boom vanuit a of
+// vanuit b wordt gebruikt (de graaf is ongericht, dus de route van a naar b is de omgekeerde van b naar a); anders A*.
+export function shortestPath(a, b) {
+  if (a === b) return [a];
+  let tr = treeCache.get(a);
+  if (tr) { if (tr.dist[b] === Infinity) return [a, b]; const path = []; for (let c = b; c !== -1; c = tr.prev[c]) path.push(c); return path.reverse(); }
+  tr = treeCache.get(b);
+  if (tr) { if (tr.dist[a] === Infinity) return [a, b]; const path = []; for (let c = a; c !== -1; c = tr.prev[c]) path.push(c); return path; }
+  const key = a * 131072 + b; let p = pairCache.get(key);
+  if (!p) { p = astar(a, b); pairCache.set(key, p); }
+  return p.slice();
+}
+// Of een pad van knoop-ids echt over kanten loopt (geen sprong tussen twee knopen zonder weg ertussen).
+export function connected(ids) { for (let i = 1; i < ids.length; i++) if (ids[i] !== ids[i - 1] && edgeBetween(ids[i - 1], ids[i]) < 0) return false; return true; }
 function edgeBetween(u, v) { const nb = adj[u]; let best = -1, bl = Infinity; for (let k = 0; k < nb.length; k += 2) if (nb[k] === v && E[nb[k + 1]][2] < bl) { bl = E[nb[k + 1]][2]; best = nb[k + 1]; } return best; }
 
 // Pad van knoop-ids naar aaneengesloten geometrie met cumulatieve kilometers.

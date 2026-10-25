@@ -98,8 +98,8 @@ npm run build:site
 node tools/sync-safetail.mjs ../../../website   # pad naar de website-repo
 ```
 
-Dat kopieert de vijf bestanden (sinds de 3D-wereld ook `three.js`, dat `app.js` zelf met een relatief pad
-laadt) naar `public/intern/control-tower/app/` en schrijft daar
+Dat kopieert de zes bestanden (sinds de 3D-wereld ook `three.js`, en sinds 4.0 `buildings.js` met de gebouwen, die
+`app.js` allebei pas bij de eerste klik op de kubus met een relatief pad laadt) naar `public/intern/control-tower/app/` en schrijft daar
 `VERSIE.json` (commit en datum). De pagina daar bevat de HTML-opbouw van de app (dezelfde
 id's als `index.html` hier, sinds 3.0 ook `v-opleggers`): verandert die opbouw, pas dan
 ook die pagina aan. Daarna in de
@@ -141,6 +141,15 @@ camera en draait hij niet mee). Zonder WebGL is er geen knop.
 
 Echt: wegen, water, de 42 standplaatsen met hun klanten (werkenbijsimonloos.nl,
 oktober 2026), de divisies en de ligging van de pauzeplekken op het snelwegennet.
+
+Sinds 4.0 staan de standplaatsen op hun echte adres (uit de vacatures op werkenbijsimonloos.nl, op het BAG-adrespunt
+gezet) met hun echte terrein, hoofdgebouw en parkeerrijen; geparkeerde voertuigen en opleggers staan in die rijen.
+Ritten gaan naar echte winkels van de klant van de standplaats (4.578 supermarkten en drogisterijen uit Overture Places,
+binnen 80 km, bezorging binnen 40 km naar woonstraten) en naar echte DC's, fabrieken en groothandels (157), en rijden de
+laatste kilometers over echte straten tot de poort of de weg voor de deur. Voor de 3D-wereld zijn er de echte
+gebouwen rond elke standplaats en elk DC (Overture Buildings, 16.196 contouren met hoogte), apart geladen. Welke winkel
+een vrachtwagen vandaag bedient blijft gesimuleerd (vaste seed); bronnen, aantallen en benaderingen staan in
+`src/data/BRONNEN.md`.
 Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
 diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
@@ -161,6 +170,7 @@ uitgestelde meldingen, toegepaste voorstellen, berichten) en de 3D-stand staan i
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem
-- `src/data/`: `graph.json` (routeergraaf), `roads_display.json`, `water.json`, `provinces.json`, `urban.json`, `places.json`
+- `src/data/`: `graph.json` (routeergraaf), `roads_display.json` (met wegnummers en straatnamen in `lab`), `water.json`, `provinces.json`, `urban.json`, `places.json` (standplaatsen met adres, terrein en parkeerrijen), `klanten.json` (winkels en DC's), `toegang.json` (de laatste kilometers), `buildings.json` (gebouwen voor 3D, via `src/buildings.js` en alleen dynamisch geladen), `BRONNEN.md`
+- `tests/data-check.mjs`: controle van de echte plekken en ritten; `tools/ct4/`: de verwerking van de data (Overture, vacatures)
 - `vite.config.js` (één bestand), `vite.site.config.js` (bundel voor een site)
 - `tools/`: dataverwerking (Overture), `artifact.cjs` en `sync-safetail.mjs` (de bundel naar de SafeTail-repo)
