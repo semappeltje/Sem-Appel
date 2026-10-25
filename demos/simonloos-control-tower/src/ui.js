@@ -383,7 +383,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   }
   function undockMap() {
     if (!docked) return; const m = $('map'); const v = $('v-kaart'); v.insertBefore(m, v.firstChild); docked = null;
-    try { mapApi.map.resize(); if (dockCam) mapApi.map.jumpTo({ ...dockCam, padding: { top: 0, left: 0, right: 0, bottom: 0 } }); } catch { /* geen kaart */ }
+    // alleen meten als de kaartweergave zichtbaar is; anders meet setView('kaart') hem zodra hij in beeld komt
+    try { if (m.clientWidth && m.clientHeight) mapApi.map.resize(); if (dockCam) mapApi.map.jumpTo({ ...dockCam, padding: { top: 0, left: 0, right: 0, bottom: 0 } }); } catch { /* geen kaart */ }
     if (dock3d) mapApi.set3d(true); dock3d = false; dockCam = null;
     mapApi.setRoute(null, null, []); frame(true);
   }
@@ -567,7 +568,10 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (!VIEW_NAME[name]) return;
     const was = view; view = name;
     document.querySelectorAll('#views > .view').forEach(s => s.classList.toggle('on', s.id === 'v-' + name));
-    if (name === 'kaart' && mapApi) setTimeout(() => { try { mapApi.map.resize(); } catch { /* */ } }, 0);
+    // de kaart meteen op zijn echte maat: een camera die direct hierna vliegt (Op kaart vanuit een pagina, zoeken) rekent
+    // anders met de maat van de verborgen weergave of van het kaartje in de pagina, en het voertuig belandt linksboven.
+    // Daarna nog een keer, als de opmaak (paneel, balken) gezet is.
+    if (name === 'kaart' && mapApi) { try { mapApi.map.resize(); } catch { /* geen kaart */ } setTimeout(() => { try { mapApi.map.resize(); } catch { /* */ } }, 0); }
     if (name !== 'kaart' && ['truck', 'trailer', 'sp', 'rest', 'winkel'].includes(panelMode)) closePanel();
     if (name === 'kaart' && !scopeFlown && mapApi) { scopeFlown = true; flyToScope(); }
     frame(true);

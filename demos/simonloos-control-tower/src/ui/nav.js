@@ -111,7 +111,8 @@ export function createNav(ctx) {
   function bellMenu(b) {
     const L = ctx.Z.open().slice(0, 6); const c = ctx.Z.counts();
     ctx.L.openPop(b, `<div class="menu-h"><b>Meldingen</b>${fmt(c.open)} open${c.verlopen ? `, ${fmt(c.verlopen)} over de norm` : ''} · ${fmt(c.wacht)} wacht</div>${L.length ? L.map(z => `<button class="menu-i" type="button" data-open="melding/${esc(z.id)}">${ic(SOORT[z.kind].icon, 16, z.sev === 'bad' ? 'tbad' : 'twarn')}<span class="grow">${esc(z.kind)} · <span class="nowrap">${esc(z.obj)}</span><small>${esc(z.text)}</small></span><small class="${z.sla >= 1 ? 'tbad' : ''}">${Math.round(z.age)} min</small></button>`).join('') : '<div class="menu-h" style="font-weight:400">Geen open meldingen in je werkgebied.</div>'}<div class="menu-f"><button class="btn sm" type="button" data-open="view:meldingen" style="flex:1">Alle meldingen</button></div>`, {
-      align: 'right', label: 'Meldingen', onBind: pop => on(pop, 'click', '[data-open]', () => ctx.L.closePop(false)),
+      align: 'right', label: 'Meldingen', // eerst naar de zaak, dan dicht: het sluiten leegt de popover, en de algemene klik vindt de knop daarna niet meer in de app
+      onBind: pop => on(pop, 'click', '[data-open]', (e, x) => { const k = x.dataset.open; e.preventDefault(); ctx.L.closePop(false); ctx.go(k); }),
     });
   }
   function userMenu(b) {
