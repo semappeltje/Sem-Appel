@@ -1,0 +1,64 @@
+From b6bccced46d9f8e5fa0b7a2f0fa4d550a8b42302 Mon Sep 17 00:00:00 2001
+From: Sem Appel <semappel03@gmail.com>
+Date: Sun, 25 Oct 2026 09:49:36 +0000
+Subject: [PATCH] Control Tower 3.2 hotfix: online kaartlaag van PDOK in plaats
+ van CARTO (sleutel vereist)
+
+CARTO vraagt sinds oktober 2026 een API-sleutel voor basemaps.cartocdn.com en
+stuurt anders watermerk-tegels. De losse demo gebruikt nu de BRT
+Achtergrondkaart van Kadaster/PDOK (pastel, in het donkere thema grijs), zonder
+sleutel, CC BY 4.0.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01YWdqYhDcCe1g84fLy7CWEv
+---
+ demos/simonloos-control-tower/src/map.js | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/demos/simonloos-control-tower/src/map.js b/demos/simonloos-control-tower/src/map.js
+index ad061df..468be74 100644
+--- a/demos/simonloos-control-tower/src/map.js
++++ b/demos/simonloos-control-tower/src/map.js
+@@ -71,6 +71,9 @@ function noMap(container, theme) {
+ 
+ // opts.tiles === false: geen externe kaarttegels (geen enkel verzoek naar buiten); alleen de ingebouwde basiskaart.
+ export function createMap(container, opts) {
++  // Online kaartlaag: de BRT Achtergrondkaart van Kadaster/PDOK (zonder sleutel, CC BY 4.0); CARTO vraagt sinds oktober 2026
++  // een API-sleutel en stuurt anders watermerk-tegels. Licht thema pastel, donker thema grijs.
++  const tileUrls = t => [`https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/${t === 'dark' ? 'grijs' : 'pastel'}/EPSG:3857/{z}/{x}/{y}.png`];
+   let theme = opts.theme || 'light'; const tiles = opts.tiles !== false; let online = tiles && opts.online !== false; let onlineFailed = false; let tilesOk = false;
+   if (!hasWebGL()) return noMap(container, theme);
+   const map = new maplibregl.Map({
+@@ -79,9 +82,9 @@ export function createMap(container, opts) {
+   });
+   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+   map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
+-  // bronvermelding: CARTO alleen als de online tegels echt aan staan (de regel wordt opnieuw gezet bij aan- en uitzetten)
++  // bronvermelding: PDOK alleen als de online tegels echt aan staan (de regel wordt opnieuw gezet bij aan- en uitzetten)
+   let attrCtl = null;
+-  function setAttribution() { if (attrCtl) map.removeControl(attrCtl); attrCtl = new maplibregl.AttributionControl({ compact: true, customAttribution: 'Wegen en water © OpenStreetMap-bijdragers via Overture Maps · provincies Natural Earth' + (tiles && online ? ' · online tegels © CARTO' : '') }); map.addControl(attrCtl, 'bottom-left'); }
++  function setAttribution() { if (attrCtl) map.removeControl(attrCtl); attrCtl = new maplibregl.AttributionControl({ compact: true, customAttribution: 'Wegen en water © OpenStreetMap-bijdragers via Overture Maps · provincies Natural Earth' + (tiles && online ? ' · online kaart © Kadaster, PDOK (CC BY 4.0)' : '') }); map.addControl(attrCtl, 'bottom-left'); }
+   setAttribution();
+ 
+   const markers = { cities: [], sp: [] };
+@@ -96,7 +99,7 @@ export function createMap(container, opts) {
+     map.addSource('water', { type: 'geojson', data: base.water, tolerance: 0.3, maxzoom: 14, buffer: 16 });
+     map.addSource('prov', { type: 'geojson', data: fc(prov.flatMap(p => p.rings.map(r => line(r)))) });
+     for (const k of ['mw', 'tr', 'pr', 'se', 'te']) map.addSource(k, { type: 'geojson', data: base[k], tolerance: 0.3, maxzoom: 14, buffer: 16 });
+-    if (tiles) map.addSource('tiles', { type: 'raster', tiles: ['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`), tileSize: 256, maxzoom: 19 });
++    if (tiles) map.addSource('tiles', { type: 'raster', tiles: tileUrls(theme), tileSize: 256, maxzoom: 19 });
+     map.addLayer({ id: 'urban', type: 'fill', source: 'urban', maxzoom: 12, paint: { 'fill-color': P.urban, 'fill-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.9, 12, 0.35] } });
+     map.addLayer({ id: 'water', type: 'fill', source: 'water', paint: { 'fill-color': P.water } });
+     // online tegels bóven de ingebouwde basiskaart; laden ze niet, dan blijft de basiskaart zichtbaar
+@@ -174,7 +177,7 @@ export function createMap(container, opts) {
+     applyPalette(); map.setPaintProperty('prov', 'line-color', P.prov);
+     for (const [id, c, f] of [['te', P.teC, P.te], ['se', P.seC, P.se], ['pr', P.prC, P.pr], ['tr', P.trC, P.tr], ['mw', P.mwC, P.mw]]) { map.setPaintProperty(id + 'c', 'line-color', c); map.setPaintProperty(id, 'line-color', f); }
+     map.setPaintProperty('route-casing', 'line-color', P.stroke); map.setPaintProperty('trucks-dot', 'circle-stroke-color', P.stroke); map.setPaintProperty('route-done', 'line-color', P.done); map.setPaintProperty('stops', 'circle-color', ['case', ['get', 'done'], P.done, '#E3001F']); map.setPaintProperty('stops', 'circle-stroke-color', P.stroke); map.setPaintProperty('dim', 'circle-color', P.dim); map.setPaintProperty('rest', 'circle-stroke-color', P.stroke); addIcons();
+-    const src = map.getSource('tiles'); if (src && src.setTiles) src.setTiles(['a', 'b', 'c'].map(h => `https://${h}.basemaps.cartocdn.com/${P.tiles}/{z}/{x}/{y}@2x.png`));
++    const src = map.getSource('tiles'); if (src && src.setTiles) src.setTiles(tileUrls(t));
+   }
+   function setOnline(v) { const was = online; online = tiles && v && !onlineFailed; if (was !== online) setAttribution(); if (!ready || !tiles) return; map.setLayoutProperty('tiles', 'visibility', online ? 'visible' : 'none'); applyZoomClasses(); }
+   const whenReady = f => ready ? f() : onReady.push(f);
+-- 
+2.43.0
+
