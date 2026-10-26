@@ -534,7 +534,7 @@ controleert de bestanden en de keuze voor elk voertuig en elke oplegger uit de s
   kaart, met na 600 ms de regel "De kaart wordt getekend"; zodra land en water geladen zijn en het land echt in het
   zichtbare beeld getekend is (`queryRenderedFeatures` op de landlaag; `isSourceLoaded` alleen zegt dat niet, zonder tegels
   in de cache is een bron al "geladen"), vaagt het in 200 ms weg (met minder beweging meteen, na hetzelfde wachten); met
-  een online basiskaart pas als die zelf iets getekend heeft, en na 12 s hoe dan ook. Nooit een beeld met alleen zee; per
+  een online basiskaart pas als die zelf iets getekend heeft; na 30 s hoe dan ook, en meteen als een bron van de basiskaart faalt (op een zwaar belaste machine duurt land en water verwerken meer dan 12 s, en dan stond met het oude net van 12 s toch de zee). Nooit een beeld met alleen zee; per
   getekend beeld gecontroleerd in `tests/map-check.mjs`, met de processor vier keer trager.
 - **Provincies en bebouwing: Natural Earth 10m.**
 - **Rijstroken op ware maat**: een rijdend voertuig rijdt in het midden van de rechterstrook van zijn eigen rijbaan (een
