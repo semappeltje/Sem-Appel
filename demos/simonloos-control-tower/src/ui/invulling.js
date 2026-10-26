@@ -213,7 +213,7 @@ function rijenVoor(ctx, dag) {
     const { L, haalt } = kanVoor(ctx, p); const b = belmoment(ctx, p);
     const K = L.filter(k => !bezet.has(k.id) && (!gevraagd.has(k.naam) || gevraagd.get(k.naam) === p.id));
     perRit.set(p.id, new Map(K.map(k => [k.id, k])));
-    rijen.push({ id: p.id, volgorde: b && b.T !== null ? b.T : p.venster[0], kandidaten: K.map(k => ({ id: k.id, waarde: waardeVan(k) + (haalt ? 0.5 : 0), cap: k.soort === 'charter' ? charterVrij(ctx, charterById(ctx, k.id) || { beschikbaar: {} }, dag) : 1 })) });
+    rijen.push({ id: p.id, volgorde: b && b.T !== null ? b.T : p.venster[0], kandidaten: K.map(k => ({ id: k.id, waarde: waardeVan(k) + (haalt ? 0.5 : 0), cap: k.soort === 'charter' ? charterVrij(ctx, charterById(ctx, k.id) || { beschikbaar: {} }, dag) : 1, rijMin: k.rijMin, ruimte: k.ruimte })) });
   }
   return { open, rijen, perRit };
 }
@@ -553,3 +553,7 @@ export function rittenVan(ctx, x) {
   }
   hrCache.set(x.id, out); return out;
 }
+
+// ---------- 4.1: bezetting tegen behoefte (src/bezetting.js; het scherm komt in ronde 2) ----------
+// De invoer en het model staan in people.js (people.bezettingInvoer, people.bezetting), zodat ook de tests het kunnen rekenen.
+export function bezettingVan(ctx) { return ctx.people.bezetting ? ctx.people.bezetting(ctx.state.simTime) : null; }

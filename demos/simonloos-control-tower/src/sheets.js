@@ -8,6 +8,8 @@ import { esc, ic, fmt, hhmm, nl1, nl2, fmtDrive, plate, kenteken, kv, empty, on,
 import { portretHtml } from './ui/portret.js';
 import { voorkeurenVan, tevredenheidVan, pastVoorkeur, voorkeurRegels } from './ui/invulling.js';
 import { dagVanIso } from './voorkeuren.js';
+import { uurMin, momentTekst } from './tellers.js';
+import { roosterWeek, CONTRACT } from './rooster.js';
 
 const datumKort = iso => dagVanIso(iso).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
 
@@ -166,7 +168,27 @@ export function personPage(ctx, id, tab) {
     <div class="pg-sec"><h2>Voertuigen <span class="sub">laatste 12 diensten</span></h2>${trucks.length ? kv(trucks.map(([tid, n]) => { const x = fleet.byId.get(tid); return [tid, `<button class="lnk quiet" type="button" data-open="voertuig/${esc(tid)}/vandaag">${esc(x ? x.model.replace('Mercedes-Benz ', '') : tid)}</button> <small>${n} ${n === 1 ? 'dienst' : 'diensten'}</small>`]; })) : '<p class="hint">Nog geen diensten in de laatste twee weken.</p>'}</div>
     <div class="pg-sec"><h2>Contact</h2>${kv([['Telefoon', (ctx.ui.revealed || (ctx.ui.revealed = new Set())).has(p.id) ? `<b>${esc(p.phone)}</b> <small>inzage vastgelegd</small>` : `<button class="lnk" type="button" data-reveal="${esc(p.phone)}">${esc(p.phoneMasked)}</button> <small>zichtbaar na klik, wordt vastgelegd</small>`], ['Noodcontact', can('nood') ? esc(p.nood) : `<span class="mut">alleen ${esc(who('nood'))}</span>`], ['Standplaats', `${esc(p.base.n)} · ${esc(p.base.regio)}`]])}<p class="hint" style="margin-top:8px">Wie welke persoonsgegevens bekijkt, wordt vastgelegd (AVG). Chauffeurs zien hun eigen profiel in de app.</p></div></div>`;
   let main = '';
-  if (tab === 'Overzicht') main = vandaag + voorkeur + rijden + schades + contract;
+  // 4.1: de teller (tellers.js) en het rooster (rooster.js), gesimuleerd; in het echt uit de tachograaf en het roostersysteem
+  const tl = people.tellerVan ? people.tellerVan(p, T) : null; const wd = tl ? tl.weekdag : 0;
+  const wr = tl ? tl.weekrust : null; const lr = tl ? tl.laatsteRust : null;
+  const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+  const tellerSec = tl ? `<div class="pg-sec" data-sec="teller" data-teller-vandaag="${tl.vandaag.gepland}" data-teller-week="${tl.week.totaal}" data-teller-twee="${tl.tweeWeken.totaal}"><h2>Rij- en rusttijden <span class="sub">gesimuleerd · in het echt uit de tachograaf</span></h2>
+    <p class="note ${tl.kan.vandaag < 1 ? 'warn' : 'info'}" style="margin:0 0 10px">${ic('clock', 16)}<span><b data-teller-zin>${esc(cap(tl.zin))}</b></span></p>${kv([
+      ['Vandaag', `${esc(uurMin(tl.vandaag.gereden))} gereden, ${esc(uurMin(tl.vandaag.gepland))} gepland <small>hoogstens ${tl.vandaag.max / 60} uur</small>`],
+      ['Deze week', `${esc(uurMin(tl.week.totaal))} rijden <small>van 56 uur · nog ${esc(uurMin(tl.kan.week))}</small>`],
+      ['Twee weken', `${esc(uurMin(tl.tweeWeken.totaal))} rijden <small>van 90 uur · vorige week ${esc(uurMin(tl.tweeWeken.vorigeWeek))}</small>`],
+      ['Laatste rust', lr ? `${lr.soort} van ${esc(uurMin(lr.duur))} <small>${esc(momentTekst(lr.van, wd))} tot ${esc(momentTekst(lr.tot, wd))}</small>` : '<span class="mut">nog geen dienst in de historie</span>'],
+      ['Weekrust', `${wr.laatste.bekend ? `laatste ${esc(uurMin(wr.laatste.duur))}${wr.laatste.verkort ? ` (verkort: ${esc(uurMin(wr.compensatie))} compenseren binnen drie weken)` : ''}` : 'niet in de historie van twee weken'} <small>${wr.dagritten} van 6 dagen sindsdien</small>`],
+      ['Volgende verplichte rust', `${tl.volgendeRust ? `dagrust na ${esc(hhmm(tl.volgendeRust.vanaf))}, 11 uur (cao) · ` : ''}weekrust uiterlijk ${esc(momentTekst(wr.uiterlijk, wd))}${wr.gepland !== null ? ` <small>volgens rooster vanaf ${esc(momentTekst(wr.gepland, wd))}</small>` : ''}`],
+    ])}<p class="hint" style="margin-top:8px">EU 561/2006: hoogstens 56 uur rijden per week en 90 in twee weken, een weekrust van 45 uur (verkort 24 met compensatie binnen drie weken) uiterlijk na zes dagen. De cao: 13 vrije weekenden per half jaar (nog na te lezen). Wie na een rit boven een grens komt, staat niet bij de kandidaten.</p></div>` : '';
+  const vd0 = people.vandaag || new Date(); const rw = p.rooster ? roosterWeek(p.rooster, vd0) : null;
+  const vdIso = `${vd0.getFullYear()}-${String(vd0.getMonth() + 1).padStart(2, '0')}-${String(vd0.getDate()).padStart(2, '0')}`;
+  const RKLEUR = { werk: 'var(--ok-soft)', vrij: 'var(--surface2)', rustdag: 'var(--surface2)', vakantie: 'var(--sel)', ziek: 'var(--warn-soft)' };
+  const rvd = rw ? rw.find(x => x.iso === vdIso) : null;
+  const roosterSec = rw ? `<div class="pg-sec" data-sec="rooster"><h2>Rooster <span class="sub">${esc(CONTRACT[p.rooster.contract.soort].n)}${p.rooster.contract.urenPerWeek ? `, ${p.rooster.contract.urenPerWeek} uur` : ''} · gesimuleerd · uit het roostersysteem</span></h2>
+    <ol style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px" aria-label="Rooster deze week">${rw.map(x => `<li data-rdag="${x.iso}" data-rstatus="${x.status}" title="${esc(x.lang)}" style="border:1px solid ${x.iso === vdIso ? 'var(--text2)' : 'var(--line)'};border-radius:var(--r-sm);padding:6px 6px 7px;background:${RKLEUR[x.status]};min-width:0"><small style="display:block;color:var(--muted)">${x.dag}${x.iso === vdIso ? ' · nu' : ''}</small><b style="display:block;font-weight:600;font-size:12px;overflow-wrap:anywhere">${esc(x.status === 'werk' ? (/^halve/.test(x.tekst) ? x.tekst : x.dagdelen.join(' en ')) : x.tekst)}</b></li>`).join('')}</ol>
+    <p class="hint" style="margin-top:8px" data-rooster-vandaag>Vandaag: ${esc(rvd ? rvd.lang : '')}. De planning plant binnen dit rooster; afwijken kan alleen bewust, met een reden, en komt in het logboek.</p></div>` : '';
+  if (tab === 'Overzicht') main = vandaag + tellerSec + roosterSec + voorkeur + rijden + schades + contract;
   else if (tab === 'Diensten') main = `<div class="pg-sec"><h2>Diensten <span class="sub">laatste ${p.history.length} · ${new Set(p.history.map(h => h.truck.id)).size} verschillende voertuigen</span></h2>${p.history.length ? `<div style="overflow-x:auto"><table class="tbl plain"><thead><tr><th>Dag</th><th>Voertuig</th><th>Oplegger</th><th>Dienst</th><th class="r">km</th><th>Rit</th><th>Bijzonderheden</th><th>Voorkeur</th></tr></thead><tbody>${p.history.map((h, hi) => `<tr><td>${esc(h.day)}</td><td><button class="lnk quiet" type="button" data-open="voertuig/${esc(h.truck.id)}/vandaag">${esc(h.truck.id)}</button></td><td>${h.tr ? esc(h.tr.id) : '<span class="mut">–</span>'}</td><td>${hhmm(h.start)}–${hhmm(h.end)}</td><td class="r">${fmt(h.km)}</td><td>${esc(h.rit)}</td><td class="${h.note ? 'twarn' : 'mut'}">${esc(h.note || '–')}</td>${(() => { const x = pastH(h); return `<td class="${x && !x.ok ? 'twarn' : 'mut'}">${x ? esc(x.t) : '–'}</td>`; })()}</tr>`).join('')}</tbody></table></div>` : '<p class="hint">Geen diensten in de laatste twee weken.</p>'}</div>`;
   else if (tab === 'Rijden') main = rijden;
   else if (tab === 'Schades') main = schades;

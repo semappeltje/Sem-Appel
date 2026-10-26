@@ -20,6 +20,7 @@ import { voorkeurenVan, tevredenheid, past, ritKenmerken, reeks, dienstdeel, wee
 import { CHARTERS, OPROEP, eigenKandidaat, oproepKandidaat, charterKandidaat, rangschik, toewijzing, WAARSCHUWINGEN, WAARSCHUWING_KORT, KM_KOST, aanrijVan } from './inzet.js';
 // De oefendag (opts.scenario, standaard uit): een vaste drukke dag bovenop de gewone, zie src/oefendag.js.
 import { oefendagVan } from './oefendag.js';
+import { roosterDag } from './rooster.js';
 
 let seed = 20261024; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const gen = s => () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };   // eigen reeks (pool)
@@ -1266,11 +1267,21 @@ export function createFleet(opts = {}) {
       const div = per ? per.div : x ? x.t.div : sp.div[i % sp.div.length];
       const dienst = x ? { start: x.d.start, end: x.d.end, rij: rijVan(x.t, x.d), maxRij: x.d.maxRij, voertuig: x.t.id } : null;
       const R = reeks(VSEED, id, 'status'); const u = R(), u2 = R(), u3 = R(), u4 = R();
-      const status = dienst ? 'dienst' : ziekVandaag.has(`${naam}|${sp.n}`) ? 'ziek' : u < 0.62 ? 'vrij' : u < 0.74 ? 'vakantie' : u < 0.82 ? 'ziek' : 'rustdag';
-      const statusMorgen = dienst ? 'dienst' : status === 'vakantie' ? 'vakantie' : status === 'ziek' && u2 < 0.5 ? 'ziek' : u2 < 0.55 ? 'vrij' : 'ingeroosterd';
-      const weekUren = Math.round((Math.min(WDI, 5) * (0.72 + 0.2 * u3) * (8.6 + 1.8 * u4) + (dienst ? (dienst.end - dienst.start) / 60 : 0)) * 2) / 2;
+      let status = dienst ? 'dienst' : ziekVandaag.has(`${naam}|${sp.n}`) ? 'ziek' : u < 0.62 ? 'vrij' : u < 0.74 ? 'vakantie' : u < 0.82 ? 'ziek' : 'rustdag';
+      let statusMorgen = dienst ? 'dienst' : status === 'vakantie' ? 'vakantie' : status === 'ziek' && u2 < 0.5 ? 'ziek' : u2 < 0.55 ? 'vrij' : 'ingeroosterd';
+      let weekUren = Math.round((Math.min(WDI, 5) * (0.72 + 0.2 * u3) * (8.6 + 1.8 * u4) + (dienst ? (dienst.end - dienst.start) / 60 : 0)) * 2) / 2;
+      // 4.1: met people.js komen status, uren en de teller uit het rooster en de historie (rooster.js, tellers.js); werk is
+      // ingeroosterd zonder dienst (reserve). De uren deze week zijn de diensttijd uit de historie plus de dienst van vandaag.
+      let rooster = null, roosterMorgen = null, teller = null;
+      if (per && per.rooster && people.tellerVan) {
+        rooster = roosterDag(per.rooster, VANDAAG); roosterMorgen = roosterDag(per.rooster, MORGEN);
+        if (!dienst) status = ziekVandaag.has(`${naam}|${sp.n}`) ? 'ziek' : rooster.status;
+        statusMorgen = dienst && roosterMorgen.status === 'werk' ? 'dienst' : roosterMorgen.status === 'werk' ? 'werk' : roosterMorgen.status;
+        teller = people.tellerVan(per, 0);
+        const wb = -WDI * 1440; weekUren = Math.round(people.dienstenVan(per).filter(x => x.a >= wb).reduce((s, x) => s + (x.b - x.a), 0) / 30) / 2;
+      }
       const persoon = per || { base: sp, div, dienst: x ? { t: x.t, d: x.d } : null };
-      return { id, naam, div, sp: sp.n, dienst, status, statusMorgen, weekUren, weekUrenMorgen: WDI === 6 ? 0 : weekUren, voorkeuren: voorkeurenVan(id, VSEED, persoon), uurloon: per && per.contract ? per.contract.tarief : null, lzv: per && per.licence ? !!per.licence.lzv : null };
+      return { id, naam, div, sp: sp.n, dienst, status, statusMorgen, weekUren, weekUrenMorgen: WDI === 6 ? 0 : weekUren, voorkeuren: voorkeurenVan(id, VSEED, persoon), uurloon: per && per.contract ? per.contract.tarief : null, lzv: per && per.licence ? !!per.licence.lzv : null, rooster, roosterMorgen, teller, weekdag: WDI };
     });
     cache.set(sp.n, L); return L;
   }

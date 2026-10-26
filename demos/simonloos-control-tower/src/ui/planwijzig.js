@@ -86,6 +86,8 @@ function zetIn(t, segs, rel0) {
 }
 // een vrije chauffeur van de standplaats (niet op dienst vandaag), voor een nieuwe dienst
 export function vrijeChauffeur(people, t, al = new Set()) {
+  // 4.1: volgens het rooster (people.js)
+  if (people.vrijVoor) return people.vrijVoor(t, al);
   const bus = t.kind === 'bus';
   return people.persons.find(p => p.base === t.base && !p.dienst && !al.has(p) && (bus ? p.role === 'Bezorger B' : p.role !== 'Bezorger B')) || null;
 }
@@ -314,6 +316,8 @@ export function context(ctx, t, rit, startAbs, zonder) {
   if (mine) c.dock = { nr: mine.dock, duur, bezet: mine.blokken.filter(telt), vrij: D.plan.filter(x => x !== mine && !x.blokken.some(b => telt(b) && b.t0 < s0 && b.t1 > a0)).map(x => x.dock) };
   const dienst = dienstInvoer(t, startAbs, startAbs + (rit.t1 - rit.t0), zonder);
   c.volgendeDienst = dienst ? dienst.t0 : startAbs;
+  // 4.1: de week en het rooster van de chauffeur (people.toetsInvoer: tellers.js en rooster.js)
+  if (ctx.people && ctx.people.toetsInvoer) Object.assign(c, ctx.people.toetsInvoer(t, dienst, startAbs, zonder, ctx.ui ? ctx.ui.roosterAfwijking : null));
   return { c, dienst };
 }
 export function toetsVoor(ctx, t, rit, startAbs, zonder) {

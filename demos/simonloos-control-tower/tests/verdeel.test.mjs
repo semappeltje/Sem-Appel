@@ -1,7 +1,7 @@
 // Kleine test van de toewijzing over alle open ritten (src/verdeel.js): node --test tests/verdeel.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hongaars, verdeelHongaars, verdeelGretig, waardeVan } from '../src/verdeel.js';
+import { hongaars, verdeelHongaars, verdeelGretig, waardeVan, pastNog } from '../src/verdeel.js';
 
 const rit = (id, volgorde, kandidaten) => ({ id, volgorde, kandidaten: kandidaten.map(([kid, waarde, cap]) => ({ id: kid, waarde, cap: cap || 1 })) });
 
@@ -35,4 +35,19 @@ test('de uitkomst is deterministisch', () => {
   const R = [rit('A', 1, [['x', 0.5], ['y', 0.5]]), rit('B', 2, [['x', 0.5], ['y', 0.5]])];
   const a = [...verdeelHongaars(R).entries()].join(','), b = [...verdeelHongaars(R).entries()].join(',');
   assert.equal(a, b);
+});
+
+test('4.1: de week is een harde grens: wie na de rit niet meer past (rijMin boven ruimte), krijgt geen rit', () => {
+  // bram is voor beide ritten de beste, maar heeft deze week nog 3 uur: rit A (4 uur rijden) past niet, rit B (2 uur) wel
+  const R = [
+    { id: 'A', volgorde: 1, kandidaten: [{ id: 'bram', waarde: 0.95, cap: 1, rijMin: 240, ruimte: 180 }, { id: 'kees', waarde: 0.5, cap: 1, rijMin: 240, ruimte: 900 }] },
+    { id: 'B', volgorde: 2, kandidaten: [{ id: 'bram', waarde: 0.6, cap: 1, rijMin: 120, ruimte: 180 }, { id: 'jan', waarde: 0.55, cap: 1, rijMin: 120, ruimte: 900 }] },
+  ];
+  for (const uit of [verdeelHongaars(R), verdeelGretig(R)]) { assert.equal(uit.get('A'), 'kees'); assert.equal(uit.get('B'), 'bram'); }
+  // zonder teller (charter, oproepkracht) telt de kandidaat gewoon mee
+  assert.equal(pastNog({ id: 'CH-01', waarde: 0.4 }), true);
+  assert.equal(pastNog({ id: 'x', rijMin: 181, ruimte: 180 }), false);
+  // niemand past: dan blijft de rit open
+  const L = [{ id: 'C', volgorde: 1, kandidaten: [{ id: 'bram', waarde: 0.9, cap: 1, rijMin: 300, ruimte: 100 }] }];
+  assert.equal(verdeelHongaars(L).get('C'), null); assert.equal(verdeelGretig(L).get('C'), null);
 });

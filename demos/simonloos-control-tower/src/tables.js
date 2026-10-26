@@ -10,6 +10,8 @@ import { tijdreeks } from './ui/tijdreeks.js';
 // gisteren als korte dagnaam ("za 18:50"), zodat de kolom Sinds smal blijft; de simulatie speelt vandaag
 const GISTER = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'][(new Date().getDay() + 6) % 7];
 import { devHtml } from './ui/ritten.js';
+import { uurMin } from './tellers.js';
+import { roosterDag } from './rooster.js';
 
 const kindName = k => KIND[k].mv[0].toUpperCase() + KIND[k].mv.slice(1);
 const spOpts = (pool, f) => [...new Set(pool.map(f))].sort().map(n => ({ v: n, l: n, n: pool.filter(r => f(r) === n).length }));
@@ -140,7 +142,9 @@ export function renderChauffeurs(ctx, el) {
       id: 'chauffeurs', unit: 'chauffeurs', csvName: 'chauffeurs.csv', key: r => r.id, sort: ['st', 1],
       rows: () => { const t0 = T(); return ctx.people.persons.filter(p => ctx.inScopeBase(p.base, p.div)).map(p => { const d = p.dienst && p.dienst.d; const t = d && p.dienst.t; const s = t && ctx.S.get(t.id); const act = s && s.dienst === d;
         const st = act ? (s.st === 'onderweg' || s.st === 'vertraagd' ? 'rijdt' : s.st) : d ? (t0 < d.start ? 'later' : 'klaar') : 'vrij';
-        return { p, t, s, id: p.id, name: p.name, base: p.base.n, div: p.div, st, dienst: d ? d.start : null, dEnd: d ? d.end : null, truck: t ? t.id : '', trl: act && s.tr ? s.tr.id : '', drive: act ? s.drive : null, pz: act ? t0 + Math.max(0, 270 - s.drive) : null, code95: p.licence.code95, ce: p.licence.ce, kaart: p.licence.kaart, adr: p.licence.adr, lzv: p.licence.lzv, rijscore: p.rijscore, schades: p.schades.length, verzuim: p.verzuim, since: p.since, c95soon: soon(p.licence.code95) }; }); },
+        // 4.1: de teller (tellers.js) en het rooster van vandaag (rooster.js)
+        const tl = ctx.people.tellerVan ? ctx.people.tellerVan(p, t0) : null; const rd = p.rooster ? roosterDag(p.rooster, ctx.people.vandaag || new Date()) : null;
+        return { p, t, s, tl, kan: tl ? tl.kan.vandaag : null, wk: tl ? tl.week.totaal : null, tzin: tl ? tl.zin : '', ro: rd ? (rd.status === 'werk' ? rd.kort : rd.tekst) : '', id: p.id, name: p.name, base: p.base.n, div: p.div, st, dienst: d ? d.start : null, dEnd: d ? d.end : null, truck: t ? t.id : '', trl: act && s.tr ? s.tr.id : '', drive: act ? s.drive : null, pz: act ? t0 + Math.max(0, 270 - s.drive) : null, code95: p.licence.code95, ce: p.licence.ce, kaart: p.licence.kaart, adr: p.licence.adr, lzv: p.licence.lzv, rijscore: p.rijscore, schades: p.schades.length, verzuim: p.verzuim, since: p.since, c95soon: soon(p.licence.code95) }; }); },
       cols: [
         { k: 'name', l: 'Naam', w: 180, req: true, html: r => `<span class="nowrap"><span class="av sm">${esc(r.p.initials)}</span> <b style="font-weight:600">${esc(r.name)}</b></span>` },
         { k: 'st', l: 'Status', w: 130, sort: r => Object.keys(PST).indexOf(r.st), html: r => `<span class="badge ${PSTC[r.st]}"><i class="dot"></i>${PST[r.st]}</span>`, csv: r => PST[r.st] },
@@ -149,6 +153,9 @@ export function renderChauffeurs(ctx, el) {
         { k: 'truck', l: 'Voertuig', w: 90, html: r => r.truck ? `<button class="lnk quiet" type="button" data-open="kaart:truck:${esc(r.truck)}">${esc(r.truck)}</button>` : '<span class="mut">–</span>' },
         { k: 'drive', l: 'Rijtijd', w: 80, r: true, sort: r => r.drive === null ? -1 : r.drive, desc: true, html: r => r.drive === null ? '<span class="mut">–</span>' : `<span class="${r.drive >= 240 ? 'tbad' : r.drive >= 200 ? 'twarn' : ''}">${fmtDrive(r.drive)}</span>`, csv: r => r.drive === null ? '' : fmtDrive(r.drive) },
         { k: 'pz', l: 'Pauze uiterlijk', w: 120, r: true, sort: r => r.pz === null ? 9999 : r.pz, html: r => r.pz === null ? '<span class="mut">–</span>' : hhmm(r.pz), csv: r => r.pz === null ? '' : hhmm(r.pz) },
+        { k: 'kan', l: 'Kan nog (rij- en rusttijden)', w: 330, sort: r => r.kan === null ? -1 : r.kan, desc: true, html: r => r.tl ? `<span class="cw ${r.kan < 1 ? 'twarn' : ''}" title="${esc(r.tzin)}">${esc(r.tzin)}</span>` : '<span class="mut">–</span>', csv: r => r.tzin },
+        { k: 'wk', l: 'Rijden deze week', w: 120, r: true, sort: r => r.wk === null ? -1 : r.wk, desc: true, html: r => r.wk === null ? '<span class="mut">–</span>' : `<span class="${r.wk > 3000 ? 'twarn' : ''}">${esc(uurMin(r.wk))}</span>`, csv: r => r.wk === null ? '' : uurMin(r.wk) },
+        { k: 'ro', l: 'Rooster vandaag', w: 150, def: false, html: r => r.ro ? esc(r.ro) : '<span class="mut">–</span>' },
         { k: 'code95', l: 'Code 95 tot', w: 100, html: r => `<span class="${r.c95soon ? 'twarn' : ''}">${esc(r.code95)}</span>` },
         { k: 'trl', l: 'Oplegger', w: 90, def: false, html: r => r.trl ? esc(r.trl) : '<span class="mut">–</span>' },
         { k: 'ce', l: 'Rijbewijs CE tot', w: 120, def: false },
@@ -161,6 +168,7 @@ export function renderChauffeurs(ctx, el) {
         { k: 'since', l: 'In dienst sinds', w: 110, r: true, def: false },
       ],
       search: { ph: 'Zoek naam, standplaats, voertuig', text: r => `${r.name} ${r.base} ${r.truck} ${r.trl}` },
+      // de teller en de kolommen per chauffeur zijn er om te plannen, niet om te beoordelen: geen ranglijst (OR en AVG)
       filters: [
         { id: 'st', l: 'Status', kind: 'chips', opts: pool => [['rijdt', 'Rijdt'], ['klant', 'Bij klant'], ['pauze', 'Pauze'], ['later', 'Begint later'], ['klaar', 'Dienst klaar'], ['vrij', 'Vrij']].map(([k, l]) => ({ v: k, l, n: pool.filter(r => r.st === k).length, dot: PSTC[k] })), test: (r, s) => s.has(r.st) },
         { id: 'let', l: 'Let op', kind: 'menu', all: 'Alles', opts: pool => [{ v: 'rijtijd', l: 'Bijna op de rijtijdlimiet', n: pool.filter(r => r.drive !== null && r.drive >= 200).length }, { v: 'c95', l: 'Code 95 verloopt binnen 6 maanden', n: pool.filter(r => r.c95soon).length }], test: (r, s) => (s.has('rijtijd') && r.drive !== null && r.drive >= 200) || (s.has('c95') && r.c95soon) },

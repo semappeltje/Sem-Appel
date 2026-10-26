@@ -123,7 +123,7 @@ omdat MapLibre een web worker start.
 Met `dist/` op een webserver (`cd dist && python3 -m http.server 8774 --bind 127.0.0.1`):
 
 ```
-node tests/toets.test.mjs                                   # de toetsregels van het planbord, zonder browser
+node tests/toets.test.mjs                                   # de toetsregels van het planbord, de teller (tellers.js) en het rooster (rooster.js), zonder browser
 node --test tests/verdeel.test.mjs                          # de toewijzing over alle open ritten (Hongaars en gretig), zonder browser
 node tests/verify.mjs 8774 [gl|nogl] [plain|embedded] [map]  # laden, thema en kiosk op de root, geen overloop op 1440 en 390 px, minder beweging, alle weergaven
 node tests/ui-check.mjs 8774 [gl|nogl] [plain|embedded]      # ruim 100 controles van de werking: adressen, de kaart vanuit elke weergave, belmenu, planbord (arcering, herladen), voorstellen, zaken, zoeken, de topbalk (ook op de oefendag, op 1440, 1280, 1024, 820, 768 en 390 px, met het menu dat tussen 761 en 1100 px vanzelf inklapt en de keuze van de kijker die blijft; niets breder dan het scherm; rechts verspringt niets tussen weergaven), een adres met een # geeft hooguit een melding, de cijfers van een zaakpagina op 390 px, pagina's boven het paneel en Terug, de samenhang van onderweg en vertraagd en om 15:00 van elk getal met een begrip (onderweg, vertraagd, bij klant, te laat, gemist) op het Overzicht, de kaart, het standplaatspaneel en Open ritten, sneltoetsen, 390 px
@@ -136,6 +136,8 @@ node tests/assistent-check.mjs                                # de serverfunctie
 node tests/voorstel-check.mjs http://127.0.0.1:8774/index.html # voorstellen met winst, Op tijd bij aankomst, vertrek per kandidaat, de oefendag
 node tests/otm5-check.mjs                                     # de vertaling naar en van OTM5 (zie src/otm5.js)
 node tests/vrijgeven-check.mjs http://127.0.0.1:8774/index.html [--schermen map]  # Vrijgeven: elke dienst vrijgegeven met een logregel, het bericht, de bevestiging die soms uitblijft, alleen het verschil na een wijziging, geldige OTM5-ritopdrachten en de export, rollen, herladen, de oefendag
+node tests/week-check.mjs http://127.0.0.1:8774/index.html     # 4.1: rij- en rusttijden over de week en het rooster (maandag en zondag, 05:30 en 10:00, ook de oefendag): geen kandidaat over 56 uur, 90 uur of de weekrust, de teller gelijk aan het planbord, een sleep over de weekrust gaat niet, buiten het rooster alleen met reden en logregel, de directie alleen-lezen; SHOTS=<map> bewaart schermafbeeldingen
+node tests/bezetting.test.mjs                                # 4.1: het model achter Bezetting (de som per dag tegen rooster en plan, prognose, voorstellen, heel Nederland onder 300 ms), zonder browser
 node tests/ochtend-check.mjs http://127.0.0.1:8774/index.html  # de klok en kalender van de planner: een maandag en een zondag om 04:00, 05:30 en 06:30, de nachtdienst van gisteren op het planbord, het belmoment van P-8001 op de oefendag, de maandag na de zomertijd en het rapport erover
 ```
 
@@ -206,6 +208,106 @@ ingevuld; OTM5, zie `src/otm5.js` en `rapporten/simon-loos-control-tower/echte-d
 boordcomputer, het rooster en de uren uit het roostersysteem (voor rij- en rusttijd en de weekuren), de flexibele
 schil uit de inhuur (charters met tarief en beschikbaarheid, oproepkrachten met hun beschikbaarheid), en voorkeuren
 uit een chauffeursapp (vrijwillig). De functies hierboven rekenen dan ongewijzigd op die records.
+
+## Rooster, rij- en rusttijden over de week en bezetting (4.1, ronde 1)
+
+De planner hoeft niet zelf te tellen wat een chauffeur deze week of de vorige reed. Drie pure modules doen het, zonder DOM, en
+de interface toont wat ze zeggen. Alles is gesimuleerd; elke kostprijs is een schatting.
+
+**De teller per chauffeur** (`src/tellers.js`, `people.tellerVan(persoon, T)`): gereden vandaag (tot nu en gepland), deze week
+en deze twee weken, de laatste rust, de laatste weekrust (normaal of verkort, met de compensatie), de volgende verplichte rust
+en wat er nog kan: rijden vandaag, in de week, in de twee weken en tot de weekrust. Per chauffeur één zin, bijvoorbeeld "kan
+vandaag nog 4 uur 16 rijden, weekrust vanaf woensdag 10:00" (een chauffeur van Wognum, maandag 26 oktober 2026, 10:00). De regels
+(EU 561/2006 artikel 6 en 8): hoogstens 56 uur rijden per week (maandag 00:00 tot zondag 24:00) en 90 uur in twee
+opeenvolgende weken; een weekrust van 45 uur, verkort tot 24 uur met compensatie binnen drie weken; de weekrust begint
+uiterlijk na zes perioden van 24 uur na het eind van de vorige. Een rust van 24 uur of meer voor een rit is een weekrust: dan
+telt de uiterlijke start niet meer, en wie vandaag al 24 uur vrij is, zit in zijn weekrust ("weekrust sinds afgelopen
+zaterdag 15:00"). De dagregels van 4.0 blijven (`src/ui/toets.js`). Niet gebouwd: de afwisseling van een normale en een
+verkorte weekrust over twee weken en de compensatie als blok in het rooster (de teller noemt de compensatie wel).
+
+De invoer is per dienst het begin, het eind en de minuten rijden, in minuten vanaf middernacht van vandaag (gisteren is
+negatief): in de demo uit de historie van `src/people.js` (een dienst rijdt 47 tot 59 procent van de diensttijd, hoogstens 9
+uur, een vaste hash per voertuig en dag) en het plan van vandaag (de rijstukken van de dienst, zoals het planbord ze tekent).
+In het echt komt dezelfde vorm uit de tachograaf of de werkstaten van de boordcomputer (rijden per activiteit, opgeteld per
+dienst). `people.tellersOpnieuw()` telt opnieuw, bijvoorbeeld na een nieuwe download.
+
+Waar je de teller ziet: op de chauffeurspagina (Rij- en rusttijden, met de zin), in de lijst Chauffeurs (de kolommen "Kan nog"
+en "Rijden deze week"; "Rooster vandaag" via de kolomkeuze), in de kandidaatkaart van een open rit (rooster en teller onder
+de naam), en op het planbord in de weergave Per chauffeur: "nog 3 uur 10" bij de naam en na elke dienst een gearceerd
+rustblok (de dagrust van 11 uur volgens de cao, of de weekrust van 45 uur als die volgens rooster of teller dan begint). Het
+rustblok is vast; de toets laat er niets op toe.
+
+**De week is een harde grens.** `toets.js` geeft een fout als een rit een chauffeur boven 56 uur in de week, 90 in twee weken
+of over de uiterlijke start van zijn weekrust brengt (`context.week`, door `people.toetsInvoer` gevuld voor de chauffeur van de
+dienst, of voor de vrije chauffeur van een nieuwe dienst). Een eigen chauffeur die na de rit niet meer past, is geen kandidaat
+(`inzet.eigenKandidaat`), en `verdeel.js` neemt `rijMin` (de rit) en `ruimte` (wat de chauffeur in de week en de twee weken
+nog mag) mee als harde grens: wie niet past, krijgt geen kolom. Gemeten (week-check, gesimuleerd, heel Nederland): op maandag
+26 oktober om 05:30 staan 368 eigen kandidaten bij 75 open ritten en hield de week 72 keer een chauffeur van de standplaats
+buiten de lijst (geteld per rit en chauffeur; vooral wie na zes dagen zijn weekrust moet nemen), om 10:00 318 bij 65 en 32
+keer, op zondag 1 november 15 tot 19 keer en op de oefendag 37 tot 40 keer. Geen enkele kandidaat komt over een grens, en
+de teller is voor elke chauffeur met een dienst op Wognum gelijk aan de som van het planbord (278 van 278 op maandag, 122
+van 122 op zondag).
+
+**Het rooster** (`src/rooster.js`, `p.rooster` op elke persoon): contract (volle week, deeltijd, halve dagen, oproep), de
+dagdelen per weekdag, om de week een zesde dag bij een derde van de volle weken, vakantie en ziek. Gesimuleerd uit een seed
+per persoon (geen lijst in de bundel), met variatie, en zo dat de dienst van vandaag erin valt en de historie erin past. De
+roostervrije dagen zijn per standplaats verdeeld naar de vraag per weekdag (de diensten van vandaag, zondag 45 procent,
+schatting), zoals een roosteraar het doet. Per dag: werk (de dienst begint in het eerste dagdeel, de werkdag duurt hoogstens
+13 uur; een halve dag is om 13:00 klaar), vrij (een extra dienst kan alleen als de chauffeur ja zegt), rustdag (de eerste
+vrije dag na een werkdag), vakantie of ziek. Dezelfde vorm kan een roostersysteem vullen (Dyflexis, AFAS of een export):
+
+```json
+{ "persoon": "P-0123",
+  "contract": { "soort": "vol", "urenPerWeek": 40, "dagenPerWeek": 5 },
+  "week": { "ma": ["vroeg", "dag"], "di": ["vroeg", "dag"], "wo": ["vroeg", "dag"], "do": [], "vr": [],
+            "za": ["vroeg", "dag"], "zo": ["vroeg", "dag"] },
+  "extraDag": { "dag": "do", "weken": "even" },
+  "halveDagTot": null,
+  "afwezig": [{ "soort": "vakantie", "van": "2026-11-02", "tot": "2026-11-08" }],
+  "bron": "roostersysteem", "gewijzigd": "2026-10-20" }
+```
+
+De planning plant alleen binnen het rooster: buiten het rooster geeft `toets.js` een fout. Staat alleen het rooster in de weg
+(niet de wet), dan vraagt het planbord bij een sleep of een pijltje een reden ("De chauffeur heeft ja gezegd", "Geruild met
+een collega", "Geen andere chauffeur vrij", "Spoed van de klant" of eigen woorden); met de reden gaat de rit door, meldt de
+toets het rooster als let op, en staat in het logboek "week bewust af van het rooster van ... Reden: ...". Zonder reden gaat
+het niet. Een open rit naar iemand buiten zijn rooster (een extra dienst) blijft een vraag aan die persoon, met de
+waarschuwing "buiten het rooster" op de kandidaatkaart en in de logregel van de toewijzing. Een nieuwe dienst op een vrij
+voertuig krijgt eerst wie volgens het rooster werkt en nog geen dienst heeft (de reserve), dan wie roostervrij is, nooit wie
+vakantie, ziek of een rustdag heeft (`people.vrijVoor`). De rooster- en kandidaatkaart zeggen "ingeroosterd, begint 03:00 tot
+08:00", "halve dag tot 13:00", "vrij volgens rooster" of "buiten het rooster".
+
+De cao: 13 vrije weekenden per half jaar en de termijn voor het bekendmaken van diensten staan nog niet in de regels (status
+zoek: na te lezen in de cao beroepsgoederenvervoer, Staatscourant 2026, nr. 7211, voor de proef). De dagrust van de cao (11
+uur, hoogstens drie keer 10) staat er al sinds 4.0.
+
+**Bezetting tegen behoefte, het model** (`src/bezetting.js`, `people.bezetting(T)`; het scherm komt in ronde 2). Per
+standplaats en voor heel Nederland, per dag en dagdeel (vroeg, dag, avond, nacht), voor veertien dagen: nodig (vandaag het plan
+plus de open ritten; daarna het plan maal de verhouding van die weekdag in de historie van de laatste zeven dagen, morgen
+plus de open ritten van morgen), beschikbaar (wie volgens het rooster werkt, na vakantie, ziek en rustdagen, min wie door de
+rij- en rusttijden thuis moet blijven; elke persoon één keer per dag, in het dagdeel waarin zijn dienst begint), het verschil,
+en de kosten als schatting (een tekort kost een charter, 9,6 uur tegen 62 euro plus 250 km tegen 0,45, ongeveer 708 euro; een
+overschot 8 betaalde uren tegen 33 euro). Per dag drie tot vier voorstellen als gegevens, elk los en van goedkoop naar duur:
+een dienst verschuiven naar het dagdeel met tekort, lenen van de dichtstbijzijnde standplaats binnen 40 km met mensen over,
+extra diensten aanbieden aan wie roostervrij is (schatting: drie op de tien zeggen ja), en een charter nu vastleggen. Gemeten
+(gesimuleerd, maandag 26 oktober 2026, 10:00): heel Nederland rekent in 67 tot 115 ms in de browser (de eerste keer, met de
+tellers, het langst; de test eist onder 300 ms, in Node 34 tot 47 ms). Wognum vandaag 282 nodig en 284 beschikbaar; dinsdag
+tot en met zaterdag 278 nodig tegen 242 tot 251 beschikbaar, zondag 119 tegen 219. Heel Nederland heeft dinsdag tot en met
+zaterdag 220 tot 281 diensten per dag tekort (ongeveer 156.000 tot 199.000 euro aan charters per dag, schatting). Dat tekort
+is een uitkomst van de simulatie, geen uitspraak over Simon Loos: de pool heeft 1,7 chauffeurs per voertuig tegen 1,29
+diensten per voertuig op een werkdag, en met roosters van vijf dagen (een derde van de volle weken om de week zes) is
+gemiddeld 68 procent van de pool per dag inzetbaar, tegen 73 procent die vandaag rijdt. Met het echte rooster zie je het
+echte gat; in de simulatie zou een pool van ongeveer 1,85 per voertuig passen (een regel in `src/fleet.js`, maar die
+verandert de namen en de vingerafdruk, dus niet in deze ronde).
+
+**De directie op het planbord**: `CAN.planbord` in `src/places.js` heeft de directie erbij (besluit van Sem, 26 oktober 2026).
+`can('act')` blijft voor planner en regiomanager: alle blokken staan vast, er is geen Rit inplannen en geen Waar past hij, een
+pijltje verschuift niets, en het bord zegt "Alleen-lezen: je kijkt mee". Het menu toont het planbord zonder slot.
+
+Wat er nodig is om dit met echte data te laten draaien: het rooster per chauffeur in de vorm hierboven (roostersysteem of HR,
+met contracturen, vakantie en ziekmelding), de rij- en rusttijden uit de tachograaf of de boordcomputer (per dienst begin,
+eind en minuten rijden, of de ruwe activiteiten), de historie van minstens vier weken (voor 90 uur in twee weken en de
+weekrust over de weekgrens), en de cao-regels nagelezen. De functies rekenen dan ongewijzigd op die records.
 
 ## Vertragingen, voorstellen met winst en de oefendag
 
@@ -691,7 +793,7 @@ dan blijven er naar verwachting 6,9 gemist (met de kans op een ja, een schatting
 telde de vier beste van elke rit apart, ook als dezelfde mensen bij twee ritten in de groep zaten; nu is elke naam één keer
 beloofd.
 
-Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
+Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun roosters, rij- en rusttijden over de week,
 diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen, wachttijden, de indeling van de docks,
 de open ritten in de pool en hun historie, voorkeuren en tevredenheid van chauffeurs, charters en oproepkrachten,
 accustanden, berichten, collega's, historie, schades, kosten, lostijden, stroomprijzen
@@ -714,6 +816,7 @@ ritopdrachten zijn echte OTM5 (getoetst tegen de specificatie in `tests/vrijgeve
 - `src/tables.js`: tabellen voertuigen, opleggers en chauffeurs, lostijden, laden (met de grafieken per kwartier), pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, planners per standplaats (een per 15 tot 25 voertuigen, over vroeg, dag en avond), voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
+- `src/tellers.js` (de teller per chauffeur: rij- en rusttijden over de dag, de week en twee weken, EU 561), `src/rooster.js` (het rooster per chauffeur, in de vorm van een roostersysteem) en `src/bezetting.js` (nodig tegen beschikbaar per standplaats, dag en dagdeel voor veertien dagen, met voorstellen): puur, met `tests/toets.test.mjs`, `tests/bezetting.test.mjs` en `tests/week-check.mjs`
 - `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd); `src/verdeel.js`: één toewijzing over alle open ritten van een dag (Hongaars en gretig; puur, zonder imports, met `tests/verdeel.test.mjs`)
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)

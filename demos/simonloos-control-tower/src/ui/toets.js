@@ -12,7 +12,12 @@
 //             een stop met laden: true is het laadvenster op de standplaats (eerder vertrekken kan dan niet)
 //   start     de nieuwe vertrektijd van de rit
 //   context   { socBijVertrek: 0..100, leegKm: km naar de standplaats van de rit (heen), opleggersVrij: { soort: n },
-//               dock: { nr, duur, bezet: [{ t0, t1, door }], vrij: [nr] }, volgendeDienst: starttijd morgen (minuten van de dag) }
+//               dock: { nr, duur, bezet: [{ t0, t1, door }], vrij: [nr] }, volgendeDienst: starttijd morgen (minuten van de dag),
+//               week: { naam, week, tweeWeken (minuten rijden zonder deze rit, tellers.js), weekrustUiterlijk (minuten van vandaag),
+//                       laatsteEind: eind van de laatste dienst; 24 uur of meer rust voor de rit is een weekrust, dan telt de uiterlijke start niet },
+//               rooster: { naam, status: werk|vrij|rustdag|vakantie|ziek, van, tot (minuten van vandaag), tekst, afwijking: reden|null } }
+// Sinds 4.1 de week (EU 561/2006): hoogstens 56 uur rijden per week en 90 in twee weken, de weekrust uiterlijk na zes dagen;
+// en het rooster: buiten het rooster is een fout, tenzij de planner bewust afwijkt met een reden (dan let op, met de reden).
 // Ernst: 'fout' (gaat niet: het blok gaat terug), 'let op' (kan, met een gevolg), 'ok' (ter informatie).
 // Effect: { teLaatMin, extraKm, rijtijdOverMin, accuBijTerugkomst } voor het rangschikken van voorstellen.
 
@@ -21,7 +26,7 @@
 // tussen twee weekrusten verkort tot 10 uur (Staatscourant 2026, nr. 7211; status zoek: nog na te lezen). Die grens geldt
 // hier, ook als de kandidaten uit de data met EU 561 zijn gerekend. Verbruik van een elektrische truck 1,1 tot 1,15 kWh
 // per km (referentie NACFE).
-export const NORM = { rijZonderPauze: 270, pauze: 45, rijDag: 540, rijDagVerlengd: 600, rust: 660, rustVerkort: 600, kwhPerKm: 1.15, accuMin: 10, accuLetOp: 20, laadKw: 150, dockLaden: 40, teLaatFout: 60 };
+export const NORM = { rijZonderPauze: 270, pauze: 45, rijDag: 540, rijDagVerlengd: 600, rust: 660, rustVerkort: 600, kwhPerKm: 1.15, accuMin: 10, accuLetOp: 20, laadKw: 150, dockLaden: 40, teLaatFout: 60, rijWeek: 3360, rijTweeWeken: 5400 };
 const CAO = 'cao beroepsgoederenvervoer, strenger dan EU 561';
 
 const SOORT = { trekker: 'trekker', bakwagen: 'bakwagen', bus: 'bestelbus' };
@@ -94,6 +99,26 @@ export function toets({ voertuig, plan = [], dienst = null, rit, start, context 
     const rust = morgen - d1;
     if (rust < NORM.rustVerkort - 0.5) add('rusttijd', 'fout', `Rusttijd tot de volgende dienst (${hhmm(morgen)}) wordt ${duur(rust)}: minder dan 10 uur (${CAO}).`);
     else if (rust < NORM.rust - 0.5) add('rusttijd', 'let op', `Rusttijd tot de volgende dienst wordt ${duur(rust)}: verkort tot minstens 10 uur, dat mag hoogstens drie keer tussen twee weekrusten (${CAO}).`);
+    // de week en de twee weken (EU 561 artikel 6 en 8): de teller van de chauffeur zonder deze rit, plus de rit
+    const wk = context.week;
+    if (wk) {
+      const rijRit = rijTotaal(sh(rit.rijden)); const w = (wk.week || 0) + rijRit, w2 = (wk.tweeWeken || 0) + rijRit; const wie = wk.naam || 'de chauffeur'; const n0 = regels.length;
+      if (w > NORM.rijWeek + 0.5) add('week', 'fout', `Met deze rit rijdt ${wie} ${duur(w)} in de week: hoogstens 56 uur (EU 561).`);
+      if (w2 > NORM.rijTweeWeken + 0.5) add('week', 'fout', `Met deze rit rijdt ${wie} ${duur(w2)} in twee weken: hoogstens 90 uur (EU 561).`);
+      const rustErvoor = typeof wk.laatsteEind === 'number' && s - wk.laatsteEind >= 1440 - 0.5;
+      if (typeof wk.weekrustUiterlijk === 'number' && e > wk.weekrustUiterlijk + 0.5 && !rustErvoor) add('weekrust', 'fout', `De weekrust van ${wie} begint uiterlijk ${wk.weekrustUiterlijk >= 1440 ? 'morgen ' : ''}om ${hhmm(wk.weekrustUiterlijk)} (na zes dagen); de rit loopt tot ${hhmm(e)}.`);
+      if (regels.length === n0) add('week', 'ok', `Rijtijd in de week ${duur(w)} van 56 uur, in twee weken ${duur(w2)} van 90.`);
+    }
+  }
+  // het rooster van de chauffeur (rooster.js): buiten het rooster gaat niet, behalve bewust met een reden
+  const ro = context.rooster;
+  if (ro) {
+    const wie = ro.naam || 'de chauffeur'; let buiten = null;
+    if (ro.status === 'werk') { if (s < ro.van - 0.5) buiten = `${wie} begint volgens het rooster pas om ${hhmm(ro.van)}`; else if (e > ro.tot + 0.5) buiten = `buiten het rooster van ${wie} (${ro.tekst}): de rit loopt tot ${hhmm(e)}`; }
+    else buiten = `${wie}: ${ro.tekst}`;
+    if (!buiten) add('rooster', 'ok', `Binnen het rooster van ${wie}.`);
+    else if (ro.afwijking) add('rooster', 'let op', `${buiten[0].toUpperCase()}${buiten.slice(1)}. Bewust afgeweken: ${ro.afwijking}.`);
+    else add('rooster', 'fout', `${buiten[0].toUpperCase()}${buiten.slice(1)}. Afwijken kan alleen bewust, met een reden.`);
   }
   // accu en laadtijd (elektrisch)
   if (voertuig.ev) {
@@ -127,3 +152,5 @@ export function rangschik(kandidaten) {
 }
 export const fouten = uitslag => uitslag.regels.filter(r => r.ernst === 'fout');
 export const letOp = uitslag => uitslag.regels.filter(r => r.ernst === 'let op');
+// alleen het rooster staat in de weg: de planner kan dan bewust afwijken, met een reden (de andere regels zijn wet)
+export const alleenRooster = uitslag => { const F = fouten(uitslag); return F.length > 0 && F.every(r => r.regel === 'rooster'); };

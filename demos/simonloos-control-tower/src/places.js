@@ -87,7 +87,8 @@ export const CAN = {
   schades: ['regiomanager', 'directie', 'hr'],
   contract: ['directie', 'hr'],
   nood: ['regiomanager', 'hr'],
-  planbord: ['planner', 'regiomanager'],
+  // de directie kijkt mee op het planbord, alleen-lezen (besluit van Sem, 26 oktober 2026): can('act') blijft voor planner en regiomanager
+  planbord: ['planner', 'regiomanager', 'directie'],
 };
 export const laadpunten = s => s.hub ? 24 : s.wh ? 12 : 4;
 export const fmt = n => new Intl.NumberFormat('nl-NL').format(Math.round(n));

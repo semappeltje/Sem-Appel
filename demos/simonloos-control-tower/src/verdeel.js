@@ -12,6 +12,10 @@
 // variant is wat een planner uit zijn hoofd doet; de Hongaarse ziet dat de beste van rit A ook de enige goede van rit B is.
 const INF = 1e18;
 const NIET = -1e6;
+// 4.1: de rij- en rusttijden over de week zijn een harde grens. Een kandidaat met rijMin (de rit) en ruimte (wat hij in de
+// week en de twee weken nog mag rijden, tellers.js) telt niet mee als de rit niet meer past: hij krijgt geen kolom en geen rit.
+export const pastNog = k => !(typeof k.ruimte === 'number' && typeof k.rijMin === 'number' && k.rijMin > k.ruimte + 0.5);
+const echt = ritten => ritten.map(r => ({ ...r, kandidaten: r.kandidaten.filter(pastNog) }));
 
 // toewijzing van n rijen aan m kolommen (n <= m), de som van W[i][j] zo groot mogelijk; -1 voor een rij zonder kolom
 export function hongaars(W) {
@@ -46,8 +50,8 @@ function kolommen(ritten) {
   return kol;
 }
 
-export function verdeelHongaars(ritten) {
-  const uit = new Map(); if (!ritten.length) return uit;
+export function verdeelHongaars(alle) {
+  const uit = new Map(); if (!alle.length) return uit; const ritten = echt(alle);
   const kol = kolommen(ritten); const extra = Math.max(0, ritten.length - kol.length);
   const m = kol.length + extra; const W = ritten.map(r => { const row = new Float64Array(m).fill(NIET); for (const k of r.kandidaten) for (let j = 0; j < kol.length; j++) if (kol[j] === k.id) row[j] = k.waarde; for (let j = kol.length; j < m; j++) row[j] = 0; return row; });
   const toe = hongaars(W);
@@ -55,8 +59,8 @@ export function verdeelHongaars(ritten) {
   return uit;
 }
 
-export function verdeelGretig(ritten) {
-  const uit = new Map(); const over = new Map();
+export function verdeelGretig(alle) {
+  const uit = new Map(); const over = new Map(); const ritten = echt(alle);
   for (const r of ritten) for (const k of r.kandidaten) if (!over.has(k.id)) over.set(k.id, Math.max(1, Math.floor(k.cap || 1)));
   const volg = ritten.slice().sort((a, b) => (a.volgorde || 0) - (b.volgorde || 0) || (a.id < b.id ? -1 : 1));
   for (const r of volg) {

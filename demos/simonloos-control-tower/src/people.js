@@ -3,6 +3,12 @@
 // documenten per voertuig en per oplegger. Alles gesimuleerd en deterministisch; namen en nummers zijn fictief.
 import { SP, DIV } from './places.js';
 import { TRT, LAST, rijdtOpZondag } from './fleet.js';
+import { maakRooster, roosterDag } from './rooster.js';
+import { teller } from './tellers.js';
+import { bezetting } from './bezetting.js';
+import { dienstdeel } from './voorkeuren.js';
+// een vaste hash (murmur3 fmix32) voor keuzes die de reeks toevalsgetallen niet mogen verschuiven
+const hash01 = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 
 let seed = 7712026; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const pick = a => a[Math.floor(rnd() * a.length)];
@@ -51,6 +57,33 @@ export function createPeople(fleet) {
   // Op zondag rijdt een deel van de vloot (fleet.rijdtOpZondag, schatting: samen ongeveer 45 procent): dezelfde keuze als de
   // vloot op die zondag zelf maakt, zodat Gisteren op maandag niet leeg is en ook geen volle werkdag toont. Een zondag zonder
   // dienst kost geen getal uit de reeks; de 12 diensten krijgen dezelfde waarden als voorheen, alleen soms een andere datum.
+  // 4.1: het rooster van elke persoon (rooster.js, gesimuleerd uit een seed per persoon; de dienst van vandaag valt erin)
+  // De vrije dagen worden per standplaats verdeeld naar de vraag per weekdag (de diensten van vandaag; zondag 45 procent,
+  // schatting zoals ZONDAG_AANDEEL): elke persoon krijgt het blok waar het nu het minst vol is. Zo heeft het rooster op elke
+  // dag ongeveer genoeg mensen, zoals een echte roosteraar het maakt; de vingerafdruk van de dag verandert er niet door.
+  const vandaagWd = (TODAY.getDay() + 6) % 7; const vrijTel = new Map(), doel = new Map();
+  for (const sp of SP) { const L = persons.filter(p => p.base === sp); const d = L.filter(p => p.dienst).length; const basis = vandaagWd === 6 ? d / 0.45 : d; vrijTel.set(sp.n, new Array(7).fill(0)); doel.set(sp.n, [0, 1, 2, 3, 4, 5, 6].map(i => Math.max(1, L.length - (i === 6 ? basis * 0.45 : basis)))); }
+  const kies = p => (goed, vrijN) => {
+    const V = vrijTel.get(p.base.n), D = doel.get(p.base.n); let best = goed[0], bw = Infinity;
+    for (const s of goed) { let w = 0; for (let i = 0; i < vrijN; i++) { const k = (s + i) % 7; w = Math.max(w, (V[k] + 1) / D[k]); } if (w < bw - 1e-9) { bw = w; best = s; } }
+    for (let i = 0; i < vrijN; i++) V[(best + i) % 7]++; return best;
+  };
+  for (const p of persons) p.rooster = maakRooster({ id: p.id, uren: p.contract.uren, werkdagen: p.dienst ? [{ datum: TODAY, start: p.dienst.d.start }] : [], vandaag: TODAY, kies: kies(p) });
+  // wie rijdt een dienst uit de historie: de eerste keus als die volgens zijn rooster werkt (in het venster) en die dag nog niet
+  // rijdt, anders de eerste uit de pool die dat wel doet, vanaf een vaste plek; lukt dat niet, dan op de status alleen
+  const rijdtOp = new Map();
+  const vrijOp = (p, date, a, b, venster) => { const k = date.getTime(); const s = rijdtOp.get(k); if (s && s.has(p)) return false; const d = roosterDag(p.rooster, date); return d.status === 'werk' && (!venster || (a >= d.van - 0.5 && b <= d.tot + 0.5)); };
+  function kiesWie(eerste, src, date, a, b, tid) {
+    let who = null;
+    for (const venster of [true, false]) {
+      if (vrijOp(eerste, date, a, b, venster)) { who = eerste; break; }
+      const o = Math.floor(hash01(`wie|${tid}|${date.getTime()}`) * src.length);
+      for (let i = 0; i < src.length && !who; i++) { const p = src[(o + i) % src.length]; if (vrijOp(p, date, a, b, venster)) who = p; }
+      if (who) break;
+    }
+    who = who || eerste; const k = date.getTime(); let s = rijdtOp.get(k); if (!s) { s = new Set(); rijdtOp.set(k, s); } s.add(who);
+    return who;
+  }
   const forTruck = new Map();
   for (const t of fleet.trucks) {
     const all = poolOf.get(t.base.n); const pool = all.filter(p => t.kind === 'bus' ? p.div === 'bezorg' : p.div !== 'bezorg'); const src = pool.length ? pool : all;
@@ -61,10 +94,14 @@ export function createPeople(fleet) {
     const history = []; let d = 1;
     while (history.length < 12) {
       const date = dayAgo(d++); if (date.getDay() === 0 && !rijdtOpZondag(t.id, t.div, date)) continue;
-      const who = rnd() < 0.55 ? pick(stam) : pick(src);
+      const who0 = rnd() < 0.55 ? pick(stam) : pick(src);
       const start = (t.dayStart || 300) + Math.round(r(-60, 60) / 15) * 15, len = Math.round(r(470, 590) / 5) * 5, km = Math.round(dayKm / Math.max(1, t.diensten.length) * r(0.82, 1.12));
+      // 4.1: wie rijdt, past in zijn rooster en rijdt die dag niet al op een ander voertuig (zonder extra toevalsgetallen)
+      const who = kiesWie(who0, src, date, start, start + len, t.id);
+      // de minuten rijden van deze dienst (53 procent van de diensttijd, 47 tot 59; hoogstens 9 uur): een vaste hash
+      const rij = Math.min(540, Math.round(len * (0.47 + 0.12 * hash01(`rij|${t.id}|${date.getTime()}`))));
       const u = rnd(); const note = u < 0.06 ? 'schade gemeld' : u < 0.11 ? 'rijtijdwaarschuwing' : u < 0.15 ? 'storing gemeld' : u < 0.18 ? 'te laat bij tijdvenster' : '';
-      const e = { date, day: fmtDay(date), who, start, end: start + len, km, rit: `${DIV[t.div].n} · ${first}`, note, truck: t, tr: trs.length ? pick(trs) : null };
+      const e = { date, day: fmtDay(date), who, start, end: start + len, km, rij, rit: `${DIV[t.div].n} · ${first}`, note, truck: t, tr: trs.length ? pick(trs) : null };
       history.push(e); who.history.push(e); who.trucks.set(t.id, (who.trucks.get(t.id) || 0) + 1);
       if (note === 'schade gemeld') who.schades.push({ date, truck: t.id, what: pick(SCHADE), schuld: rnd() < 0.7 ? 'Eigen' : 'Derde', kosten: Math.round(r(300, 2500) / 10) * 10 });
     }
@@ -112,8 +149,74 @@ export function createPeople(fleet) {
   const byId = new Map(persons.map(p => [p.id, p]));
   const truckOf = p => p.dienst ? p.dienst.t : null;
   const planners = makePlanners(fleet);
-  return { persons, byId, forTruck, forTrailer, spStats, truckOf, dateLabel: fmtDate, planners, plannerVoor: (spn, div, T) => plannerVoor(planners, spn, div, T) };
+  // 4.1: de teller per chauffeur (tellers.js) uit de historie en het plan van vandaag; dezelfde invoer als de toets
+  const tcache = new Map();
+  const tellerVan = (p, T = 0) => { const k = `${p.id}|${Math.floor(T / 5)}|${p.dienst ? p.dienst.d.start : ''}|${p.dienst ? p.dienst.d.end : ''}`; let x = tcache.get(k); if (!x) { x = teller(tellerInvoer(p, T)); if (tcache.size > 4000) tcache.clear(); tcache.set(k, x); } return x; };
+  // de persoon achter een naam op een standplaats (de dienst kent alleen de naam)
+  const opNaam = new Map(persons.map(p => [`${p.name}|${p.base.n}`, p]));
+  const persoonVan = (naam, base) => opNaam.get(`${naam}|${base.n}`) || null;
+  // Een vrije chauffeur voor een nieuwe dienst op voertuig t: eerst wie volgens het rooster vandaag werkt en nog geen dienst
+  // heeft (de reserve), dan wie roostervrij is (dat vraagt een reden op het planbord); nooit wie vakantie, ziek of een rustdag heeft.
+  function vrijVoor(t, al = new Set()) {
+    const bus = t.kind === 'bus';
+    const L = persons.filter(p => p.base === t.base && !p.dienst && !al.has(p) && (bus ? p.role === 'Bezorger B' : p.role !== 'Bezorger B'));
+    const st = p => roosterDag(p.rooster, TODAY).status;
+    return L.find(p => st(p) === 'werk') || L.find(p => st(p) === 'vrij') || null;
+  }
+  // Wat de toets (toets.js) over de chauffeur moet weten: de teller zonder de rit die verschuift, en het rooster van de dag
+  // van de rit. dienst: de dienst waar de rit in komt (met bestuurder) of null (een nieuwe dienst: de vrije chauffeur);
+  // zonder: de rit die verschuift (uit ritten.js) of null; afwijking: { id, reden } als de planner bewust afwijkt.
+  function toetsInvoer(t, dienst, startAbs, zonder, afwijking = null) {
+    const p = dienst ? persoonVan(dienst.bestuurder, t.base) : vrijVoor(t); if (!p) return {};
+    const tl = tellerVan(p, 0); let eigen = 0;
+    if (zonder && zonder.t && p.dienst && zonder.t === p.dienst.t && zonder.d === p.dienst.d.i) for (let k = zonder.i0; k <= zonder.i1; k++) { const s = zonder.t.plan[k]; if (s && s.k === 'drive') eigen += s.t1 - s.t0 - (s.delay || 0); }
+    const morgen = startAbs >= 1440; const datum = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + (morgen ? 1 : 0)); const off = morgen ? 1440 : 0;
+    const zondag = (TODAY.getDay() + 6) % 7 === 6 && morgen;
+    const rd = roosterDag(p.rooster, datum);
+    return {
+      week: { naam: p.name, persoon: p.id, week: Math.max(0, (zondag ? 0 : tl.week.totaal) - eigen), tweeWeken: Math.max(0, (zondag ? tl.week.totaal : tl.tweeWeken.totaal) - eigen), weekrustUiterlijk: tl.weekrust.uiterlijk, laatsteEind: dienst ? null : tl.laatsteEind },
+      rooster: { naam: p.name, persoon: p.id, status: rd.status, van: rd.van === null ? null : rd.van + off, tot: rd.tot === null ? null : rd.tot + off, tekst: rd.tekst, afwijking: afwijking && afwijking.id === p.id ? afwijking.reden : null },
+    };
+  }
+  // 4.1: bezetting tegen behoefte (bezetting.js): de invoer uit de vloot en de personen, en het model (gecachet per kwartier)
+  const kmTussen = (a, b) => { const c = Math.cos((a.lat + b.lat) / 2 * Math.PI / 180); return Math.hypot((a.lon - b.lon) * c * 111.32, (a.lat - b.lat) * 111.32); };
+  function bezettingInvoer(T = 0) {
+    const standplaatsen = SP.map(s => ({ n: s.n, buren: SP.filter(b => b !== s && kmTussen(s, b) <= 40).sort((x, y) => kmTussen(s, x) - kmTussen(s, y)).map(b => b.n) }));
+    const personen = persons.map(p => { const tl = tellerVan(p, 0); return { id: p.id, sp: p.base.n, rooster: p.rooster, weekrustUiterlijk: tl.weekrust.uiterlijk, kanWeek: tl.kan.week, dienstVandaag: !!p.dienst }; });
+    const plan = []; for (const t of fleet.trucks) for (const d of t.diensten) plan.push({ sp: t.base.n, deel: dienstdeel(d.start), n: 1 });
+    const open = (typeof fleet.poolAt === 'function' ? fleet.poolAt(T, []) : []).filter(x => !x.gepland).map(x => ({ sp: x.sp, dag: x.dag === 'morgen' ? 1 : 0, deel: dienstdeel(x.venster[0]) }));
+    const historie = []; for (const t of fleet.trucks) { const info = forTruck.get(t.id); if (info) for (const h of info.history) if (dagIndex(h.date) >= -7) historie.push({ sp: t.base.n, iso: `${h.date.getFullYear()}-${h.date.getMonth() + 1}-${h.date.getDate()}`, weekdag: (h.date.getDay() + 6) % 7, n: 1 }); }
+    return { vandaag: TODAY, dagen: 14, standplaatsen, personen, plan, open, historie };
+  }
+  let bz = null;
+  const bezettingNu = (T = 0) => { const k = `${Math.floor(T / 15)}|${fleet.trucks.reduce((a, t) => a + t.diensten.length, 0)}`; if (!bz || bz.k !== k) bz = { k, v: bezetting(bezettingInvoer(T)) }; return bz.v; };
+  return { persons, byId, forTruck, forTrailer, spStats, truckOf, dateLabel: fmtDate, planners, plannerVoor: (spn, div, T) => plannerVoor(planners, spn, div, T), tellerVan, tellerInvoer, dienstenVan, vandaag: TODAY, persoonVan, vrijVoor, toetsInvoer, bezettingInvoer, bezetting: bezettingNu,
+    // opnieuw tellen, bijvoorbeeld na een nieuwe download van de tachograaf (en in de tests)
+    tellersOpnieuw: () => { tcache.clear(); bz = null; } };
 }
+
+// ---------- 4.1: de diensten van een persoon voor de teller ----------
+// Minuten vanaf middernacht van vandaag (gisteren negatief), op de kalender geteld (de nacht van de zomertijd telt als een dag).
+const dagIndex = d => Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - TODAY) / 864e5);
+// het rijden van de dienst van vandaag zoals het planbord het tekent: de rijstukken van die dienst in het plan van het voertuig
+export const rijVanDienst = (t, d) => t.plan.reduce((a, s) => a + (s.d === d.i && s.k === 'drive' ? s.t1 - s.t0 - (s.delay || 0) : 0), 0);
+export function dienstenVan(p) {
+  const L = p.history.map(h => { const o = dagIndex(h.date) * 1440; return { a: o + h.start, b: o + h.end, rij: h.rij || Math.round((h.end - h.start) * 0.53), bron: 'historie', truck: h.truck ? h.truck.id : null }; });
+  if (p.dienst) { const { t, d } = p.dienst; L.push({ a: d.start, b: d.end, rij: Math.round(rijVanDienst(t, d)), maxRij: d.maxRij || 540, bron: 'plan', truck: t.id }); }
+  return L.sort((x, y) => x.a - y.a);
+}
+// het begin van de volgende roostervrije dagen (schatting: het eind van de laatste werkdag ervoor), voor de geplande weekrust
+function vrijVanaf(p) {
+  if (!p.rooster) return null;
+  for (let i = 0; i < 14; i++) {
+    const dag = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + i); const morgen = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + i + 1);
+    const a = roosterDag(p.rooster, dag), b = roosterDag(p.rooster, morgen);
+    if (a.status === 'werk' && b.status !== 'werk') return i * 1440 + (i === 0 && p.dienst ? p.dienst.d.end : a.van + 600);
+    if (i === 0 && a.status !== 'werk') return null;
+  }
+  return null;
+}
+export function tellerInvoer(p, T = 0) { return { diensten: dienstenVan(p), nu: T, weekdag: (TODAY.getDay() + 6) % 7, vrijVanaf: vrijVanaf(p) }; }
 
 // ---------- planners ----------
 // Een planner per 15 tot 25 voertuigen per standplaats (onderzoek D2), verdeeld over drie diensten: vroeg, dag en avond.

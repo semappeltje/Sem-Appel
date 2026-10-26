@@ -9,7 +9,9 @@ import { SvelteGantt, SvelteGanttTable, SvelteGanttExternal } from 'svelte-gantt
 import { SP, DIV } from '../places.js';
 import { KIND, TRT } from '../fleet.js';
 import { esc, ic, fmt, hhmm, plate, on, VST, ritBadge, swap, kortStop, initials } from './base.js';
-import { poolInvoer, pool, poolNu, absT, docksVan, vensterAbs } from './planwijzig.js';
+import { poolInvoer, pool, poolNu, absT, docksVan, vensterAbs, toetsVoor, ritInvoer, dienstInvoer } from './planwijzig.js';
+import { alleenRooster } from './toets.js';
+import { uurMin, momentTekst } from '../tellers.js';
 import * as IP from './inplannen.js';
 import { openRitDialoog, kansChip, belSpan, besteTxt } from './openritten.js';
 import { urgentie, urgentieTxt, urgentieKlas, prognose, voorkeurenVan, pastVoorkeur, ritVoor, toegewezen, wieSoort, collegaOm, handelMoment } from './invulling.js';
@@ -77,6 +79,7 @@ function createBoard(ctx, el) {
   const HINT = 'sl-pbhint';
   el.innerHTML = `<div class="vbar pb-bar" data-pb="bar"></div>
     <div class="pb-hint" data-pb="hint" ${ctx.store.get(HINT) === '1' ? 'hidden' : ''}>${ic('gantt', 18)}<p><b>Planning aanpassen</b> Sleep een rit naar een ander voertuig of een andere tijd, of klik hem en schuif met de pijltjes. Het bord toetst meteen. Ritten zonder voertuig staan onderaan: kies Rit inplannen.</p><button class="btn sm" type="button" data-pbhint="1">Begrepen</button></div>
+    <p class="pb-dagnote hint" data-pb="ro" role="note" ${ctx.can('act') ? 'hidden' : ''}>${ic('lock', 14)} Alleen-lezen: je kijkt mee. Slepen, inplannen en voorstellen toepassen doen planners en regiomanagers.</p>
     <span class="sr" data-pb="cnt" aria-live="polite"></span><p class="pb-dagnote hint" data-pb="dagnote" hidden></p>
     <div class="pb-main"><div class="pb-gantt" data-pb="gantt" role="application" aria-label="Planbord: blokken zijn ritten; sleep of gebruik Alt met pijltjes om een rit te verplaatsen"></div></div>
     <section class="pb-pool" data-pb="pool" aria-label="Open ritten"></section>`;
@@ -242,6 +245,14 @@ function createBoard(ctx, el) {
     const g = new Date(); g.setHours(0, 0, 0, 0); g.setDate(g.getDate() - 1);
     return info.history.filter(h => h.date.toDateString() === g.toDateString()).map((h, k) => ({ id: `h-${t.id}-${k}`, resourceId, from: ms(h.start - 1440), to: ms(h.end - 1440), label: `Gisteren: ${h.who ? h.who.short : ''}, ${hhmm(h.start)} tot ${hhmm(h.end)}, ${fmt(h.km)} km`, html: `<span class="sg-l"><b>${esc(h.who ? h.who.short : 'dienst')}</b><small>${hhmm(h.start)}–${hhmm(h.end)} · ${fmt(h.km)} km${h.note ? ` · ${esc(h.note)}` : ''}</small></span>`, classes: `pb-hist${h.note ? ' let' : ''}`, enableDragging: false, draggable: false, enableResize: false, resizable: false }));
   }
+  // 4.1: het rustblok na de dienst op de rij van de chauffeur: de dagrust (11 uur, cao) of de weekrust (45 uur) als die volgens
+  // het rooster of de teller dan begint. Vast: je kunt hem niet verslepen en er niets overheen zetten (de toets zegt nee).
+  function rustTask(p, d, tl) {
+    const wr = tl.weekrust; const week = (wr.gepland !== null && wr.gepland <= d.end + 1) || wr.uiterlijk <= d.end + 660;
+    const tot = d.end + (week ? 2700 : 660); const eind = Math.min(tot, range()[1]);
+    const tekst = week ? `Weekrust tot ${momentTekst(tot, tl.weekdag === undefined ? 0 : tl.weekdag)} (45 uur)` : `Rust tot ${tot >= 1440 ? 'morgen ' : ''}${hhmm(tot)} (11 uur, cao)`;
+    return { id: `rust-${p.id}`, resourceId: p.id, from: ms(d.end), to: ms(Math.max(d.end + 30, eind)), label: `${tekst}. Niet te overschrijven.`, html: `<span aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--muted) 20%,transparent) 0 4px,transparent 4px 9px)"></span><span class="sg-l"><b>${week ? 'Weekrust' : 'Rust'}</b><small>${esc(tekst.replace(/^(Week)?[Rr]ust /, ''))}</small></span>`, classes: 'pb-hist pb-rust vast', enableDragging: false, draggable: false, enableResize: false, resizable: false };
+  }
   function build(sp) {
     const rows = [], tasks = [];
     if (f.dag === 'gisteren') {
@@ -264,8 +275,14 @@ function createBoard(ctx, el) {
       const P = ctx.people.persons.filter(p => p.base === sp && p.dienst).filter(p => (f.div === 'alle' || p.dienst.t.div === f.div) && (f.kind === 'alle' || p.dienst.t.kind === f.kind)).filter(p => !q || `${p.name} ${p.dienst.t.id}`.toLowerCase().includes(q)).sort((a, b) => a.dienst.d.start - b.dienst.d.start || a.name.localeCompare(b.name));
       for (const p of P) {
         const t = p.dienst.t, d = p.dienst.d;
-        rows.push({ id: p.id, label: p.name, enableDragging: false, draggable: false, headerHtml: `<div class="pb-who"><span class="av sm">${esc(p.initials)}</span><div><b>${esc(p.name)}</b><span>${hhmm(d.start)}–${hhmm(d.end)} · ${esc(t.id)}</span></div></div>` });
-        for (const r of R.ofTruck(t)) if (r.d === d.i) { const k = ritTask(r, p.id); k.enableDragging = false; k.draggable = false; k.classes += ' vast'; tasks.push(k); }
+        // 4.1: de teller (tellers.js) bij de naam, en de som van het rijden in de ritten die deze rij tekent (de test vergelijkt
+        // die som met de teller op de chauffeurspagina)
+        const tl = ctx.people.tellerVan ? ctx.people.tellerVan(p, T()) : null; let som = 0;
+        const mijn = R.ofTruck(t).filter(r => r.d === d.i);
+        for (const r of mijn) { for (let k = r.i0; k <= r.i1; k++) { const sg = t.plan[k]; if (sg && sg.k === 'drive' && sg.d === d.i) som += sg.t1 - sg.t0 - (sg.delay || 0); } }
+        rows.push({ id: p.id, label: p.name, enableDragging: false, draggable: false, headerHtml: `<div class="pb-who" data-pbp="${esc(p.id)}" data-pbrij="${Math.round(som)}"${tl ? ` title="${esc(tl.zin)}"` : ''}><span class="av sm">${esc(p.initials)}</span><div><b>${esc(p.name)}</b><span>${hhmm(d.start)}–${hhmm(d.end)} · ${esc(t.id)}${tl ? ` · nog ${esc(uurMin(tl.kan.vandaag))}` : ''}</span></div></div>` });
+        for (const r of mijn) { const k = ritTask(r, p.id); k.enableDragging = false; k.draggable = false; k.classes += ' vast'; tasks.push(k); }
+        if (tl) tasks.push(rustTask(p, d, tl));
       }
     } else {
       const D = docksVan(ctx, sp);
@@ -354,7 +371,7 @@ function createBoard(ctx, el) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); popover(node, x); return; }
       if (!r) return;
       if (e.key === 'w' || e.key === 'W') { e.preventDefault(); waarPast(r); return; }
-      if (/vast/.test(x.classes || '')) { if (/^Arrow/.test(e.key)) { e.preventDefault(); ctx.L.toast(`Rit ${r.id} is al begonnen en blijft op ${r.t.id}.`, { icon: 'lock' }); } return; }
+      if (/vast/.test(x.classes || '')) { if (/^Arrow/.test(e.key)) { e.preventDefault(); ctx.L.toast(ctx.can('act') ? `Rit ${r.id} is al begonnen en blijft op ${r.t.id}.` : 'Alleen-lezen: je kijkt mee. Planners en regiomanagers verplaatsen ritten.', { icon: 'lock' }); } return; }
       // de begintijd komt uit de rit zelf (het plan), niet uit het blok: na een afgewezen sleep kan dat nog even ergens anders staan
       const van = absT(r.t, r.t.plan[r.i0].t0);
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.altKey) { e.preventDefault(); const d = (e.key === 'ArrowRight' ? 5 : -5); poging(r, r.t, van + d, node); }
@@ -374,15 +391,43 @@ function createBoard(ctx, el) {
     const terug = () => gantt.updateTask({ ...x, resourceId: f.per === 'voertuig' ? r.t.id : (sourceRow ? sourceRow.model.id : x.resourceId), from: ms(absT(r.t, r.t.plan[r.i0].t0)), to: ms(absT(r.t, r.t.plan[r.i1].t1)) });
     if (!B || f.per !== 'voertuig') { terug(); return; }
     if (B === r.t && Math.abs(start - absT(r.t, r.t.plan[r.i0].t0)) < 1) return;
+    if (roosterVraag(r, B, start)) { terug(); return; }
     const res = voerUit(r, B, start);
     if (!res.ok) terug();
+  }
+  // De reden om af te wijken van het rooster: een vaste keus of eigen woorden. Daarna gaat de rit door de gewone toets (die
+  // het rooster dan als let op meldt, met de reden) en komt de afwijking met de reden in het logboek.
+  // 4.1: staat alleen het rooster in de weg, dan kan de planner bewust afwijken, met een reden (de wet niet): slepen en de pijltjes
+  function roosterVraag(r, B, start) {
+    if (!ctx.can('act') || !ctx.people.toetsInvoer) return false;
+    const u0 = toetsVoor(ctx, B, ritInvoer(r), start, r); if (u0.ok || !alleenRooster(u0)) return false;
+    vraagReden(r, B, start, u0); return true;
+  }
+  const REDENEN = ['De chauffeur heeft ja gezegd', 'Geruild met een collega', 'Geen andere chauffeur vrij', 'Spoed van de klant'];
+  function vraagReden(r, B, start, u0) {
+    const inv = ritInvoer(r); const d = dienstInvoer(B, start, start + (inv.t1 - inv.t0), r); const ti = ctx.people.toetsInvoer(B, d, start, r); const ro = ti.rooster; if (!ro) return;
+    const fout = u0.regels.find(x => x.regel === 'rooster' && x.ernst === 'fout');
+    ctx.L.openDialog(`<div class="dlg-h"><h2>Afwijken van het rooster?</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div>
+      <div class="dlg-b"><p>${esc(fout ? fout.tekst : '')}</p><p class="hint" style="margin:8px 0 12px">Rit ${esc(r.id)} naar ${esc(B.id)} om ${hhmm(start)}. De rij- en rusttijden blijven gelden; alleen het rooster kun je bewust overslaan. De reden komt in het logboek.</p>
+      <fieldset style="border:0;padding:0;margin:0"><legend class="flabel">Reden</legend>${REDENEN.map((x, i) => `<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="radio" name="pbReden" value="${esc(x)}" ${i ? '' : 'checked'}>${esc(x)}</label>`).join('')}
+      <label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="radio" name="pbReden" value="">Anders:</label><input class="fld" id="pbRedenTxt" maxlength="120" autocomplete="off" aria-label="Eigen reden" placeholder="Eigen reden"></fieldset>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" type="button" data-close>Annuleer</button><button class="btn pri" type="button" data-pbafwijk="1">Toch inplannen, met reden</button></div></div>`, { label: 'Afwijken van het rooster', onBind: dlg => {
+      on(dlg, 'input', '#pbRedenTxt', () => { const x = dlg.querySelector('input[name=pbReden][value=""]'); if (x) x.checked = true; });
+      on(dlg, 'click', '[data-pbafwijk]', () => {
+        const k = dlg.querySelector('input[name=pbReden]:checked'); const reden = ((k && k.value) || (dlg.querySelector('#pbRedenTxt') || {}).value || '').trim();
+        if (!reden) { ctx.L.toast('Geef een reden om van het rooster af te wijken.', { icon: 'info' }); return; }
+        ctx.L.closeDialog(); ui.roosterAfwijking = { id: ro.persoon, reden };
+        let res; try { res = voerUit(r, B, start); } finally { ui.roosterAfwijking = null; }
+        if (res && res.ok) ctx.A.log(`week bewust af van het rooster van ${ro.naam} (${ro.tekst}): rit ${r.id} naar ${B.id} om ${hhmm(start)}. Reden: ${reden}.`, { rit: r.id, t: B.id });
+      });
+    } });
   }
   // toetsen en uitvoeren staat in inplannen.js (gedeeld met de zaken en de assistent); het bord tekent daarna opnieuw
   const na = () => refresh(true);
   const voerUit = (r, B, start, opts = {}) => IP.voerUit(ctx, r, B, start, { ...opts, na });
   const waarPast = (r, opts = {}) => IP.waarPast(ctx, r, { ...opts, na });
   const planIn = (item, B, start, opts = {}) => IP.planIn(ctx, item, B, start, { ...opts, na });
-  function poging(r, B, start, node) { const res = voerUit(r, B, start); if (res.ok) requestAnimationFrame(() => { const n = el.querySelector(`[data-task-id="${CSS.escape(r.id)}"]`); if (n) n.focus(); else if (node && node.isConnected) node.focus(); }); }
+  function poging(r, B, start, node) { if (roosterVraag(r, B, start)) return; const res = voerUit(r, B, start); if (res.ok) requestAnimationFrame(() => { const n = el.querySelector(`[data-task-id="${CSS.escape(r.id)}"]`); if (n) n.focus(); else if (node && node.isConnected) node.focus(); }); }
 
   // ---------- popover bij een blok ----------
   function popover(node, x) {
@@ -426,7 +471,7 @@ function createBoard(ctx, el) {
       <div class="pk-a">${ctx.can('act') ? `<button class="btn xs" type="button" data-pkwaar="${esc(p.id)}" title="Eigen chauffeurs, oproepkrachten en charters, elk met reden en kosten">${ic('plus', 13)}Rit inplannen</button>` : ''}${p.route ? `<button class="btn xs ghost" type="button" data-pkkaart="${esc(p.id)}" title="De route van rit ${esc(p.id)} op de kaart">${ic('map', 13)}Kaart</button>` : ''}</div></div>`; };
     return `<div class="pk-bar"><button class="pk-tg" type="button" data-pktg="1" aria-expanded="${f.poolOpen}">${ic(f.poolOpen ? 'chevd' : 'chevu', 15)}<b>Open ritten</b> <span class="n">${L.length}</span></button>
       <div class="seg" role="group" aria-label="Dag"><button type="button" data-pkdag="vandaag" aria-pressed="${dag === 'vandaag'}">Vandaag ${n0}</button><button type="button" data-pkdag="morgen" aria-pressed="${dag === 'morgen'}">Morgen ${n1}</button></div>
-      <span class="hint">${dag === 'vandaag' ? 'Op urgentie. Kies Rit inplannen, of sleep de kaart op een voertuig.' : 'De ritten van morgen komen tussen 13:00 en 16:30 binnen. Waar een voertuig na middernacht nog werkt, kan hij er nu al op.'}${pool(ctx).some(p => p.schatting) ? ' Pool geschat: een paar procent van de ritten van de standplaats.' : ''}</span><button class="lnk pk-alle" type="button" data-open="view:openritten">Alle open ritten</button></div>
+      <span class="hint">${dag === 'vandaag' ? (ctx.can('act') ? 'Op urgentie. Kies Rit inplannen, of sleep de kaart op een voertuig.' : 'Op urgentie. Alleen-lezen: de planners vullen ze in.') : 'De ritten van morgen komen tussen 13:00 en 16:30 binnen. Waar een voertuig na middernacht nog werkt, kan hij er nu al op.'}${pool(ctx).some(p => p.schatting) ? ' Pool geschat: een paar procent van de ritten van de standplaats.' : ''}</span><button class="lnk pk-alle" type="button" data-open="view:openritten">Alle open ritten</button></div>
       ${f.poolOpen ? `<div class="pk-list" role="list">${V.length ? V.map(card).join('') : `<p class="hint" style="padding:8px 0">${dag === 'vandaag' ? 'Alles van vandaag is ingepland.' : 'Nog geen ritten voor morgen.'}</p>`}</div>` : ''}`;
   }
   on(el, 'click', '[data-pktg]', () => { f.poolOpen = !f.poolOpen; drawPool(true); bewaar(); });
@@ -453,7 +498,9 @@ function createBoard(ctx, el) {
   function render(force, keepScroll) {
     const sp = spNu(); const all = fleet.trucks.filter(t => t.base === sp);
     swap($('[data-pb=bar]'), bar(sp, all));
-    const s2 = `${sp.n}|${f.per}|${f.div}|${f.kind}|${f.st}|${f.q}|${R.ver()}|${ctx.theme()}|${ctx.narrow()}|${f.st !== 'alle' ? Math.floor(T() / 5) : ''}|${f.dag}`;
+    // de directie kijkt mee (places.js CAN.planbord): alles staat vast, en het bord zegt het
+    const ro = $('[data-pb=ro]'); if (ro) ro.hidden = ctx.can('act');
+    const s2 = `${sp.n}|${f.per}|${f.div}|${f.kind}|${f.st}|${f.q}|${R.ver()}|${ctx.theme()}|${ctx.narrow()}|${f.st !== 'alle' ? Math.floor(T() / 5) : ''}|${f.dag}|${ctx.can('act')}`;
     const b5 = Math.floor(T() / 5);
     if (!gantt || force || s2 !== sig) {
       const { rows, tasks } = build(sp); rowsNow = rows; tasksNow = tasks;
@@ -476,7 +523,7 @@ function createBoard(ctx, el) {
     // de replay is verzet (tijdbalk, Ga naar, echte klok): het bord scrolt mee; gewoon verversen laat het beeld staan
     if (ui.pbVolg && gantt) { ui.pbVolg = false; if (f.dag === 'vandaag') requestAnimationFrame(() => naarTijd(T(), 0.35, true)); }
     // de uitleg over slepen niet bij Gisteren: daar kun je niet slepen
-    const hn = $('[data-pb=hint]'); if (hn) hn.hidden = f.dag === 'gisteren' || ctx.store.get(HINT) === '1';
+    const hn = $('[data-pb=hint]'); if (hn) hn.hidden = f.dag === 'gisteren' || ctx.store.get(HINT) === '1' || !ctx.can('act');
     const dn = $('[data-pb=dagnote]'); if (dn) { const zo = d => d.getDay() === 0; const vd = ctx.fleet.vandaag || new Date(); const gz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() - 1)), mz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() + 1));
       const buiten = ctx.spsInScope().length && !ctx.spsInScope().includes(sp) ? `${sp.n} valt buiten je werkgebied (${ctx.scopeLabel()}); kies links je eigen standplaats om terug te gaan. ` : '';
       const tx = buiten + (f.dag === 'gisteren' ? `Gisteren: de gereden diensten uit de historie, per voertuig (geen ritten per blok).${gz ? ' Gisteren was het zondag: ongeveer 45 procent van de vloot reed (schatting).' : ''}` : f.dag === 'morgen' ? `Morgen: het plan komt vanmiddag tussen 13:00 en 16:30 binnen. Nu staan hier de open ritten van morgen en de nachtritten van vandaag.${mz ? ' Morgen is het zondag: dan rijdt ongeveer 45 procent van de vloot (schatting).' : ''}` : zo(vd) ? 'Zondag: ongeveer 45 procent van de vloot rijdt (schatting); de andere voertuigen staan vrij op het terrein.' : ''); dn.hidden = !tx; if (dn.textContent !== tx) dn.textContent = tx; }
@@ -503,7 +550,7 @@ function createBoard(ctx, el) {
     }, 240);
     // dezelfde regel als het blok (vast) en inplannen.voerUit: begonnen is ook laden of koppelen aan het dock voor vertrek
     const rs = ctx.R.stateOf(r, T(), S); const aanDock = rs.st === 'gepland' && T() >= absT(r.t, r.t.plan[r.i0].t0);
-    ctx.L.toast(rs.st === 'gepland' && !aanDock ? `Rit ${r.id} staat klaar: sleep het blok naar een ander voertuig of een andere tijd, of schuif met de pijltjes.` : `Rit ${r.id} is al begonnen${aanDock ? ' (laden of koppelen aan het dock)' : ''} en blijft op ${r.t.id}.`, { icon: 'gantt' });
+    ctx.L.toast(!ctx.can('act') ? `Rit ${r.id} op ${r.t.id}. Alleen-lezen: je kijkt mee.` : rs.st === 'gepland' && !aanDock ? `Rit ${r.id} staat klaar: sleep het blok naar een ander voertuig of een andere tijd, of schuif met de pijltjes.` : `Rit ${r.id} is al begonnen${aanDock ? ' (laden of koppelen aan het dock)' : ''} en blijft op ${r.t.id}.`, { icon: 'gantt' });
   }
   function nowline() { if (!gantt) return; const m = Math.floor(T()); if (m === lastNow) return; lastNow = m; gantt.$set({ timeRanges: [nuRange()] }); }
   return { render, nowline, refresh, waarPast, klaarzetten };

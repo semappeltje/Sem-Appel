@@ -13,6 +13,7 @@
 import CH from './data/charters.json';
 import { SP } from './places.js';
 import { voorkeurenVan, past, reeks, isoDag, dagVanIso, WEEKDAGEN, WEEKDAG_NAAM, DIENSTDEEL_NAAM } from './voorkeuren.js';
+import { pastInWeek, ruimteVoor } from './tellers.js';
 
 export const CHARTERS = CH.charters;
 export const SEED_FLEX = 20261027;
@@ -32,9 +33,10 @@ export const WAARSCHUWINGEN = {
   code95: 'Code 95 verloopt binnen 60 dagen',
   lzv: 'LZV-bevoegdheid nakijken',
   aanrijtijd: 'Aanrijtijd: kan pas na het begin van het laadvenster vertrekken (eerst nog naar de standplaats)',
+  rooster: 'Rooster: de rit valt buiten het rooster van de chauffeur; alleen als hij ja zegt, en het komt in het logboek',
 };
 // Dezelfde waarschuwingen kort, voor een chip of het logboek.
-export const WAARSCHUWING_KORT = { rijtijd: 'rijtijd boven 9 uur', rust: 'verkorte rust', pauze: 'pauze inplannen', uren: 'boven de gewenste uren', accu: 'laden onderweg', voertuig: 'nog geen voertuig', code95: 'code 95 verloopt', lzv: 'LZV nakijken', aanrijtijd: 'na het begin van het venster' };
+export const WAARSCHUWING_KORT = { rijtijd: 'rijtijd boven 9 uur', rust: 'verkorte rust', pauze: 'pauze inplannen', uren: 'boven de gewenste uren', accu: 'laden onderweg', voertuig: 'nog geen voertuig', code95: 'code 95 verloopt', lzv: 'LZV nakijken', aanrijtijd: 'na het begin van het venster', rooster: 'buiten het rooster' };
 const SOORTNAAM = { zzp: 'Zzp\'er', weekend: 'Weekendchauffeur', oproep: 'Oproepkracht' };
 const hhmm = m => { m = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 const uur = m => `${(Math.round(m / 6) / 10).toString().replace('.', ',')} uur`;
@@ -147,18 +149,38 @@ export function eigenKandidaat(c, ctx) {
   const v = c.voorkeuren; const p = past(v, ctx.kenmerken);
   const weekMax = v.maxUren; const week = ctx.dag === 'morgen' && typeof c.weekUrenMorgen === 'number' ? c.weekUrenMorgen : c.weekUren;
   let gereden = 0, over = 540, toeslag = ctx.weekend ? TOESLAG.weekend : 1, kansJa, hoofd; const uren = ctx.uren;
-  const D = c.dienst ? (ctx.dag === 'morgen' ? { ...c.dienst, start: c.dienst.start + 1440, end: c.dienst.end + 1440 } : c.dienst) : null;
-  const vrijDag = !D;
+  // morgen: de dienst van vandaag herhaalt zich, tenzij het rooster morgen vrij geeft (4.1: dan telt de persoon als vrij)
+  const morgenVrij = ctx.dag === 'morgen' && c.statusMorgen && c.statusMorgen !== 'dienst';
+  const D = c.dienst && !morgenVrij ? (ctx.dag === 'morgen' ? { ...c.dienst, start: c.dienst.start + 1440, end: c.dienst.end + 1440 } : c.dienst) : null;
+  // 4.1: de week als harde grens (tellers.js): wie na de rit boven 56 uur in de week of 90 in twee weken komt, of over de
+  // uiterlijke start van zijn weekrust heen, is geen kandidaat
+  const tl = c.teller || null;
+  if (tl && pastInWeek(tl, { a: ctx.a, b: ctx.b, rij: ctx.rijMin }, c.naam, c.weekdag || 0).some(x => x.ernst === 'fout')) return null;
+  // het rooster van die dag (rooster.js): werk met een venster, of vrij, rustdag, vakantie, ziek
+  const rd = ctx.dag === 'morgen' ? c.roosterMorgen : c.rooster; const off = ctx.dag === 'morgen' ? 1440 : 0;
+  const buiten = !!(rd && rd.status === 'werk' && (ctx.a - off < rd.van - 0.5 || ctx.b - off > rd.tot + 0.5));
+  if (buiten) W.push('rooster');
+  const reserve = !D && (ctx.dag === 'morgen' ? c.statusMorgen : c.status) === 'werk' && !buiten;
+  const vrijDag = !D && !reserve;
   // aanrijden: van huis, of (een rit na de eigen dienst, die nog loopt of nog moet komen) na die dienst en het koppelen
   let aanrij = thuisMin(c.id), vanaf = -Infinity, waarom = `eerst ${aanrij} min van huis naar ${ctx.sp.n}`;
   if (D && ctx.a >= D.end && ctx.dag !== 'morgen' && ctx.T < c.dienst.end) { aanrij = AANRIJ_KOPPELEN; vanaf = D.end + AANRIJ_KOPPELEN; waarom = `na de eigen dienst (klaar om ${hhmm(D.end)}) en het koppelen`; }
   if (!D) {
-    const st = ctx.dag === 'morgen' ? c.statusMorgen : c.status; if (st !== 'vrij') return null;
-    toeslag = Math.max(toeslag, TOESLAG.vrij);
-    kansJa = ({ graag: 0.75, soms: 0.5, nee: 0.15 }[v.extra] || 0.5) * bereikbaar(ctx.T);
-    if (ctx.lead < 90) kansJa *= 0.75;   // eerst nog naar de standplaats
-    hoofd = `${ctx.dag === 'morgen' ? 'Morgen vrij' : 'Vrij vandaag'} en uitgerust; 9 uur rijtijd over`;
-    if (v.extra === 'graag') R.push('wil graag extra diensten'); else if (v.extra === 'nee') R.push('wil liever geen extra diensten');
+    const st = ctx.dag === 'morgen' ? c.statusMorgen : c.status; if (st !== 'vrij' && st !== 'werk') return null;
+    // na de dienst van vandaag minstens 10 uur rust (cao)
+    if (morgenVrij && c.dienst && ctx.a - c.dienst.end < 600) return null;
+    if (reserve) {
+      // ingeroosterd en nog zonder dienst: de reserve van de standplaats, geen toeslag
+      kansJa = 0.85 * bereikbaar(ctx.T); if (ctx.lead < 90) kansJa *= 0.8;
+      hoofd = `${ctx.dag === 'morgen' ? 'Morgen ingeroosterd' : 'Ingeroosterd'} en nog zonder dienst; ${tl ? `${Math.round(Math.min(540, tl.kan.week, tl.kan.tweeWeken) / 6) / 10} uur`.replace('.', ',') : '9 uur'} rijtijd over`;
+    } else {
+      toeslag = Math.max(toeslag, TOESLAG.vrij);
+      kansJa = ({ graag: 0.75, soms: 0.5, nee: 0.15 }[v.extra] || 0.5) * bereikbaar(ctx.T);
+      // eerst nog naar de standplaats
+      if (ctx.lead < 90) kansJa *= 0.75;
+      hoofd = `${ctx.dag === 'morgen' ? 'Morgen vrij' : 'Vrij vandaag'} en uitgerust; 9 uur rijtijd over`;
+      if (v.extra === 'graag') R.push('wil graag extra diensten'); else if (v.extra === 'nee') R.push('wil liever geen extra diensten');
+    }
   } else {
     if (ctx.a < D.end + 15 && D.start - 15 < ctx.b) return null;   // overlapt met de eigen dienst
     const na = ctx.a >= D.end; const gat = na ? ctx.a - D.end : D.start - ctx.b;
@@ -191,6 +213,8 @@ export function eigenKandidaat(c, ctx) {
     uren: { gereden: Math.round(gereden / 6) / 10, over: Math.round(over / 6) / 10, naRit: Math.round(Math.max(0, over - ctx.rijMin) / 6) / 10, week: Math.round(week * 2) / 2, weekMax },
     kosten: kosten(bedrag, `${uur(uren * 60)} x ${euro(uurloon)}${toeslag > 1 ? ` x ${String(toeslag).replace('.', ',')} (${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''})` : ''} + ${Math.round(ctx.km)} km x ${Math.round(kmK * 100)} cent`, toeslag > 1 ? `${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''}` : null),
     beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, aanrij, vertrek, gesimuleerd: true,
+    teller: tl ? tl.zin : null, rooster: rd ? (buiten ? `buiten het rooster (${rd.kort})` : rd.status === 'werk' ? (/^halve/.test(rd.kort) ? rd.kort : `ingeroosterd, ${rd.kort}`) : rd.status === 'vrij' ? 'vrij volgens rooster' : rd.tekst) : null,
+    rijMin: ctx.rijMin, ruimte: tl ? ruimteVoor(tl, { a: ctx.a }, c.weekdag || 0) : null,
   };
 }
 
