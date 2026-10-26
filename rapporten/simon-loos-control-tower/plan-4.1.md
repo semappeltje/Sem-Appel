@@ -104,6 +104,32 @@ Lat: op de oefendag krijgt een rit met twee gelijke kandidaten de chauffeur met 
 weken is de spreiding van extra ritten en weekenden over de chauffeurs van Wognum meetbaar kleiner dan nu (de meting
 staat in de README als schatting). Schatting: twee agentrondes, 1 tot 2 dagen.
 
+## 2b. Vaste routes, voorkeursroutes en plekkennis (jouw aanvulling van 26 oktober, avond)
+
+Wat je zei: een deel van de chauffeurs heeft vaste of voorkeursroutes; en wie nog nooit op een adres is geweest, krijgt
+uitleg hoe het daar werkt (aanrijden, dokken), een ervaren chauffeur niet. Zo lees ik het:
+
+- **Vaste routes en voorkeursroutes.** Per chauffeur de routes en klanten die hij vast of vaak rijdt, in de demo uit de
+  gesimuleerde historie (wie reed de laatste acht weken welke ritten), in het echt uit het TMS. Een vaste route is een
+  harde toewijzing zolang de chauffeur er is; een voorkeursroute telt zwaar mee in de toewijzing (continuïteit: dezelfde
+  chauffeur op dezelfde klanten), naast het voorkeursbod. Zichtbaar op de kandidaatkaart ("rijdt deze route vast",
+  "was hier 14 keer, laatst dinsdag") en op de chauffeurspagina als zijn vaste routes.
+- **Plekkennis per adres.** Per klant en DC één kaart met hoe het daar werkt: de aanrijroute (die hebben we al, uit de
+  toegangsroutes van Overture), de poort, het dock of de losplek, de lostijd die we al meten, het contact, en de
+  bijzonderheden die planners en chauffeurs erbij zetten ("melden bij de loge", "achteruit insteken dock 4", "geen
+  LZV"). Met een stukje luchtfoto van de poort (ideeënbank 31).
+- **Eerste keer hier.** Per chauffeur en adres houdt de app bij hoe vaak hij er was. Is het zijn eerste keer (of langer
+  dan een jaar geleden), dan gaat de plekkennis mee in het bericht van zijn dienst en in de ritopdracht naar de
+  boordcomputer, en staat op de ritpagina "nieuw voor deze chauffeur". Een ervaren chauffeur krijgt alleen de stop. De
+  planner ziet bij het vrijgeven wie ergens voor het eerst komt.
+- **Wat Simon Loos levert:** de historie wie welke rit reed (TMS), de laad- en losinstructies uit het klantendossier
+  (ORTEC en Navitrans hebben daar velden voor), en wat planners en chauffeurs nu in hun hoofd of op papier hebben.
+
+Lat: op de oefendag krijgt een chauffeur die voor het eerst naar een DC gaat de plekkennis in zijn bericht en de
+ritopdracht, een ervaren chauffeur niet (test); een vaste route gaat niet naar een ander zolang de vaste chauffeur
+beschikbaar is (test); de kandidaatkaart toont de ervaring op het adres. Schatting: één agentronde, 1 dag, in ronde 2
+samen met het voorkeursbod.
+
 ## 3. Wat uit 4.0 bleef liggen (klein, mee in dezelfde ronde)
 
 - Twee tekstpunten in het Assistent-paneel ("nooit namen of nummers", "dertig vragen per uur").
@@ -126,12 +152,12 @@ de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De vragen
 1. Het rooster en de tellers per chauffeur (A en B, met de weekregels van punt 1), en het model achter Bezetting (F).
 2. Plannen en vrijgeven, het bericht aan de chauffeur, de ritopdracht naar de boordcomputer (C, D, E), en het scherm
    Bezetting (F).
-3. Voorkeursbod en eerlijk verdelen (punt 2).
+3. Voorkeursbod en eerlijk verdelen (punt 2), vaste routes en plekkennis (punt 2b).
 4. De kleine punten.
 5. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
    4.0: artifact, demosite en SafeTools op dezelfde build, via de website-sessie.
 
-Schatting voor het geheel: zes tot zeven dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
+Schatting voor het geheel: zeven tot acht dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
 kunnen apart live.
 
 ## Risico's en signalen

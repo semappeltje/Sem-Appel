@@ -7,6 +7,7 @@ naam naar de API, alle suites groen).
 ## A. Tellers per chauffeur
 - Elke chauffeur heeft een teller: gereden vandaag, deze week, deze twee weken, de laatste rust, de volgende verplichte
   rust; zichtbaar op de chauffeurspagina, in de kandidaatkaart en op het planbord (rustblok, niet te overschrijven).
+- De pauze van 45 minuten mag ook als 15 plus 30 minuten (EU 561/2006, artikel 7), en de toets rekent zo.
 - EU 561/2006 en de cao: 56 uur per week, 90 per twee weken, weekrust 45 uur (verkort 24 met compensatie binnen drie
   weken), na zes dagrittijden een weekrust; de dagregels van 4.0 blijven.
 - De teller op de chauffeurspagina is gelijk aan de som van het planbord (test).
@@ -43,3 +44,11 @@ naam naar de API, alle suites groen).
 
 ## H. Rollen
 - De directie opent het planbord alleen-lezen: kijken, geen slepen, geen voorstellen toepassen (test).
+
+## I. Vaste routes, voorkeursroutes en plekkennis
+- Een vaste route gaat niet naar een ander zolang de vaste chauffeur beschikbaar is; een voorkeursroute weegt zwaar in
+  de toewijzing; de kandidaatkaart toont de ervaring op het adres ("was hier 14 keer, laatst dinsdag") (test).
+- Per klant en DC een kaart met plekkennis (aanrijroute, poort, dock of losplek, lostijd, contact, bijzonderheden, een
+  stukje luchtfoto); wie voor het eerst komt (of langer dan een jaar geleden) krijgt hem in het bericht en de
+  ritopdracht, een ervaren chauffeur niet; de ritpagina zegt "nieuw voor deze chauffeur" (test).
+
