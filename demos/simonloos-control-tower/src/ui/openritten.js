@@ -11,7 +11,7 @@ import { SP, DIV } from '../places.js';
 import { TRT } from '../fleet.js';
 import { esc, ic, fmt, hhmm, nl1, empty, on, swap, kortStop, initials, belKnop } from './base.js';
 import { poolInvoer, poolNu, vensterAbs, pool as poolAlles } from './planwijzig.js';
-import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing } from './invulling.js';
+import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing, gemistIn, gemistOpen, vensterVandaag, klantPlanning, klantBerichtGemist, morgenVenster, morgenAlsEerste, collegaIn, collegaOm } from './invulling.js';
 
 export const REDEN = { ziek: 'Ziekmelding', 'uitval voertuig': 'Voertuig uitgevallen', 'extra rit klant': 'Extra rit van de klant', 'nieuw uit OTM5': 'Nieuw uit OTM5' };
 const OPLN = { koel: 'koeloplegger', vries: 'vriesoplegger', droog: 'gesloten oplegger', huif: 'schuifzeiloplegger', lzv: 'LZV-combinatie', silo: 'silo-oplegger', drank: 'drankenoplegger', city: 'city-oplegger' };
@@ -42,6 +42,24 @@ function rijHtml(ctx, p, on2) {
     <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
     <span class="or-m">laden ${hhmm(v[0])}–${hhmm(v[1])} · ${uurTxt(duurVan(p, inv))} · ${esc(wagenTxt(p))}</span>
     <span class="or-c"><span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${kansChip(pg)}</span></button></li>`;
+}
+// een gemiste rit van vandaag: het venster is voorbij en niemand rijdt hem (of hij ging morgen als eerste)
+function gemistRijHtml(ctx, p, on2) {
+  const v = vensterVandaag(p); const morgen = !!p.morgenEerste;
+  return `<li><button class="or-i gemist ${on2 ? 'on' : ''}" type="button" data-or="${esc(p.id)}" ${on2 ? 'aria-current="true"' : ''}>
+    <span class="or-u ${morgen ? 'u-later' : 'u-nu'}">${morgen ? 'morgen als eerste' : 'gemist'}</span>
+    <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
+    <span class="or-m">laden ${hhmm(v[0])}–${hhmm(v[1])} · ${morgen ? `morgen laden ${hhmm(p.venster[0])}` : `voorbij sinds ${hhmm(v[1])}`} · ${esc(wagenTxt(p))}</span>
+    <span class="or-c"><span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span></span></button></li>`;
+}
+// een rit die een collega op het laatst invulde (gesimuleerd: volgens de kans op invulling, zie fleet.js)
+const COLLEGA = { eigen: 'eigen chauffeur', oproep: 'oproepkracht', charter: 'charter' };
+function collegaRijHtml(ctx, p, on2) {
+  const c = p.collega;
+  return `<li><button class="or-i wacht ${on2 ? 'on' : ''}" type="button" data-or="${esc(p.id)}" ${on2 ? 'aria-current="true"' : ''}>
+    <span class="or-u u-ok">collega</span>
+    <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
+    <span class="or-m">${esc(COLLEGA[c.soort] || 'eigen chauffeur')} · vertrek ${hhmm(c.vertrek)} · gesimuleerd</span></button></li>`;
 }
 function wachtRijHtml(ctx, p, on2) {
   const tw = p.toegewezen; const wacht = tw.status === 'aangevraagd';
@@ -134,9 +152,25 @@ export function bindKandidaten(ctx, root, itemVan, getKD, na) {
 }
 
 // ---------- de uitgeklapte rit ----------
+const CONTACT = { bel: 'gebeld', mail: 'gemaild', bericht: 'bericht klaargezet', morgen: 'morgen als eerste afgesproken' };
 function gevraagdHtml(item) {
   const L = (item.contact || []).filter(c => c.soort !== 'samen'); if (!L.length) return '';
-  return `<p class="hint or-gebeld">${ic('phone', 13)}Al gevraagd: ${L.map(c => `${esc(c.wie)} (${c.soort === 'bel' ? 'gebeld' : 'gemaild'} ${hhmm(c.T)})`).join(', ')}</p>`;
+  return `<p class="hint or-gebeld">${ic('phone', 13)}Al gevraagd: ${L.map(c => `${esc(c.wie)} (${CONTACT[c.soort] || 'gevraagd'} ${hhmm(c.T)})`).join(', ')}</p>`;
+}
+// een gemiste rit: wat er aan de hand is en de keuzes (alsnog een kandidaat hieronder, morgen als eerste, de klant laten
+// weten); een rit die al morgen als eerste staat, zegt dat. KD (de kandidaten) zegt of er nog een charter of iemand anders
+// vrij is: de uitleg en het bericht aan de klant volgen dat, net als op de zaakpagina
+const nogCharter = KD => (KD ? KD.charter.some(k => k.beschikbaar) : undefined);
+function gemistHtml(ctx, item, KD) {
+  const v = vensterVandaag(item); const kp = klantPlanning(item); const can = ctx.can('act');
+  if (item.morgenEerste) return `<section class="or-st ok">${ic('cal', 20)}<div class="or-sw"><b>Gemist vandaag, morgen als eerste</b><p>Het venster van vandaag liep tot ${hhmm(v[1])}. Met de klant afgesproken om ${hhmm(item.morgenEerste.T)}: laden morgen ${hhmm(item.venster[0])} tot ${hhmm(item.venster[1])}. Vandaag telt hij als gemist.</p></div></section>`;
+  if (!gemistOpen(item, ctx.state.simTime)) return '';
+  const kan = KD ? KD.alle.some(k => k.beschikbaar) : true;
+  const kies = !kan ? 'Er is vandaag niemand meer vrij voor deze rit. Zet hem' : `Kies een kandidaat hieronder (${nogCharter(KD) === false ? 'geen charter heeft nog een wagen vrij; een eigen chauffeur of oproepkracht vertrekt dan later' : 'alsnog een charter: hij vertrekt dan later, de kosten zijn een schatting'}), zet hem`;
+  return `<section class="or-st wacht">${ic('alert', 20)}<div class="or-sw"><b>Gemist: het laadvenster liep tot ${hhmm(v[1])} en niemand rijdt hem</b>
+      <p>${kies} morgen als eerste (laden ${hhmm(morgenVenster(item)[0])} tot ${hhmm(morgenVenster(item)[1])}), of laat het ${esc(kp.naam)} weten.</p>
+      <div class="or-msg"><small>Het bericht aan de klant</small><p>${esc(klantBerichtGemist(item, KD ? kan : undefined))}</p></div>
+      <div class="or-sa">${can ? `<button class="btn sm" type="button" data-ormorgen="1">${ic('cal', 14)}Morgen als eerste</button>` : ''}${belKnop(kp.naam, kp.tel, { extra: 'data-orkbel="1"' })}<button class="btn sm" type="button" data-orkbericht="1">${ic('copy', 14)}Kopieer bericht</button><button class="btn sm ghost" type="button" data-open="melding/N-${esc(item.id)}">Open de zaak</button></div></div></section>`;
 }
 function wachtHtml(ctx, item, v) {
   const tw = item.toegewezen; const wacht = tw.status === 'aangevraagd';
@@ -160,9 +194,13 @@ function detailHtml(ctx, item) {
     <p class="or-ds mut">${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}: ${esc(stops.map(kortStop).join(', ') || 'volgt')} · ${esc(DIV[item.div] ? DIV[item.div].n.toLowerCase() : '')} · ${esc(REDEN[item.reden] || item.reden || '')}${item.bekend !== undefined && item.bekend !== null ? `, ${item.bekend < 0 ? 'sinds gisteren' : `binnen om ${hhmm(item.bekend)}`}` : ''}</p>
     <div class="or-da">${item.route || item.stops ? `<button class="btn sm" type="button" data-orkaart="1">${ic('map', 15)}Route op de kaart</button>` : ''}${tw && tw.t ? `<button class="btn sm" type="button" data-open="planbord/R-${esc(item.id)}">${ic('gantt', 15)}Op het planbord</button>` : ''}</div></div>`;
   if (tw) return `${kop}${wachtHtml(ctx, item, v)}${gevraagdHtml(item)}`;
+  if (collegaOm(item, ctx.state.simTime)) return `${kop}<section class="or-st ok">${ic('okc', 20)}<div class="or-sw"><b>Door een collega ingevuld</b><p>Een collega vond op het laatst een ${esc(COLLEGA[item.collega.soort] || 'eigen chauffeur')}: vertrek ${hhmm(item.collega.vertrek)}. Gesimuleerd: zo vaak als de prognose zegt (${prognose(ctx, item).kans} %); met echte data staat hier wie de rit invulde, uit het TMS.</p></div></section>${gevraagdHtml(item)}`;
+  // gemist (het venster van vandaag is voorbij): eerst de keuzes, dan de kandidaten; de prognose zegt dan niets meer
+  if (!item.morgenEerste && gemistOpen(item, ctx.state.simTime)) { const KD = kandidatenVan(ctx, item); return `${kop}${gemistHtml(ctx, item, KD)}${gevraagdHtml(item)}${kandidatenHtml(ctx, item, KD)}`; }
+  const gm = gemistHtml(ctx, item);
   const pg = prognose(ctx, item); const ad = advies(ctx, item, pg); const KD = kandidatenVan(ctx, item); const b = pg.basis;
   const bar = b && b.n ? (() => { const tot = Math.max(1, b.n); const niet = b.n - b.ingevuld; const seg = (n, cls, l) => (n ? `<i class="${cls}" style="width:${(n / tot * 100).toFixed(2)}%" title="${esc(`${l}: ${n}`)}"></i>` : ''); return `<div class="pg-bar2" role="img" aria-label="${esc(`Van ${b.n} vergelijkbare ritten: ${b.eigen} eigen chauffeur, ${b.oproep} oproepkracht of zzp'er, ${b.charter} charter, ${niet} niet ingevuld`)}">${seg(b.eigen, 's1', 'eigen chauffeur')}${seg(b.oproep, 's2', 'oproepkracht of zzp\'er')}${seg(b.charter, 's3', 'charter')}${seg(niet, 's0', 'niet ingevuld')}</div><div class="pg-leg"><span><i class="s1"></i>eigen ${b.eigen}</span><span><i class="s2"></i>oproep of zzp ${b.oproep}</span><span><i class="s3"></i>charter ${b.charter}</span><span><i class="s0"></i>niet ingevuld ${niet}</span></div>`; })() : '';
-  return `${kop}
+  return `${kop}${gm}
     <section class="or-pg" aria-label="Prognose"><div class="or-pk"><div><b class="${kansKlas(pg.kans)}">${pg.kans} %</b><span>kans op invulling</span></div><div><b class="${kansKlas(pg.opTijd)}">${pg.opTijd} %</b><span>kans op tijd weg</span></div></div>
       <div class="or-pt"><p><b>${esc(pg.tekst)}.</b> ${esc(pg.uitleg || '')}</p>${bar}<p class="hint">Gesimuleerde historie van acht weken. Met echte data: een export uit het TMS (rit, venster, wanneer bekend, door wie ingevuld) en het vertrek uit de boordcomputer.</p></div></section>
     ${ad.tekst ? `<p class="note ${ad.sev}">${ic(ad.sev === 'info' ? 'info' : 'alert', 16)}<span>${esc(ad.tekst)}</span></p>` : ''}
@@ -187,17 +225,21 @@ export function renderOpenRitten(ctx, el) {
   const ui = ctx.ui; const S = orStand(ctx);
   const open = openIn(ctx); const tw = toegewezenIn(ctx); const wacht = tw.filter(p => p.toegewezen.status === 'aangevraagd'); const klaar = tw.filter(p => p.toegewezen.status !== 'aangevraagd');
   const vd = open.filter(p => p.dag !== 'morgen'), mo = open.filter(p => p.dag === 'morgen');
+  // gemist vandaag: het venster is voorbij en niemand rijdt hem (de rit blijft zichtbaar, ook als hij morgen als eerste gaat)
+  const gm = gemistIn(ctx); const gmOpen = gm.filter(p => !p.morgenEerste); const cg = collegaIn(ctx);
   const L = S.dag === 'morgen' ? mo : vd; const narrow = ctx.narrow();
   // de gekozen rit: uit de route, anders de meest urgente (op een telefoon: niets, dan zie je de lijst)
-  const alle = [...open, ...tw]; let sel = alle.find(p => p.id === S.sel) || null;
-  if (!sel && !narrow) sel = wacht[0] && !L.length ? wacht[0] : L[0] || wacht[0] || null;
-  if (sel && !narrow && sel.dag === 'morgen' !== (S.dag === 'morgen') && !sel.gepland) S.dag = sel.dag === 'morgen' ? 'morgen' : 'vandaag';
+  const alle = [...open, ...tw, ...gm, ...cg]; let sel = alle.find(p => p.id === S.sel) || null;
+  if (!sel && !narrow) sel = wacht[0] && !L.length ? wacht[0] : L[0] || wacht[0] || (S.dag !== 'morgen' ? gmOpen[0] : null) || null;
+  if (sel && !narrow && sel.dag === 'morgen' !== (S.dag === 'morgen') && !sel.gepland && !sel.morgenEerste) S.dag = sel.dag === 'morgen' ? 'morgen' : 'vandaag';
   const toonDetail = !!sel && (!narrow || !!S.sel);
   const lijst = `<div class="or-l" ${narrow && toonDetail ? 'hidden' : ''}>
       <div class="or-bar"><div class="seg" role="group" aria-label="Dag"><button type="button" data-ordag="vandaag" aria-pressed="${S.dag !== 'morgen'}">Vandaag <span class="n">${vd.length}</span></button><button type="button" data-ordag="morgen" aria-pressed="${S.dag === 'morgen'}">Morgen <span class="n">${mo.length}</span></button></div><span class="hint or-sort">op urgentie</span></div>
+      ${S.dag !== 'morgen' && gm.length ? `<div class="or-g or-gemist"><h3>Gemist vandaag <span class="n">${gm.length}</span></h3><ol class="or-list">${gm.map(p => gemistRijHtml(ctx, p, sel === p)).join('')}</ol></div>` : ''}
       ${wacht.length ? `<div class="or-g"><h3>Wacht op een ja <span class="n">${wacht.length}</span></h3><ol class="or-list">${wacht.map(p => wachtRijHtml(ctx, p, sel === p)).join('')}</ol></div>` : ''}
       <div class="or-g"><h3>${S.dag === 'morgen' ? 'Open voor morgen' : 'Open'} <span class="n">${L.length}</span></h3>${L.length ? `<ol class="or-list">${L.map(p => rijHtml(ctx, p, sel === p)).join('')}</ol>` : `<p class="hint or-leeg">${S.dag === 'morgen' ? 'Nog geen open ritten voor morgen. Die komen tussen 13:00 en 16:30 binnen.' : 'Alles van vandaag is ingevuld in je werkgebied.'}</p>`}</div>
       ${klaar.length ? `<details class="or-g or-klaar" ${S.klaarOpen ? 'open' : ''}><summary><h3>Bevestigd <span class="n">${klaar.length}</span></h3></summary><ol class="or-list">${klaar.map(p => wachtRijHtml(ctx, p, sel === p)).join('')}</ol></details>` : ''}
+      ${S.dag !== 'morgen' && cg.length ? `<details class="or-g or-klaar" data-orcol="1" ${S.collegaOpen || cg.includes(sel) ? 'open' : ''}><summary><h3>Door een collega ingevuld <span class="n">${cg.length}</span></h3></summary><ol class="or-list">${cg.map(p => collegaRijHtml(ctx, p, sel === p)).join('')}</ol></details>` : ''}
       <p class="hint or-bron">Prognose, kandidaten en de flexibele schil zijn gesimuleerd. Namen, nummers en tarieven zijn verzonnen.</p>
     </div>`;
   const detail = toonDetail ? `<div class="or-d" data-or-d="${esc(sel.id)}">${narrow ? `<button class="btn sm ghost or-terug" type="button" data-orlijst="1">${ic('back', 15)}Alle open ritten</button>` : ''}${detailHtml(ctx, sel)}</div>`
@@ -214,7 +256,17 @@ export function renderOpenRitten(ctx, el) {
     on(el, 'click', '[data-orkaart]', () => { const it = huidig(); if (it && ctx.toonPoolrit) ctx.toonPoolrit(it); });
     on(el, 'click', '[data-orbev]', () => { const it = huidig(); if (it) bevestig(ctx, it); });
     on(el, 'click', '[data-orterug]', () => { const it = huidig(); if (it) { trekTerug(ctx, it); ctx.ui.or.sel = it.id; renderOpenRitten(ctx, el); } });
-    on(el, 'toggle', 'details.or-klaar', (e, d) => { ctx.ui.or.klaarOpen = d.open; });
+    on(el, 'toggle', 'details.or-klaar', (e, d) => { if (d.dataset.orcol) ctx.ui.or.collegaOpen = d.open; else ctx.ui.or.klaarOpen = d.open; });
+    // een gemiste rit: morgen als eerste, de klant gebeld (het nummer toont ui.js, data-bel) of het bericht gekopieerd
+    const naGemist = it => { ctx.ui.or.sel = it.id; renderOpenRitten(ctx, el); };
+    on(el, 'click', '[data-ormorgen]', () => { const it = huidig(); if (it && morgenAlsEerste(ctx, it).ok) naGemist(it); });
+    on(el, 'click', '[data-orkbel]', () => { const it = huidig(); if (!it) return; const kp = klantPlanning(it); contact(ctx, it, [kp.naam], 'bel', `belde ${kp.naam} over gemiste rit ${it.id} (${it.sp})`); ctx.Z.logZaak(`N:${it.id}`, `${kp.naam} gebeld`); naGemist(it); });
+    on(el, 'click', '[data-orkbericht]', () => {
+      const it = huidig(); if (!it) return; const kp = klantPlanning(it); const tekst = klantBerichtGemist(it, kandidatenVan(ctx, it).alle.some(k => k.beschikbaar)); let ok = false;
+      try { if (navigator.clipboard) { navigator.clipboard.writeText(tekst).catch(() => {}); ok = true; } } catch { ok = false; }
+      contact(ctx, it, [kp.naam], 'bericht', `zette een bericht aan ${kp.naam} klaar over gemiste rit ${it.id} (${it.sp})`); ctx.Z.logZaak(`N:${it.id}`, `bericht aan ${kp.naam} klaargezet`);
+      ctx.L.toast(ok ? 'Bericht gekopieerd. Demo: er gaat niets de deur uit.' : 'Kopieren kan hier niet; selecteer de tekst. Demo: er gaat niets de deur uit.', { icon: ok ? 'copy' : 'info' }); naGemist(it);
+    });
     // toewijzen, bellen, mailen en tegelijk vragen: de rit die nu open staat
     // na het toewijzen blijft de rit open (wacht op een ja, met het bericht), zodat de planner meteen kan bellen of sturen
     bindKandidaten(ctx, el, huidig, () => { const it = huidig(); return it ? kandidatenVan(ctx, it) : null; }, () => { const it = huidig(); if (it) ctx.ui.or.sel = it.id; renderOpenRitten(ctx, el); ctx.syncHash(); });

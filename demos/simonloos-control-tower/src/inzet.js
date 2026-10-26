@@ -54,7 +54,10 @@ export const bereikbaar = T => { const m = ((T % 1440) + 1440) % 1440; return m 
 // is, moet de vraag krijgen, reizen en inklokken: 35 tot 65 minuten, vast per persoon (de woonplaats staat niet in de data;
 // met echte data komt dit uit de reistijd van huis naar de standplaats). Een oproepkracht van een standplaats verderop rijdt
 // die afstand erbij. Een charter rijdt van zijn eigen plaats (70 km/u over 1,3 keer de afstand) plus een kwartier.
-const hash01 = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0) / 4294967295; };
+// De hash krijgt een eindmenging (murmur3 fmix32): nummers als P-0123 en P-0124 verschillen alleen in de laatste letter, en
+// zonder menging lagen hun aanrijtijden binnen een minuut van elkaar (vijf eigen chauffeurs op 49 tot 50 minuten). Met de
+// menging liggen ze gelijk verdeeld over 35 tot 65 minuten, vast per persoon.
+const hash01 = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 export const thuisMin = id => 35 + Math.round(hash01(`aanrij|${id}`) * 30);
 // Na de eigen dienst: wisselen en koppelen op het terrein.
 export const AANRIJ_KOPPELEN = 15;

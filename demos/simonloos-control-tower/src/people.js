@@ -2,7 +2,7 @@
 // vaste wagen), de historie per voertuig (wie reed erop) en per persoon (op welke wagens), kerngegevens, onderhoud en
 // documenten per voertuig en per oplegger. Alles gesimuleerd en deterministisch; namen en nummers zijn fictief.
 import { SP, DIV } from './places.js';
-import { TRT, LAST } from './fleet.js';
+import { TRT, LAST, rijdtOpZondag } from './fleet.js';
 
 let seed = 7712026; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const pick = a => a[Math.floor(rnd() * a.length)];
@@ -45,7 +45,10 @@ export function createPeople(fleet) {
   for (const t of fleet.trucks) for (const d of t.diensten) { const p = person(d.driver, t.base, t.div); d.person = p; p.dienst = { t, d }; p.div = t.div; }
   const poolOf = new Map(); for (const p of persons) { let a = poolOf.get(p.base.n); if (!a) { a = []; poolOf.set(p.base.n, a); } a.push(p); }
 
-  // historie per voertuig: de laatste 12 diensten, chauffeurs uit de pool zonder vaste koppeling (een 'stam' van vier komt vaker terug)
+  // historie per voertuig: de laatste 12 diensten, chauffeurs uit de pool zonder vaste koppeling (een 'stam' van vier komt vaker terug).
+  // Op zondag rijdt een deel van de vloot (fleet.rijdtOpZondag, schatting: samen ongeveer 45 procent): dezelfde keuze als de
+  // vloot op die zondag zelf maakt, zodat Gisteren op maandag niet leeg is en ook geen volle werkdag toont. Een zondag zonder
+  // dienst kost geen getal uit de reeks; de 12 diensten krijgen dezelfde waarden als voorheen, alleen soms een andere datum.
   const forTruck = new Map();
   for (const t of fleet.trucks) {
     const all = poolOf.get(t.base.n); const pool = all.filter(p => t.kind === 'bus' ? p.div === 'bezorg' : p.div !== 'bezorg'); const src = pool.length ? pool : all;
@@ -55,7 +58,7 @@ export function createPeople(fleet) {
     const trs = t.kind === 'trekker' ? fleet.trailersOf(t.base).filter(x => x.div === t.div) : [];
     const history = []; let d = 1;
     while (history.length < 12) {
-      const date = dayAgo(d++); if (date.getDay() === 0) continue;
+      const date = dayAgo(d++); if (date.getDay() === 0 && !rijdtOpZondag(t.id, t.div, date)) continue;
       const who = rnd() < 0.55 ? pick(stam) : pick(src);
       const start = (t.dayStart || 300) + Math.round(r(-60, 60) / 15) * 15, len = Math.round(r(470, 590) / 5) * 5, km = Math.round(dayKm / Math.max(1, t.diensten.length) * r(0.82, 1.12));
       const u = rnd(); const note = u < 0.06 ? 'schade gemeld' : u < 0.11 ? 'rijtijdwaarschuwing' : u < 0.15 ? 'storing gemeld' : u < 0.18 ? 'te laat bij tijdvenster' : '';

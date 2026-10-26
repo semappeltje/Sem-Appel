@@ -87,15 +87,23 @@ export function createRitten(fleet) {
   }
   const data = () => { if (!cache || cacheVer !== ver) { cache = build(); cacheVer = ver; } return cache; };
 
-  // ---------- toestand op tijdstip T (abs. minuten van de dag) ----------
+  // ---------- toestand op tijdstip T (minuten van vandaag) ----------
+  // Het plan van een voertuig is zijn dag: van de eerste dienst (dayStart) tot 24 uur later; een rit staat in de lijst en op
+  // het planbord op zijn tijd in dat plan (een nachtrit na middernacht dus vannacht). Voor dayStart rijdt het voertuig nog het
+  // plan van gisteren (de nachtdienst na middernacht, zoals fleet.stateAt): een rit die het dan rijdt, staat als onderweg;
+  // elke andere rit van vandaag komt nog en is gepland, ook als hij vannacht voor gisteren al reed. Zo staat om 05:30 geen
+  // rit van vandaag op afgerond voordat hij vertrok, en kan het planbord hem nog verplaatsen.
   function stateOf(r, T, S) {
     const s = S && S.get(r.t.id); const t = r.t;
     // rel van T in het dagplan van het voertuig (zelfde regel als fleet.stateAt)
-    const rel = (((T - t.dayStart) % 1440) + 1440) % 1440; const at = t.dayStart + rel;
+    const Td = ((T % 1440) + 1440) % 1440; const vroeg = Td < t.dayStart;
+    const rel = (((T - t.dayStart) % 1440) + 1440) % 1440; let at = t.dayStart + rel;
     let st, cur = null, si = s ? s.si : -1;
     if (s && si >= r.i0 && si <= r.i1 && at >= r.dep) { cur = t.plan[si]; st = cur.k === 'drive' ? ((cur.delay > 0 || (cur.gepland !== undefined && t.dayStart + cur.t1 > cur.gepland + 0.5)) && !t.delayResolved ? 'vertraagd' : 'onderweg') : cur.k === 'stop' ? 'klant' : cur.k === 'pauze' || cur.k === 'laden' ? 'pauze' : at >= r.end ? 'afgerond' : 'onderweg'; }
     else st = at < r.dep ? 'gepland' : 'afgerond';
     if (st !== 'gepland' && st !== 'afgerond' && at >= r.end) st = 'afgerond';
+    // voor de eerste dienst: wat het voertuig van gisteren al afmaakte, rijdt vandaag nog (gepland, gerekend vanaf nu)
+    if (vroeg && (st === 'afgerond' || st === 'gepland')) { st = 'gepland'; cur = null; at = Td; }
     const done = r.stops.filter(x => x.dep <= at).length;
     const next = st === 'gepland' ? r.stops[0] || null : st === 'afgerond' ? null : r.stops.find(x => x.dep > at) || null;
     let eta, etaWhat, dev;
@@ -108,10 +116,13 @@ export function createRitten(fleet) {
     const lateStops = r.stops.filter(x => x.arr <= at && lateBy(x.arr, x.win) > 0).length;
     return { st, done, n: r.stops.length, next, eta, etaWhat, dev: Math.round(dev), winMiss: Math.round(winMiss), lateStops, cur, at };
   }
+  // de rit van een voertuig op T: die het nu rijdt, anders de volgende; voor de eerste dienst (het voertuig maakt het plan van
+  // gisteren af) is dat de eerste rit van vandaag zodra er van gisteren niets meer komt
   function ritOf(t, T) {
     const L = data().byTruck.get(t) || []; if (!L.length) return null;
+    const Td = ((T % 1440) + 1440) % 1440;
     const rel = (((T - t.dayStart) % 1440) + 1440) % 1440; const at = t.dayStart + rel;
-    return L.find(r => at >= r.dep && at < r.end) || L.find(r => at < r.dep) || L[L.length - 1];
+    return L.find(r => at >= r.dep && at < r.end) || L.find(r => at < r.dep) || (Td < t.dayStart ? L[0] : L[L.length - 1]);
   }
   // naam(route, id): een vast ritnummer voor een route die de planner toevoegt (een rit uit de pool)
   const naam = (route, id) => { ids.set(route, id); ver++; };

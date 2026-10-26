@@ -81,7 +81,10 @@ function createBoard(ctx, el) {
   const $ = s => el.querySelector(s);
 
   // ---------- werkbalk ----------
-  function spNu() { let sp = ctx.pbSp(); if (ctx.spsInScope().length && !ctx.spsInScope().includes(sp)) { sp = ctx.spsInScope()[0]; ctx.setPbSp(sp); } return sp; }
+  // De standplaats van het bord: die van het werkgebied, tenzij de planner een andere koos (de keuzelijst, of "Verplaats deze
+  // rit" vanuit een zaak of rit van een andere standplaats: ui.pbVast). Dan blijft het bord daar, en de kop (ui.title, pbSp)
+  // zegt dezelfde standplaats; zonder die keuze viel het bord stil terug op het werkgebied terwijl de rit er niet op stond.
+  function spNu() { let sp = ctx.pbSp(); if (ui.pbVast && ui.pbVast === sp) return sp; if (ctx.spsInScope().length && !ctx.spsInScope().includes(sp)) { sp = ctx.spsInScope()[0]; ctx.setPbSp(sp); } return sp; }
   function bar(sp, all) {
     const divs = [...new Set(all.map(t => t.div))], kinds = [...new Set(all.map(t => t.kind))];
     if (f.div !== 'alle' && !divs.includes(f.div)) f.div = 'alle'; if (f.kind !== 'alle' && !kinds.includes(f.kind)) f.kind = 'alle';
@@ -128,7 +131,7 @@ function createBoard(ctx, el) {
   on(el, 'click', '[data-pbfilters]', (e, b) => openFilters(b));
   on(el, 'click', '[data-pblegenda]', (e, b) => ctx.L.openPop(b, legendaHtml(), { label: 'Legenda', align: 'right' }));
   on(el, 'click', '[data-pbhint]', () => { ctx.store.set(HINT, '1'); const h = $('[data-pb=hint]'); if (h) h.hidden = true; });
-  on(el, 'change', '#pbSel', e => { ctx.setPbSp(SP.find(s => s.n === e.target.value)); render(true); ctx.refreshAll(false); });
+  on(el, 'change', '#pbSel', e => { const sp = SP.find(s => s.n === e.target.value); ctx.setPbSp(sp); ui.pbVast = ctx.spsInScope().includes(sp) ? null : sp; render(true); ctx.refreshAll(false); });
   on(el, 'change', '#pbPer', e => { f.per = e.target.value; render(true); });
   on(el, 'change', '#pbZoom', e => zetZoom(+e.target.value));
   on(el, 'click', '[data-pbdag]', (e, b) => zetDag(b.dataset.pbdag));
@@ -234,7 +237,7 @@ function createBoard(ctx, el) {
       // open ritten en charters bovenaan: een paar rijen, en wat nog moet of op bevestiging wacht moet je zien
       if (f.st === 'alle' && !f.q.trim()) { openRij(sp, rows, tasks); toewijzingRijen(sp, rows, tasks); }
       for (const t of vehicles(sp)) {
-        const s = S.get(t.id); const who = t.diensten.length ? t.diensten.map(d => `${esc(d.person ? d.person.short : d.driver)}${d.shifted ? ` <em>+${d.shifted}</em>` : ''}`).join(', ') : `<span class="mut">${t.vandaag === 'onderhoud' ? 'werkplaats' : 'vrij, niet ingepland'}</span>`;
+        const s = S.get(t.id); const who = t.diensten.length ? t.diensten.map(d => `${esc(d.person ? d.person.short : d.driver)}${d.shifted ? ` <em>+${d.shifted}</em>` : ''}`).join(', ') : `<span class="mut">${t.vandaag === 'onderhoud' ? 'werkplaats' : t.zondagVrij ? 'zondag, vrij' : 'vrij, niet ingepland'}</span>`;
         rows.push({ id: t.id, label: t.id, classes: `${t.vandaag !== 'inzet' ? 'idle' : ''}`, enableDragging: true, draggable: true,
           headerHtml: `<div class="pb-who" title="${esc(`${t.id} · ${KIND[t.kind].n}${t.ev ? ', elektrisch' : ''}${t.diensten.length ? ` · ${t.diensten.map(d => `${d.driver} ${hhmm(d.start)}–${hhmm(d.end)}`).join(', ')}` : ''}${s && s.tr ? ` · ${s.tr.id}` : ''}`)}">${plate(t.id)}<div><b>${who}</b><span>${esc(KIND[t.kind].n)}${t.ev ? ' · EV' : ''}${s && s.tr ? ` · ${esc(s.tr.id)}` : ''}</span></div><i class="dot st-${s ? s.st : 'terrein'}" aria-hidden="true"></i></div>` });
         for (const r of R.ofTruck(t)) tasks.push(ritTask(r, t.id));
@@ -453,7 +456,9 @@ function createBoard(ctx, el) {
     if (ui.pbFocus && gantt) { const id = ui.pbFocus; ui.pbFocus = null; requestAnimationFrame(() => requestAnimationFrame(() => focusRit(id))); }
     // de replay is verzet (tijdbalk, Ga naar, echte klok): het bord scrolt mee; gewoon verversen laat het beeld staan
     if (ui.pbVolg && gantt) { ui.pbVolg = false; if (f.dag === 'vandaag') requestAnimationFrame(() => naarTijd(T(), 0.35, true)); }
-    const dn = $('[data-pb=dagnote]'); if (dn) { const tx = f.dag === 'gisteren' ? 'Gisteren: de gereden diensten uit de historie, per voertuig (geen ritten per blok).' : f.dag === 'morgen' ? 'Morgen: het plan komt vanmiddag tussen 13:00 en 16:30 binnen. Nu staan hier de open ritten van morgen en de nachtritten van vandaag.' : ''; dn.hidden = !tx; if (dn.textContent !== tx) dn.textContent = tx; }
+    const dn = $('[data-pb=dagnote]'); if (dn) { const zo = d => d.getDay() === 0; const vd = ctx.fleet.vandaag || new Date(); const gz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() - 1)), mz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() + 1));
+      const buiten = ctx.spsInScope().length && !ctx.spsInScope().includes(sp) ? `${sp.n} valt buiten je werkgebied (${ctx.scopeLabel()}); kies links je eigen standplaats om terug te gaan. ` : '';
+      const tx = buiten + (f.dag === 'gisteren' ? `Gisteren: de gereden diensten uit de historie, per voertuig (geen ritten per blok).${gz ? ' Gisteren was het zondag: ongeveer 45 procent van de vloot reed (schatting).' : ''}` : f.dag === 'morgen' ? `Morgen: het plan komt vanmiddag tussen 13:00 en 16:30 binnen. Nu staan hier de open ritten van morgen en de nachtritten van vandaag.${mz ? ' Morgen is het zondag: dan rijdt ongeveer 45 procent van de vloot (schatting).' : ''}` : zo(vd) ? 'Zondag: ongeveer 45 procent van de vloot rijdt (schatting); de andere voertuigen staan vrij op het terrein.' : ''); dn.hidden = !tx; if (dn.textContent !== tx) dn.textContent = tx; }
     nowline(); bewaar();
   }
   // een rit klaarzetten om te verplaatsen: het juiste bord (standplaats, per voertuig, geen filters, het tijdvenster om de
@@ -461,6 +466,8 @@ function createBoard(ctx, el) {
   function klaarzetten(id) {
     const r = R.get(id); if (!r) return false;
     if (ctx.pbSp() !== r.t.base) ctx.setPbSp(r.t.base);
+    // buiten het werkgebied: het bord blijft op die standplaats (spNu), de kop volgt
+    ui.pbVast = ctx.spsInScope().includes(r.t.base) ? null : r.t.base;
     f.per = 'voertuig'; f.div = 'alle'; f.kind = 'alle'; f.st = 'alle'; f.q = '';
     f.dag = 'vandaag';
     return true;
@@ -473,8 +480,9 @@ function createBoard(ctx, el) {
       const n = el.querySelector(`[data-task-id="${CSS.escape(id)}"]`); if (!n) return;
       n.scrollIntoView({ block: 'nearest', inline: 'nearest' }); n.focus({ preventScroll: true }); n.classList.add('pb-focus'); setTimeout(() => n.classList.remove('pb-focus'), 2600);
     }, 240);
-    const rs = ctx.R.stateOf(r, T(), S);
-    ctx.L.toast(rs.st === 'gepland' ? `Rit ${r.id} staat klaar: sleep het blok naar een ander voertuig of een andere tijd, of schuif met de pijltjes.` : `Rit ${r.id} is al begonnen en blijft op ${r.t.id}.`, { icon: 'gantt' });
+    // dezelfde regel als het blok (vast) en inplannen.voerUit: begonnen is ook laden of koppelen aan het dock voor vertrek
+    const rs = ctx.R.stateOf(r, T(), S); const aanDock = rs.st === 'gepland' && T() >= absT(r.t, r.t.plan[r.i0].t0);
+    ctx.L.toast(rs.st === 'gepland' && !aanDock ? `Rit ${r.id} staat klaar: sleep het blok naar een ander voertuig of een andere tijd, of schuif met de pijltjes.` : `Rit ${r.id} is al begonnen${aanDock ? ' (laden of koppelen aan het dock)' : ''} en blijft op ${r.t.id}.`, { icon: 'gantt' });
   }
   function nowline() { if (!gantt) return; const m = Math.floor(T()); if (m === lastNow) return; lastNow = m; gantt.$set({ timeRanges: [nuRange()] }); }
   return { render, nowline, refresh, waarPast, klaarzetten };

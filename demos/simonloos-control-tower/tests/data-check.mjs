@@ -96,6 +96,10 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 await ctx.route('**/*', r => new URL(r.request().url()).host === new URL(url).host ? r.continue() : r.abort('blockedbyclient'));
 const page = await ctx.newPage();
 const errors = []; page.on('pageerror', e => errors.push(e.message));
+// De geijkte dag is een werkdag: op zondag rijdt maar een deel van de vloot (fleet.ZONDAG_AANDEEL, zie tests/ochtend-check.mjs).
+// Draait deze controle op een zondag, dan staat de klok van de browser op maandag, zelfde tijd (de browser rekent in de
+// tijdzone van deze computer, net als Node hier).
+if (new Date().getDay() === 0) { await page.clock.setFixedTime(new Date(Date.now() + 864e5)); console.log('     het is zondag: de browser rekent met maandag (de geijkte dag is een werkdag)'); }
 async function load() { await page.goto(url, { waitUntil: 'load' }); await page.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 120000 }); }
 await load();
 // paden vanaf elke standplaats naar de tien dichtstbijzijnde winkels

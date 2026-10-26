@@ -61,6 +61,7 @@ export const SOORT = {
   Koeling: { l: 'K', icon: 'thermo', norm: 10, uitleg: 'De koelunit van een koel- of vriesoplegger haalt de doeltemperatuur niet.' },
   Oplegger: { l: 'O', icon: 'trailer', norm: 60, uitleg: 'Een lege oplegger staat langer dan een uur na het geplande ophaalmoment bij een winkel of DC.' },
   Dock: { l: 'D', icon: 'dock', norm: 20, uitleg: 'Een dock op de standplaats is buiten gebruik; een voertuig koppelt of lost aan een ander dock en de chauffeur moet dat weten.' },
+  'Rit niet ingevuld': { l: 'N', icon: 'inbox', norm: 30, uitleg: 'Een open rit van vandaag is na zijn laadvenster nog niet ingevuld. Kies: alsnog een charter, morgen als eerste, of de klant bellen of een bericht sturen.' },
 };
 export const LETTER = Object.fromEntries(Object.entries(SOORT).map(([k, v]) => [v.l, k]));
 // De sleutel van een zaak is vast: soort, object en rit ("V:T-1112:R-10448"; een oplegger heeft geen rit in de sleutel,
@@ -89,7 +90,9 @@ export function effWin(win, plan) {
   if (plan <= win[1] + 10) return [win[0] + 10, win[1] + 10];
   return Object.assign([win[0], Math.ceil((plan - 0.01) / 5) * 5], { moved: true });
 }
-export const lateBy = (arr, win) => (win && arr > win[1] + 0.5 ? Math.round(arr - win[1]) : 0);
+// minuten te laat in hele minuten, zoals hhmm ze toont (naar beneden afgerond): een aankomst om 09:35:40 bij een venster tot
+// 09:35 is op tijd, 09:36 is 1 min te laat (zo zeggen ETA, venster en "te laat" hetzelfde)
+export const lateBy = (arr, win) => (win ? Math.max(0, Math.floor(arr + 1e-6) - Math.floor(win[1] + 1e-6)) : 0);
 export function klantNaam(stopName, t, mark) {
   if (mark && mark.klant) return mark.klant;
   const p = mark && mark.place;

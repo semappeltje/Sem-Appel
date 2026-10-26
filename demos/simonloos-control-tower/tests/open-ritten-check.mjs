@@ -56,7 +56,7 @@ await page.goto(url, { waitUntil: 'load' }); await load();
 // ---------- open ritten ----------
 await go('#openritten', 2500);
 const lijst = await page.evaluate(() => {
-  const c = window.SLCT.ui.ctx; const rows = [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar) .or-i:not(.wacht)')];
+  const c = window.SLCT.ui.ctx; const rows = [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar):not(.or-gemist) .or-i:not(.wacht)')];
   const ids = rows.map(r => r.dataset.or); const P = ids.map(id => c.fleet.pool.find(p => p.id === id));
   const u = P.map(p => (p.dag === 'morgen' ? 9999 : p.venster[0] - c.state.simTime));
   return { n: rows.length, sorted: u.every((x, i) => i === 0 || x >= u[i - 1]), kans: rows.every(r => /kans \d+ %/.test(r.textContent)), reden: rows.every(r => r.querySelector('.or-r') && r.querySelector('.or-r').textContent.trim()), detail: !!document.querySelector('#v-openritten .or-d h2'), groepen: [...document.querySelectorAll('#v-openritten .kd-g h3')].map(h => h.firstChild.textContent.trim()), pg: !!document.querySelector('#v-openritten .or-pg .or-pk b'), nav: (document.querySelector('[data-nav="openritten"] .nc') || {}).textContent, prim: document.querySelectorAll('#v-openritten .kd .btn.pri').length };

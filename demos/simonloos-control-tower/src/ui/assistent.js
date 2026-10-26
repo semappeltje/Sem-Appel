@@ -30,6 +30,10 @@ const stopKort = n => String(n || '').replace(/^Albert Heijn\b/, 'AH');
 // stop voor en na te lezen; daarna staat alles weer zoals het was. Zo is de beloofde winst wat Toepassen doet. Een voorstel
 // zonder winst komt niet in de lijst; dan is het voorstel de klant informeren.
 export const klantBericht = (x, oorzaak) => `Je levering van vandaag komt later: rond ${hhmm(x.eta)} in plaats van uiterlijk ${hhmm(x.venster[1])}${oorzaak ? `, door een ${oorzaak}` : ''}. Je kunt de wagen volgen via de link.`;
+// Een stop bij een eigen vestiging (een crossdock van Simon Loos, zoals Geldermalsen) is geen klant: daar gaat een intern
+// bericht naar de collega's van de vestiging (dock en ontvangst), zonder volg-link.
+export const internBericht = (x, t, oorzaak) => `Intern: ${t.id} komt rond ${hhmm(x.eta)} in plaats van uiterlijk ${hhmm(x.venster[1])}${oorzaak ? `, door een ${oorzaak}` : ''}. Houd het dock vrij en pas de ontvangst aan.`;
+const berichtVoor = (x, t, oorzaak) => (x.eigen ? { aan: stopKort(x.naam), tekst: internBericht(x, t, oorzaak), intern: true } : { aan: stopKort(x.naam), tekst: klantBericht(x, oorzaak) });
 // Een rit naar een ander voertuig op een gekozen tijd (planwijzig.verplaatsRit, zoals Zet hier op het planbord), met de
 // gekozen chauffeur als de rit daar een eigen dienst wordt. Gedeeld door het voorstel (op proef) en Toepassen (runAction).
 export function ritNaar(ctx, rit, B, start, wieId) {
@@ -88,15 +92,24 @@ function probeerRitNaar(ctx, t, r2, v, used) {
   const na = fleet.proef([t, B], () => {
     const r = ritNaar(ctx, r2, B, start, wie ? wie.id : null); if (!r || !r.ok) return null;
     const k = fleet.klantEta(t, T);
-    return { stops: keys.map(k2 => plat(fleet.stopOp([t, B], k2.route, k2.idx))), klant: k.stops.map(x => ({ naam: x.naam, eta: x.eta, venster: [x.venster[0], x.venster[1]] })) };
+    return { stops: keys.map(k2 => plat(fleet.stopOp([t, B], k2.route, k2.idx))), klant: k.stops.map(x => ({ naam: x.naam, eta: x.eta, venster: [x.venster[0], x.venster[1]], eigen: !!x.eigen })) };
   }, people.persons.filter(p => p.base === t.base));
   if (!na) return null;
   let winst = 0; const verhuisd = [];
   keys.forEach((k, i) => { const a = voor[i], b = na.stops[i]; if (!a || !b || b.op !== B.id) return; const w = Math.round(a.eta - b.eta); if (w > 0) { winst += w; verhuisd.push({ naam: k.naam, voor: a.eta, na: b.eta, winst: w, laat: b.laat, venster: b.venster }); } });
   return winst > 0 ? { r2, B, wie, heel, chauffeur, extra, start, winst, verhuisd, klant: na.klant } : null;
 }
-// het bericht aan de klant bij een voorstel (uitklapbaar), zodat de planner leest wat er uitgaat
-export const berichtHtml = p => (p.berichten && p.berichten.length ? `<details class="prop-bericht"><summary>${p.berichten.length === 1 ? `Bericht aan ${esc(p.berichten[0].aan)}` : `Berichten aan ${p.berichten.length} klanten`}</summary>${p.berichten.map(b => `<p><b>${esc(b.aan)}</b>: ${esc(b.tekst)}</p>`).join('')}</details>` : '');
+// het bericht aan de klant bij een voorstel (uitklapbaar), zodat de planner leest wat er uitgaat; een eigen vestiging krijgt
+// een intern bericht
+export const berichtHtml = p => { const B = p.berichten || []; if (!B.length) return ''; const n = B.filter(b => !b.intern).length, e = B.length - n; return `<details class="prop-bericht"><summary>${B.length === 1 ? `${B[0].intern ? 'Intern bericht' : 'Bericht'} aan ${esc(B[0].aan)}` : `Berichten aan ${[n ? `${n} ${n === 1 ? 'klant' : 'klanten'}` : '', e ? `${e} ${e === 1 ? 'eigen vestiging' : 'eigen vestigingen'}` : ''].filter(Boolean).join(' en ')}`}</summary>${B.map(b => `<p><b>${esc(b.aan)}</b>${b.intern ? ' (intern)' : ''}: ${esc(b.tekst)}</p>`).join('')}</details>`; };
+// wie de nieuwe ETA krijgt: klanten een bericht met een volg-link, eigen vestigingen een intern bericht
+function etaWie(L) {
+  const k = L.filter(x => !x.eigen), e = L.filter(x => x.eigen); const deel = [];
+  if (k.length) deel.push(`${k.length === 1 ? stopKort(k[0].naam) : `${k.length} klanten`} ${k.length === 1 ? 'krijgt' : 'krijgen'} de nieuwe ETA met een volg-link`);
+  if (e.length) deel.push(`${e.length === 1 ? stopKort(e[0].naam) : `${e.length} eigen vestigingen`} ${e.length === 1 ? 'krijgt' : 'krijgen'} een intern bericht`);
+  return deel.join(', en ');
+}
+const etaRegel = x => (x.eigen ? `${stopKort(x.naam)}: intern bericht, aankomst rond ${hhmm(x.eta)} (venster tot ${hhmm(x.venster[1])}${x.laat ? `, ${x.laat} min later` : ''})` : `${stopKort(x.naam)}: nieuwe ETA ${hhmm(x.eta)} doorgegeven (venster tot ${hhmm(x.venster[1])}${x.laat ? `, ${x.laat} min later` : ''})`);
 const vCache = new Map();
 function vertragingVoorstel(ctx, z, t, used) {
   const { fleet, state } = ctx; const T = state.simTime;
@@ -119,47 +132,55 @@ function vertragingVoorstel(ctx, z, t, used) {
     return {
       id: 'v' + t.id, key: z.key, sev: 'bad', kind: 'Vertraging', kort: `Volgende rit naar ${B.id}`, t,
       title: `${t.id} loopt ${v.achter} min achter: ${meer(v.laat.length, 'stop komt', 'stops komen')} na het venster`,
-      action: `Rit ${r2.id} (${meer(n, 'stop', 'stops')}) gaat naar ${B.id} met ${chauffeur}${heel ? ', zijn eigen dienst' : ', vandaag vrij'}: vertrek ${hhmm(start)} in plaats van ${hhmm(t.dayStart + t.plan[r2.i0].t0)}.${kl ? ` ${kl === 1 ? 'De klant' : `${kl} klanten`} van de rit die ${t.id} nu rijdt, ${kl === 1 ? 'krijgt' : 'krijgen'} de nieuwe ETA.` : ''}`,
+      action: `Rit ${r2.id} (${meer(n, 'stop', 'stops')}) gaat naar ${B.id} met ${chauffeur}${heel ? ', zijn eigen dienst' : ', vandaag vrij'}: vertrek ${hhmm(start)} in plaats van ${hhmm(t.dayStart + t.plan[r2.i0].t0)}.${kl ? ` Van de rit die ${t.id} nu rijdt: ${etaWie(klant)}.` : ''}`,
       why: `${t.id} loopt ${v.achter} min achter${oorzaak ? ` door een ${oorzaak}` : ''}. Rit ${r2.id} is nog niet begonnen: met een vrij voertuig en een vrije chauffeur vertrekt hij op tijd. De lading van de rit die ${t.id} nu rijdt, zit in die wagen; die klanten informeer je. Getoetst op overlap, venster, rijtijd, rust, accu, oplegger en dock. ${heel ? `${chauffeur} rijdt zijn eigen dienst, alleen met een andere wagen.` : `${chauffeur} is vandaag vrij en ${extra === 'graag' ? 'rijdt graag extra diensten' : extra === 'nee' ? 'rijdt liever geen extra diensten' : 'rijdt soms een extra dienst'}: eerst bellen, aanrijden ongeveer ${thuisMin(wie.id)} min (schatting).`}`,
       effect: [
         ...verhuisd.map(x => eff(`${stopKort(x.naam)} ${hhmm(x.na)} in plaats van ${hhmm(x.voor)} (${x.winst} min winst), ${x.laat ? `nog ${x.laat} min na het venster` : 'venster gehaald'}`, x.laat ? 'bad' : 'ok')),
-        ...klant.map(x => eff(`${stopKort(x.naam)}: nieuwe ETA ${hhmm(x.eta)} doorgegeven (venster tot ${hhmm(x.venster[1])})`)),
+        ...klant.map(x => eff(etaRegel(x))),
         eff('geen extra kilometers', 'ok'),
       ],
-      winst: { soort: 'minuten', min: winst, stops: verhuisd.map(x => ({ naam: x.naam, voor: x.voor, na: x.na, winst: x.winst, gehaald: !x.laat })), klant: klant.map(x => ({ naam: x.naam, eta: x.eta })) },
-      berichten: klant.map(x => ({ aan: stopKort(x.naam), tekst: klantBericht(x, oorzaak) })),
+      winst: { soort: 'minuten', min: winst, stops: verhuisd.map(x => ({ naam: x.naam, voor: x.voor, na: x.na, winst: x.winst, gehaald: !x.laat })), klant: klant.map(x => ({ naam: x.naam, eta: x.eta, eigen: !!x.eigen })) },
+      berichten: klant.map(x => berichtVoor(x, t, oorzaak)),
       acts: [act, { k: 'klantEta', t: t.id }], act, hint: `Het plan verandert echt: rit ${r2.id} staat daarna op ${B.id} op het planbord en het vertrekbord, de klanten krijgen hun bericht, beide chauffeurs een bericht.`,
       msg: () => [[t, `Planning: rit ${r2.id} rijdt ${B.id}. Rij de rit die je nu rijdt af${kl ? '; de klanten weten van de nieuwe ETA' : ''}.`], [B, `Planning: rit ${r2.id} voor ${r2.klant}, vertrek ${hhmm(start)} vanaf ${t.base.n}, ${meer(n, 'stop', 'stops')}.`]],
     };
   }
-  // geen rit die met winst kan verhuizen: de klanten van alle stops die te laat komen, krijgen de nieuwe ETA
-  const klant = v.laat.map(x => ({ naam: x.naam, eta: t.dayStart + x.seg.t0, venster: x.venster, laat: x.laat })); const e = klant[0]; const n = klant.length;
+  // geen rit die met winst kan verhuizen: de klanten van alle stops die te laat komen, krijgen de nieuwe ETA (een eigen
+  // vestiging, zoals een crossdock, een intern bericht)
+  const klant = v.laat.map(x => ({ naam: x.naam, eta: t.dayStart + x.seg.t0, venster: x.venster, laat: x.laat, eigen: !!x.eigen })); const e = klant[0]; const n = klant.length;
+  const alleenEigen = klant.every(x => x.eigen);
   return {
-    id: 'v' + t.id, key: z.key, sev: 'bad', kind: 'Vertraging', kort: 'Nieuwe ETA aan de klant', t,
+    id: 'v' + t.id, key: z.key, sev: 'bad', kind: 'Vertraging', kort: alleenEigen ? (n === 1 ? `Intern bericht aan ${stopKort(e.naam)}` : 'Intern bericht aan de vestigingen') : 'Nieuwe ETA aan de klant', t,
     title: `${t.id} haalt ${stopKort(e.naam)} niet (ETA ${hhmm(e.eta)}, venster tot ${hhmm(e.venster[1])})${n > 1 ? ` en ${meer(n - 1, 'stop', 'stops')} meer` : ''}`,
-    action: `${n === 1 ? stopKort(e.naam) : `${n} klanten`} ${n === 1 ? 'krijgt' : 'krijgen'} automatisch de nieuwe ETA met een volg-link; het tijdvenster gaat mee. Je hoeft niet te bellen.`,
-    why: later.length ? `Rit ${later[0].id} vertrekt door de vertraging ook later, maar er is nu geen vrij voertuig met een vrije chauffeur die eerder kan; de klanten van die rit krijgen daarom ook de nieuwe ETA.` : `De lading zit in deze wagen: niemand is er eerder dan ${t.id}. Een klant die het op tijd weet, past de ontvangst aan; dat scheelt bellen en wachten.`,
-    effect: [...klant.map(x => eff(`${stopKort(x.naam)}: ETA ${hhmm(x.eta)} doorgegeven (venster tot ${hhmm(x.venster[1])}, ${x.laat} min later)`)), eff('geen extra kilometers', 'ok')],
-    winst: { soort: 'bericht', min: 0, klant: klant.map(x => ({ naam: x.naam, eta: x.eta })) },
-    berichten: klant.map(x => ({ aan: stopKort(x.naam), tekst: klantBericht(x, oorzaak) })),
-    act: { k: 'klantEta', t: t.id }, hint: 'De klant krijgt het bericht met de volg-link en het venster gaat mee; de chauffeur krijgt een bericht. Het plan zelf verandert niet.',
-    msg: () => [t, `Planning: ${n === 1 ? stopKort(e.naam) : `${n} klanten`} ${n === 1 ? 'weet' : 'weten'} dat je later komt; het tijdvenster is bijgesteld.`],
+    action: `${etaWie(klant).replace(/^./, c => c.toUpperCase())}; het tijdvenster gaat mee. Je hoeft niet te bellen.`,
+    why: later.length ? `Rit ${later[0].id} vertrekt door de vertraging ook later, maar er is nu geen vrij voertuig met een vrije chauffeur die eerder kan; de klanten van die rit krijgen daarom ook de nieuwe ETA.` : alleenEigen ? `De lading zit in deze wagen: niemand is er eerder dan ${t.id}. ${stopKort(e.naam)} is een eigen vestiging: de collega's daar houden het dock vrij en passen de ontvangst aan.` : `De lading zit in deze wagen: niemand is er eerder dan ${t.id}. Een klant die het op tijd weet, past de ontvangst aan; dat scheelt bellen en wachten.`,
+    effect: [...klant.map(x => eff(etaRegel(x))), eff('geen extra kilometers', 'ok')],
+    winst: { soort: 'bericht', min: 0, klant: klant.map(x => ({ naam: x.naam, eta: x.eta, eigen: !!x.eigen })) },
+    berichten: klant.map(x => berichtVoor(x, t, oorzaak)),
+    act: { k: 'klantEta', t: t.id }, hint: alleenEigen ? 'De vestiging krijgt een intern bericht en het venster gaat mee; de chauffeur krijgt een bericht. Het plan zelf verandert niet.' : 'De klant krijgt het bericht met de volg-link en het venster gaat mee; de chauffeur krijgt een bericht. Het plan zelf verandert niet.',
+    msg: () => [t, `Planning: ${n === 1 ? stopKort(e.naam) : alleenEigen ? `${n} vestigingen` : `${n} klanten`} ${n === 1 ? 'weet' : 'weten'} dat je later komt; het tijdvenster is bijgesteld.`],
   };
 }
 // ---------- dock buiten gebruik (oefendag): de chauffeur het nieuwe dock laten weten ----------
+// De zaak hoort bij de rit van het dockblok (zaken.js); het bericht gaat over elke dockwissel van het voertuig die nu
+// speelt (fleet.dockGemeld), ook een die al begon zonder dat de chauffeur het hoorde.
 function dockVoorstel(ctx, z, t) {
-  const w = ctx.fleet.dockWissel(t, ctx.state.simTime); if (!w) return null;
-  const wat = w.soort === 'aankomst' ? 'afkoppelen' : w.soort === 'laden' ? 'laden' : 'koppelen'; const dn = ctx.driverName(t) || 'De chauffeur';
+  const T = ctx.state.simTime; const L = ctx.fleet.dockWissels ? ctx.fleet.dockWissels(t, T) : [ctx.fleet.dockWissel(t, T)].filter(Boolean);
+  const r = z.rit ? ctx.R.get(z.rit) : null;
+  const w = (r && L.find(x => { const i = t.plan.indexOf(x.seg); return i >= r.i0 && i <= r.i1; })) || L[0]; if (!w) return null;
+  const watVan = x => (x.soort === 'aankomst' ? 'afkoppelen' : x.soort === 'laden' ? 'laden' : 'koppelen'); const wat = watVan(w); const dn = ctx.driverName(t) || 'De chauffeur';
+  const doe = x => (x.begonnen ? { koppelen: 'koppelde', laden: 'laadde', afkoppelen: 'koppelde af' } : { koppelen: 'koppelt', laden: 'laadt', afkoppelen: 'koppelt af' })[watVan(x)];
   const i = t.plan.indexOf(w.seg); const wacht = i > 0 && t.plan[i - 1].wachtDock ? Math.round(t.plan[i - 1].t1 - t.plan[i - 1].t0) : 0;
+  const zinnen = L.map(x => `je ${doe(x)} om ${hhmm(x.a)} aan dock ${x.nieuw}`).join(' en ');
   return {
-    id: 'd' + t.id, key: z.key, sev: 'warn', kind: 'Dock', kort: `Dock ${w.nieuw} doorgeven`, t,
+    id: `d${t.id}${z.rit ? `-${z.rit}` : ''}`, key: z.key, sev: 'warn', kind: 'Dock', kort: `Dock ${w.nieuw} doorgeven`, t,
     title: `${t.id}: dock ${w.oud} is buiten gebruik tot ${hhmm(w.tot)}`,
-    action: `${dn} krijgt een bericht: ${wat} om ${hhmm(w.a)} aan dock ${w.nieuw} in plaats van dock ${w.oud}. Het hal-scherm toont dock ${w.nieuw} al.`,
-    why: `Dock ${w.oud} is buiten gebruik (${w.reden}); de planning zette ${t.id} op dock ${w.nieuw}, dat dan vrij is. Wie het weet, rijdt meteen naar het goede dock en zoekt niet op het terrein.`,
-    effect: [eff(`dock ${w.nieuw} is om ${hhmm(w.a)} vrij`, 'ok'), wacht ? eff(`${wacht} min wachten op een vrij dock`, 'bad') : eff('geen wachttijd aan het dock', 'ok'), eff('hal-scherm en planbord tonen het nieuwe dock')],
-    winst: { soort: 'chauffeur', min: 0, tekst: `${dn} rijdt meteen naar dock ${w.nieuw}` },
+    action: w.begonnen ? `${dn} krijgt alsnog een bericht: dock ${w.oud} is buiten gebruik, het ${wat} om ${hhmm(w.a)} was aan dock ${w.nieuw}. Nog niets bewijst dat de chauffeur het wist.` : `${dn} krijgt een bericht: ${wat} om ${hhmm(w.a)} aan dock ${w.nieuw} in plaats van dock ${w.oud}. Het hal-scherm toont dock ${w.nieuw} al.`,
+    why: `Dock ${w.oud} is buiten gebruik (${w.reden}); de planning zette ${t.id} op dock ${w.nieuw}, dat dan vrij is. Wie het weet, rijdt meteen naar het goede dock en zoekt niet op het terrein.${w.begonnen ? ' De wagen gebruikte het andere dock al, maar dat zegt niet dat de chauffeur het hoorde; de zaak blijft open tot het bericht er is.' : ''}`,
+    effect: [eff(w.begonnen ? `de wagen staat sinds ${hhmm(w.a)} aan dock ${w.nieuw}` : `dock ${w.nieuw} is om ${hhmm(w.a)} vrij`, 'ok'), wacht ? eff(`${wacht} min wachten op een vrij dock`, 'bad') : eff('geen wachttijd aan het dock', 'ok'), eff(L.length > 1 ? `één bericht met ${L.length} dockwissels` : 'hal-scherm en planbord tonen het nieuwe dock')],
+    winst: { soort: 'chauffeur', min: 0, tekst: `${dn} weet het nieuwe dock` },
     act: { k: 'dockBericht', t: t.id }, hint: 'De chauffeur krijgt een bericht met het nieuwe dock; het plan had het dock al aangepast.',
-    msg: () => [t, `Planning: dock ${w.oud} is buiten gebruik. Je ${wat === 'koppelen' ? 'koppelt' : wat === 'laden' ? 'laadt' : 'koppelt af'} om ${hhmm(w.a)} aan dock ${w.nieuw}.`],
+    msg: () => [t, `Planning: dock ${w.oud} is buiten gebruik; ${zinnen}.`],
   };
 }
 

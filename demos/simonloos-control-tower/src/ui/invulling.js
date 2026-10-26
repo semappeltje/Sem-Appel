@@ -11,7 +11,7 @@
 // voert ze na herladen opnieuw uit en geeft ze terug aan de data: als toegewezen (kandidaten, wijsToe) en zonder (poolAt).
 // Alles is gesimuleerd: namen, nummers (06 9…, 0229 0…), tarieven, kansen en de historie.
 import { SP } from '../places.js';
-import { DIENSTDELEN, DIENSTDEEL_NAAM, DIENSTDEEL_TIJD, WEEKDAGEN, WEEKDAG_NAAM, weekdagVan, dagVanIso } from '../voorkeuren.js';
+import { DIENSTDELEN, DIENSTDEEL_NAAM, DIENSTDEEL_TIJD, WEEKDAGEN, WEEKDAG_NAAM, weekdagVan, dagVanIso, isoDag, dienstdeel } from '../voorkeuren.js';
 import { fmt, hhmm } from './base.js';
 import { vensterAbs, planPoolRit, haalPoolRitTerug, pool as poolAlles } from './planwijzig.js';
 import { NORM, duur } from './toets.js';
@@ -135,12 +135,49 @@ export function samenVragen(L) {
   return { wie, kans: Math.round((1 - geen) * 100), alleen: Math.round(kan[0].kans * 100) };
 }
 
+// ---------- gemiste ritten: een open rit van vandaag die na zijn laadvenster niet is ingevuld ----------
+// Na het venster verdwijnt de rit niet: hij staat in Open ritten als gemist, telt naast Op tijd (metrics.js) en is een zaak
+// "Rit niet ingevuld" (zaken.js) met de keuzes: alsnog een charter (toewijzen; de rit vertrekt dan later), morgen als eerste
+// (de rit gaat naar de open ritten van morgen, laden vroeg in de ochtend) of de klant bellen of een bericht sturen. Een rit
+// die alsnog is toegewezen, telt niet als gemist (hij is laat gereden); een rit die naar morgen ging, wel. Alles gesimuleerd.
+export const MORGEN_EERSTE = [240, 300];
+// het laadvenster van vandaag (een rit die naar morgen ging, houdt het oude in morgenEerste.van)
+export const vensterVandaag = p => (p.morgenEerste ? p.morgenEerste.van : p.venster);
+// gemist om T (minuten van vandaag): een rit van vandaag, toen al bekend, het venster voorbij, en vandaag rijdt niemand hem.
+// Een rit die een collega op het laatst invulde (fleet: p.collega, gesimuleerd, volgens de kans op invulling), is niet gemist.
+export function gemistOm(p, T) {
+  if (!p || (p.dag === 'morgen' && !p.morgenEerste) || !(T >= 0 && T < 1440)) return false;
+  const v = vensterVandaag(p); if (!v || p.bekend > T || T < v[1]) return false;
+  return !!p.morgenEerste || (!p.gepland && !p.collega);
+}
+// nog open: gemist en de planner koos nog niets (geen toewijzing, niet naar morgen); dan is er een zaak
+export const gemistOpen = (p, T) => gemistOm(p, T) && !p.morgenEerste && !p.gepland;
+// door een collega ingevuld (gesimuleerd): het venster is voorbij, de kijker deed niets, een collega vond iemand
+export const collegaOm = (p, T) => !!p && !!p.collega && !p.gepland && !p.morgenEerste && p.dag !== 'morgen' && p.bekend <= T && T >= p.venster[1] && T < 1440;
+export const collegaIn = ctx => poolAlles(ctx).filter(p => collegaOm(p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => b.venster[1] - a.venster[1] || (a.id < b.id ? -1 : 1));
+// de gemiste ritten van vandaag in het werkgebied, de nieuwste eerst
+export const gemistIn = ctx => poolAlles(ctx).filter(p => gemistOm(p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => vensterVandaag(b)[1] - vensterVandaag(a)[1] || (a.id < b.id ? -1 : 1));
+// de planning van de klant om te bellen (gesimuleerd: een vast nummer 0229 0…, een reeks die het nummerplan niet uitgeeft)
+export function klantPlanning(p) {
+  const k = p.klant || 'de klant'; const n = String(hashStr(`klant|${k}|${p.sp}`) % 1000000).padStart(6, '0');
+  return { naam: `Planning ${k}`, tel: `0229 0${n[0]} ${n.slice(1, 3)} ${n.slice(3, 5)}` };
+}
+// het bericht aan de klant over een gemiste rit (de planner kopieert het of leest het voor; er gaat niets de deur uit).
+// nogIemand: true of onbekend (undefined) zegt dat we nog een wagen zoeken; false (geen charter, eigen chauffeur of
+// oproepkracht meer vrij) stelt meteen morgen als eerste voor, zodat het bericht niet belooft wat de keuzes al uitsluiten
+export function klantBerichtGemist(p, nogIemand) {
+  const v = vensterVandaag(p); const n = (p.stops || []).length; const naar = (p.stops || []).slice(0, 2).map(s => s.name).join(' en ');
+  return `Je rit van vandaag uit ${p.sp} (laden ${hhmm(v[0])} tot ${hhmm(v[1])}${n ? `, ${n} ${n === 1 ? 'stop' : 'stops'}${naar ? `: ${naar}` : ''}` : ''}) is niet op tijd vertrokken. ${nogIemand === false ? `Er is vandaag geen wagen meer vrij. Ons voorstel: morgen als eerste, laden vanaf ${hhmm(morgenVenster(p)[0])}. Past dat? Dan zetten we hem zo vast.` : "We zoeken nog een andere wagen; lukt dat niet, dan leveren we morgen als eerste. Je hoort binnen een uur van ons."}`;
+}
+// morgen als eerste (met de klant afgesproken): laden morgen vanaf 04:00, of eerder als het venster van vandaag eerder lag
+export const morgenVenster = p => { const v0 = Math.min(vensterVandaag(p)[0], MORGEN_EERSTE[0]); return [v0, v0 + 60]; };
+
 // ---------- toewijzen, bevestigen, terugzetten (via ctx.runAction: bewaard en na herladen opnieuw uitgevoerd) ----------
 export const toegewezen = ctx => poolAlles(ctx).filter(p => p.gepland && p.toegewezen);
 // voor de data: per toegewezen rit de uitkomst van wijsToe, of het blok van een rit die op het planbord op een voertuig ging
 export const toewijzingen = ctx => toegewezen(ctx).map(p => p.toegewezen.uit).filter(Boolean);
 // wat van een kandidaat in de actie gaat; telefoonnummers en e-mailadressen niet (die komen bij het uitvoeren uit de poule)
-const kKort = k => ({ soort: k.soort, id: k.id, naam: k.naam, sub: k.sub || null, voertuig: k.voertuig || null, kans: k.kans, kosten: k.kosten, waarschuwingen: k.waarschuwingen || [] });
+export const kKort = k => ({ soort: k.soort, id: k.id, naam: k.naam, sub: k.sub || null, voertuig: k.voertuig || null, kans: k.kans, kosten: k.kosten, waarschuwingen: k.waarschuwingen || [] });
 function verrijk(ctx, w) {
   const x = w.soort === 'charter' ? charterById(ctx, w.id) : w.soort === 'oproep' ? oproepById(ctx, w.id) : null;
   return { ...w, waarschuwingen: w.waarschuwingen || [], beschikbaar: true, tel: x ? x.tel : null, email: x && x.email ? x.email : null, contactpersoon: x && x.contactpersoon ? x.contactpersoon : null };
@@ -152,6 +189,8 @@ export function wijsToe(ctx, item, k) {
   const it = poolAlles(ctx).find(p => p.id === item.id); const tw = it.toegewezen; const v = vensterAbs(it);
   const kort = ctx.fleet.WAARSCHUWING_KORT || {}; const lt = tw.waarschuwingen.map(w => kort[w] || w);
   ctx.A.log(`vroeg ${k.naam} (${wieSoort(k)}) voor open rit ${it.id} van ${it.klant || 'de klant'} (${it.sp}, laden ${it.dag === 'morgen' ? 'morgen ' : ''}${hhmm(v[0])}); kosten ongeveer ${euro(tw.kosten)} (schatting)${lt.length ? `; let op: ${lt.join(', ')}` : ''}`, { pool: it.id });
+  // een gemiste rit: de regel komt ook in de zaak "Rit niet ingevuld" (als die er is)
+  if (ctx.Z && ctx.Z.logZaak) ctx.Z.logZaak(`N:${it.id}`, `gevraagd aan ${k.naam} (${wieSoort(k)}), vertrek ${hhmm(tw.start)}, kosten ongeveer ${euro(tw.kosten)} (schatting)`);
   // een eigen chauffeur die nu op dienst is, krijgt de vraag op de boordcomputer
   const p = k.soort === 'eigen' ? ctx.people.byId.get(k.id) : null;
   if (p && p.dienst && p.dienst.t && tw.bericht && ctx.sendMsg) ctx.sendMsg(p.dienst.t, tw.bericht.tekst, true, true);
@@ -171,10 +210,21 @@ export function trekTerug(ctx, item) {
   ctx.A.log(`zette open rit ${it0.id} van ${it0.klant || 'de klant'} terug bij de open ritten${tw ? ` (${tw.naam} kan niet)` : ''}`, { pool: it0.id });
   ctx.L.toast(`De rit voor ${it0.klant || 'de klant'} staat weer bij de open ritten.`, { icon: 'undo' }); ctx.refreshAll(false);
 }
-// wie de planner over een rit belde, mailde of tegelijk vroeg (bewaard, zodat een collega ziet wie al gevraagd is)
+// wie de planner over een rit belde, mailde of tegelijk vroeg (bewaard, zodat een collega ziet wie al gevraagd is); bij een
+// gemiste rit ook de klant (soort 'bel' of 'bericht') en de afspraak morgen als eerste (soort 'morgen')
 export function contact(ctx, item, wie, soort, tekst) {
   ctx.runAction({ k: 'contact', id: item.id, wie, soort, T: Tn(ctx) }, true);
   if (tekst) ctx.A.log(tekst, { pool: item.id });
+}
+// een gemiste rit morgen als eerste: de klant weet het (afgesproken), de rit staat bij de open ritten van morgen
+export function morgenAlsEerste(ctx, item) {
+  if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers wijzigen het plan.', { icon: 'lock' }); return { ok: false }; }
+  if (item.gepland || item.morgenEerste) { ctx.L.toast(item.morgenEerste ? 'Deze rit staat al morgen als eerste.' : 'Deze rit is al toegewezen.', { icon: 'info' }); return { ok: false }; }
+  const v = morgenVenster(item); const kp = klantPlanning(item);
+  contact(ctx, item, [kp.naam], 'morgen', `zette gemiste rit ${item.id} van ${item.klant || 'de klant'} (${item.sp}) morgen als eerste: laden ${hhmm(v[0])} tot ${hhmm(v[1])}, met de klant afgesproken`);
+  ctx.Z.logZaak(`N:${item.id}`, `morgen als eerste gezet: laden morgen ${hhmm(v[0])} tot ${hhmm(v[1])}`);
+  ctx.L.toast(`Rit ${item.id} staat morgen als eerste (laden ${hhmm(v[0])} tot ${hhmm(v[1])}) bij de open ritten van morgen.`, { icon: 'check', ms: 6000 });
+  ctx.refreshAll(false); return { ok: true };
 }
 // de acties zelf (ctx.runAction roept deze aan, ook na herladen): { ok, tekst }
 export function voerActieUit(ctx, a) {
@@ -199,6 +249,8 @@ export function voerActieUit(ctx, a) {
     // een charter, een rit van morgen of geen vrij voertuig: een eigen rij op het planbord
     if (!t) item.gepland = { rij: true, start: s.a };
     item.toegewezen = { soort: k.soort, sub: k.sub || null, id: k.id, naam: k.naam, t, start: s.a, eind: s.b, kans: k.kans, kosten: uit.kosten ? uit.kosten.bedrag : null, kostenUitleg: uit.kosten ? uit.kosten.uitleg : '', waarschuwingen: uit.waarschuwingen || [], bericht: uit.bericht || null, T: a.T, status: 'aangevraagd', uit };
+    // de kijker nam de rit op zich: geen collega meer (zegt de kandidaat nee, dan is het weer zijn open rit)
+    item.collega = null;
     return { ok: true, tekst: '', t };
   }
   if (a.k === 'bevestig') { if (item.toegewezen) { item.toegewezen.status = 'bevestigd'; item.toegewezen.Tb = a.T; } return { ok: true }; }
@@ -207,7 +259,17 @@ export function voerActieUit(ctx, a) {
     if (!item.gepland.t) { item.gepland = null; item.toegewezen = null; return { ok: true, tekst: '' }; }
     const r = haalPoolRitTerug(ctx, item); if (r.ok) item.toegewezen = null; return r;
   }
-  if (a.k === 'contact') { item.contact = [...(item.contact || []), ...(a.wie || []).map(w => ({ wie: w, soort: a.soort, T: a.T }))]; return { ok: true }; }
+  if (a.k === 'contact') {
+    item.contact = [...(item.contact || []), ...(a.wie || []).map(w => ({ wie: w, soort: a.soort, T: a.T }))];
+    // morgen als eerste: de rit gaat naar de open ritten van morgen met een vroeg venster; vandaag telt hij als gemist
+    // (morgenEerste.van houdt het venster van vandaag). Weekdag, datum en dienstdeel van morgen, voor de kandidaten.
+    if (a.soort === 'morgen' && !item.morgenEerste && item.dag !== 'morgen' && !item.gepland) {
+      const v = morgenVenster(item); item.morgenEerste = { T: a.T, van: item.venster.slice() };
+      const d = dagDatum(ctx, 'morgen'); item.dag = 'morgen'; item.venster = v; item.dagdeel = dienstdeel(v[0]);
+      item.weekdag = weekdagVan(d); item.weekend = item.weekdag === 'za' || item.weekdag === 'zo'; item.datum = isoDag(d);
+    }
+    return { ok: true };
+  }
   return { ok: false, tekst: 'Onbekende actie.' };
 }
 // na een rit die op het planbord op een voertuig is gesleept (actie 'pool'): wie rijdt, en het blok voor de data
@@ -218,6 +280,7 @@ export function naInplannen(ctx, item, a, res) {
   const wie = flex ? { soort: 'oproep', id: flex.id, naam: flex.naam } : { soort: 'eigen', id: p ? p.id : null, naam: res.chauffeur || '' };
   item.toegewezen = { soort: wie.soort, sub: flex ? flex.soort : null, id: wie.id, naam: wie.naam, t: a.naar, start: a.start, eind: b, kosten: a.kosten || null, waarschuwingen: [], T: a.T, status: flex ? 'aangevraagd' : 'bevestigd',
     uit: { segment: { a: a.start, b, rit: item.id, voertuig: a.naar, dag: dagVan(item), wie } } };
+  item.collega = null;
 }
 
 // ---------- ritten die een charter of oproepkracht de laatste acht weken voor ons reed (gesimuleerd) ----------

@@ -2,6 +2,9 @@
 // tijdvenster en de opleggers die wachten. Rekent rechtstreeks op de dagplannen (lichter dan fleet.stateAt) en bewaart
 // de punten per half uur, zodat de sparklines en rapporten niet elke seconde alles opnieuw doorrekenen.
 import { klantNaam, effWin } from './base.js';
+import { gemistOm } from './invulling.js';
+import { pool as poolAlles } from './planwijzig.js';
+import { SP } from '../places.js';
 
 export function createMetrics(ctx) {
   const { fleet } = ctx; let idx = null, idxVer = -1; const cache = new Map();
@@ -33,11 +36,18 @@ export function createMetrics(ctx) {
   // wagen er aankomt (dan is bekend of hij binnen het venster was, ook als het lossen nog duurt). Een stop na middernacht
   // van de vorige cyclus (nachtrit) hoort bij vandaag.
   const doneBy = (t, x, T) => { const a = t.dayStart + x.t0; return a <= T || (a >= 1440 && a - 1440 <= T); };
-  function stopsTill(t, T) { let n = 0, late = 0; for (const x of index().get(t) || []) { if (x.klant === null || !doneBy(t, x, T)) continue; n++; if (x.w1 !== null && x.t0 > x.w1 + 0.5) late++; } return { n, late }; }
+  // te laat in hele minuten, zoals de klok ze toont (lateBy in base.js; dayStart is een heel getal)
+  const laatX = x => x.w1 !== null && Math.floor(x.t0 + 1e-6) > Math.floor(x.w1 + 1e-6);
+  function stopsTill(t, T) { let n = 0, late = 0; for (const x of index().get(t) || []) { if (x.klant === null || !doneBy(t, x, T)) continue; n++; if (laatX(x)) late++; } return { n, late }; }
+  // gemist: open ritten van vandaag die na hun laadvenster niet zijn ingevuld (invulling.gemistOm), in het werkgebied; ze
+  // tellen naast Op tijd (de stops die wel gereden zijn)
+  const spVan = n => SP.find(s => s.n === n) || null;
+  function gemistTot(T) { let n = 0; for (const p of poolAlles(ctx)) { if (!gemistOm(p, T)) continue; const sp = spVan(p.sp); if (sp && ctx.inScopeBase(sp, p.div)) n++; } return n; }
   function sample(T, trucks, trailers) {
-    index(); const o = { onderweg: 0, vertraagd: 0, klant: 0, pauze: 0, terrein: 0, laden: 0, stops: 0, late: 0, wacht: 0, wachtLaat: 0 };
+    index(); const o = { onderweg: 0, vertraagd: 0, klant: 0, pauze: 0, terrein: 0, laden: 0, stops: 0, late: 0, wacht: 0, wachtLaat: 0, gemist: 0 };
     for (const t of trucks) { const s = stAt(t, T); o[s.st]++; if (s.laden) o.laden++; const k = stopsTill(t, T); o.stops += k.n; o.late += k.late; }
     for (const tr of trailers) { const s = fleet.trailerStateAt(tr, T); if (s.st === 'wacht') { o.wacht++; if (s.late) o.wachtLaat++; } }
+    o.gemist = gemistTot(T);
     o.actief = o.onderweg + o.vertraagd + o.klant + o.pauze; o.ontime = o.stops ? (1 - o.late / o.stops) * 100 : 100;
     return o;
   }
@@ -51,8 +61,8 @@ export function createMetrics(ctx) {
   // op tijd per groep (klant of standplaats) tot T
   function onTimeBy(T, trucks, groupOf) {
     index(); const m = new Map();
-    for (const t of trucks) { for (const x of index().get(t) || []) { if (x.klant === null || !doneBy(t, x, T)) continue; const g = groupOf(t, x); let e = m.get(g); if (!e) { e = { n: 0, late: 0 }; m.set(g, e); } e.n++; if (x.w1 !== null && x.t0 > x.w1 + 0.5) e.late++; } }
+    for (const t of trucks) { for (const x of index().get(t) || []) { if (x.klant === null || !doneBy(t, x, T)) continue; const g = groupOf(t, x); let e = m.get(g); if (!e) { e = { n: 0, late: 0 }; m.set(g, e); } e.n++; if (laatX(x)) e.late++; } }
     return m;
   }
-  return { sample, series, onTimeBy, stAt, index };
+  return { sample, series, onTimeBy, stAt, index, gemistTot };
 }

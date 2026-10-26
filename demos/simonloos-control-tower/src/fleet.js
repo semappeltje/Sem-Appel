@@ -238,6 +238,17 @@ const RIJ_MAX = 270, PAUZE = 45, PAUZE_DEEL = 30;
 // Geschatte pauzetijd in een dienst: EU-pauzes naar rijtijd (een laadbeurt tussen twee ritten telt als pauze), anders de
 // pauze uit het Arbeidstijdenbesluit (na meer dan 5,5 uur werk).
 const pauzeSchatting = (rij, werk, laad) => { const n = Math.max(0, (rij > 2 * 245 ? 2 : rij > 245 ? 1 : 0) - laad); return n * PAUZE + (!n && !laad && werk > 330 ? (werk > 540 ? PAUZE : PAUZE_DEEL) : 0); };
+// Zondag (schatting): supermarkten zijn op zondag deels open en krijgen minder ritten (verse waar wel), winkels en bezorging
+// rijden ongeveer de helft; netwerk, bulk en dranken leveren aan bedrijven en rijden weinig. Per divisie het deel van de
+// voertuigen dat op een zondag een dienst rijdt; samen ongeveer 45 procent van een werkdag (de historie van de pool rekent op
+// zondag met 55 procent van de open ritten). Welk voertuig rijdt, staat vast per voertuig en datum, zodat Gisteren op maandag
+// (de historie in people.js) dezelfde zondag toont als de vloot op die zondag zelf. Geen getal uit de reeks van de dag: een
+// werkdag blijft precies gelijk.
+export const ZONDAG_AANDEEL = { winkel: 0.55, bezorg: 0.5, bulk: 0.4, netwerk: 0.3, dranken: 0.2 };
+// een hash met een eindmenging (murmur3 fmix32): ook namen die alleen in de laatste letter verschillen, liggen ver uit elkaar
+const meng01 = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+export const isZondag = d => d.getDay() === 0;
+export const rijdtOpZondag = (id, div, d) => meng01(`zondag|${id}|${isoDag(d)}`) < (ZONDAG_AANDEEL[div] !== undefined ? ZONDAG_AANDEEL[div] : 0.45);
 
 export function createFleet(opts = {}) {
   const trucks = []; const trailers = []; const trailerPool = new Map(); const driverPool = new Map();
@@ -509,6 +520,9 @@ export function createFleet(opts = {}) {
   const tri = (a, b) => a + (b - a) * (rnd() + rnd()) / 2;
   const lenDoel = div => { const [a, b, e] = LEN[div]; return a + (b - a) * Math.pow(rnd(), e); };
   const rijGrens = () => rnd() < 0.25 ? 600 : 540;   // 9 uur; vandaag een van de twee verlengingen tot 10 uur per week
+  // zondag: alleen het deel uit ZONDAG_AANDEEL rijdt; de rest staat vrij op het terrein (als reserve, zondagVrij)
+  const ZONDAG = isZondag(VANDAAG);
+  if (ZONDAG) for (const t of trucks) if (t.vandaag === 'inzet' && !rijdtOpZondag(t.id, t.div, VANDAAG)) { t.vandaag = 'reserve'; t.zondagVrij = true; }
   for (const t of trucks) {
     if (t.vandaag !== 'inzet') { t.dayStart = 0; t.plan = [{ k: 'terrein', t0: 0, t1: 1440, d: null, tr: null }]; t.shiftStart = 0; t.shiftEnd = 0; t.routes = []; continue; }
     const w1 = START1[t.div]; const start1 = Math.round(tri(w1[0], w1[1]) / 5) * 5;
@@ -786,11 +800,15 @@ export function createFleet(opts = {}) {
   const vensterEff = (win, plan) => { if (!win) return null; if (plan === undefined || plan === null || !(plan > win[1] + 0.01)) return win; if (plan <= win[1] + 10) return [win[0] + 10, win[1] + 10]; return [win[0], Math.ceil((plan - 0.01) / 5) * 5]; };
   // Een stop zoals de planner hem ziet: aankomst (eta, absolute minuten), geplande aankomst, venster en minuten na het venster.
   // j: de index van de stop in t.plan; toekomst: vertraging op stukken die nog moeten komen (die weet nog niemand).
+  // Te laat in hele minuten, zoals de klok ze toont (hhmm rondt af naar beneden): ETA 09:35 bij een venster tot 09:35 is op
+  // tijd, ook als de aankomst 09:35:40 is; pas vanaf 09:36 is het 1 min te laat. Zo is er geen zaak bij 0 minuten.
+  // eigen: de stop is een eigen vestiging (een crossdock van Simon Loos), geen klant.
+  const heleMin = m => Math.floor(m + 1e-6);
   function stopStand(t, j, toekomst = 0) {
     const x = t.plan[j]; const d = t.plan[j - 1]; if (!x || x.k !== 'stop' || !d || d.k !== 'drive') return null;
     const eta = t.dayStart + x.t0 - toekomst; const plan = d.gepland !== undefined ? d.gepland : t.dayStart + x.t0 - (d.delay || 0);
     const venster = d.win ? vensterEff([t.dayStart + d.win[0], t.dayStart + d.win[1]], plan) : null;
-    return { i: j, seg: x, naam: x.stop, eta, plan, venster, laat: venster && eta > venster[1] + 0.5 ? Math.round(eta - venster[1]) : 0, route: x.route, idx: x.idx, dienst: x.d };
+    return { i: j, seg: x, naam: x.stop, eta, plan, venster, laat: venster ? Math.max(0, heleMin(eta) - heleMin(venster[1])) : 0, route: x.route, idx: x.idx, dienst: x.d, eigen: plekSoort(x.place) === 'standplaats' };
   }
   // De stops met een venster die nog komen, in deze dienst en de volgende (niet het ophalen van een oplegger).
   function stopsVooruit(t, s) {
@@ -827,7 +845,7 @@ export function createFleet(opts = {}) {
     const v = vertraging(t, T); const L = v ? v.laat : []; const out = [];
     for (const x of L) {
       const d = t.plan[x.i - 1]; const aan = t.plan[x.i].t0; if (!d || !d.win) continue;
-      out.push({ naam: x.naam, eta: t.dayStart + aan, venster: x.venster });
+      out.push({ naam: x.naam, eta: t.dayStart + aan, venster: x.venster, eigen: !!x.eigen });
       if (aan > d.win[1]) d.win = [d.win[0], Math.ceil(aan / 5) * 5]; d.winMoved = true;
     }
     t.delayResolved = true;
@@ -863,22 +881,27 @@ export function createFleet(opts = {}) {
   }
 
   // ---------- dock buiten gebruik (oefendag): wie het moet weten ----------
-  // Het eerstvolgende dockblok van t dat van een dock buiten gebruik naar een ander dock ging: vanaf het begin van de
-  // storing, tot twee uur vooruit en tot het blok begint; null als er geen is of als de chauffeur het al weet.
-  function dockWissel(t, T) {
-    if (!t.dockWissel) return null;
-    const m = ((T % 1440) + 1440) % 1440;
+  // De dockblokken van t die van een dock buiten gebruik naar een ander dock gingen en waar de chauffeur nog geen bericht over
+  // kreeg: vanaf het begin van de storing en vanaf twee uur voor het blok. Begon het blok al zonder bericht, dan blijft het
+  // erbij (begonnen): dat de wagen het andere dock gebruikte, bewijst niet dat de chauffeur het wist. Pas het bericht
+  // (dockGemeld) of de planner sluit het. Op volgorde in het plan. Begonnen of nog niet: T op zijn plek in het dagplan van het
+  // voertuig (zoals stateAt), zodat een blok na middernacht om 23:30 nog komt en niet al begonnen is.
+  function dockWissels(t, T) {
+    if (!t.dockWissel) return [];
+    const m = ((T % 1440) + 1440) % 1440; const at = t.dayStart + ((((T - t.dayStart) % 1440) + 1440) % 1440); const out = [];
     for (const s of t.plan) {
       if (!s.dockOud || s.dockGemeld) continue;
       const b = dockBuiten.find(x => x.sp === t.base && x.dock === s.dockOud); if (!b) continue;
-      const a = ((t.dayStart + s.t0) % 1440 + 1440) % 1440;
-      if (m < b.van || a < m || a - m > 120) continue;
-      return { seg: s, a: t.dayStart + s.t0, oud: s.dockOud, nieuw: s.dock, soort: s.dockSoort, tr: s.tr || null, tot: b.tot, reden: b.reden };
+      const a = t.dayStart + s.t0;
+      if (m < b.van || a - at > 120) continue;
+      out.push({ seg: s, a, oud: s.dockOud, nieuw: s.dock, soort: s.dockSoort, tr: s.tr || null, tot: b.tot, reden: b.reden, begonnen: a <= at });
     }
-    return null;
+    return out;
   }
-  // de chauffeur weet het nieuwe dock (een bericht van de planner)
-  function dockGemeld(t, T) { const w = dockWissel(t, T); if (w) w.seg.dockGemeld = true; return w; }
+  // de eerstvolgende wissel, anders de oudste die nog geen bericht kreeg; null als de chauffeur alles weet
+  function dockWissel(t, T) { const L = dockWissels(t, T); return L.find(w => !w.begonnen) || L[0] || null; }
+  // de chauffeur weet het nieuwe dock: één bericht met elke wissel die nu speelt
+  function dockGemeld(t, T) { const L = dockWissels(t, T); for (const w of L) w.seg.dockGemeld = true; return L.find(w => !w.begonnen) || L[0] || null; }
   // Omrijden: over de graaf, en bij een standplaats of winkel ook over de toegangsroute tot de poort of de deur.
   const mkRoute = (a, b, nameA, nameB, placeA, placeB) => {
     const pa = placeA && placeA.node === a ? placeA : { ...placeA, node: a }, pb = placeB && placeB.node === b ? placeB : { ...placeB, node: b };
@@ -1037,9 +1060,13 @@ export function createFleet(opts = {}) {
     const RED = [['ziek', 30], ['uitval voertuig', 25], ['extra rit klant', 30], ['nieuw uit OTM5', 15]];
     const kwart = m => Math.round(m / 15) * 15;
     for (const sp of SP) {
-      const vs = trucks.filter(t => t.base === sp && t.diensten.length); if (!vs.length) continue;
-      const ritten = vs.reduce((n, t) => n + t.routes.length, 0);
+      const vs0 = trucks.filter(t => t.base === sp && t.diensten.length);
+      // op zondag zijn de open ritten van morgen (maandag) die van een werkdag: naar alle voertuigen die dan weer rijden
+      const vsMa = ZONDAG ? trucks.filter(t => t.base === sp && (t.diensten.length || t.zondagVrij)) : vs0; if (!vsMa.length) continue;
+      const ritten0 = vs0.reduce((n, t) => n + t.routes.length, 0);
       for (const dag of ['vandaag', 'morgen']) {
+        const vs = dag === 'morgen' ? vsMa : vs0; if (!vs.length) continue;
+        const ritten = dag === 'morgen' && ZONDAG ? Object.values(rittenWerkdag(sp)).reduce((a, b) => a + b, 0) : ritten0;
         const n = Math.max(1, Math.round(ritten * (0.02 + R() * 0.03)));
         for (let k = 0; k < n; k++) {
           const v = vs[Math.floor(R() * vs.length)];
@@ -1068,6 +1095,16 @@ export function createFleet(opts = {}) {
       }
     }
     return out;
+  }
+  // Ritten per divisie van een standplaats op een gewone werkdag. Op zondag tellen de vrije voertuigen mee met het gemiddelde
+  // aantal ritten van hun divisie (2,5 als niemand van die divisie rijdt): de historie van acht weken en de pool van maandag
+  // horen bij gewone dagen, niet bij de zondag van vandaag. Op een werkdag zijn het gewoon de ritten van vandaag.
+  function rittenWerkdag(sp) {
+    const per = {}, n = {}, vrij = {};
+    for (const t of trucks) { if (t.base !== sp) continue; if (t.diensten.length) { per[t.div] = (per[t.div] || 0) + t.routes.length; n[t.div] = (n[t.div] || 0) + 1; } else if (t.zondagVrij) vrij[t.div] = (vrij[t.div] || 0) + 1; }
+    const gem = {}; for (const div of Object.keys(per)) gem[div] = per[div] / n[div];
+    for (const [div, k] of Object.entries(vrij)) per[div] = (per[div] || 0) + k * (gem[div] || 2.5);
+    return per;
   }
   // De regio van een plek: die van de dichtstbijzijnde standplaats (voor de voorkeuren van chauffeurs).
   const regioCache = new Map();
@@ -1101,8 +1138,9 @@ export function createFleet(opts = {}) {
     const poisson = l => { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= R(); } while (p > L); return k - 1; };
     const kwart = m => Math.round(m / 15) * 15;
     for (const sp of SP) {
-      const vs = trucks.filter(t => t.base === sp && t.diensten.length); if (!vs.length) continue;
-      const perDiv = {}; for (const t of vs) perDiv[t.div] = (perDiv[t.div] || 0) + t.routes.length;
+      // de historie hoort bij gewone dagen: op zondag de ritten van een werkdag (rittenWerkdag), anders die van vandaag
+      const vs = trucks.filter(t => t.base === sp && (t.diensten.length || t.zondagVrij)); if (!vs.length) continue;
+      const perDiv = ZONDAG ? rittenWerkdag(sp) : {}; if (!ZONDAG) for (const t of vs) perDiv[t.div] = (perDiv[t.div] || 0) + t.routes.length;
       const mix = Object.entries(perDiv); const ritten = mix.reduce((a, x) => a + x[1], 0);
       const vul = 0.93 + 0.06 * hash01('vul|' + sp.n) + 0.02 * Math.log(sp.fleet / 16) / Math.log(225 / 16);
       const trend = (hash01('trend|' + sp.n) - 0.5) * 0.08;
@@ -1305,6 +1343,18 @@ export function createFleet(opts = {}) {
   // de historie van acht weken, het model en de prognose van elke rit op het moment dat hij bekend werd
   const HIST = maakHistorie(); MODEL = maakModel(HIST);
   for (const p of pool) { poolById.set(p.id, p); p.urgentie = p.venster[0] + (p.dag === 'morgen' ? 1440 : 0) - p.bekend; p.prognose = prognoseVoor(p, p.urgentie); }
+  // Collega's (gesimuleerd): een planner werkt niet alleen (op Wognum 9 tot 15 planners). Een open rit van vandaag die de
+  // kijker niet invult, vult een collega op het laatst alsnog in, met de kans op invulling uit de prognose (acht weken
+  // historie, ongeveer 85 procent); de rest blijft open en is na het venster gemist (een zaak "Rit niet ingevuld"). Zo
+  // klopt de dag met zijn eigen prognose. Vast per rit (hash op het nummer), zonder getal uit de reeks van de dag; niet op
+  // de oefendag (die ritten zijn de oefening). { soort: 'eigen' | 'oproep' | 'charter', vertrek, gesimuleerd }
+  function collegaVan(p) {
+    if (p.dag !== 'vandaag' || p.oefendag || !p.prognose || meng01(`collega|${p.id}`) >= p.prognose.kans) return null;
+    const b = p.prognose.basis || {}; const tot = (b.eigen || 0) + (b.oproep || 0) + (b.charter || 0); const h = meng01(`collega-wie|${p.id}`) * tot;
+    const soort = !tot || h < b.eigen ? 'eigen' : h < b.eigen + b.oproep ? 'oproep' : 'charter';
+    return { soort, vertrek: p.venster[1] - 5 * Math.floor(meng01(`collega-om|${p.id}`) * 4), gesimuleerd: true };
+  }
+  for (const p of pool) p.collega = collegaVan(p);
 
   // ---------- de oefendag (opts.scenario): een vaste drukke dag bovenop de gewone ----------
   // Alleen met een bekende oefendag (src/oefendag.js); zonder die optie gebeurt hier niets en is de dag de gewone. Pas na de
@@ -1440,6 +1490,8 @@ export function createFleet(opts = {}) {
     urgentie: (p, T) => urgentieVan(p, T), prognose: (p, T) => prognoseVoor(p, urgentieVan(p, T)), poolHistorie, kandidaten, wijsToe,
     CHARTERS, OPROEP, WAARSCHUWINGEN, WAARSCHUWING_KORT, voorkeurenVan, tevredenheid, past, vandaag: VANDAAG,
     // vertraging als zaak, de klant informeren, een ingreep op proef, de stand van een stop; de oefendag en zijn docks
-    vertraging, klantEta, proef, stopOp, vensterEff, dockWissel, dockGemeld, chauffeurs: (sp, people) => chauffeursVan(typeof sp === 'string' ? SP.find(s => s.n === sp) : sp, people),
+    vertraging, klantEta, proef, stopOp, vensterEff, dockWissel, dockWissels, dockGemeld, chauffeurs: (sp, people) => chauffeursVan(typeof sp === 'string' ? SP.find(s => s.n === sp) : sp, people),
+    // een rit uit de pool op nummer (ook een rit die al is toegewezen of gemist), en of vandaag een zondag is
+    poolItem: id => poolById.get(id) || null, zondag: ZONDAG,
     scenario, docksBuiten: sp => dockBuiten.filter(b => !sp || b.sp === sp || b.sp.n === sp).map(b => ({ standplaats: b.sp.n, dock: b.dock, van: b.van, tot: b.tot, reden: b.reden })) };
 }
