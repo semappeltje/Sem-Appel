@@ -194,12 +194,13 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
     const t = f.trucks.find(straight); return t ? t.id : id;
   }, id);
   await page.evaluate(id => window.SLCT.ui.selectTruck(id), id3); await page.waitForTimeout(400);
-  // de draaisnelheid in de pagina meten: bij elke camerabeweging de tijd van het beeld (de tijd die requestAnimationFrame
-  // meegeeft, waarmee ook de volgcamera rekent), de richting en waar het voertuig op het scherm staat
+  // de draaisnelheid in de pagina meten met de klok van de volgcamera zelf: alleen de sprongen van de cameralus tellen
+  // (followJump geeft tijdens zo'n sprong de tijd van die lus, en anders null), de richting en waar het voertuig op het
+  // scherm staat. Een beeld van een easeTo ertussen (bij het kiezen van het voertuig) telt niet mee: dat gaf onder
+  // belasting een sprong van de lus gedeeld door een paar milliseconden, en zo 200 tot 1175 graden per seconde
   await page.evaluate(id => {
-    if (!window.__rafT) { const raf = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = cb => raf(ts => { window.__frameT = ts; cb(ts); }); window.__rafT = true; }
     const S = window.SLCT, m = S.map.map; window.__rot = [];
-    window.__onMove = () => { const q = S.map.vehiclePos(id), s = q && m.project([q.lon, q.lat]), c = m.getContainer(); window.__rot.push([window.__frameT || performance.now(), m.getBearing(), s ? s.x - c.clientWidth / 2 : 0, s ? s.y - c.clientHeight / 2 : 0]); };
+    window.__onMove = () => { const tj = S.map.followJump && S.map.followJump(); if (tj == null) return; const q = S.map.vehiclePos(id), s = q && m.project([q.lon, q.lat]), c = m.getContainer(); window.__rot.push([tj, m.getBearing(), s ? s.x - c.clientWidth / 2 : 0, s ? s.y - c.clientHeight / 2 : 0]); };
     m.on('move', window.__onMove);
   }, id3);
   await page.evaluate(() => document.getElementById('app').focus()); await page.keyboard.press('f');

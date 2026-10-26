@@ -842,9 +842,11 @@ export function createMap(container, opts) {
       const cam = { center: [lerp(B.c.lng, r.cx), lerp(B.c.lat, r.cy)], padding: { top: lerp(B.pad.top || 0, offY), bottom: lerp(B.pad.bottom || 0, 0), left: lerp(B.pad.left || 0, 0), right: lerp(B.pad.right || 0, 0) } };
       // draaien ook tijdens de overgang hoogstens 60 graden per seconde (de koers kan achter de camera liggen)
       if (three) { cam.pitch = lerp(B.p, Math.max(B.p, 58)); cam.zoom = lerp(B.z, Math.max(B.z, 14.2)); if (follow.rotate) cam.bearing = target.bearing; }
-      nativeJump(cam); if (u >= 1) follow.blend = null; return true;
+      follow.jumpNow = now; nativeJump(cam); follow.jumpNow = null; if (u >= 1) follow.blend = null; return true;
     }
-    nativeJump(target);
+    // de tijd van deze lus staat tijdens de sprong in follow.jumpNow (followJump), zodat een test de draaisnelheid met
+    // dezelfde klok meet als de camera en alleen de sprongen van deze lus telt (niet de beelden van een easeTo ertussen)
+    follow.jumpNow = now; nativeJump(target); follow.jumpNow = null;
     return true;
   }
   // API: follow(id, { rotate }) volgt tot follow(null); followCam(pos, duur, draaien) is de oude vorm (ui.js, elke 900 ms)
@@ -890,6 +892,6 @@ export function createMap(container, opts) {
   return {
     map, setTheme, setOnline: v => setBase(v ? 'online' : base === 'online' ? 'kaart' : base, false), setBase: m => setBase(m, false), base: () => base, hasBase, whenReady, setTrucks, setTrailers, showTrailers, trailersOn: () => trailersOn, setSelected, setRoute, highlightSp, fitSps, setRest, showRest,
     isOnline: () => base === 'online', hasOnline: () => hasBase('online'), hasTiles: () => tiles, set3d, is3d: () => three, has3d: () => true, followCam, scene3d: () => scene3d,
-    follow: followApi, following: () => follow.id, flyTo, setSelectedId, setHover, vehiclePos, inView, pick: pt => pickVehicle(pt), setEvents, anchor: anchorOf, debug,
+    follow: followApi, following: () => follow.id, followJump: () => follow.jumpNow, flyTo, setSelectedId, setHover, vehiclePos, inView, pick: pt => pickVehicle(pt), setEvents, anchor: anchorOf, debug,
   };
 }
