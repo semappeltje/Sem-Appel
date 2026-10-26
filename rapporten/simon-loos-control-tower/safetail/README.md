@@ -1,78 +1,68 @@
-# Control Tower als tabblad in SafeTools (safetail.nl/intern/control-tower)
+# Control Tower 4.0 als tabblad in SafeTools (safetail.nl/intern/control-tower)
 
-De Control Tower (versie 3.2) staat als eigen tabblad "Control Tower" in SafeTools, het
-interne deel van safetail.nl (achter de inlog van de oprichters, naast Ideeënbus, Vragen
-en Dossiers). De wijzigingen voor de website staan in de repo
-`SafeTail-V-O-F/Website` op de tak `ronde10/control-tower`; omdat deze sessie daar niet
-mag pushen, staat die tak hier als git-bundel: `safetail-control-tower.bundle`.
+Versie 4.0 van de Control Tower voor Simon Loos, voor het tabblad "Control Tower" in SafeTools (achter de inlog van
+de oprichters). Deze sessie mag niet naar de website-repo pushen; de tak staat daarom hier als git-bundel:
+`safetail-control-tower.bundle`, met de tak `ronde10/control-tower-40`: drie commits boven 7ca8fbf (de live main),
+tip 48c90ca. Geen meetbon: die schrijft de website-sessie na haar eigen groene run.
 
 ## Zo zet je de tak in de website-repo
 
 ```
 cd <pad naar de website-repo>
-git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-35:ronde10/control-tower-35
-git checkout ronde10/control-tower-35
+git fetch <pad naar Sem-Appel>/rapporten/simon-loos-control-tower/safetail/safetail-control-tower.bundle ronde10/control-tower-40:ronde10/control-tower-40
+git checkout ronde10/control-tower-40
 npm ci && npm test          # bouwt, draait de rooktests, schrijft de meetbon
-git push -u origin ronde10/control-tower-35
+git push -u origin ronde10/control-tower-40
 ```
 
-De eerdere bundels (405e494: versie 3.1; b2765c0: de zes punten uit de Fable-review) heeft
-de websitesessie samengevoegd en live gezet (`setup-astro-site` op 1e5f201). Ook de
-bundel met de drie punten uit de deltareview (a25ddba) en versie 3.2 met de 3D-wereld (tak
-ronde10/control-tower-33, `three.js` als vijfde bestand) zijn samengevoegd en live
-(`setup-astro-site` op 584a75a). Ook die twee commits (three.js pas bij de eerste klik, bronregel, paneel naast een pagina, de
-3D-stand in de opslaglijst) zijn samengevoegd en live (`setup-astro-site` op 7ca8fbf, met de
-bewaker van de websitesessie erbovenop). Deze bundel bevat de tak `ronde10/control-tower-35`:
-een commit boven 7ca8fbf met de nieuwe bundel (een bij het laden herstelde 3D-stand vliegt
-naar de standplaats) en de meetbon. `git fetch <bundel> ronde10/control-tower-35` werkt in een
-kopie die 7ca8fbf al heeft. Daarna
-samenvoegen in `setup-astro-site` en deployen zoals altijd (DEPLOY.md). Er is geen migratie,
-geen nieuwe omgevingsvariabele en niets aan de edge function veranderd.
+Daarna samenvoegen en deployen zoals altijd (DEPLOY.md). Geen migratie, geen nieuwe omgevingsvariabele, niets aan de
+edge function. De vorige bundel (`ronde10/control-tower-35`, 2af272a) is hiermee vervallen: 4.0 bevat die wijziging
+ook.
 
 ## Wat er in de website-repo verandert
 
-- `src/pages/intern/control-tower.astro`: de pagina, met de HTML-opbouw van de app (met
-  de weergave Opleggers van 3.0) en twee opties op de app-root: `data-tiles="off"` (geen
-  kaarttegels van buiten) en `data-embedded` (sneltoetsen alleen na een klik in de app,
-  hal-scherm op volledig scherm).
-- `public/intern/control-tower/app/`: de gebouwde app (`app.js`, `data.js`, `maplibre.js`,
-  `three.js` sinds 3.2, `app.css`, `VERSIE.json`), gebouwd uit `demos/simonloos-control-tower` in deze repo met
-  `npm run build:site` en `node tools/sync-safetail.mjs`. Achter de `/intern`-gate, niets
-  in `/_astro`.
-- `InternBar.astro` en `InternIcon.astro`: het tabblad met icoon (het tabblad "Vragen
-  beantwoorden" heet in de balk nu "Vragen", zodat zeven tabbladen passen);
-  `intern/index.astro`: een compacte kaart op het overzicht (drie naast elkaar vanaf
-  1024 px).
-- `global.css`: `@source not` zodat Tailwind de bundel niet scant; `tsconfig.json`: de
-  bundel buiten `astro check`; `.gitattributes`: geen diff van de bundel.
-- `CLAUDE.md` en `DEPLOY.md`: beschrijving, bijwerken, gate, privacy, grootte.
+- `src/pages/intern/control-tower.astro`: de opbouw van de app 4.0 (zijbalk, de weergaven Overzicht, Kaart, Ritten,
+  Meldingen, Open ritten, Planbord, Voertuigen, Opleggers, Chauffeurs, Charters en oproep, Standplaatsen, Laden,
+  Lostijden, Pauzeplekken, Rapporten, Instellingen, een onderbalk op de telefoon, popover, dialoog, meldingen; 36
+  ids), met dezelfde twee opties op de root (`data-tiles="off"`, `data-embedded`); de tekst in de kop en de noot
+  onderaan.
+- `public/intern/control-tower/app/`: de gebouwde app, negen bestanden en `VERSIE.json` (bron: Sem-Appel, commit
+  6eeafab, 26 oktober 2026). Bij het openen: `app.js` (797 kB), `data.js` (8,6 MB), `lib.js` (svelte-gantt,
+  MiniSearch, Floating UI; 132 kB), `maplibre.js` (1,6 MB), `app.css` (212 kB). Pas als het nodig is, door `app.js`
+  zelf geladen: `uplot.js` (grafieken, 52 kB), `portretten.js` (renders van voertuigen en opleggers uit onze eigen
+  3D-modellen, 987 kB), `three.js` (815 kB) en `buildings.js` (2,5 MB; samen de 3D-wereld, bij de eerste klik op de
+  kubus).
+- `tests/smoke/control-tower.spec.mjs`: `APP_BESTANDEN` en `SHELL_IDS` voor 4.0; de regel voor three.js geldt ook
+  voor `buildings.js`, `uplot.js` en `portretten.js` (alleen via een dynamische import, nooit statisch in app.js,
+  lib.js, maplibre.js of data.js).
+- `CLAUDE.md` en `DEPLOY.md`: de bestanden, de grootte, wat de app bewaart.
 
-## Wat er in deze repo veranderde
+## Hosts buiten de eigen
 
-Commit e0238de maakte de app inbedbaar: alle CSS onder `.slct`, thema en kiosk op de
-app-root, `contain: layout` houdt de vaste panelen binnen de app, een terugval zonder
-WebGL, en een tweede Vite-build met vaste bestandsnamen. Commit 75acd59 is versie 3.0:
-diensten zonder vaste wagen, losse opleggers en trekkers, bakwagens en bussen, een kaart
-met voertuigen in hun rijrichting en zonder clusters, de weergave Opleggers. Commits 29bddd1
-en f939ca9 zijn versie 3.1: het nieuwe ontwerp (ontwerpsysteem, rustige kaart, minder drukke
-weergaven, mobiele opzet) en de verbeterde werking (voorstellen die het plan aanpassen,
-URL's voor elke weergave, meldingen met geheugen, panelen, planbordfilters, aftelling,
-zoekpalet). Commit 7594cae verwerkt de zes punten uit de Fable-review van de SafeTail-tab
-(volledig scherm sluiten, minder beweging, toegankelijkheid, namen, kentekens, tellingen);
-commit 92b17b1 de drie punten uit de deltareview (topbalk in een smal kader, terugknop naar
-de kaart, schakelaar van de online kaartlaag); commit 443d64d is versie 3.2: de 3D-wereld op
-de kaart (three.js in een eigen MapLibre-laag, knop met de kubus, toets d); commit e575459 laadt
-three.js pas bij de eerste klik en verwerkt drie puntjes uit de deltacheck van de website. De losse versie (`dist/index.html`, het artifact) is dezelfde app.
+Ingebed in SafeTools (`data-tiles="off"`): geen enkele, gemeten in alle standen (verify gl embedded op 1440, 390 en
+met minder beweging: "externe hosts: geen"; de derde eindcontrole: nul verzoeken naar buiten over 24 weergaven en
+pagina's, licht en donker, 1440 en 390, ook in 3D). Alleen de losse demosite met de online lagen aan vraagt
+tiles.openfreemap.org en service.pdok.nl; die stand bestaat in SafeTools niet. Geen tel:-links, geen cookie, alles
+wat de app bewaart staat in `localStorage` onder `sl-*`.
 
-## Gecontroleerd
+## Gecontroleerd (26 oktober 2026, build 6eeafab)
 
-- De eigen bewakers van de site op de nieuwe route en het overzicht: status, console,
-  overflow, `.reveal`, privacy (0 verzoeken naar derden, 0 cookies), SEO-head, dubbele
-  id's, huisstijl en links, in de drie standen (1440, 390, 390 met minder beweging).
-- De app zelf in Chromium: met en zonder WebGL, los en ingebed, licht en donker,
-  hal-scherm, alle weergaven, 1440 en 390 px.
-- Schermafbeeldingen: `01` tot en met `04` in deze map.
+In de website-repo, op deze tak met de app erin: `npm run build` groen (63 pagina's) en de volledige rooktestrun
+(`npm run test:e2e -- --no-build`) groen; één klik in `formulier.spec` ("de keuzes gaan mee in de POST (zonder JS)")
+viel onder zware belasting om en was bij herhaling van die spec meteen goed. `control-tower.spec` groen: de 36 ids,
+de tien bestanden, geen statische import van uplot, portretten, three of buildings, de commit in de noot gelijk aan
+`VERSIE.json`.
 
-Let op: de gate zet op alles onder `/intern` `Cache-Control: private, no-store`, dus de
-bundel (ongeveer 8,7 MB, 3,9 MB gecomprimeerd) laadt bij elk bezoek opnieuw. Voor de
-oprichters prima; wordt dat hinderlijk, dan is de data in deze repo kleiner te maken.
+In de app zelf (Sem-Appel, `demos/simonloos-control-tower`, dezelfde build): toets.test (14), verdeel.test (5),
+assistent-check (185 van 185, zonder API), otm5-check, data-check (vingerafdruk van de werkdag 3859288126), verify gl
+plain, gl embedded en nogl plain, open-ritten-check (47), voorstel-check (26), ochtend-check (39: maandag en zondag
+om 04:00, 05:30 en 06:30, de maandag na de zomertijd, de oefendag), portretten-check, ui-check gl (168) en nogl
+(160), 3d-check (18) en map-check (102 van 103; de ene meting is de draaisnelheid van de volgcamera in 3D, die in de
+run met twee stromen tegelijk 200 graden per seconde mat en bij herhaling op een rustige machine KAARTHERHALING).
+Daarvoor drie eindcontroles door een aparte agent tegen `acceptatie-4.0.md`; het oordeel van de derde: opleveren na
+twee herstelpunten (het eerste kaartbeeld op een trage machine, het belmoment dat in de rij afbrak), beide hersteld
+en opnieuw gemeten in deze build.
+
+Schermafbeeldingen van het tabblad met 4.0 (astro preview, eerste bezoek, dus met het keuzescherm voor het
+werkgebied): `01-safetail-control-tower-1440.png`, `02-safetail-control-tower-1440-app.png` (Open ritten),
+`03-safetail-control-tower-390.png`, `04-safetail-overzicht-kaart-1440.png`.
