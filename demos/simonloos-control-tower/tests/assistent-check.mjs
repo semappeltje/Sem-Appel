@@ -25,7 +25,10 @@
 //   fallback, geen temperature; een ander model via ASSISTENT_MODEL
 // - het antwoord: de vorm, de drie soorten, de Let op-regels (bedrag zonder schatting, claim, onbekend nummer), en een
 //   502, 503 of 504 bij elke fout van de AI-dienst; nooit een half antwoord
+// - de vaste antwoorden in de app (src/ui/assistent.js): onderweg (volgens plan) en vertraagd (achter op plan) apart,
+//   niets dubbel geteld (src/ui/stand.js)
 import { performance } from 'node:perf_hooks';
+import fs from 'node:fs';
 
 let F;
 try {
@@ -484,6 +487,19 @@ check(F.woorden('- Wat speelt: drie zaken') === 4, 'woorden: een "-" voor een op
 check(F.getal('1.250,50') === 1250.5 && F.getal('1.250') === 1250 && F.getal('0,45') === 0.45 && F.getal('480.') === 480, 'getal: Nederlandse schrijfwijze');
 check(F.redact('Bel 06-12345678, +31 6 1234 5678 of mail a.b@c.nl') === 'Bel [telefoonnummer], [telefoonnummer] of mail [e-mailadres]', 'redact: telefoonnummers en e-mailadressen');
 check(F.redact('Venster 06:00-07:30, rit R-10448, 2026-10-26, € 0,45 per km') === 'Venster 06:00-07:30, rit R-10448, 2026-10-26, € 0,45 per km', 'redact laat tijden, nummers, datums en bedragen staan');
+
+// =====================================================================================================================
+groep('De stand in de vaste antwoorden (src/ui/stand.js)');
+{
+  const { standTekst } = await import('../src/ui/stand.js');
+  const c = { onderweg: 41, vertraagd: 3, klant: 9, pauze: 2, terrein: 11 };
+  const a = standTekst(c);
+  check(a === '41 onderweg, 3 vertraagd, 9 bij een klant, 2 met pauze en 11 op het terrein', `per standplaats: "${a}" (onderweg rijdt volgens plan, vertraagd apart, niets dubbel)`);
+  const b = standTekst({ ...c, onderweg: 1 }, { voertuigen: true }); const d = standTekst({ ...c, onderweg: 1250 }, { voertuigen: true });
+  check(b.startsWith('1 voertuig onderweg, 3 vertraagd') && d.startsWith('1.250 voertuigen onderweg, 3 vertraagd'), `het werkgebied: "${b.split(',').slice(0, 2).join(',')}" en "${d.split(',').slice(0, 2).join(',')}"`);
+  const bron = fs.readFileSync(new URL('../src/ui/assistent.js', import.meta.url), 'utf8');
+  check(!/onderweg\s*\+\s*[\w.]*vertraagd/.test(bron) && (bron.match(/standTekst\(/g) || []).length === 2, 'assistent.js telt onderweg en vertraagd niet meer bij elkaar op; de twee vaste antwoorden (standplaats en werkgebied) gebruiken standTekst');
+}
 
 // ---------- grootte en kosten (voor het README; een schatting, geen meting bij de API) ----------
 {
