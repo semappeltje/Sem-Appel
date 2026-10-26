@@ -7,17 +7,21 @@
 // klok van de browser vast (page.clock.setFixedTime, Nederlandse tijd) op een maandag en een zondag, en de klok van de app
 // op 04:00, 05:30 en 06:30: de uren waarin de planner van Wognum werkt en zijn eerste indruk krijgt.
 // - Geen rit van vandaag met een vertrek na de klok staat op Afgerond (in de data en op de ritpagina); een nachtrit die het
-//   voertuig nog rijdt, staat als onderweg.
+//   voertuig nog rijdt, staat als onderweg, en op het planbord als een gestreept blok van gisteren (heel Nederland, om 04:00).
 // - Het planbord laat zo'n rit verplaatsen: het blok is niet vastgezet, "staat klaar" (niet "al begonnen"), en een pijltje
 //   naar rechts schuift hem echt (getoetst).
 // - Gisteren op maandag is niet leeg: de zondag in de historie, met minder diensten dan een werkdag. Ook op de maandag na
 //   de zomertijd (de nacht van zondag heeft 23 uur; de historie telde eerst 24 uur terug en sloeg de zondag over).
+// - Het rapport Op tijd per dag over de zomertijd: dertig dagen op de kalender, elke datum één keer.
 // - Een zondag heeft minder diensten (35 tot 55 procent van de maandag, schatting) en zegt dat op het planbord.
-// - De oefendag (?scenario=druk): P-8001 is om 06:20 nog open; om 06:45 is hij een zaak "Rit niet ingevuld" met één
-//   hoofdknop, staat hij als gemist in Open ritten en telt hij als gemist naast Op tijd.
+// - De oefendag (?scenario=druk): P-8001 krijgt zijn zaak "Rit niet ingevuld" voor het eind van het venster, een half uur
+//   voor het laatste belmoment (of meteen als niemand het venster haalt), met als hoofdknop wie het venster haalt en het
+//   belmoment in rood in Open ritten en op het planbord; na het belmoment zegt dezelfde zaak dat niemand het nog haalt, en om
+//   06:45 is hij gemist: één hoofdknop, als gemist in Open ritten en naast Op tijd.
 // - Geen paginafouten en geen verzoeken naar buiten.
 // Andere data: CT_MAANDAG, CT_ZONDAG en CT_ZOMER (de maandag na de zomertijd), als JJJJ-MM-DD.
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const url = process.argv[2] || 'http://127.0.0.1:8774/index.html';
 const MAANDAG = process.env.CT_MAANDAG || '2026-10-26', ZONDAG = process.env.CT_ZONDAG || '2026-11-01', ZOMER = process.env.CT_ZOMER || '2027-03-29';
@@ -31,9 +35,9 @@ const amsterdam = (dag, min) => { for (const off of ['+01:00', '+02:00']) { cons
 
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const host = new URL(url).host; const errors = []; const buiten = new Set();
-async function open(dag, min, { oefendag = false } = {}) {
+async function open(dag, min, { oefendag = false, sp = 'Wognum' } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, timezoneId: 'Europe/Amsterdam', locale: 'nl-NL' });
-  await ctx.addInitScript(oef => { try { if (!sessionStorage.getItem('och')) { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify({ regios: [], divs: ['winkel', 'netwerk', 'bulk', 'dranken', 'bezorg'], role: 'planner', sp: 'Wognum' })); if (oef) localStorage.setItem('sl-oefendag', 'druk'); sessionStorage.setItem('och', '1'); } } catch { /* geen opslag */ } }, oefendag);
+  await ctx.addInitScript(([oef, sp]) => { try { if (!sessionStorage.getItem('och')) { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify({ regios: [], divs: ['winkel', 'netwerk', 'bulk', 'dranken', 'bezorg'], role: 'planner', sp })); if (oef) localStorage.setItem('sl-oefendag', 'druk'); sessionStorage.setItem('och', '1'); } } catch { /* geen opslag */ } }, [oefendag, sp]);
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(`${dag} ${hm(min)}: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/ERR_BLOCKED|Failed to load/.test(m.text())) errors.push(`${dag} ${hm(min)}: ${m.text()}`); });
@@ -105,11 +109,43 @@ check(gisteren.zondag && gisteren.met > 0 && gisteren.met / gisteren.n >= 0.3 &&
 check(gisteren.blokken > 0 && gisteren.leeg < gisteren.rows && /zondag/.test(gisteren.note), `het planbord toont Gisteren met ${gisteren.blokken} diensten in beeld en zegt dat het zondag was ("${gisteren.note.slice(0, 90)}")`);
 await M.ctx.close();
 
-// de maandag na de zomertijd: ook dan is Gisteren de zondag uit de historie, niet leeg
+// 04:00: wat een voertuig nog van de nachtdienst van gisteren rijdt, staat op het planbord als een blok van gisteren (vanaf
+// 00:00, gestreept, vast, "van gisteren"). Heel Nederland: elk voertuig op het bord van zijn standplaats, gezocht op nummer.
+{
+  const N4 = await open(MAANDAG, 240, { sp: null });
+  await zet(N4.page, 240);
+  const L = await N4.page.evaluate(() => { const c = window.SLCT.ui.ctx; const T = c.state.simTime; return c.fleet.trucks.map(t => { const g = c.R.vanGisteren(t, T, c.S).find(x => x.nu); if (!g) return null; const s = c.S.get(t.id); return { t: t.id, sp: t.base.n, rit: g.r.id, st: s ? s.st : '' }; }).filter(Boolean); });
+  const rijdt = L.filter(x => ['onderweg', 'vertraagd', 'klant'].includes(x.st));
+  await N4.page.evaluate(() => { location.hash = 'planbord'; }); await N4.page.waitForTimeout(3000);
+  const gezien = [];
+  for (const x of L) {
+    await N4.page.selectOption('#pbSel', x.sp); await N4.page.waitForTimeout(1200);
+    await N4.page.fill('#pbQ', x.t); await N4.page.waitForTimeout(1500);
+    const blok = await N4.page.evaluate(id => { const n = document.querySelector(`#v-planbord [data-task-id="g-${id}"]`); return n ? { vast: n.classList.contains('vast'), tekst: n.textContent.replace(/\s+/g, ' ').trim(), streep: !!n.querySelector('span[style*="repeating-linear-gradient"]') } : null; }, x.rit);
+    if (blok && blok.vast && blok.streep && /van gisteren/.test(blok.tekst)) gezien.push(x.t);
+  }
+  await N4.page.fill('#pbQ', '');
+  await N4.page.click('#v-planbord [data-pblegenda]'); await N4.page.waitForTimeout(300);
+  const leg = await N4.page.evaluate(() => { const p = document.querySelector('.pop[aria-label="Legenda"]'); return p && !p.hidden ? (p.textContent.match(/Nachtdienst van gisteren \(gestreept\)/) || [''])[0] : ''; });
+  await N4.page.keyboard.press('Escape');
+  check(rijdt.length === nacht.rijdt && rijdt.every(x => gezien.includes(x.t)), `maandag 04:00: de ${rijdt.length} voertuigen die nog rijden van de nachtdienst van gisteren (landelijk) staan elk op het planbord met een gestreept blok "van gisteren" (${rijdt.map(x => `${x.t} ${x.sp}`).join(', ')})`);
+  check(gezien.length === L.length && leg, `maandag 04:00: ook wie midden in die rit pauzeert (${L.length - rijdt.length}) heeft zijn blok, ${gezien.length} van ${L.length}; de legenda noemt "${leg}"`);
+  await N4.ctx.close();
+}
+
+// de maandag na de zomertijd: ook dan is Gisteren de zondag uit de historie, niet leeg; en het rapport Op tijd per dag telt
+// over de nacht van de zomertijd dertig dagen op de kalender, elke datum een keer (de csv)
 {
   const Zm = await open(ZOMER, 330);
   const z = await Zm.page.evaluate(() => { const P = window.SLCT.people; const g = new Date(); g.setHours(0, 0, 0, 0); g.setDate(g.getDate() - 1); const W = window.SLCT.fleet.trucks.filter(t => t.base.n === 'Wognum'); return { zondag: g.getDay() === 0, met: W.filter(t => P.forTruck.get(t.id).history.some(h => h.date.toDateString() === g.toDateString())).length, n: W.length }; });
   check(z.zondag && z.met / z.n >= 0.3 && z.met / z.n <= 0.6, `maandag ${ZOMER}, na de zomertijd: Gisteren is de zondag, ${z.met} van de ${z.n} voertuigen van Wognum reden een dienst (niet leeg)`);
+  await Zm.page.evaluate(() => { location.hash = 'rapporten'; }); await Zm.page.waitForTimeout(2500);
+  const [dl] = await Promise.all([Zm.page.waitForEvent('download', { timeout: 15000 }), Zm.page.click('[data-rpcsv="dag"]')]);
+  const csv = fs.readFileSync(await dl.path(), 'utf8').replace(/^\uFEFF/, '');
+  const dagen = csv.trim().split('\n').slice(1).map(r => r.split(';')[0].replace(/"/g, ''));
+  const zv = new Date(`${ZOMER}T12:00:00Z`); zv.setUTCDate(zv.getUTCDate() - 1); const zondagIso = zv.toISOString().slice(0, 10);
+  const opvolgend = dagen.every((d, i) => i === 0 || Date.parse(`${d}T12:00:00Z`) - Date.parse(`${dagen[i - 1]}T12:00:00Z`) === 864e5);
+  check(dagen.length === 30 && new Set(dagen).size === 30 && opvolgend && dagen[29] === ZOMER && dagen.filter(d => d === zondagIso).length === 1, `rapport Op tijd per dag op ${ZOMER}: ${dagen.length} dagen op de kalender (${dagen[0]} tot ${dagen[dagen.length - 1]}), elke datum een keer, ook ${zondagIso} (de nacht van de zomertijd)`);
   await Zm.ctx.close();
 }
 
@@ -127,14 +163,42 @@ const zNote = await Z.page.evaluate(() => ({ note: (document.querySelector('#v-p
 check(/Zondag/.test(zNote.note) && zNote.vrij > 0, `zondag: het planbord zegt het ("${zNote.note.slice(0, 80)}") en onderaan staan de vrije voertuigen als "zondag, vrij" (${zNote.vrij} in beeld, ${zNote.data} op Wognum)`);
 await Z.ctx.close();
 
-// ---------- de oefendag: een open rit die niet ingevuld wordt ----------
-const O = await open(MAANDAG, 330, { oefendag: true });
+// ---------- de oefendag: een open rit die niemand rijdt (P-8001, laden 05:30 tot 06:30) ----------
+// Het laatste belmoment: de zaak "Rit niet ingevuld" komt een half uur voor het moment waarna niemand het venster nog haalt
+// (fase bel, met dat moment als deadline), of meteen als niemand het venster haalt (fase laat). Eén zaak die van fase wisselt.
+const O = await open(MAANDAG, 270, { oefendag: true });
+const zaakNu = page => page.evaluate(() => { const c = window.SLCT.ui.ctx; const z = c.Z.list().find(x => x.key === 'N:P-8001'); return z ? { T: c.state.simTime, kind: z.kind, first: z.first, fase: z.data ? z.data.fase : null, bel: z.data ? z.data.bel : null, deadline: z.deadline, open: z.open, scoped: c.Z.scoped().includes(z), text: z.text } : null; });
+let z0 = null;
+for (let T = 270; T < 390 && !z0; T += 5) { await zet(O.page, T); z0 = await zaakNu(O.page); }
+const p8001 = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const p = c.fleet.pool.find(x => x.id === 'P-8001'); return p ? { venster: p.venster, bekend: p.bekend, vertrek: (c.fleet.kandidaten(p, { T: Math.max(0, p.bekend), people: c.people, toegewezen: [], max: { eigen: 999, oproep: 999, charter: 999 } }) || []).filter(k => k.beschikbaar).map(k => k.vertrek).sort((a, b) => a - b) } : null; });
+const niemand = p8001 && !p8001.vertrek.some(v => v <= p8001.venster[1]) ? `niemand haalt het venster: de vroegste kandidaat vertrekt om ${p8001.vertrek.length ? hm(p8001.vertrek[0]) : '-'}` : '';
+check(!!z0 && z0.first < 390 && z0.open && z0.scoped, z0 ? `oefendag: P-8001 (laden 05:30 tot 06:30, bekend ${p8001 ? hm(p8001.bekend) : '?'}) krijgt zijn zaak om ${hm(z0.first)}, voor het eind van het venster: ${z0.fase === 'bel' ? `fase bel, "${z0.text}", deadline ${hm(z0.deadline)}` : `fase ${z0.fase}${niemand ? `, ${niemand}` : ''}: "${z0.text}"`}` : `oefendag: P-8001 krijgt geen zaak voor 06:30${niemand ? ` (${niemand})` : ''}`);
+// in de fase bel: hoofdknop is wie het venster haalt; Open ritten en de kaart op het planbord tonen het belmoment in rood, en
+// eerder op de ochtend hetzelfde belmoment, nog niet rood
+const belTekst = async (page, sel) => page.evaluate(s => { const c = document.querySelector(s); const r = c && [...c.querySelectorAll('span')].find(x => /uiterlijk vragen/.test(x.textContent) && !x.querySelector('span')); return { tekst: r ? r.textContent.trim() : '', rood: !!(r && r.classList.contains('tbad')) }; }, sel);
+if (z0 && z0.fase === 'bel' && typeof z0.bel === 'number') {
+  const Tb = Math.min(z0.bel - 5, z0.first + 10); await zet(O.page, Tb);
+  await O.page.evaluate(() => { location.hash = 'melding/N-P-8001'; }); await O.page.waitForTimeout(1800);
+  const zb = await O.page.evaluate(() => { const s = document.getElementById('sheet'); return { pri: [...s.querySelectorAll('.btn.pri')].map(b => b.textContent.trim()), keuzes: [...s.querySelectorAll('.prop .prop-h')].map(x => x.textContent.trim()), kpi: [...s.querySelectorAll('.pg-kpis small')].map(x => x.textContent.trim()) }; });
+  check(zb.pri.length === 1 && /^Vraag /.test(zb.pri[0]) && zb.keuzes.some(k => /Haalt het venster/.test(k)) && zb.keuzes.some(k => /Morgen als eerste/.test(k)) && zb.keuzes.some(k => /klant/.test(k)) && zb.kpi.includes('Uiterlijk vragen'), `oefendag ${hm(Tb)}: de zaakpagina heeft één hoofdknop (${zb.pri.join(', ')}) en de keuzes (${zb.keuzes.join(', ')})`);
+  await O.page.evaluate(() => { location.hash = 'openritten'; }); await O.page.waitForTimeout(1800);
+  const orb = await belTekst(O.page, '#v-openritten [data-or="P-8001"]');
+  check(orb.rood && orb.tekst === `uiterlijk vragen ${hm(z0.bel)}`, `oefendag ${hm(Tb)}: in Open ritten staat bij P-8001 "${orb.tekst}" in rood`);
+  await O.page.evaluate(() => { location.hash = 'planbord'; }); await O.page.waitForTimeout(2500);
+  const pk = await belTekst(O.page, '#v-planbord [data-pk="P-8001"]');
+  check(pk.rood && pk.tekst === `uiterlijk vragen ${hm(z0.bel)}`, `oefendag ${hm(Tb)}: op het planbord staat de kaart van P-8001 met "${pk.tekst}" in rood`);
+  const Te = Math.max(p8001 ? p8001.bekend : 270, z0.first - 30); await zet(O.page, Te);
+  await O.page.evaluate(() => { location.hash = 'openritten'; }); await O.page.waitForTimeout(1500);
+  const ore = await belTekst(O.page, '#v-openritten [data-or="P-8001"]');
+  check(!ore.rood && ore.tekst === `uiterlijk vragen ${hm(z0.bel)}`, `oefendag ${hm(Te)}: het belmoment staat al bij P-8001 in Open ritten, nog niet rood ("${ore.tekst}")`);
+}
+// na het belmoment, voor het eind van het venster: dezelfde zaak zegt dat niemand het venster nog haalt; de rit staat nog open
 await zet(O.page, 380);
-const voor = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const p = c.fleet.pool.find(x => x.id === 'P-8001'); return { p: p ? { venster: p.venster, bekend: p.bekend } : null, open: c.fleet.poolAt(c.state.simTime).some(x => x.id === 'P-8001'), zaak: !!c.Z.list().find(z => z.key === 'N:P-8001') }; });
-check(!!voor.p && voor.open && !voor.zaak, `oefendag 06:20: P-8001 (laden ${voor.p ? `${hm(voor.p.venster[0])} tot ${hm(voor.p.venster[1])}` : '?'}) staat nog open, geen zaak`);
+const voor = await zaakNu(O.page); const nogOpen = await O.page.evaluate(() => window.SLCT.ui.ctx.fleet.poolAt(window.SLCT.ui.ctx.state.simTime).some(x => x.id === 'P-8001'));
+check(!!voor && !!z0 && voor.first === z0.first && voor.fase === 'laat' && /niemand haalt het venster/.test(voor.text) && nogOpen, `oefendag 06:20: dezelfde zaak (sinds ${voor ? hm(voor.first) : '?'}) zegt "${voor ? voor.text : ''}"; de rit staat nog open`);
 await zet(O.page, 405); await O.page.waitForTimeout(600);
 const na = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const z = c.Z.list().find(x => x.key === 'N:P-8001'); const T = c.state.simTime; const g = c.M.sample(T, c.fleet.trucks.filter(t => c.inScope(t)), []).gemist; return { zaak: z ? { kind: z.kind, open: z.open, first: z.first, text: z.text, scoped: c.Z.scoped().includes(z) } : null, open: c.fleet.poolAt(T).some(x => x.id === 'P-8001'), gemist: g }; });
-check(!!na.zaak && na.zaak.kind === 'Rit niet ingevuld' && na.zaak.open && na.zaak.scoped && na.zaak.first === 390, `oefendag 06:45: P-8001 is een open zaak "Rit niet ingevuld" sinds ${na.zaak ? hm(na.zaak.first) : '?'} in het werkgebied ("${na.zaak ? na.zaak.text : ''}")`);
+check(!!na.zaak && na.zaak.kind === 'Rit niet ingevuld' && na.zaak.open && na.zaak.scoped && !!z0 && na.zaak.first === z0.first && /niet ingevuld/.test(na.zaak.text), `oefendag 06:45: P-8001 is dezelfde open zaak "Rit niet ingevuld" (sinds ${na.zaak ? hm(na.zaak.first) : '?'}), nu gemist ("${na.zaak ? na.zaak.text : ''}")`);
 check(!na.open && na.gemist >= 1, `oefendag 06:45: P-8001 is niet meer open in te plannen en telt als gemist naast Op tijd (${na.gemist} gemist in het werkgebied)`);
 await O.page.evaluate(() => { location.hash = 'openritten'; }); await O.page.waitForTimeout(1800);
 const or = await O.page.evaluate(() => { const b = document.querySelector('#v-openritten [data-or="P-8001"]'); const g = b && b.closest('.or-g'); return { rij: b ? b.textContent.replace(/\s+/g, ' ').trim() : '', groep: g ? (g.querySelector('h3') || {}).textContent || '' : '' }; });

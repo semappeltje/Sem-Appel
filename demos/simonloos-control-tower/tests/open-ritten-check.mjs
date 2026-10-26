@@ -62,7 +62,20 @@ const lijst = await page.evaluate(() => {
   return { n: rows.length, sorted: u.every((x, i) => i === 0 || x >= u[i - 1]), kans: rows.every(r => /kans \d+ %/.test(r.textContent)), reden: rows.every(r => r.querySelector('.or-r') && r.querySelector('.or-r').textContent.trim()), detail: !!document.querySelector('#v-openritten .or-d h2'), groepen: [...document.querySelectorAll('#v-openritten .kd-g h3')].map(h => h.firstChild.textContent.trim()), pg: !!document.querySelector('#v-openritten .or-pg .or-pk b'), nav: (document.querySelector('[data-nav="openritten"] .nc') || {}).textContent, prim: document.querySelectorAll('#v-openritten .kd .btn.pri').length };
 });
 check(lijst.n > 0 && lijst.sorted && lijst.kans && lijst.reden, `open ritten: ${lijst.n} op urgentie, elk met reden en kans op invulling`);
-check(lijst.detail && lijst.pg && lijst.groepen.join('|') === "Eigen chauffeurs|Oproepkrachten en zzp'ers|Charters" && lijst.prim === 1, `één rit uitgeklapt: prognose en drie groepen (${lijst.groepen.join(', ')}), één aanbevolen knop`);
+// Het laatste belmoment: een rit waarvoor niemand het venster nog haalt (fase laat), toont de keuzes van een gemiste rit
+// zonder prognose; de uitgeklapte rit hieronder is de eerste die nog iemand op tijd kan rijden.
+const rijen = await page.evaluate(() => [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar):not(.or-gemist) .or-i:not(.wacht)')].map(r => ({ id: r.dataset.or, laat: /niemand haalt het venster/.test(r.textContent), bel: (r.textContent.match(/uiterlijk vragen \d\d:\d\d/) || [''])[0] })));
+const detailNu = () => page.evaluate(() => ({ detail: !!document.querySelector('#v-openritten .or-d h2'), groepen: [...document.querySelectorAll('#v-openritten .kd-g h3')].map(h => h.firstChild.textContent.trim()), pg: !!document.querySelector('#v-openritten .or-pg .or-pk b'), prim: document.querySelectorAll('#v-openritten .kd .btn.pri').length, banner: (document.querySelector('#v-openritten .or-st b') || {}).textContent || '' }));
+const laat1 = rijen.find(r => r.laat);
+if (laat1) {
+  await page.click(`#v-openritten .or-i[data-or="${laat1.id}"]`); await page.waitForTimeout(800);
+  const dl = await detailNu();
+  check(/Niemand haalt het venster meer/.test(dl.banner) && !dl.pg && dl.groepen.length === 3, `${laat1.id}: niemand haalt het venster meer; de keuzes van een gemiste rit en de kandidaten (na het venster), geen prognose`);
+}
+const vrij1 = rijen.find(r => !r.laat);
+if (vrij1) { await page.click(`#v-openritten .or-i[data-or="${vrij1.id}"]`); await page.waitForTimeout(800); }
+const det = await detailNu();
+check(!!vrij1 && det.detail && det.pg && det.groepen.join('|') === "Eigen chauffeurs|Oproepkrachten en zzp'ers|Charters" && det.prim === 1, `één rit uitgeklapt${vrij1 ? ` (${vrij1.id}${vrij1.bel ? `, ${vrij1.bel}` : ''})` : ''}: prognose en drie groepen (${det.groepen.join(', ')}), één aanbevolen knop; ${rijen.filter(r => r.bel).length} van de ${rijen.length} rijen tonen het laatste belmoment`);
 // de prognose en de kandidaten komen uit de data
 const data1 = await page.evaluate(() => {
   const c = window.SLCT.ui.ctx; const id = c.ui.or.cur; const it = c.fleet.pool.find(p => p.id === id); const T = c.state.simTime;
@@ -75,7 +88,9 @@ const data1 = await page.evaluate(() => {
   return { pk, lab, kans: Math.round(pg.kans * 100), opTijd: Math.round(pg.opTijd * 100), advies: pg.advies, note: note.trim(), uitleg: (document.querySelector('#v-openritten .or-pt p') || {}).textContent || '', ids: K.map(k => k.id).join(','), ui: ui.join(','), inPool: c.fleet.poolAt(T, zonder).some(p => p.id === id) };
 });
 check(data1.pk[0] === `${data1.kans} %` && data1.pk[1] === `${data1.opTijd} %` && data1.lab.join('|') === 'kans op invulling|kans op tijd weg' && data1.note === data1.advies && data1.uitleg.includes('vergelijkbare ritten'), `prognose uit fleet.prognose: ${data1.pk.join(' en ')} (invulling, op tijd); advies: "${data1.advies}"`);
-check(data1.ids && data1.ids === data1.ui && data1.inPool, `kandidaten uit fleet.kandidaten (met people en wat al is toegewezen), in dezelfde volgorde (${data1.ui.split(',').length})`);
+// dezelfde kandidaten als fleet.kandidaten; wie met de rit de rust van de cao niet haalt, staat in zijn groep achteraan
+const zelfde = data1.ids && data1.ids.split(',').sort().join() === data1.ui.split(',').sort().join();
+check(zelfde && data1.inPool, `kandidaten uit fleet.kandidaten (met people en wat al is toegewezen), dezelfde ${data1.ui.split(',').length}${data1.ids === data1.ui ? ', in dezelfde volgorde' : ', wie de cao-rust niet haalt achteraan in zijn groep'}`);
 // geen echte tel:-links; Bel toont het nummer met een melding
 check(!(await page.$('#app a[href^="tel:"]')), 'open ritten: geen tel:-link');
 const belK = await page.$('#v-openritten .kd [data-bel]');

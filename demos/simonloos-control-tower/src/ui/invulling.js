@@ -15,6 +15,7 @@ import { DIENSTDELEN, DIENSTDEEL_NAAM, DIENSTDEEL_TIJD, WEEKDAGEN, WEEKDAG_NAAM,
 import { fmt, hhmm } from './base.js';
 import { vensterAbs, planPoolRit, haalPoolRitTerug, pool as poolAlles } from './planwijzig.js';
 import { NORM, duur } from './toets.js';
+import { thuisMin, AANRIJ_KOPPELEN } from '../inzet.js';
 
 export const euro = v => `€ ${fmt(Math.round((+v || 0) / 5) * 5)}`;
 const Tn = ctx => ctx.state.simTime;
@@ -135,39 +136,119 @@ export function samenVragen(L) {
   return { wie, kans: Math.round((1 - geen) * 100), alleen: Math.round(kan[0].kans * 100) };
 }
 
-// ---------- gemiste ritten: een open rit van vandaag die na zijn laadvenster niet is ingevuld ----------
-// Na het venster verdwijnt de rit niet: hij staat in Open ritten als gemist, telt naast Op tijd (metrics.js) en is een zaak
-// "Rit niet ingevuld" (zaken.js) met de keuzes: alsnog een charter (toewijzen; de rit vertrekt dan later), morgen als eerste
-// (de rit gaat naar de open ritten van morgen, laden vroeg in de ochtend) of de klant bellen of een bericht sturen. Een rit
-// die alsnog is toegewezen, telt niet als gemist (hij is laat gereden); een rit die naar morgen ging, wel. Alles gesimuleerd.
+// ---------- het laatste belmoment en de zaak "Rit niet ingevuld" ----------
+// Een open rit van vandaag heeft een laatste belmoment: tot wanneer haalt nog iemand het venster als je hem dan vraagt? Per
+// kandidaat (fleet.kandidaten: eigen chauffeurs, oproepkrachten en zzp'ers, charters; allemaal, niet alleen de beste vier)
+// vertrekt de rit op het moment van de vraag plus zijn aanrijtijd (van huis: de vraag, reizen en inklokken; een charter vanaf
+// zijn eigen plaats), en hij moet binnen het venster weg. Zijn laatste moment is dus het eind van het venster min die
+// aanrijtijd. Wie op dienst is en de rit na zijn dienst kan rijden, vraag je tot het eind van die dienst (dan koppelt hij
+// meteen), daarna is hij thuis. Het belmoment van de rit is het laatste van die momenten, op vijf minuten naar beneden, met
+// de kandidaat erbij. Gerekend vanaf het moment dat de rit bekend werd en met wat al is toegewezen: het hangt niet af van de
+// klok en verandert alleen met het plan (R.ver). Gesimuleerd, zoals de kandidaten.
+// De zaak "Rit niet ingevuld" (zaken.js, sleutel N:<id>) is één zaak in drie fasen (ritFase):
+//   'bel'    vanaf een half uur voor het belmoment: uiterlijk dan iemand vragen (het belmoment is de deadline)
+//   'laat'   het belmoment is voorbij, of er was er geen toen de rit bekend werd: niemand haalt het venster meer
+//   'gemist' het venster is voorbij en niemand rijdt hem: hij staat in Open ritten als gemist en telt naast Op tijd
+// Keuzes: wie het venster haalt (zolang dat kan), alsnog een charter (die vertrekt dan later), morgen als eerste (laden vroeg
+// in de ochtend) of de klant bellen of een bericht sturen. Een rit die alsnog is toegewezen, telt niet als gemist (hij is
+// laat gereden); een rit die naar morgen ging, wel. Alles gesimuleerd.
 export const MORGEN_EERSTE = [240, 300];
+export const BEL_VOORAF = 30;
+const ALLE = { eigen: 999, oproep: 999, charter: 999 };
+// het laatste moment waarop kandidaat k het venster nog haalt (minuten van vandaag; -Infinity als nooit)
+function laatsteVraag(k, v1) {
+  if (k.soort === 'eigen' && k.aanrij === AANRIJ_KOPPELEN) return Math.max(v1 - thuisMin(k.id), k.vertrek <= v1 ? k.vertrek - AANRIJ_KOPPELEN : -Infinity);
+  return typeof k.aanrij === 'number' ? v1 - k.aanrij : -Infinity;
+}
+// { T: het belmoment (minuten van vandaag) of null als geen kandidaat het venster haalt, k: die kandidaat, n: hoeveel
+// kandidaten het venster halen als je ze vraagt zodra de rit bekend is }
+const bmCache = new Map(); let bmVer = null;
+export function belmoment(ctx, p) {
+  if (!p || p.dag === 'morgen' || !p.venster) return null;
+  const ver = ctx.R && ctx.R.ver ? ctx.R.ver() : 0; if (ver !== bmVer) { bmCache.clear(); bmVer = ver; }
+  if (bmCache.has(p.id)) return bmCache.get(p.id);
+  const v1 = p.venster[1]; const T0 = Math.max(0, p.bekend);
+  const L = (ctx.fleet.kandidaten(p, { T: T0, people: ctx.people, toegewezen: toewijzingen(ctx), max: ALLE }) || []).map(k => caoRust(ctx, p, k)).filter(k => k.beschikbaar);
+  let best = null, n = 0;
+  for (const k of L) { const t = laatsteVraag(k, v1); if (!(t > -Infinity)) continue; if (t >= T0) n++; if (!best || t > best.t || (t === best.t && k.kans > best.k.kans)) best = { t, k }; }
+  const out = best ? { T: Math.floor(best.t / 5) * 5, k: best.k, n } : { T: null, k: null, n: 0 };
+  bmCache.set(p.id, out); return out;
+}
+// wie je nu vraagt en het venster haalt (beschikbaar, vertrek binnen het venster als je nu vraagt): de grootste kans op een
+// ja eerst, dan de laagste kosten; per vijf minuten en planversie opnieuw
+const hvCache = new Map(); let hvSig = '';
+export function haaltVenster(ctx, p) {
+  if (!p || p.dag === 'morgen' || !p.venster || Tn(ctx) >= p.venster[1]) return [];
+  const sig = `${Math.floor(Tn(ctx) / 5)}|${ctx.R && ctx.R.ver ? ctx.R.ver() : 0}`; if (sig !== hvSig) { hvCache.clear(); hvSig = sig; }
+  if (hvCache.has(p.id)) return hvCache.get(p.id);
+  const v1 = p.venster[1];
+  const L = (ctx.fleet.kandidaten(p, { T: Tn(ctx), people: ctx.people, toegewezen: toewijzingen(ctx), max: ALLE }) || []).map(k => caoRust(ctx, p, k))
+    .filter(k => k.beschikbaar && typeof k.vertrek === 'number' && k.vertrek <= v1).sort((a, b) => b.kans - a.kans || a.kosten.bedrag - b.kosten.bedrag);
+  hvCache.set(p.id, L); return L;
+}
+// De collega's (fleet: p.collega, gesimuleerd, zo vaak als de prognose zegt) vullen een rit op het laatst in, maar voordat
+// hij een zaak wordt: in het kwartier voor de zaak zou ontstaan (een half uur voor het belmoment; vast per rit), of meteen
+// als de rit pas laat bekend werd. Zo staat een rit in Open ritten tot kort voor hij dringend wordt. Haalt niemand het venster
+// als de rit bekend wordt, dan kan ook een collega hem niet op tijd invullen: dan blijft hij open. Het moment (minuten van
+// vandaag) of null.
+export function collegaMoment(ctx, p) {
+  if (!p || !p.collega || p.dag === 'morgen' || !p.venster) return null;
+  const b = belmoment(ctx, p); const T0 = Math.max(0, p.bekend);
+  if (!b || b.T === null || b.T < T0) return null;
+  return Math.max(T0, b.T - BEL_VOORAF - 1 - Math.round(15 * hashStr(`collega-om|${p.id}`) / 4294967296));
+}
+// door een collega ingevuld op T (gesimuleerd)
+export function collegaOm(ctx, p, T) {
+  if (!p || !p.collega || p.gepland || p.morgenEerste || p.dag === 'morgen' || !(T >= 0 && T < 1440) || p.bekend > T) return false;
+  const m = collegaMoment(ctx, p); return m !== null && T >= m;
+}
 // het laadvenster van vandaag (een rit die naar morgen ging, houdt het oude in morgenEerste.van)
 export const vensterVandaag = p => (p.morgenEerste ? p.morgenEerste.van : p.venster);
-// gemist om T (minuten van vandaag): een rit van vandaag, toen al bekend, het venster voorbij, en vandaag rijdt niemand hem.
-// Een rit die een collega op het laatst invulde (fleet: p.collega, gesimuleerd, volgens de kans op invulling), is niet gemist.
-export function gemistOm(p, T) {
+// gemist om T (minuten van vandaag): een rit van vandaag, toen al bekend, het venster voorbij, en vandaag rijdt niemand hem
+export function gemistOm(ctx, p, T) {
   if (!p || (p.dag === 'morgen' && !p.morgenEerste) || !(T >= 0 && T < 1440)) return false;
   const v = vensterVandaag(p); if (!v || p.bekend > T || T < v[1]) return false;
-  return !!p.morgenEerste || (!p.gepland && !p.collega);
+  return !!p.morgenEerste || (!p.gepland && !collegaOm(ctx, p, T));
 }
-// nog open: gemist en de planner koos nog niets (geen toewijzing, niet naar morgen); dan is er een zaak
-export const gemistOpen = (p, T) => gemistOm(p, T) && !p.morgenEerste && !p.gepland;
-// door een collega ingevuld (gesimuleerd): het venster is voorbij, de kijker deed niets, een collega vond iemand
-export const collegaOm = (p, T) => !!p && !!p.collega && !p.gepland && !p.morgenEerste && p.dag !== 'morgen' && p.bekend <= T && T >= p.venster[1] && T < 1440;
-export const collegaIn = ctx => poolAlles(ctx).filter(p => collegaOm(p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => b.venster[1] - a.venster[1] || (a.id < b.id ? -1 : 1));
+// nog open: gemist en de planner koos nog niets (geen toewijzing, niet naar morgen)
+export const gemistOpen = (ctx, p, T) => gemistOm(ctx, p, T) && !p.morgenEerste && !p.gepland;
+// de fase van de zaak "Rit niet ingevuld" op T: 'bel', 'laat', 'gemist', of null (geen zaak: nog niet bekend of nog niet
+// dringend, toegewezen, door een collega ingevuld, morgen als eerste, of een rit van morgen)
+export function ritFase(ctx, p, T) {
+  if (!p || p.dag === 'morgen' || p.gepland || p.morgenEerste || !p.venster || !(T >= 0 && T < 1440) || p.bekend > T) return null;
+  if (collegaOm(ctx, p, T)) return null;
+  if (T >= p.venster[1]) return 'gemist';
+  const b = belmoment(ctx, p); const B = b ? b.T : null;
+  if (B === null || B < Math.max(0, p.bekend) || T > B) return 'laat';
+  return T >= B - BEL_VOORAF ? 'bel' : null;
+}
+// voor de kaart van een open rit van vandaag: { tekst, rood, B }; rood vanaf een half uur voor het belmoment
+export function belLabel(ctx, p) {
+  if (!p || p.dag === 'morgen' || p.gepland || !p.venster) return null;
+  const T = Tn(ctx); if (T >= p.venster[1]) return null;
+  const b = belmoment(ctx, p); const B = b ? b.T : null;
+  if (B === null || B < Math.max(0, p.bekend)) return { tekst: 'niemand haalt het venster', rood: true, B };
+  if (T > B) return { tekst: 'niemand haalt het venster meer', rood: true, B };
+  return { tekst: `uiterlijk vragen ${hhmm(B)}`, rood: B - T <= BEL_VOORAF, B };
+}
+export const collegaIn = ctx => poolAlles(ctx).filter(p => collegaOm(ctx, p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => b.venster[1] - a.venster[1] || (a.id < b.id ? -1 : 1));
 // de gemiste ritten van vandaag in het werkgebied, de nieuwste eerst
-export const gemistIn = ctx => poolAlles(ctx).filter(p => gemistOm(p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => vensterVandaag(b)[1] - vensterVandaag(a)[1] || (a.id < b.id ? -1 : 1));
+export const gemistIn = ctx => poolAlles(ctx).filter(p => gemistOm(ctx, p, Tn(ctx))).filter(p => { const sp = SP.find(s => s.n === p.sp); return sp && ctx.inScopeBase(sp, p.div); }).sort((a, b) => vensterVandaag(b)[1] - vensterVandaag(a)[1] || (a.id < b.id ? -1 : 1));
 // de planning van de klant om te bellen (gesimuleerd: een vast nummer 0229 0…, een reeks die het nummerplan niet uitgeeft)
 export function klantPlanning(p) {
   const k = p.klant || 'de klant'; const n = String(hashStr(`klant|${k}|${p.sp}`) % 1000000).padStart(6, '0');
   return { naam: `Planning ${k}`, tel: `0229 0${n[0]} ${n.slice(1, 3)} ${n.slice(3, 5)}` };
 }
-// het bericht aan de klant over een gemiste rit (de planner kopieert het of leest het voor; er gaat niets de deur uit).
-// nogIemand: true of onbekend (undefined) zegt dat we nog een wagen zoeken; false (geen charter, eigen chauffeur of
-// oproepkracht meer vrij) stelt meteen morgen als eerste voor, zodat het bericht niet belooft wat de keuzes al uitsluiten
-export function klantBerichtGemist(p, nogIemand) {
+// het bericht aan de klant over een rit die niemand rijdt (de planner kopieert het of leest het voor; er gaat niets de deur
+// uit), per fase van de zaak: 'bel' (nog geen chauffeur, we zoeken er een), 'laat' (gaat niet op tijd weg), 'gemist' (is niet
+// op tijd vertrokken). nogIemand: true of onbekend (undefined) zegt dat we nog een wagen zoeken; false (geen charter, eigen
+// chauffeur of oproepkracht meer vrij) stelt meteen morgen als eerste voor, zodat het bericht niet belooft wat de keuzes al
+// uitsluiten
+export function klantBerichtGemist(p, nogIemand, fase = 'gemist') {
   const v = vensterVandaag(p); const n = (p.stops || []).length; const naar = (p.stops || []).slice(0, 2).map(s => s.name).join(' en ');
-  return `Je rit van vandaag uit ${p.sp} (laden ${hhmm(v[0])} tot ${hhmm(v[1])}${n ? `, ${n} ${n === 1 ? 'stop' : 'stops'}${naar ? `: ${naar}` : ''}` : ''}) is niet op tijd vertrokken. ${nogIemand === false ? `Er is vandaag geen wagen meer vrij. Ons voorstel: morgen als eerste, laden vanaf ${hhmm(morgenVenster(p)[0])}. Past dat? Dan zetten we hem zo vast.` : "We zoeken nog een andere wagen; lukt dat niet, dan leveren we morgen als eerste. Je hoort binnen een uur van ons."}`;
+  const rit = `Je rit van vandaag uit ${p.sp} (laden ${hhmm(v[0])} tot ${hhmm(v[1])}${n ? `, ${n} ${n === 1 ? 'stop' : 'stops'}${naar ? `: ${naar}` : ''}` : ''})`;
+  if (fase === 'bel') return `${rit} heeft nog geen chauffeur. We zoeken er een die op tijd weg kan; lukt dat niet, dan bellen we je meteen.`;
+  return `${rit} ${fase === 'laat' ? 'gaat niet op tijd weg' : 'is niet op tijd vertrokken'}. ${nogIemand === false ? `Er is vandaag geen wagen meer vrij. Ons voorstel: morgen als eerste, laden vanaf ${hhmm(morgenVenster(p)[0])}. Past dat? Dan zetten we hem zo vast.` : 'We zoeken nog een andere wagen; lukt dat niet, dan leveren we morgen als eerste. Je hoort binnen een uur van ons.'}`;
 }
 // morgen als eerste (met de klant afgesproken): laden morgen vanaf 04:00, of eerder als het venster van vandaag eerder lag
 export const morgenVenster = p => { const v0 = Math.min(vensterVandaag(p)[0], MORGEN_EERSTE[0]); return [v0, v0 + 60]; };
@@ -216,12 +297,13 @@ export function contact(ctx, item, wie, soort, tekst) {
   ctx.runAction({ k: 'contact', id: item.id, wie, soort, T: Tn(ctx) }, true);
   if (tekst) ctx.A.log(tekst, { pool: item.id });
 }
-// een gemiste rit morgen als eerste: de klant weet het (afgesproken), de rit staat bij de open ritten van morgen
+// een rit die niemand rijdt morgen als eerste (voor of na het venster): de klant weet het (afgesproken), de rit staat bij de
+// open ritten van morgen
 export function morgenAlsEerste(ctx, item) {
   if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers wijzigen het plan.', { icon: 'lock' }); return { ok: false }; }
   if (item.gepland || item.morgenEerste) { ctx.L.toast(item.morgenEerste ? 'Deze rit staat al morgen als eerste.' : 'Deze rit is al toegewezen.', { icon: 'info' }); return { ok: false }; }
   const v = morgenVenster(item); const kp = klantPlanning(item);
-  contact(ctx, item, [kp.naam], 'morgen', `zette gemiste rit ${item.id} van ${item.klant || 'de klant'} (${item.sp}) morgen als eerste: laden ${hhmm(v[0])} tot ${hhmm(v[1])}, met de klant afgesproken`);
+  contact(ctx, item, [kp.naam], 'morgen', `zette ${Tn(ctx) >= vensterVandaag(item)[1] ? 'gemiste' : 'open'} rit ${item.id} van ${item.klant || 'de klant'} (${item.sp}) morgen als eerste: laden ${hhmm(v[0])} tot ${hhmm(v[1])}, met de klant afgesproken`);
   ctx.Z.logZaak(`N:${item.id}`, `morgen als eerste gezet: laden morgen ${hhmm(v[0])} tot ${hhmm(v[1])}`);
   ctx.L.toast(`Rit ${item.id} staat morgen als eerste (laden ${hhmm(v[0])} tot ${hhmm(v[1])}) bij de open ritten van morgen.`, { icon: 'check', ms: 6000 });
   ctx.refreshAll(false); return { ok: true };

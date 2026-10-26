@@ -124,11 +124,26 @@ export function createRitten(fleet) {
     const rel = (((T - t.dayStart) % 1440) + 1440) % 1440; const at = t.dayStart + rel;
     return L.find(r => at >= r.dep && at < r.end) || L.find(r => at < r.dep) || (Td < t.dayStart ? L[0] : L[L.length - 1]);
   }
+  // De nachtdienst van gisteren. Het plan van een voertuig herhaalt zich elke dag (fleet.stateAt rekent met de plek van de
+  // klok in het dagplan): wat het na middernacht van zijn plan rijdt (een rit die na 24:00 eindigt), reed het vannacht ook,
+  // als het eind van de dienst van gisteren. vanGisteren(t, T, S) geeft die ritten met hun tijden min een dag (a en b,
+  // minuten van vandaag; a kan voor 00:00 liggen), de plek in het dagplan (at, voor de voortgang) en hun stand op T:
+  // 'afgerond' (al gereden), de stand van het voertuig als het hem nu rijdt (nu: voor de eerste dienst van vandaag), of
+  // 'gepland' (komt nog deze nacht). Zo tekent het planbord om 04:00 wat een voertuig nog van gisteren rijdt.
+  function vanGisteren(t, T, S) {
+    const L = data().byTruck.get(t) || []; const Td = ((T % 1440) + 1440) % 1440; const out = [];
+    for (const r of L) {
+      if (!(r.end > 1440)) continue;
+      const a = r.dep - 1440, b = r.end - 1440; const nu = Td < t.dayStart && Td >= a && Td < b;
+      out.push({ r, a, b, nu, at: Td + 1440, st: Td >= b ? 'afgerond' : nu ? stateOf(r, T, S).st : 'gepland' });
+    }
+    return out;
+  }
   // naam(route, id): een vast ritnummer voor een route die de planner toevoegt (een rit uit de pool)
   const naam = (route, id) => { ids.set(route, id); ver++; };
   // de rit bij een ritnummer van fleet.js (1, 2, ... in de routes van het voertuig: blocks, dockPlan, eventsOf)
   const vanNr = (t, nr) => { if (!t || !nr) return null; const rt = t.routes[nr - 1]; return rt ? (data().byTruck.get(t) || []).find(r => r.routes.includes(rt)) || null : null; };
-  return { all: () => data().rits, get: id => data().byId.get(id) || null, ofTruck: t => data().byTruck.get(t) || [], stateOf, ritOf, vanNr, bump, naam, ver: () => ver };
+  return { all: () => data().rits, get: id => data().byId.get(id) || null, ofTruck: t => data().byTruck.get(t) || [], stateOf, ritOf, vanGisteren, vanNr, bump, naam, ver: () => ver };
 }
 
 // ---------- weergave Ritten ----------

@@ -11,8 +11,8 @@ import { KIND, TRT } from '../fleet.js';
 import { esc, ic, fmt, hhmm, plate, on, VST, ritBadge, swap, kortStop, initials } from './base.js';
 import { poolInvoer, pool, poolNu, absT, docksVan, vensterAbs } from './planwijzig.js';
 import * as IP from './inplannen.js';
-import { openRitDialoog, kansChip } from './openritten.js';
-import { urgentie, urgentieTxt, urgentieKlas, prognose, voorkeurenVan, pastVoorkeur, ritVoor, toegewezen, wieSoort } from './invulling.js';
+import { openRitDialoog, kansChip, belSpan } from './openritten.js';
+import { urgentie, urgentieTxt, urgentieKlas, prognose, voorkeurenVan, pastVoorkeur, ritVoor, toegewezen, wieSoort, collegaOm } from './invulling.js';
 
 const MIN = 60000;
 const KLEUR = { drive: 'var(--c-onderweg)', stop: 'var(--c-klant)', pauze: 'var(--c-pauze)', laden: '#0E7490', koppel: 'var(--c-terrein)', ontkoppel: 'var(--c-terrein)', terrein: 'var(--c-terrein)', dock: 'var(--c-terrein)' };
@@ -29,6 +29,8 @@ const MODES = [['voertuig', 'Per voertuig'], ['chauffeur', 'Per chauffeur'], ['d
 const ZOOMS = [2, 6, 12, 24];
 const DAGEN = [['gisteren', 'Gisteren'], ['vandaag', 'Vandaag'], ['morgen', 'Morgen']];
 const RM = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+// de arcering van de nachtdienst van gisteren, over het hele blok (in de tekstkleur, zodat hij in beide thema's werkt)
+const STREEP = '<span aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 22%,transparent) 0 3px,transparent 3px 7px)"></span>';
 
 export function renderPlanbord(ctx, el) {
   const pb = ctx.ui.pbState || (ctx.ui.pbState = createBoard(ctx, el));
@@ -126,7 +128,7 @@ function createBoard(ctx, el) {
   // de legenda in een popover, voor het bord dat je nu ziet
   function legendaHtml() {
     if (f.per === 'dock') return `<div class="menu-h">Legenda docks</div><div class="legend col"><span><i class="d-vertrek"></i>Koppelen voor vertrek</span><span><i class="d-laden"></i>Laden aan het dock</span><span><i class="d-aankomst"></i>Retouren en afkoppelen</span><span><i class="late"></i>Twee blokken tegelijk</span></div>`;
-    return `<div class="menu-h">Legenda</div><div class="legend col">${['drive', 'stop', 'dock', 'pauze', 'laden'].map(k => `<span><i style="--c:${KLEUR[k]}"></i>${NAAM[k]}</span>`).join('')}<span><i class="wacht"></i>Wacht op een vrij dock</span><span><i class="gereden"></i>Gereden (gevuld)</span><span><i class="gepland"></i>Nog te rijden (licht)</span><span><i class="late"></i>Langer dan gepland (vertraging)</span><span><i class="open"></i>Open rit, nog geen voertuig</span><span><i class="ing"></i>Door de planner ingepland</span><span><i class="lock"></i>Begonnen, blijft op dit voertuig</span><span><i class="vk"></i>Tegen de voorkeur van de chauffeur</span><span><i class="av"></i>Gevraagd, wacht op een ja</span></div><p class="hint" style="padding:6px 12px 10px;max-width:280px">Een rit die nog niet begon, sleep je naar een ander voertuig of een andere tijd.</p>`;
+    return `<div class="menu-h">Legenda</div><div class="legend col">${['drive', 'stop', 'dock', 'pauze', 'laden'].map(k => `<span><i style="--c:${KLEUR[k]}"></i>${NAAM[k]}</span>`).join('')}<span><i class="wacht"></i>Wacht op een vrij dock</span><span><i class="gereden"></i>Gereden (gevuld)</span><span><i class="gepland"></i>Nog te rijden (licht)</span><span><i class="late"></i>Langer dan gepland (vertraging)</span><span><i class="open"></i>Open rit, nog geen voertuig</span><span><i class="ing"></i>Door de planner ingepland</span><span><i class="lock"></i>Begonnen, blijft op dit voertuig</span><span><i style="background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 22%,transparent) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 1px var(--line2)"></i>Nachtdienst van gisteren (gestreept)</span><span><i class="vk"></i>Tegen de voorkeur van de chauffeur</span><span><i class="av"></i>Gevraagd, wacht op een ja</span></div><p class="hint" style="padding:6px 12px 10px;max-width:280px">Een rit die nog niet begon, sleep je naar een ander voertuig of een andere tijd.</p>`;
   }
   on(el, 'click', '[data-pbfilters]', (e, b) => openFilters(b));
   on(el, 'click', '[data-pblegenda]', (e, b) => ctx.L.openPop(b, legendaHtml(), { label: 'Legenda', align: 'right' }));
@@ -155,13 +157,14 @@ function createBoard(ctx, el) {
   // vertraging (de rit duurt langer dan gepland) staat erachter in de statuskleur
   // av: de rit wacht op een ja (toegewezen, nog niet bevestigd): een arcering in de waarschuwingskleur over het hele blok,
   // boven de segmenten (anders dekken die hem af), en "gevraagd" in de tweede regel, zoals bij de rijen van een charter
-  function ritHtml(r, rs, av = false) {
+  // opts.voor: tekst voor de tijden in de tweede regel; opts.streep: gestreept (de nachtdienst van gisteren)
+  function ritHtml(r, rs, av = false, opts = {}) {
     const t = r.t; const P = t.plan; const a = P[r.i0].t0, b = P[r.i1].t1, len = Math.max(1, b - a);
     const segs = P.slice(r.i0, r.i1 + 1).filter(s => s.t1 - s.t0 > 0.5).map(s => `<i class="${segKlas(s)}" style="left:${((s.t0 - a) / len * 100).toFixed(2)}%;width:${((s.t1 - s.t0) / len * 100).toFixed(2)}%"></i>`).join('');
     const dest = r.dest.length ? kortStop(r.dest[0]) + (r.dest.length > 1 ? ` +${r.dest.length - 1}` : '') : 'rit';
     const nowPct = rs.st !== 'gepland' && rs.st !== 'afgerond' ? Math.max(0, Math.min(100, (rs.at - absT(t, a)) / len * 100)) : rs.st === 'afgerond' ? 100 : 0;
     const dl = t.delayResolved ? 0 : P.slice(r.i0, r.i1 + 1).reduce((x, s) => x + (s.k === 'drive' ? s.delay || 0 : 0), 0); const planPct = Math.max(0, Math.min(100, (len - dl) / len * 100));
-    return `<span class="sg-r">${segs}</span>${nowPct < 100 ? `<span class="sg-fut" style="left:${nowPct.toFixed(1)}%"></span>` : ''}${dl ? `<span class="sg-plan" style="width:${planPct.toFixed(1)}%"></span><span class="sg-dl" style="left:${planPct.toFixed(1)}%"></span>` : ''}${av ? '<span class="sg-arc" aria-hidden="true"></span>' : ''}<span class="sg-l"><b>${esc(dest)}</b><small>${av ? '<span class="sg-av">gevraagd</span> · ' : ''}${hhmm(absT(t, a))}–${hhmm(absT(t, b))}${dl ? ` · +${Math.round(dl)} min` : ''}</small></span>`;
+    return `<span class="sg-r">${segs}</span>${nowPct < 100 ? `<span class="sg-fut" style="left:${nowPct.toFixed(1)}%"></span>` : ''}${dl ? `<span class="sg-plan" style="width:${planPct.toFixed(1)}%"></span><span class="sg-dl" style="left:${planPct.toFixed(1)}%"></span>` : ''}${av ? '<span class="sg-arc" aria-hidden="true"></span>' : ''}${opts.streep ? STREEP : ''}<span class="sg-l"><b>${esc(dest)}</b><small>${opts.voor ? esc(opts.voor) : ''}${av ? '<span class="sg-av">gevraagd</span> · ' : ''}${hhmm(absT(t, a))}–${hhmm(absT(t, b))}${dl ? ` · +${Math.round(dl)} min` : ''}</small></span>`;
   }
   // een stille markering als de rit slecht past bij de voorkeur van de chauffeur (fleet.past: divisie, dienstdeel, weekend,
   // regio); een rit die nog op een ja wacht, staat gearceerd
@@ -172,14 +175,25 @@ function createBoard(ctx, el) {
   }
   function aangevraagd(r) { const pid = (r.routes.find(x => x.pool) || {}).pool; if (!pid) return false; const it = pool(ctx).find(p => p.id === pid); return !!(it && it.toegewezen && it.toegewezen.status === 'aangevraagd'); }
   function ritTask(r, resourceId) {
-    const rs = ctx.R.stateOf(r, T(), S); const t = r.t; const P = t.plan;
-    const late = rs.winMiss > 0 || rs.lateStops > 0 || P.slice(r.i0, r.i1 + 1).some(s => s.delay && !t.delayResolved);
-    const vast = rs.st !== 'gepland' || T() >= absT(t, P[r.i0].t0) || !ctx.can('act');
+    const rs0 = ctx.R.stateOf(r, T(), S); const t = r.t; const P = t.plan;
+    // een nachtrit die het voertuig nu nog van gisteren rijdt (het gestreepte blok links, R.vanGisteren): hier staat hij voor
+    // vannacht, nog te rijden, en vast (het plan is dat van gisteren, dus verplaatsen kan pas als hij klaar is)
+    const Td = ((T() % 1440) + 1440) % 1440; const nacht = Td < t.dayStart && r.end > 1440 && rs0.st !== 'gepland' && rs0.st !== 'afgerond';
+    const rs = nacht ? { ...rs0, st: 'gepland', at: Td, winMiss: 0, lateStops: 0 } : rs0;
+    const late = !nacht && (rs.winMiss > 0 || rs.lateStops > 0 || P.slice(r.i0, r.i1 + 1).some(s => s.delay && !t.delayResolved));
+    const vast = nacht || rs.st !== 'gepland' || T() >= absT(t, P[r.i0].t0) || !ctx.can('act');
     const ing = P.slice(r.i0, r.i1 + 1).some(s => s.ingevoegd) || r.routes.some(x => x.pool);
     const vk = rs.st === 'gepland' ? voorkeurVan(r) : null; const av = ing && aangevraagd(r);
     const dl = t.delayResolved ? 0 : P.slice(r.i0, r.i1 + 1).reduce((x, s) => x + (s.k === 'drive' ? s.delay || 0 : 0), 0);
-    return { id: r.id, resourceId, from: ms(absT(t, P[r.i0].t0)), to: ms(absT(t, P[r.i1].t1)), html: ritHtml(r, rs, av) + (vk ? `<span class="sg-vk" title="Tegen voorkeur. ${esc(vk)}" aria-label="Tegen voorkeur. ${esc(vk)}"></span>` : ''), label: `Rit ${r.id}${rs.st === 'afgerond' ? ', gereden' : rs.st === 'gepland' ? ', gepland' : ', onderweg'}${dl ? `, ${Math.round(dl)} min later dan gepland` : ''}${vk ? `, tegen voorkeur: ${vk}` : ''}${av ? ', wacht op een ja' : ''}`,
+    return { id: r.id, resourceId, from: ms(absT(t, P[r.i0].t0)), to: ms(absT(t, P[r.i1].t1)), html: ritHtml(r, rs, av) + (vk ? `<span class="sg-vk" title="Tegen voorkeur. ${esc(vk)}" aria-label="Tegen voorkeur. ${esc(vk)}"></span>` : ''), label: `Rit ${r.id}${nacht ? ', vannacht; rijdt nu nog van gisteren' : rs.st === 'afgerond' ? ', gereden' : rs.st === 'gepland' ? ', gepland' : ', onderweg'}${dl ? `, ${Math.round(dl)} min later dan gepland` : ''}${vk ? `, tegen voorkeur: ${vk}` : ''}${av ? ', wacht op een ja' : ''}`,
       classes: `pb-rit st-${rs.st}${late ? ' late' : ''}${ing ? ' ing' : ''}${vast ? ' vast' : ''}${vk ? ' tegen' : ''}${av ? ' aangevraagd' : ''}`, enableDragging: !vast, draggable: !vast, enableResize: false, resizable: false };
+  }
+  // de nachtdienst van gisteren (R.vanGisteren): wat een voertuig vannacht na middernacht reed of nog rijdt, op zijn eigen
+  // rij van 00:00 tot het eind, gestreept, vast en met 'van gisteren'; alleen op Vandaag (de legenda noemt de arcering)
+  function gisterenNachtTasks(t, resourceId) {
+    if (f.dag !== 'vandaag') return [];
+    return R.vanGisteren(t, T(), S).filter(g => g.b > 0).map(g => ({ id: `g-${g.r.id}`, rit: g.r.id, resourceId, from: ms(g.a), to: ms(g.b), html: ritHtml(g.r, { st: g.st, at: g.at }, false, { voor: 'van gisteren · ', streep: true }),
+      label: `Rit ${g.r.id} van gisteren (nachtdienst), ${g.nu ? 'rijdt nu' : g.st === 'afgerond' ? 'gereden' : 'komt nog'}`, classes: `pb-rit pb-gisteren st-${g.st} vast`, enableDragging: false, draggable: false, enableResize: false, resizable: false }));
   }
   // toegewezen ritten zonder voertuig op het bord (een charter, een rit van morgen, of nog geen vrij voertuig): een eigen rij
   // per charter of persoon, boven de voertuigen
@@ -241,6 +255,7 @@ function createBoard(ctx, el) {
         rows.push({ id: t.id, label: t.id, classes: `${t.vandaag !== 'inzet' ? 'idle' : ''}`, enableDragging: true, draggable: true,
           headerHtml: `<div class="pb-who" title="${esc(`${t.id} · ${KIND[t.kind].n}${t.ev ? ', elektrisch' : ''}${t.diensten.length ? ` · ${t.diensten.map(d => `${d.driver} ${hhmm(d.start)}–${hhmm(d.end)}`).join(', ')}` : ''}${s && s.tr ? ` · ${s.tr.id}` : ''}`)}">${plate(t.id)}<div><b>${who}</b><span>${esc(KIND[t.kind].n)}${t.ev ? ' · EV' : ''}${s && s.tr ? ` · ${esc(s.tr.id)}` : ''}</span></div><i class="dot st-${s ? s.st : 'terrein'}" aria-hidden="true"></i></div>` });
         for (const r of R.ofTruck(t)) tasks.push(ritTask(r, t.id));
+        tasks.push(...gisterenNachtTasks(t, t.id));
         tasks.push(...extraTasks(t, t.id));
       }
     } else if (f.per === 'chauffeur') {
@@ -392,7 +407,7 @@ function createBoard(ctx, el) {
   }
 
   // ---------- pool ----------
-  function poolItems(sp) { return poolNu(ctx).filter(p => p.sp === sp.n).map(p => [p, urgentie(ctx, p)]).sort((a, b) => (a[0].dag === 'morgen') - (b[0].dag === 'morgen') || a[1] - b[1]).map(x => x[0]); }
+  function poolItems(sp) { return poolNu(ctx).filter(p => p.sp === sp.n && !collegaOm(ctx, p, T())).map(p => [p, urgentie(ctx, p)]).sort((a, b) => (a[0].dag === 'morgen') - (b[0].dag === 'morgen') || a[1] - b[1]).map(x => x[0]); }
   const uur = m => { m = Math.round(m); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} u`; };
   const bekendTxt = p => p.bekend === undefined || p.bekend === null ? '' : p.bekend < 0 ? 'sinds gisteren' : `sinds ${hhmm(p.bekend)}`;
   function poolHtml(sp) {
@@ -403,7 +418,7 @@ function createBoard(ctx, el) {
       <div class="pk-h"><b title="${esc(kl)}">${esc(kl.replace(/^Albert Heijn\b/, 'AH'))}</b><span class="badge sm">${esc(p.oplegger ? OPL[p.oplegger] || p.oplegger : SOORTK[p.soort] || 'rit')}</span></div>
       <div class="pk-s" title="${esc(st.map(x => x.naam).join(', '))}">${esc(st.map(x => kortStop(x.naam)).join(' · ') || 'rit')}</div>
       <div class="pk-m">laden ${p.venster ? `${hhmm(p.venster[0])}–${hhmm(p.venster[1])}` : 'vrij'} · ${uur(p.duur || (inv.t1 - inv.t0))} · ${fmt(p.km || inv.km)} km</div>
-      <div class="pk-r" title="${esc(red)}">${esc(red)}${bekendTxt(p) ? ` · ${esc(bekendTxt(p))}` : ''}</div>
+      <div class="pk-r" title="${esc(red)}">${dag === 'vandaag' ? belSpan(ctx, p, '', ' · ') : ''}${esc(red)}${bekendTxt(p) ? ` · ${esc(bekendTxt(p))}` : ''}</div>
       <div class="pk-a">${ctx.can('act') ? `<button class="btn xs" type="button" data-pkwaar="${esc(p.id)}" title="Eigen chauffeurs, oproepkrachten en charters, elk met reden en kosten">${ic('plus', 13)}Rit inplannen</button>` : ''}${p.route ? `<button class="btn xs ghost" type="button" data-pkkaart="${esc(p.id)}" title="De route van rit ${esc(p.id)} op de kaart">${ic('map', 13)}Kaart</button>` : ''}</div></div>`; };
     return `<div class="pk-bar"><button class="pk-tg" type="button" data-pktg="1" aria-expanded="${f.poolOpen}">${ic(f.poolOpen ? 'chevd' : 'chevu', 15)}<b>Open ritten</b> <span class="n">${L.length}</span></button>
       <div class="seg" role="group" aria-label="Dag"><button type="button" data-pkdag="vandaag" aria-pressed="${dag === 'vandaag'}">Vandaag ${n0}</button><button type="button" data-pkdag="morgen" aria-pressed="${dag === 'morgen'}">Morgen ${n1}</button></div>

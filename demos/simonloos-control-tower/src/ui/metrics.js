@@ -42,7 +42,7 @@ export function createMetrics(ctx) {
   // gemist: open ritten van vandaag die na hun laadvenster niet zijn ingevuld (invulling.gemistOm), in het werkgebied; ze
   // tellen naast Op tijd (de stops die wel gereden zijn)
   const spVan = n => SP.find(s => s.n === n) || null;
-  function gemistTot(T) { let n = 0; for (const p of poolAlles(ctx)) { if (!gemistOm(p, T)) continue; const sp = spVan(p.sp); if (sp && ctx.inScopeBase(sp, p.div)) n++; } return n; }
+  function gemistTot(T) { let n = 0; for (const p of poolAlles(ctx)) { if (!gemistOm(ctx, p, T)) continue; const sp = spVan(p.sp); if (sp && ctx.inScopeBase(sp, p.div)) n++; } return n; }
   function sample(T, trucks, trailers) {
     index(); const o = { onderweg: 0, vertraagd: 0, klant: 0, pauze: 0, terrein: 0, laden: 0, stops: 0, late: 0, wacht: 0, wachtLaat: 0, gemist: 0 };
     for (const t of trucks) { const s = stAt(t, T); o[s.st]++; if (s.laden) o.laden++; const k = stopsTill(t, T); o.stops += k.n; o.late += k.late; }

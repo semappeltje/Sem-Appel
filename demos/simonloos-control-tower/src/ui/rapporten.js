@@ -25,8 +25,9 @@ export function renderRapporten(ctx, el) {
   // dagen: vandaag gemeten (tot nu), de 29 dagen ervoor uit de 30-dagenstiptheid per voertuig plus een vaste afwijking per
   // dag en een dip in het weekend (minder ritten, krappere vensters); gesimuleerd en zo gemarkeerd
   const base = trucks.length ? trucks.reduce((a, t) => a + ctx.people.forTruck.get(t.id).onTime, 0) / trucks.length : 96;
+  // dag voor dag op de kalender (setDate), niet in blokken van 24 uur: zo blijft elke dag om 12:00, ook over de zomertijd
   const d0 = new Date(); d0.setHours(12, 0, 0, 0); const days = [];
-  for (let k = -29; k <= 0; k++) { const d = new Date(d0.getTime() + k * 864e5); const gem = k === 0 && now !== null && tot.n >= 30; const wd = d.getDay(); const v = gem ? now : Math.max(80, Math.min(99.6, base + (hash(`${ctx.scopeKey()}|${d.toDateString()}`) - 0.5) * 3.6 - (wd === 0 || wd === 6 ? 0.8 : 0))); days.push({ k, d, l: d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, ''), v: Math.round(v * 10) / 10, cur: k === 0, gemeten: gem }); }
+  for (let k = -29; k <= 0; k++) { const d = new Date(d0); d.setDate(d0.getDate() + k); const gem = k === 0 && now !== null && tot.n >= 30; const wd = d.getDay(); const v = gem ? now : Math.max(80, Math.min(99.6, base + (hash(`${ctx.scopeKey()}|${d.toDateString()}`) - 0.5) * 3.6 - (wd === 0 || wd === 6 ? 0.8 : 0))); days.push({ k, d, l: d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, ''), v: Math.round(v * 10) / 10, cur: k === 0, gemeten: gem }); }
   // wachttijd per DC (en fabriek, groothandel): minuten voor het lossen, gemiddeld en het 90e percentiel, vandaag in het plan
   const wpp = (ctx.fleet.wachtPerPlek ? ctx.fleet.wachtPerPlek() : []).filter(w => w.soort === 'dc' || w.soort === 'fabriek' || w.soort === 'groothandel').filter(w => w.n >= 3).sort((a, b) => b.gem - a.gem || b.n - a.n);
   const wTop = wpp.slice(0, 12); const wMax = Math.max(10, Math.ceil(Math.max(0, ...wTop.map(w => w.gem)) / 10) * 10);

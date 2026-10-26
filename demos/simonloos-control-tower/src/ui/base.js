@@ -61,7 +61,7 @@ export const SOORT = {
   Koeling: { l: 'K', icon: 'thermo', norm: 10, uitleg: 'De koelunit van een koel- of vriesoplegger haalt de doeltemperatuur niet.' },
   Oplegger: { l: 'O', icon: 'trailer', norm: 60, uitleg: 'Een lege oplegger staat langer dan een uur na het geplande ophaalmoment bij een winkel of DC.' },
   Dock: { l: 'D', icon: 'dock', norm: 20, uitleg: 'Een dock op de standplaats is buiten gebruik; een voertuig koppelt of lost aan een ander dock en de chauffeur moet dat weten.' },
-  'Rit niet ingevuld': { l: 'N', icon: 'inbox', norm: 30, uitleg: 'Een open rit van vandaag is na zijn laadvenster nog niet ingevuld. Kies: alsnog een charter, morgen als eerste, of de klant bellen of een bericht sturen.' },
+  'Rit niet ingevuld': { l: 'N', icon: 'inbox', norm: 30, uitleg: 'Een open rit van vandaag die nog niemand rijdt: een half uur voor het laatste belmoment (daarna haalt niemand het venster) en, blijft hij open, na het venster. Kies: wie het venster haalt, alsnog een charter, morgen als eerste, of de klant bellen of een bericht sturen.' },
 };
 export const LETTER = Object.fromEntries(Object.entries(SOORT).map(([k, v]) => [v.l, k]));
 // De sleutel van een zaak is vast: soort, object en rit ("V:T-1112:R-10448"; een oplegger heeft geen rit in de sleutel,
