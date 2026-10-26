@@ -131,7 +131,7 @@ node tests/open-ritten-check.mjs http://127.0.0.1:8774/index.html # de vraagkant
 node tests/assistent-check.mjs                                # de serverfunctie van de Assistent, zonder browser
 node tests/voorstel-check.mjs http://127.0.0.1:8774/index.html # voorstellen met winst, Op tijd bij aankomst, vertrek per kandidaat, de oefendag
 node tests/otm5-check.mjs                                     # de vertaling naar en van OTM5 (zie src/otm5.js)
-node tests/ochtend-check.mjs http://127.0.0.1:8774/index.html  # de klok en kalender van de planner: een maandag en een zondag om 04:00, 05:30 en 06:30, de oefendag om 06:45
+node tests/ochtend-check.mjs http://127.0.0.1:8774/index.html  # de klok en kalender van de planner: een maandag en een zondag om 04:00, 05:30 en 06:30, de oefendag om 06:45, de maandag na de zomertijd
 ```
 
 `gl` draait Chromium met software-WebGL (SwiftShader), `nogl` zonder WebGL (de kaart toont dan een melding);
@@ -562,6 +562,8 @@ het planbord). Welk voertuig rijdt, staat vast per voertuig en datum (`rijdtOpZo
 (`src/people.js`) maakt dezelfde keuze voor elke zondag: Gisteren op maandag toont die zondag (op Wognum 96 van de 225
 voertuigen), niet een lege dag en niet een volle werkdag. Op zondag zijn de open ritten van maandag en de historie van acht
 weken die van gewone dagen. Op een werkdag verandert er niets: geen getal uit de reeks van de dag, dezelfde vingerafdruk.
+De historie telt terug op de kalender, niet in blokken van 24 uur: de nacht van de zomertijd heeft 23 uur, en eerder
+schoof daardoor elke dag ervoor een dag op (op maandag 30 maart 2026 was Gisteren leeg; nu 100 van de 225 op Wognum).
 
 Elke standplaats heeft afdelingen (`sp.afdelingen`, zoals Google Maps de gebouwen van een bedrijf toont): de loods of het
 warehouse (met de naam van het DC als dat er staat), de docks ("Docks 1 tot 30"), de poort, de opleggers en het

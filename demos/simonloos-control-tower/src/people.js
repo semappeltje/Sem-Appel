@@ -8,7 +8,9 @@ let seed = 7712026; const rnd = () => { seed = (seed * 16807) % 2147483647; retu
 const pick = a => a[Math.floor(rnd() * a.length)];
 const r = (a, b) => a + rnd() * (b - a);
 const TODAY = new Date(); TODAY.setHours(0, 0, 0, 0);
-const dayAgo = n => new Date(TODAY.getTime() - n * 864e5);
+// n dagen terug op de kalender (setDate), niet n keer 24 uur: de nacht van de zomertijd heeft 23 uur, en dan viel elke dag voor
+// die nacht een dag te vroeg (op maandag 30 maart 2026 was Gisteren daardoor leeg)
+const dayAgo = n => { const d = new Date(TODAY); d.setDate(d.getDate() - n); return d; };
 const clean = s => s.replace(/\./g, '');
 export const fmtDay = d => clean(d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }));
 export const fmtDate = d => clean(d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }));

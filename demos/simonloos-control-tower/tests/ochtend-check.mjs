@@ -10,16 +10,17 @@
 //   voertuig nog rijdt, staat als onderweg.
 // - Het planbord laat zo'n rit verplaatsen: het blok is niet vastgezet, "staat klaar" (niet "al begonnen"), en een pijltje
 //   naar rechts schuift hem echt (getoetst).
-// - Gisteren op maandag is niet leeg: de zondag in de historie, met minder diensten dan een werkdag.
+// - Gisteren op maandag is niet leeg: de zondag in de historie, met minder diensten dan een werkdag. Ook op de maandag na
+//   de zomertijd (de nacht van zondag heeft 23 uur; de historie telde eerst 24 uur terug en sloeg de zondag over).
 // - Een zondag heeft minder diensten (35 tot 55 procent van de maandag, schatting) en zegt dat op het planbord.
 // - De oefendag (?scenario=druk): P-8001 is om 06:20 nog open; om 06:45 is hij een zaak "Rit niet ingevuld" met één
 //   hoofdknop, staat hij als gemist in Open ritten en telt hij als gemist naast Op tijd.
 // - Geen paginafouten en geen verzoeken naar buiten.
-// Andere data: CT_MAANDAG en CT_ZONDAG (JJJJ-MM-DD).
+// Andere data: CT_MAANDAG, CT_ZONDAG en CT_ZOMER (de maandag na de zomertijd), als JJJJ-MM-DD.
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const url = process.argv[2] || 'http://127.0.0.1:8774/index.html';
-const MAANDAG = process.env.CT_MAANDAG || '2026-10-26', ZONDAG = process.env.CT_ZONDAG || '2026-11-01';
+const MAANDAG = process.env.CT_MAANDAG || '2026-10-26', ZONDAG = process.env.CT_ZONDAG || '2026-11-01', ZOMER = process.env.CT_ZOMER || '2027-03-29';
 const TIJDEN = [240, 330, 390];
 let fail = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'OK ' : 'FOUT'} ${msg}`); if (!ok) fail++; };
@@ -103,6 +104,14 @@ const gisteren = await M.page.evaluate(() => {
 check(gisteren.zondag && gisteren.met > 0 && gisteren.met / gisteren.n >= 0.3 && gisteren.met / gisteren.n <= 0.6, `Gisteren op maandag (zondag): ${gisteren.met} van de ${gisteren.n} voertuigen van Wognum reden een dienst (${Math.round(gisteren.met / gisteren.n * 100)} %, verwacht 30 tot 60), niet leeg`);
 check(gisteren.blokken > 0 && gisteren.leeg < gisteren.rows && /zondag/.test(gisteren.note), `het planbord toont Gisteren met ${gisteren.blokken} diensten in beeld en zegt dat het zondag was ("${gisteren.note.slice(0, 90)}")`);
 await M.ctx.close();
+
+// de maandag na de zomertijd: ook dan is Gisteren de zondag uit de historie, niet leeg
+{
+  const Zm = await open(ZOMER, 330);
+  const z = await Zm.page.evaluate(() => { const P = window.SLCT.people; const g = new Date(); g.setHours(0, 0, 0, 0); g.setDate(g.getDate() - 1); const W = window.SLCT.fleet.trucks.filter(t => t.base.n === 'Wognum'); return { zondag: g.getDay() === 0, met: W.filter(t => P.forTruck.get(t.id).history.some(h => h.date.toDateString() === g.toDateString())).length, n: W.length }; });
+  check(z.zondag && z.met / z.n >= 0.3 && z.met / z.n <= 0.6, `maandag ${ZOMER}, na de zomertijd: Gisteren is de zondag, ${z.met} van de ${z.n} voertuigen van Wognum reden een dienst (niet leeg)`);
+  await Zm.ctx.close();
+}
 
 // ---------- zondag: minder diensten ----------
 const Z = await open(ZONDAG, 330);
