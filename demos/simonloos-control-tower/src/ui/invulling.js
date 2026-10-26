@@ -163,10 +163,37 @@ export function openVoor(ctx, dag) {
   const T = Tn(ctx);
   return poolAlles(ctx).filter(p => dagVan(p) === dag && !p.gepland && !p.morgenEerste && p.venster && p.bekend <= T && (dag === 'morgen' || !collegaOm(ctx, p, T)));
 }
-// wie het venster van rit p haalt als je nu vraagt (vandaag), anders iedereen die beschikbaar is
+// de naam kort, voor een rij of kaart: voorletter en achternaam ("B. Ruiter"); een charter met zijn naam
+export const korteNaam = k => (k.soort === 'charter' ? k.naam : String(k.naam || '').replace(/^(\S)\S*\s+/, '$1. '));
+// ---------- na het venster: de fasen laat en gemist ----------
+// Eén regel voor Open ritten (rij en detail) en de zaak: na het belmoment of het venster is de hoofdactie de beste kandidaat
+// die binnen 120 minuten na het einde van het venster kan vertrekken; is die er niet, dan morgen als eerste, en wie later
+// kan (vaak een charter die nog moet aanrijden) staat als gewone keuze.
+export const NA_VENSTER_MAX = 120;
+// "45 min na het venster", boven 90 minuten in uren met één decimaal ("7,4 uur na het venster")
+export const naVensterTxt = min => { min = Math.max(0, Math.round(min)); return min > 90 ? `${(Math.round(min / 6) / 10).toFixed(1).replace('.', ',')} uur na het venster` : `${min} min na het venster`; };
+// de kandidaten van een rit van vandaag na het venster: binnen (vertrek hoogstens 120 minuten na het einde van het
+// venster) en later, elk op waarde
+export function naVenster(ctx, p) {
+  const v1 = p.venster[1]; const L = alleKandidaten(ctx, p).filter(k => k.beschikbaar && typeof k.vertrek === 'number').sort((a, b) => waardeVan(b) - waardeVan(a) || (a.id < b.id ? -1 : 1));
+  return { binnen: L.filter(k => k.vertrek - v1 <= NA_VENSTER_MAX), later: L.filter(k => k.vertrek - v1 > NA_VENSTER_MAX) };
+}
+// wie het venster van rit p haalt als je nu vraagt (vandaag); na het belmoment of het venster alleen wie binnen 120 minuten
+// na het einde van het venster kan vertrekken (kan niemand dat, dan krijgt de rit hier geen kandidaat: morgen als eerste);
+// morgen iedereen die beschikbaar is
 function kanVoor(ctx, p) {
-  if (p.dag !== 'morgen' && Tn(ctx) < p.venster[1]) { const H = haaltVenster(ctx, p); if (H.length) return { L: H, haalt: true }; }
+  if (p.dag !== 'morgen') {
+    if (Tn(ctx) < p.venster[1]) { const H = haaltVenster(ctx, p); if (H.length) return { L: H, haalt: true }; }
+    return { L: naVenster(ctx, p).binnen, haalt: false };
+  }
   return { L: alleKandidaten(ctx, p).filter(k => k.beschikbaar), haalt: false };
+}
+// de hoofdactie na het venster: { soort: 'kandidaat', k, na: "45 min na het venster", later, label: "vraag B. Ruiter" } of
+// { soort: 'morgen', k: null, later, label: 'morgen als eerste' }; later: de beste die later kan (gewone keuze), of null
+export function hoofdLaat(ctx, p) {
+  const nv = naVenster(ctx, p); const k = besteVoor(ctx, p); const v1 = p.venster[1];
+  if (k && typeof k.vertrek === 'number' && k.vertrek - v1 <= NA_VENSTER_MAX) return { soort: 'kandidaat', k, na: naVensterTxt(k.vertrek - v1), later: nv.later[0] || null, label: `vraag ${korteNaam(k)}` };
+  return { soort: 'morgen', k: null, later: nv.later[0] || nv.binnen[0] || null, label: 'morgen als eerste' };
 }
 // per naam de rit waarvoor iemand al tegelijk gevraagd is (contact 'samen'), onder de open ritten van die dag
 function tegelijkGevraagd(ctx, dag) {
@@ -201,7 +228,7 @@ export function verdeling(ctx, dag) {
   const out = { sig, uit, ritten: open.length, ms: Math.round((nu() - t0) * 10) / 10 };
   vdCache.set(dag, out);
   // voor de toetsen en metingen: dezelfde functies, bereikbaar via window.SLCT.ui.ctx.ui.advies
-  if (ctx.ui && !ctx.ui.advies) ctx.ui.advies = { verdeling: d => verdeling(ctx, d), besteVoor: p => besteVoor(ctx, p), handelMoment: p => handelMoment(ctx, p), ritPrio: (p, T) => ritPrio(ctx, p, T), samen: p => kandidatenVan(ctx, p).samen, vergelijk: d => vergelijkMethoden(ctx, d), meet: d => { vdCache.delete(d); aCache.clear(); hvCache.clear(); return verdeling(ctx, d).ms; } };
+  if (ctx.ui && !ctx.ui.advies) ctx.ui.advies = { verdeling: d => verdeling(ctx, d), besteVoor: p => besteVoor(ctx, p), handelMoment: p => handelMoment(ctx, p), ritPrio: (p, T) => ritPrio(ctx, p, T), samen: p => kandidatenVan(ctx, p).samen, fase: p => ritFase(ctx, p, Tn(ctx)), hoofdLaat: p => hoofdLaat(ctx, p), vergelijk: d => vergelijkMethoden(ctx, d), meet: d => { vdCache.delete(d); aCache.clear(); hvCache.clear(); return verdeling(ctx, d).ms; } };
   return out;
 }
 // Hongaars tegen gretig op belmoment, op dezelfde rijen (voor de meting): per methode de ritten met een kandidaat, de som

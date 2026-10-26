@@ -75,6 +75,13 @@ const KETEN = [[/^(AH|Albert Heijn)\b/, 'Albert Heijn'], [/^Jumbo\b/, 'Jumbo'], 
 // "Albert Heijn Laat, Alkmaar" wordt "AH Alkmaar", een bezorgstraat "Dorpsstraat, Hoorn" wordt "Hoorn"
 const KORT = [[/^(Albert Heijn|AH)\b/, 'AH'], [/^Jumbo\b/, 'Jumbo'], [/^Plus\b/, 'Plus'], [/^Lidl\b/, 'Lidl'], [/^SPAR\b/i, 'Spar'], [/^Vomar\b/, 'Vomar'], [/^Aldi\b/, 'Aldi'], [/^Dirk\b/, 'Dirk'], [/^Etos\b/, 'Etos']];
 const SHORT = [[/^Albert Heijn\b/, 'AH'], [/^Simon Loos\s+/, 'SL '], [/^Distributiecentrum\s+/, 'DC ']];
+// een tijd van gisteren of morgen met de dag erbij ("gisteren 17:55"): een zaak kan sinds gisteravond spelen
+export const hhmmDag = m => (typeof m === 'number' && m < 0 ? `gisteren ${hhmm(m)}` : typeof m === 'number' && m >= 1440 ? `morgen ${hhmm(m)}` : hhmm(m));
+// de korte namen van een rij stops; twee winkels in dezelfde plaats krijgen de straat erbij ("AH Passage, Lelystad")
+export function kortStops(L) {
+  const kort = L.map(kortStop); const tel = new Map(); for (const k of kort) tel.set(k, (tel.get(k) || 0) + 1);
+  return L.map((s, i) => { if (tel.get(kort[i]) < 2) return kort[i]; const n = String(s || '').replace(/^→\s*/, '').replace(/^Terug\s+/, ''); const j = n.lastIndexOf(', '); if (j <= 0) return kort[i]; const left = n.slice(0, j), place = n.slice(j + 2); const k = KORT.find(([re]) => re.test(left)); const straat = k ? left.replace(k[0], '').trim() : left; return `${k ? `${k[1]} ` : ''}${straat || left}, ${place}`; });
+}
 export function kortStop(s) {
   let n = String(s || '').replace(/^→\s*/, '').replace(/^Terug\s+/, ''); const i = n.lastIndexOf(', ');
   if (i > 0) { const left = n.slice(0, i), place = n.slice(i + 2); const k = KORT.find(([re]) => re.test(left)); return k ? `${k[1]} ${place}` : place; }

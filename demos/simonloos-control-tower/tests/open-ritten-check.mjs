@@ -32,6 +32,10 @@ await ctx.addInitScript(() => { try { if (!localStorage.getItem('sl-werkgebied')
 const page = await ctx.newPage();
 const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error' && !/ERR_BLOCKED|Failed to load/.test(m.text())) errors.push(m.text()); });
 let aiReq = null, aiN = 0, aiMode = 'ok', aiType = '', naarApi = null, aiStatus = 0;
+// de serverfunctie eist DEMO_LOGINS en een Basic-login (zoals tests/assistent-check.mjs): een proeflogin, nooit een echte
+const LOGINS = 'kijker:proef-wachtwoord,tweede:ander-wachtwoord';
+const LOGIN_HEADER = `Basic ${Buffer.from('kijker:proef-wachtwoord', 'utf8').toString('base64')}`;
+const OMGEVING = { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: LOGINS };
 const AI = { antwoord: 'Wat speelt: de open rit P-9016 laadt al.\n\n- <b>Geen HTML</b> hier.\n- T-1001 rijdt.\n\nWat jij beslist: wie P-9016 rijdt.', acties: [{ titel: 'Wijs P-9016 toe', waarom: 'Laden loopt al.', effect: 'Op tijd weg (schatting).' }, { titel: 'Bel een charter', waarom: 'Kans is laag.', effect: 'Een terugvaloptie (schatting).' }], letOp: ['Twee chauffeurs zitten bijna op hun rijtijd.'] };
 await page.route('**/*', async route => {
   const u = new URL(route.request().url());
@@ -42,9 +46,10 @@ await page.route('**/*', async route => {
     if (aiMode === '404') return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Niet gevonden' });
     if (!F) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, soort: aiReq.soort, ...AI }) });
     // de echte functie met een nagebootste Claude API: wat zij naar de API stuurt, bewaren we om te controleren
-    const req = new Request('https://controltower-demo.netlify.app/api/assistent', { method: 'POST', headers: { 'content-type': aiType, 'sec-fetch-site': 'same-origin', 'x-nf-client-connection-ip': '192.0.2.10' }, body: route.request().postData() });
+    // met de login van de demosite (een proeflogin, alleen voor deze controle; de echte DEMO_LOGINS staan alleen in Netlify)
+    const req = new Request('https://controltower-demo.netlify.app/api/assistent', { method: 'POST', headers: { 'content-type': aiType, 'sec-fetch-site': 'same-origin', 'x-nf-client-connection-ip': '192.0.2.10', authorization: LOGIN_HEADER }, body: route.request().postData() });
     const api = async (adres, init) => { naarApi = init.body; return new Response(JSON.stringify({ id: 'msg_test', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(AI) }], usage: { input_tokens: 4000, output_tokens: 300 } }), { status: 200, headers: { 'content-type': 'application/json' } }); };
-    const res = await F.handle(req, { fetch: api, getEnv: k => ({ ANTHROPIC_API_KEY: 'sk-test-nep' })[k], log: () => {}, now: () => Date.now() });
+    const res = await F.handle(req, { fetch: api, getEnv: k => OMGEVING[k], log: () => {}, now: () => Date.now() });
     aiStatus = res.status;
     return route.fulfill({ status: res.status, headers: { 'content-type': 'application/json' }, body: await res.text() });
   }
@@ -282,7 +287,10 @@ check(aiReq && aiReq.soort === 'briefing' && /^application\/json/.test(aiType) &
 check(!namen && !/@/.test(dagJson) && !/06[\s-]?\d{2}[\s-]?\d{2}/.test(dagJson), 'namen alleen in de sleutel personen en bij een kandidaat (zoals het contract vraagt); vrije tekst met nummers; geen telefoonnummers of e-mailadressen');
 if (F) {
   const api = String(naarApi || ''); const nApi = await page.evaluate(j => window.SLCT.ui.ctx.people.persons.filter(p => j.includes(p.name)).length, api);
-  check(aiStatus === 200 && api.length > 0 && !nApi && !/@/.test(api), `de echte serverfunctie aanvaardt het verzoek (${aiStatus}) en stuurt de API geen namen of contactgegevens (${api.length} tekens)`);
+  check(aiStatus === 200 && api.length > 0 && !nApi && !/@/.test(api), `de echte serverfunctie aanvaardt het verzoek met de login (${aiStatus}) en stuurt de API geen namen of contactgegevens (${api.length} tekens)`);
+  // zonder login: 401 met WWW-Authenticate, zonder aanroep van de API
+  let geroepen = 0; const zonder = await F.handle(new Request('https://controltower-demo.netlify.app/api/assistent', { method: 'POST', headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-nf-client-connection-ip': '192.0.2.10' }, body: JSON.stringify(aiReq) }), { fetch: async () => { geroepen++; return new Response('{}', { status: 200 }); }, getEnv: k => OMGEVING[k], log: () => {}, now: () => Date.now() });
+  check(zonder.status === 401 && /^Basic realm=/.test(zonder.headers.get('www-authenticate') || '') && geroepen === 0, `zonder login weigert de functie: ${zonder.status} met WWW-Authenticate Basic, zonder aanroep van de API`);
 }
 const a1 = await page.evaluate(() => { const o = document.querySelector('#panel [data-ai-out]'); return { tekst: o.textContent, li: o.querySelectorAll('.ai-ul li').length, acties: o.querySelectorAll('.ai-prop').length, let: o.querySelectorAll('.ai-let li').length, b: o.querySelectorAll('.ai-txt b').length, open: [...o.querySelectorAll('[data-open]')].map(x => x.dataset.open) }; });
 check(a1.tekst.includes('<b>Geen HTML</b>') && !a1.b && a1.li === 2 && a1.acties === 2 && a1.let >= 1 && /jij beslist/.test(a1.tekst) && a1.open.includes('openritten/P-9016') && a1.open.some(x => /^voertuig\/T-1001/.test(x)), `antwoord met textContent: ${a1.li} punten, ${a1.acties} acties, ${a1.let} let op; nummers als verwijzing (${[...new Set(a1.open)].join(', ')})`);
@@ -290,7 +298,7 @@ await page.click('#panel [data-ai-log="0"]'); await page.waitForTimeout(300);
 check(await page.evaluate(() => /voorstel van de assistent/.test(window.SLCT.ui.ctx.A.acts.log[0].txt)), 'Zet in logboek werkt');
 aiMode = '429'; await page.fill('#panel #aiIn', 'Wie bel ik eerst?'); await page.press('#panel #aiIn', 'Enter'); await page.waitForTimeout(1200);
 const t429 = await page.evaluate(() => document.querySelector('#panel [data-ai-out]').textContent);
-check(/dertig vragen per uur/.test(t429) && /10 minuten/.test(t429) && aiReq.soort === 'vraag' && aiReq.vraag === 'Wie bel ik eerst?', `429: "${t429.trim()}"; Enter stuurt de vraag`);
+check(/maximum van dit uur|dertig vragen per uur/.test(t429) && /10 minuten/.test(t429) && aiReq.soort === 'vraag' && aiReq.vraag === 'Wie bel ik eerst?', `429: "${t429.trim()}"; Enter stuurt de vraag`);
 aiMode = 'half'; await page.click('#panel [data-ai-soort="overdracht"]'); await page.waitForTimeout(1200);
 check(/onvolledig/.test(await page.evaluate(() => document.querySelector('#panel [data-ai-out]').textContent)), 'een half antwoord wordt niet getoond');
 aiMode = '404'; await page.fill('#panel #aiIn', 'Welke voertuigen halen hun tijdvenster niet?'); await page.press('#panel #aiIn', 'Enter'); await page.waitForTimeout(1200);

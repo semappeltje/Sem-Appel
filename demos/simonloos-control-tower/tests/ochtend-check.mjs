@@ -224,6 +224,31 @@ const morgen = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const
 check(morgen.status === 'opgelost' && morgen.door === 'planner' && morgen.morgen && morgen.gemist >= 1, `oefendag: morgen als eerste zet P-8001 bij de open ritten van morgen (${morgen.morgen}); de zaak is opgelost door de ${morgen.door}; vandaag telt hij als gemist (${morgen.gemist})`);
 await O.ctx.close();
 
+// ---------- na het venster: rij, detail en zaak noemen dezelfde hoofdactie ----------
+// De fasen laat en gemist (invulling.hoofdLaat): de kandidaat die binnen 120 minuten na het einde van het venster kan
+// vertrekken, anders morgen als eerste. Op de gewone dag om 10:00 en 15:00 en op de oefendag om 07:30, heel Nederland.
+for (const [dagNaam, T, oef] of [['maandag', 600, false], ['maandag', 900, false], ['oefendag', 450, true]]) {
+  const H = await open(MAANDAG, T, { oefendag: oef, sp: null });
+  await zet(H.page, T);
+  await H.page.evaluate(() => { location.hash = 'openritten'; }); await H.page.waitForTimeout(2000);
+  const L = await H.page.evaluate(() => { const c = window.SLCT.ui.ctx; const A = c.ui.advies; const T = c.state.simTime; return c.fleet.pool.filter(p => p.dag === 'vandaag' && !p.gepland && !p.morgenEerste && p.bekend <= T).map(p => ({ id: p.id, fase: A.fase(p) })).filter(x => x.fase === 'laat' || x.fase === 'gemist').slice(0, 3); });
+  const uit = [];
+  for (const x of L) {
+    const rij = await H.page.evaluate(id => { const b = document.querySelector(`#v-openritten [data-or="${id}"]`); if (!b) return null; const r = [...b.querySelectorAll('.or-r')].map(e => e.textContent.trim()).find(t => /^vraag |^morgen als eerste/.test(t)); return { label: r || '', vol: r ? ((b.querySelector(`.or-r[title]`) || {}).title || '').split(':')[0] : '' }; }, x.id);
+    await H.page.click(`#v-openritten [data-or="${x.id}"]`).catch(() => null); await H.page.waitForTimeout(900);
+    const det = await H.page.evaluate(() => { const d = document.querySelector('#v-openritten .or-d'); if (!d) return null; const k = d.querySelector('.kd-i .btn.pri'); const li = k && k.closest('.kd-i'); const naam = li ? (li.querySelector('.kd-n b') || {}).textContent || '' : ''; return { kand: naam.trim(), morgen: !!d.querySelector('[data-ormorgen].pri'), pri: d.querySelectorAll('.btn.pri').length }; });
+    await H.page.evaluate(id => { location.hash = `melding/N-${id}`; }, x.id); await H.page.waitForTimeout(1500);
+    const zaak = await H.page.evaluate(() => { const s = document.getElementById('sheet'); return { pri: [...s.querySelectorAll('.btn.pri')].map(b => b.textContent.trim()) }; });
+    await H.page.evaluate(() => { location.hash = 'openritten'; }); await H.page.waitForTimeout(1200);
+    const verwacht = rij && /^vraag /.test(rij.label) ? `Vraag ${rij.vol}` : 'Zet morgen als eerste';
+    const detOk = det && det.pri === 1 && (rij && /^vraag /.test(rij.label) ? det.kand === rij.vol : det.morgen);
+    const ok = !!rij && rij.label !== '' && detOk && zaak.pri.length === 1 && zaak.pri[0] === verwacht;
+    uit.push({ id: x.id, fase: x.fase, ok, rij: rij ? rij.label : '-', det: det ? (det.morgen ? 'morgen' : det.kand) : '-', zaak: zaak.pri.join('|') });
+  }
+  check(L.length > 0 && uit.every(u => u.ok), `${dagNaam} ${hm(T)}: ${L.length} ritten na het venster, rij, detail en zaak noemen dezelfde hoofdactie (${uit.map(u => `${u.id} ${u.fase}: "${u.rij}" / ${u.det} / ${u.zaak}`).join('; ')})`);
+  await H.ctx.close();
+}
+
 check(!errors.length, `geen paginafouten${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
 check(!buiten.size, `geen verzoeken naar buiten${buiten.size ? `: ${[...buiten].join(', ')}` : ''}`);
 await browser.close();

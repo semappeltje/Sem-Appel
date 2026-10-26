@@ -183,6 +183,12 @@ rekenen kost het meeste, samen 20 tot 160 ms op een drukke machine (schatting; d
 werkgebied tegelijk; de planner vraagt per rit of de aangevinkte in één keer, en elke toewijzing krijgt haar eigen regel in
 het logboek en de zaak. Open ritten en de bak op het planbord staan op het eerste moment waarop je iets moet doen (het
 laatste belmoment of het begin van het venster, `invulling.handelMoment`), zodat een rit die nu een zaak is bovenaan staat.
+Na het belmoment of het venster (de fasen laat en gemist) geldt één regel voor de rij en het detail van Open ritten en voor
+de zaak (`invulling.hoofdLaat`): de hoofdactie is de beste kandidaat die binnen 120 minuten na het einde van het venster kan
+vertrekken ("vertrekt 45 min na het venster"; boven 90 minuten in uren, "7,4 uur na het venster"); is die er niet, dan
+morgen als eerste, en wie later kan (vaak een charter die nog moet aanrijden) staat als gewone keuze. Een opleggerzaak
+zonder voorstel van de assistent heeft als eerste stap "Ophalen inplannen" (het planbord van de standplaats), en een tijd
+van gisteren staat met de dag erbij ("wacht sinds gisteren 17:55").
 
 Rusttijd: de cao beroepsgoederenvervoer is strenger dan EU 561/2006. EU 561 staat drie keer 9 uur verkorte rust toe
 tussen twee weekrusten; de cao hoogstens drie keer 10 uur, verder 11 uur (Staatscourant 2026, nr. 7211; status zoek,

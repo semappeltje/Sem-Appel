@@ -475,6 +475,8 @@ function createBoard(ctx, el) {
     if (ui.pbFocus && gantt) { const id = ui.pbFocus; ui.pbFocus = null; requestAnimationFrame(() => requestAnimationFrame(() => focusRit(id))); }
     // de replay is verzet (tijdbalk, Ga naar, echte klok): het bord scrolt mee; gewoon verversen laat het beeld staan
     if (ui.pbVolg && gantt) { ui.pbVolg = false; if (f.dag === 'vandaag') requestAnimationFrame(() => naarTijd(T(), 0.35, true)); }
+    // de uitleg over slepen niet bij Gisteren: daar kun je niet slepen
+    const hn = $('[data-pb=hint]'); if (hn) hn.hidden = f.dag === 'gisteren' || ctx.store.get(HINT) === '1';
     const dn = $('[data-pb=dagnote]'); if (dn) { const zo = d => d.getDay() === 0; const vd = ctx.fleet.vandaag || new Date(); const gz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() - 1)), mz = zo(new Date(vd.getFullYear(), vd.getMonth(), vd.getDate() + 1));
       const buiten = ctx.spsInScope().length && !ctx.spsInScope().includes(sp) ? `${sp.n} valt buiten je werkgebied (${ctx.scopeLabel()}); kies links je eigen standplaats om terug te gaan. ` : '';
       const tx = buiten + (f.dag === 'gisteren' ? `Gisteren: de gereden diensten uit de historie, per voertuig (geen ritten per blok).${gz ? ' Gisteren was het zondag: ongeveer 45 procent van de vloot reed (schatting).' : ''}` : f.dag === 'morgen' ? `Morgen: het plan komt vanmiddag tussen 13:00 en 16:30 binnen. Nu staan hier de open ritten van morgen en de nachtritten van vandaag.${mz ? ' Morgen is het zondag: dan rijdt ongeveer 45 procent van de vloot (schatting).' : ''}` : zo(vd) ? 'Zondag: ongeveer 45 procent van de vloot rijdt (schatting); de andere voertuigen staan vrij op het terrein.' : ''); dn.hidden = !tx; if (dn.textContent !== tx) dn.textContent = tx; }

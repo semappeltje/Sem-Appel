@@ -9,9 +9,9 @@
 // een collega ziet wie al gevraagd is. Op een telefoon: de lijst, en een rit als eigen scherm met een terugknop.
 import { SP, DIV } from '../places.js';
 import { TRT } from '../fleet.js';
-import { esc, ic, fmt, hhmm, nl1, empty, on, swap, kortStop, initials, belKnop } from './base.js';
+import { esc, ic, fmt, hhmm, nl1, empty, on, swap, kortStops, initials, belKnop } from './base.js';
 import { poolInvoer, poolNu, vensterAbs, pool as poolAlles } from './planwijzig.js';
-import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, wijsToeAlle, besteVoor, handelMoment, verdeling, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing, gemistIn, ritFase, belmoment, belLabel, haaltVenster, collegaMoment, vensterVandaag, klantPlanning, klantBerichtGemist, morgenVenster, morgenAlsEerste, collegaIn, collegaOm } from './invulling.js';
+import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, wijsToeAlle, besteVoor, handelMoment, verdeling, korteNaam, hoofdLaat, naVensterTxt, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing, gemistIn, ritFase, belmoment, belLabel, haaltVenster, collegaMoment, vensterVandaag, klantPlanning, klantBerichtGemist, morgenVenster, morgenAlsEerste, collegaIn, collegaOm } from './invulling.js';
 
 export const REDEN = { ziek: 'Ziekmelding', 'uitval voertuig': 'Voertuig uitgevallen', 'extra rit klant': 'Extra rit van de klant', 'nieuw uit OTM5': 'Nieuw uit OTM5' };
 const OPLN = { koel: 'koeloplegger', vries: 'vriesoplegger', droog: 'gesloten oplegger', huif: 'schuifzeiloplegger', lzv: 'LZV-combinatie', silo: 'silo-oplegger', drank: 'drankenoplegger', city: 'city-oplegger' };
@@ -36,9 +36,16 @@ export function openIn(ctx) {
   return poolNu(ctx).filter(p => { const sp = spVan(p.sp); return sp && ctx.inScopeBase(sp, p.div) && !collegaOm(ctx, p, T); })
     .map(p => ({ p, u: handelMoment(ctx, p) })).sort((a, b) => (a.p.dag === 'morgen') - (b.p.dag === 'morgen') || a.u - b.u || (a.p.id < b.p.id ? -1 : 1)).map(x => x.p);
 }
-// de aanbevolen kandidaat in een paar woorden, voor een rij of kaart ("vraag B. Ruiter"; een charter met zijn naam)
-export const korteNaam = k => (k.soort === 'charter' ? k.naam : String(k.naam || '').replace(/^(\S)\S*\s+/, '$1. '));
-export function besteTxt(ctx, p) { const k = besteVoor(ctx, p); return k ? `vraag ${korteNaam(k)}` : ''; }
+// de hoofdactie van een open rit in een paar woorden, dezelfde in de rij, het detail, de kaart op het planbord en de zaak:
+// "vraag B. Ruiter" (de aanbevolen kandidaat), na het venster volgens invulling.hoofdLaat ("morgen als eerste" als niemand
+// binnen 120 minuten na het venster kan vertrekken); { label, vol (de hele naam) }
+export function hoofdActie(ctx, p) {
+  if (!p || p.gepland || p.morgenEerste || !p.venster) return { label: '', vol: '' };
+  const fase = ritFase(ctx, p, ctx.state.simTime);
+  if (fase === 'laat' || fase === 'gemist') { const h = hoofdLaat(ctx, p); return { label: h.label, vol: h.k ? h.k.naam : '' }; }
+  const k = besteVoor(ctx, p); return k ? { label: `vraag ${korteNaam(k)}`, vol: k.naam } : { label: '', vol: '' };
+}
+export function besteTxt(ctx, p) { return hoofdActie(ctx, p).label; }
 export const toegewezenIn = ctx => toegewezen(ctx).filter(p => { const sp = spVan(p.sp); return sp && ctx.inScopeBase(sp, p.div); });
 // het laatste belmoment op een kaart of regel ("uiterlijk vragen 06:50"; invulling.belLabel), rood vanaf een half uur ervoor
 export const belSpan = (ctx, p, voor = '', na = '') => { const bl = belLabel(ctx, p); return bl ? `${voor}<span class="${bl.rood ? 'tbad' : ''}">${esc(bl.tekst)}</span>${na}` : ''; };
@@ -46,7 +53,7 @@ export const belSpan = (ctx, p, voor = '', na = '') => { const bl = belLabel(ctx
 // ---------- een rij in de lijst ----------
 function rijHtml(ctx, p, on2) {
   const inv = poolInvoer(p, spVan(p.sp)); const u = urgentie(ctx, p); const pg = prognose(ctx, p); const v = vensterAbs(p) || [inv.t0, inv.t0 + 60];
-  const bel = belSpan(ctx, p); let best = '', bestVol = ''; try { const k = besteVoor(ctx, p); if (k) { best = `vraag ${korteNaam(k)}`; bestVol = k.naam; } } catch { best = ''; }
+  const bel = belSpan(ctx, p); let best = '', bestVol = ''; try { const h = hoofdActie(ctx, p); best = h.label; bestVol = h.vol || h.label; } catch { best = ''; }
   return `<li><button class="or-i ${on2 ? 'on' : ''}" type="button" data-or="${esc(p.id)}" ${on2 ? 'aria-current="true"' : ''}>
     <span class="or-u ${urgentieKlas(u, p)}">${esc(urgentieTxt(u, p))}</span>
     <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
@@ -55,12 +62,12 @@ function rijHtml(ctx, p, on2) {
 }
 // een gemiste rit van vandaag: het venster is voorbij en niemand rijdt hem (of hij ging morgen als eerste)
 function gemistRijHtml(ctx, p, on2) {
-  const v = vensterVandaag(p); const morgen = !!p.morgenEerste;
+  const v = vensterVandaag(p); const morgen = !!p.morgenEerste; let ha = { label: '', vol: '' }; try { ha = morgen ? ha : hoofdActie(ctx, p); } catch { ha = { label: '', vol: '' }; }
   return `<li><button class="or-i gemist ${on2 ? 'on' : ''}" type="button" data-or="${esc(p.id)}" ${on2 ? 'aria-current="true"' : ''}>
     <span class="or-u ${morgen ? 'u-later' : 'u-nu'}">${morgen ? 'morgen als eerste' : 'gemist'}</span>
     <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
     <span class="or-m">laden ${hhmm(v[0])}–${hhmm(v[1])} · ${morgen ? `morgen laden ${hhmm(p.venster[0])}` : `voorbij sinds ${hhmm(v[1])}`} · ${esc(wagenTxt(p))}</span>
-    <span class="or-c"><span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span></span></button></li>`;
+    <span class="or-c"><span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${ha.label ? `<span class="or-r" title="${esc(ha.vol || ha.label)}: de hoofdactie (schatting)">${esc(ha.label)}</span>` : ''}</span></button></li>`;
 }
 // een rit die een collega invulde voor het belmoment (gesimuleerd: volgens de kans op invulling, zie fleet.js en
 // invulling.collegaMoment)
@@ -189,17 +196,20 @@ function gevraagdHtml(item) {
 // er aan de hand is en de keuzes (alsnog een kandidaat hieronder, morgen als eerste, de klant laten weten); een rit die al
 // morgen als eerste staat, zegt dat. KD (de kandidaten) zegt of er nog een charter of iemand anders vrij is: de uitleg en het
 // bericht aan de klant volgen dat, net als op de zaakpagina
-const nogCharter = KD => (KD ? KD.charter.some(k => k.beschikbaar) : undefined);
+const naVensterLater = (k, v1) => naVensterTxt(k.vertrek - v1).replace(/ na het venster$/, ' na het venster weg');
 function gemistHtml(ctx, item, KD, fase) {
   const v = vensterVandaag(item); const kp = klantPlanning(item); const can = ctx.can('act');
   if (item.morgenEerste) return `<section class="or-st ok">${ic('cal', 20)}<div class="or-sw"><b>${ctx.state.simTime >= v[1] ? 'Gemist vandaag' : 'Haalt het venster niet'}, morgen als eerste</b><p>Het venster van vandaag ${ctx.state.simTime >= v[1] ? 'liep' : 'loopt'} tot ${hhmm(v[1])}. Met de klant afgesproken om ${hhmm(item.morgenEerste.T)}: laden morgen ${hhmm(item.venster[0])} tot ${hhmm(item.venster[1])}. Vandaag telt hij als gemist.</p></div></section>`;
   if (fase !== 'gemist' && fase !== 'laat') return '';
   const kan = KD ? KD.alle.some(k => k.beschikbaar) : true; const b = belmoment(ctx, item); const B = b && b.T !== null && b.T >= Math.max(0, item.bekend) ? b.T : null;
-  const kies = !kan ? 'Er is vandaag niemand meer vrij voor deze rit. Zet hem' : `Kies een kandidaat hieronder (${nogCharter(KD) === false ? 'geen charter heeft nog een wagen vrij; een eigen chauffeur of oproepkracht vertrekt dan later' : 'alsnog een charter: hij vertrekt dan later, de kosten zijn een schatting'}), zet hem`;
+  // de hoofdactie (invulling.hoofdLaat, dezelfde als in de zaak): de kandidaat die binnen 120 minuten na het venster kan
+  // vertrekken (Toewijzen bij hem is de rode knop), anders morgen als eerste (dan is die knop rood)
+  const h = hoofdLaat(ctx, item);
+  const kies = h.soort === 'kandidaat' ? `${h.k.naam} (${wieSoort(h.k)}) kan nog: ${h.na}, ${Math.round((h.k.kans || 0) * 100)} % kans op een ja (schatting); kies Toewijzen bij hem hieronder${h.later ? `, of ${h.later.naam} (${wieSoort(h.later)}), die ${naVensterLater(h.later, v[1])} kan` : ''}. Of zet hem` : !kan ? 'Er is vandaag niemand meer vrij voor deze rit. Zet hem' : `Niemand kan binnen twee uur na het venster vertrekken${h.later ? ` (${h.later.naam}, ${wieSoort(h.later)}, pas ${naVensterLater(h.later, v[1])}; kies Toewijzen bij hem hieronder als de klant dat wil)` : ''}. Zet hem`;
   return `<section class="or-st wacht">${ic('alert', 20)}<div class="or-sw"><b>${fase === 'gemist' ? `Gemist: het laadvenster liep tot ${hhmm(v[1])} en niemand rijdt hem` : `Niemand haalt het venster meer (laden tot ${hhmm(v[1])})${B !== null ? `: uiterlijk vragen was ${hhmm(B)}` : ''}`}</b>
-      <p>${kies} morgen als eerste (laden ${hhmm(morgenVenster(item)[0])} tot ${hhmm(morgenVenster(item)[1])}), of laat het ${esc(kp.naam)} weten.</p>
+      <p>${esc(kies)} morgen als eerste (laden ${hhmm(morgenVenster(item)[0])} tot ${hhmm(morgenVenster(item)[1])}), of laat de planning van ${esc(item.klant || 'de klant')} weten.</p>
       <div class="or-msg"><small>Het bericht aan de klant</small><p>${esc(klantBerichtGemist(item, KD ? kan : undefined, fase))}</p></div>
-      <div class="or-sa">${can ? `<button class="btn sm" type="button" data-ormorgen="1">${ic('cal', 14)}Morgen als eerste</button>` : ''}${belKnop(kp.naam, kp.tel, { extra: 'data-orkbel="1"' })}<button class="btn sm" type="button" data-orkbericht="1">${ic('copy', 14)}Kopieer bericht</button><button class="btn sm ghost" type="button" data-open="melding/N-${esc(item.id)}">Open de zaak</button></div></div></section>`;
+      <div class="or-sa">${can ? `<button class="btn sm ${h.soort === 'morgen' ? 'pri' : ''}" type="button" data-ormorgen="1">${ic('cal', 14)}Morgen als eerste</button>` : ''}${belKnop(kp.naam, kp.tel, { extra: 'data-orkbel="1"' })}<button class="btn sm" type="button" data-orkbericht="1">${ic('copy', 14)}Kopieer bericht</button><button class="btn sm ghost" type="button" data-open="melding/N-${esc(item.id)}">Open de zaak</button></div></div></section>`;
 }
 // fase bel: het laatste belmoment komt binnen een half uur; wie je nu vraagt en het venster haalt (invulling.haaltVenster)
 function belHtml(ctx, item, KD) {
@@ -228,7 +238,7 @@ function detailHtml(ctx, item) {
   const temp = item.oplegger && TRT[item.oplegger] && TRT[item.oplegger].temp ? ` (${TRT[item.oplegger].temp[0]} tot ${TRT[item.oplegger].temp[1]} °C)` : '';
   const kop = `<div class="or-dh"><div class="or-dt"><h2 id="orTitel" tabindex="-1">${esc(item.klant || 'Open rit')}</h2><span class="badge sm outline">${esc(item.id)}</span>${tw ? '' : `<span class="or-u ${urgentieKlas(u, item)}">${esc(urgentieTxt(u, item))}</span>`}</div>
     <p class="or-ds">${esc(item.sp)} · laden ${item.dag === 'morgen' ? 'morgen ' : ''}${hhmm(v[0])}–${hhmm(v[1])} · ${uurTxt(duurVan(item, inv))} · ${fmt(kmVan(item, inv))} km · ${esc(wagenTxt(item))}${temp}</p>
-    <p class="or-ds mut">${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}: ${esc(stops.map(kortStop).join(', ') || 'volgt')} · ${esc(DIV[item.div] ? DIV[item.div].n.toLowerCase() : '')} · ${esc(REDEN[item.reden] || item.reden || '')}${item.bekend !== undefined && item.bekend !== null ? `, ${item.bekend < 0 ? 'sinds gisteren' : `binnen om ${hhmm(item.bekend)}`}` : ''}${tw ? '' : belSpan(ctx, item, ' · ')}</p>
+    <p class="or-ds mut">${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}: ${esc(kortStops(stops).join(', ') || 'volgt')} · ${esc(DIV[item.div] ? DIV[item.div].n.toLowerCase() : '')} · ${esc(REDEN[item.reden] || item.reden || '')}${item.bekend !== undefined && item.bekend !== null ? `, ${item.bekend < 0 ? 'sinds gisteren' : `binnen om ${hhmm(item.bekend)}`}` : ''}${tw ? '' : belSpan(ctx, item, ' · ')}</p>
     <div class="or-da">${item.route || item.stops ? `<button class="btn sm" type="button" data-orkaart="1">${ic('map', 15)}Route op de kaart</button>` : ''}${tw && tw.t ? `<button class="btn sm" type="button" data-open="planbord/R-${esc(item.id)}">${ic('gantt', 15)}Op het planbord</button>` : ''}</div></div>`;
   if (tw) return `${kop}${wachtHtml(ctx, item, v)}${gevraagdHtml(item)}`;
   if (collegaOm(ctx, item, ctx.state.simTime)) return `${kop}<section class="or-st ok">${ic('okc', 20)}<div class="or-sw"><b>Door een collega ingevuld</b><p>Een collega vroeg om ${hhmm(collegaMoment(ctx, item))} een ${esc(COLLEGA[item.collega.soort] || 'eigen chauffeur')}: vertrek ${hhmm(item.collega.vertrek)}. Gesimuleerd: zo vaak als de prognose zegt (${prognose(ctx, item).kans} %), voor het belmoment; met echte data staat hier wie de rit invulde, uit het TMS.</p></div></section>${gevraagdHtml(item)}`;
