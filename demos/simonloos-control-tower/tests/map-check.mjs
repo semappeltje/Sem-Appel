@@ -271,14 +271,16 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
     const w = o.w || 1440, h = o.h || 900;
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500, reducedMotion: o.reduced ? 'reduce' : 'no-preference' });
     const page = await ctx.newPage(); const errors = errorsOf(page);
+    // een trage machine nabootsen (ronde 4): de processor vier keer trager, zodat de test het ook op een snelle machine vangt
+    try { const cdp = await ctx.newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }); } catch { /* geen CDP */ }
     await page.route('**/*', route => { const u = new URL(route.request().url()); return u.host === host ? route.continue() : route.abort('blockedbyclient'); });
     if (o.embedded) await page.route(URL0, async route => { const r0 = await route.fetch(); const body = (await r0.text()).replace('class="app slct"', 'class="app slct" data-tiles="off" data-embedded'); await route.fulfill({ response: r0, body, headers: { ...r0.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
     await page.addInitScript(([d]) => { try { if (!sessionStorage.getItem('eb')) { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify({ regios: [], divs: ['winkel', 'netwerk', 'bulk', 'dranken', 'bezorg'], role: 'planner', sp: null })); if (d) localStorage.setItem('sl-theme', 'dark'); sessionStorage.setItem('eb', '1'); } } catch { /* geen opslag */ } }, [!!o.dark]);
     // per getekend beeld: ligt het vlak er nog helemaal over? Zo niet, dan moeten land en water geladen zijn
     await page.addInitScript(() => {
-      window.__eb = { beelden: 0, zicht: 0, zonderLand: 0, vaagt: false, start: null, weg: null };
+      window.__eb = { beelden: 0, zicht: 0, zonderLand: 0, zonderBeeld: 0, vaagt: false, start: null, weg: null };
       const hang = () => { const S = window.SLCT; if (!S || !S.map || !S.map.map || !S.map.map.on) { setTimeout(hang, 5); return; } const m = S.map.map;
-        m.on('render', () => { const E = window.__eb; if (E.start === null) return; const c = m.getContainer(); if (!c.clientWidth) return; E.beelden++; const v = c.querySelector('.kaart-wacht'); if (v && v.classList.contains('weg')) E.vaagt = true; if (v && !v.classList.contains('weg') && +getComputedStyle(v).opacity > 0.99) return; E.zicht++; if (E.weg === null) E.weg = Math.round(performance.now() - E.start); const ok = id => !m.getSource(id) || m.getLayoutProperty(id, 'visibility') === 'none' || m.isSourceLoaded(id); if (!ok('land') || !ok('water')) E.zonderLand++; }); };
+        m.on('render', () => { const E = window.__eb; if (E.start === null) return; const c = m.getContainer(); if (!c.clientWidth) return; E.beelden++; const v = c.querySelector('.kaart-wacht'); if (v && v.classList.contains('weg')) E.vaagt = true; if (v && !v.classList.contains('weg') && +getComputedStyle(v).opacity > 0.99) return; E.zicht++; if (E.weg === null) E.weg = Math.round(performance.now() - E.start); const ok = id => !m.getSource(id) || m.getLayoutProperty(id, 'visibility') === 'none' || m.isSourceLoaded(id); if (!ok('land') || !ok('water')) E.zonderLand++; let land = 0; try { land = m.getLayer('land') ? m.queryRenderedFeatures({ layers: ['land'] }).length : 0; } catch { land = 0; } if (!land) E.zonderBeeld++; }); };
       hang();
     });
     await page.goto(URL0 + (o.hash || ''), { waitUntil: 'load' });
@@ -293,8 +295,8 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
     res.push({ lab, ...E, errors: errors.length, reduced: !!o.reduced });
     await ctx.close();
   }
-  const fout = res.filter(r => r.zonderLand > 0 || r.vlak || r.zicht === 0 || r.errors || (r.reduced && r.vaagt));
-  check(!fout.length, `het eerste beeld: nooit alleen zee (${res.map(r => `${r.lab}: het vlak weg na ${r.weg} ms, daarna ${r.zicht} beelden, ${r.zonderLand} zonder land of water${r.reduced ? `, ${r.vaagt ? 'met' : 'zonder'} overgang` : ''}`).join('; ')})${fout.length ? `; FOUT bij ${fout.map(r => r.lab).join(', ')}` : ''}`);
+  const fout = res.filter(r => r.zonderLand > 0 || r.zonderBeeld > 0 || r.vlak || r.zicht === 0 || r.errors || (r.reduced && r.vaagt));
+  check(!fout.length, `het eerste beeld: nooit alleen zee, met de processor vier keer trager (${res.map(r => `${r.lab}: het vlak weg na ${r.weg} ms, daarna ${r.zicht} beelden, ${r.zonderLand} zonder land of water, ${r.zonderBeeld} zonder land in beeld${r.reduced ? `, ${r.vaagt ? 'met' : 'zonder'} overgang` : ''}`).join('; ')})${fout.length ? `; FOUT bij ${fout.map(r => r.lab).join(', ')}` : ''}`);
 }
 
 // ======================================================================================================================

@@ -51,7 +51,7 @@ function rijHtml(ctx, p, on2) {
     <span class="or-u ${urgentieKlas(u, p)}">${esc(urgentieTxt(u, p))}</span>
     <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
     <span class="or-m">laden ${hhmm(v[0])}–${hhmm(v[1])} · ${uurTxt(duurVan(p, inv))} · ${esc(wagenTxt(p))}</span>
-    <span class="or-c">${bel ? `<span class="or-r">${bel}</span>` : ''}<span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${best ? `<span class="or-r" title="${esc(bestVol)}: de aanbevolen kandidaat (schatting); niemand staat bij twee ritten als eerste keus">${esc(best)}</span>` : ''}${kansChip(pg)}</span></button></li>`;
+    <span class="or-c">${bel ? `<span class="or-r or-bel">${bel}</span>` : ''}<span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${best ? `<span class="or-r" title="${esc(bestVol)}: de aanbevolen kandidaat (schatting); niemand staat bij twee ritten als eerste keus">${esc(best)}</span>` : ''}${kansChip(pg)}</span></button></li>`;
 }
 // een gemiste rit van vandaag: het venster is voorbij en niemand rijdt hem (of hij ging morgen als eerste)
 function gemistRijHtml(ctx, p, on2) {

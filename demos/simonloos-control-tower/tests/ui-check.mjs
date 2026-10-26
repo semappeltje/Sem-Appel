@@ -932,6 +932,25 @@ async function topbalkRonde(p, w, oef, menu) {
   check(!over.length, `${lbl}: niets breder dan het scherm bij ${adressen.length} weergaven en pagina's${over.length ? `; FOUT: ${over.slice(0, 4).join('; ')}` : ''}`);
   if (w >= 1280) check(rechts.size === 1, `${lbl}: rechts in de topbalk verspringt niet tussen weergaven en pagina's (${[...rechts].map(x => x || 'niets').join(' | ')})`);
 }
+// Ronde 4: in de lijst Open ritten staat het belmoment ("uiterlijk vragen 05:40") altijd heel, in elke rij; de reden en
+// de naam mogen op een tweede regel en breken pas af als ook dat niet past (gemeten, niet geëist). Wognum en heel
+// Nederland, om 05:30.
+async function openRittenRijen(p, lbl) {
+  const uit = []; const tel = [];
+  for (const scope of ['Wognum', 'Nederland']) {
+    await p.evaluate(s => { const c = window.SLCT.ui.ctx; const S = window.SLCT; if (s === 'Nederland') { c.F.sps = new Set(); c.F.regios = new Set(); } else c.F.sps = new Set(['Wognum']); S.state.playing = false; S.state.simTime = 330; S.ui.frame(true); c.refreshAll(); c.go('view:openritten'); }, scope); await p.waitForTimeout(1000);
+    const m = await p.evaluate(() => {
+      const kapt = x => x.scrollWidth > x.clientWidth + 1; const R = [...document.querySelectorAll('#v-openritten .or-list .or-i')];
+      let bel = 0, belKapt = 0, rest = 0, restKapt = 0; const vb = [];
+      for (const r of R) { const rr = r.getBoundingClientRect(); for (const x of r.querySelectorAll('.or-r')) { const b = x.getBoundingClientRect(); const buiten = b.right > rr.right + 1 || b.left < rr.left - 1; if (x.classList.contains('or-bel')) { bel++; if (kapt(x) || buiten) { belKapt++; vb.push(x.textContent.trim()); } } else { rest++; if (kapt(x) || buiten) restKapt++; } } }
+      return { rijen: R.length, bel, belKapt, rest, restKapt, vb: vb.slice(0, 3) };
+    });
+    tel.push(`${scope}: ${m.rijen} rijen, ${m.bel} belmomenten heel${m.belKapt ? ` op ${m.belKapt} na (${m.vb.join(', ')})` : ''}, ${m.restKapt} van ${m.rest} redenen of namen met een ellips`);
+    if (m.belKapt || !m.rijen) uit.push(`${scope}: ${m.belKapt} belmomenten afgebroken, ${m.rijen} rijen`);
+  }
+  check(!uit.length, `${lbl}, Open ritten om 05:30: het belmoment staat in elke rij heel (${tel.join('; ')})${uit.length ? `; FOUT: ${uit.join('; ')}` : ''}`);
+  await p.evaluate(() => { const c = window.SLCT.ui.ctx; const S = window.SLCT; c.F.sps = new Set(['Wognum']); S.state.simTime = 450; S.ui.frame(true); c.refreshAll(); c.go('view:overzicht'); }); await p.waitForTimeout(300);
+}
 const laadDag = async (p, oef) => {
   await p.goto(url, { waitUntil: 'load' });
   await p.evaluate(wg => { try { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify(wg)); } catch { /* geen opslag */ } }, WOGNUM);
@@ -944,6 +963,7 @@ const laadDag = async (p, oef) => {
 for (const oef of [true, false]) {
   const r = await nieuwePagina({ width: 1440, height: 900 }); const p = r.page;
   await laadDag(p, oef);
+  await openRittenRijen(p, `1440 px, ${oef ? 'oefendag' : 'gewone dag'}`);
   if (oef) {
     // de oefendag om 15:00: vertraagd zonder zaak (N5); de briefing zegt dat niemand na zijn venster komt
     await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 900; S.ui.frame(true); S.ui.ctx.refreshAll(); S.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
@@ -977,6 +997,7 @@ for (const oef of [true, false]) {
 for (const oef of [true, false]) {
   const r = await nieuwePagina({ width: 390, height: 844 }); const p = r.page;
   await laadDag(p, oef);
+  await openRittenRijen(p, `390 px, ${oef ? 'oefendag' : 'gewone dag'}`);
   await topbalkRonde(p, 390, oef, '');
   if (oef) await kpiToets(p, '390 px, oefendag', ['Koeling', 'Techniek', 'Oplegger']);
   await r.ctx.close();

@@ -95,15 +95,28 @@ export function createMap(container, opts) {
     if (reducedMotion()) { wacht.remove(); return; }
     requestAnimationFrame(() => { wacht.classList.add('weg'); setTimeout(() => wacht.remove(), 260); });
   }
-  // pas meten als de kaart een maat heeft (de kaartweergave in beeld): een kaart zonder maat vraagt geen tegels, dus dan
-  // zegt "geladen" niets; een laag die niet getekend wordt (een online basiskaart dekt hem af) telt als klaar
-  const getekend = id => !map.getLayer(id) || map.getLayoutProperty(id, 'visibility') === 'none' || (!!map.getSource(id) && map.isSourceLoaded(id));
+  // Pas meten als de kaart een maat heeft (de kaartweergave in beeld): een kaart zonder maat vraagt geen tegels, en dan
+  // zegt "geladen" niets. En isSourceLoaded zegt ook met een maat niet dat er al iets getekend is: tot ronde 4 ging het
+  // vlak daardoor te vroeg weg (Nederland als zee met trucks op het water, op een trage machine, in het donker en vanaf het
+  // Overzicht). Het vlak gaat pas weg als land en water geladen zijn en het land echt in het zichtbare beeld getekend is
+  // (queryRenderedFeatures op de landlaag; bij het openen staat Nederland altijd in beeld, dus land is er dan altijd).
+  // Dekt een online basiskaart het land af (OpenFreeMap), dan moet die zelf iets getekend hebben; een luchtfoto of de
+  // BRT is een rasterlaag zonder features, daar volstaat dat de tegels van het beeld er zijn. Met minder beweging geen
+  // overgang, wel hetzelfde wachten. Niet areTilesLoaded over de hele kaart: de voertuigbronnen verversen elk beeld.
+  const verborgen = id => map.getLayoutProperty(id, 'visibility') === 'none';
+  const geladen = id => { const l = map.getLayer(id); return !!l && (verborgen(id) || (!!map.getSource(l.source) && map.isSourceLoaded(l.source))); };
+  const inBeeld = id => { try { return !!map.getLayer(id) && !verborgen(id) && map.queryRenderedFeatures({ layers: [id] }).length > 0; } catch { return false; } };
+  const bronKlaar = id => !map.getSource(id) || map.isSourceLoaded(id);
+  const OFM_ZICHT = ['o-water', 'o-landcover', 'o-landuse', 'o-road', 'o-boundary'];
   function wachtOp() {
-    if (wachtAf || !map.getSource('land')) return;
+    if (wachtAf || !map.getLayer('land') || !map.getLayer('water')) return;
     const c = map.getContainer(); if (!c.clientWidth || !c.clientHeight) return;
     // lukt het nooit (een fout in een bron), dan na 12 s toch de kaart
     if (!wachtTimer) wachtTimer = setTimeout(weg, 12000);
-    if (getekend('land') && getekend('water')) weg();
+    if (!geladen('land') || !geladen('water')) return;
+    const online = !!map.getLayer('o-bg') && !verborgen('o-bg');
+    const klaar = !verborgen('land') ? inBeeld('land') : online ? bronKlaar('ofm') && OFM_ZICHT.some(inBeeld) : bronKlaar('luchtfoto') && bronKlaar('brt');
+    if (klaar) weg();
   }
   map.on('render', wachtOp);
   const clock = opts.clock || null;
