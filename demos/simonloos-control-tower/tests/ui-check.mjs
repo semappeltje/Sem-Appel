@@ -312,7 +312,9 @@ await page.evaluate(() => window.SLCT.ui.ctx.clearSel());
 if (mode === 'gl') {
   await page.evaluate(() => { const S = window.SLCT; const p = S.map.vehiclePos('T-1005'); if (p) S.map.map.jumpTo({ center: [p.lon + 1.5, p.lat], zoom: 11 }); }); await page.waitForTimeout(400);
   await page.evaluate(() => window.SLCT.ui.ctx.go('kaart:truck:T-1005')); await page.waitForTimeout(300);
-  const mk = await page.evaluate(() => window.SLCT.map.debug().mark); await page.waitForTimeout(1200);
+  const mk = await page.evaluate(() => window.SLCT.map.debug().mark);
+  // pas meten als de vlucht klaar is (onder belasting, met SwiftShader, duurt hij langer dan de 800 ms van de camera)
+  await page.waitForTimeout(300); await page.waitForFunction(() => !window.SLCT.map.map.isMoving(), null, { timeout: 20000, polling: 200 }).catch(() => {}); await page.waitForTimeout(300);
   const zicht = await page.evaluate(() => { const S = window.SLCT; const p = S.map.vehiclePos('T-1005'); return p ? S.map.inView(p.lon, p.lat, 40) : false; });
   check(mk && zicht, `vanuit een lijst of zoeken vliegt de kaart naar T-1005 met een ring (mapApi.flyTo; ring ${mk}, in beeld ${zicht})`);
   // pas meten als de camera stilstaat (met SwiftShader loopt de vlucht soms langer dan 1,2 s)
