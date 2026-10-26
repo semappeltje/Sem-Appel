@@ -52,3 +52,17 @@ naam naar de API, alle suites groen).
   stukje luchtfoto); wie voor het eerst komt (of langer dan een jaar geleden) krijgt hem in het bericht en de
   ritopdracht, een ervaren chauffeur niet; de ritpagina zegt "nieuw voor deze chauffeur" (test).
 
+## J. Chauffeursprofiel
+- Elke chauffeur heeft een profiel met bevoegdheden (C of CE, code 95, ADR, LZV, ATP, heftruck, met vervaldatum),
+  ervaring, rooster, afspraken, bereikbaarheid, betrouwbaarheid per groep en een notitie van de planner; de toewijzing en
+  het planbord weigeren een rit zonder de juiste bevoegdheid met reden (test); een certificaat dat binnen 90 dagen
+  verloopt staat op het Overzicht (test); nooit een medische reden, nooit een ranglijst per persoon.
+
+## K. Dashboard en duurzame voorstellen
+- Rapporten is voor de directie een dashboard: op tijd, gemist, invulling en kosten, bezetting, kosten per km, lege km,
+  wachttijd, rij- en rusttijden, CO2 en het aandeel elektrisch, met trend over dertig dagen; elk cijfer klikt door
+  (test); laadt binnen een seconde (test).
+- Duurzame voorstellen per rit met berekening (elektrisch in plaats van diesel, lege kilometers eruit, LZV, minder
+  wachttijd): CO2 in kg en euro's als schatting met de bron van elke factor in BRONNEN.md; de som per dag is
+  reproduceerbaar (test); geen voorstel zonder voldoende accu of bevoegdheid (test).
+

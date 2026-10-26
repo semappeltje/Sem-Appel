@@ -130,6 +130,58 @@ ritopdracht, een ervaren chauffeur niet (test); een vaste route gaat niet naar e
 beschikbaar is (test); de kandidaatkaart toont de ervaring op het adres. Schatting: één agentronde, 1 dag, in ronde 2
 samen met het voorkeursbod.
 
+## 2c. De chauffeur als persoon: wat een planner moet weten (jouw aanvulling, avond)
+
+Nu is een chauffeur in de app een naam met een dienst, een teller en voorkeuren. In 4.1 wordt het een profiel, met
+bovenaan drie regels "wat je als planner moet weten", en daaronder:
+- **Bevoegdheden en certificaten**: rijbewijs C of CE, code 95 geldig tot, ADR, LZV, koel en vries (ATP), heftruck,
+  met een waarschuwing als iets binnen 90 dagen verloopt; de toewijzing laat niemand op een rit die hij niet mag rijden.
+- **Ervaring**: jaren bij Simon Loos, de vaste en voorkeursroutes, de klanten en DC's waar hij vaak komt, het laatste
+  bezoek per adres (bouwsteen 2b), met welke voertuigen en opleggers hij rijdt.
+- **Rooster en beschikbaarheid**: contract, werkdagen en dagdelen, vakantie, de teller van rij- en rusttijden, het
+  voorkeursbod van deze week.
+- **Afspraken die de planning raken**: "geen nachtdiensten (afspraak)", "niet op zaterdag", "rijdt geen LZV", "spreekt
+  Pools en Nederlands"; alleen wat voor de planning nodig is, nooit een medische reden.
+- **Hoe je hem bereikt**: app of mail, bereikbaar vanaf welk uur; in de demo zonder echt nummer.
+- **Betrouwbaarheid als groepscijfer**, niet als ranglijst: op tijd, ritten, afgezegd, per groep (eigen, oproep)
+  zichtbaar; per persoon alleen voor de planner die hem inzet, en nooit op een scherm in de hal (OR en AVG als signaal).
+- **Een notitie van de planner** per chauffeur, met datum en naam, in het logboek.
+
+In de demo alles gesimuleerd en fictief; in het echt uit HR (bevoegdheden, contract), het TMS (ervaring) en de planners
+zelf (afspraken en notities). Lat: elke chauffeur heeft een profiel; de toewijzing en het planbord weigeren een rit zonder
+de juiste bevoegdheid, met reden; een certificaat dat binnen 90 dagen verloopt staat op het Overzicht van de standplaats.
+Schatting: één agentronde, 1 dag.
+
+## 2d. Dashboard voor de directie en duurzame alternatieven (jouw aanvulling, avond)
+
+**Het dashboard** (de weergave Rapporten wordt voor de directie een dashboard, naast de rapporten per dag): op één scherm
+per standplaats en heel Simon Loos, als cijfer met trend over dertig dagen en als grafiek:
+- Op tijd, te laat, gemist; open ritten en hoe ze ingevuld werden (eigen, oproep, zzp, charter) en wat dat kostte;
+- Bezetting tegen behoefte (bouwsteen F) als tekort- en overschotdagen;
+- Kosten per kilometer en per rit (schatting), lege kilometers, wachttijd bij DC's;
+- Rij- en rusttijden: overtredingen voorkomen door de toets, chauffeurs dicht bij hun weekgrens;
+- Duurzaamheid: CO2 per dag en per rit, het aandeel elektrisch, lege kilometers, de besparing van de voorstellen
+  hieronder; met de bron van elke factor erbij.
+De directie kijkt, handelt niet; elk cijfer klikt door naar de lijst erachter.
+
+**Duurzame alternatieven als voorstel, met de berekening.** De app rekent per rit (en per dag per standplaats) wat een
+duurzamer alternatief oplevert en stelt het voor waar het past, zoals de voorstellen bij een vertraging nu:
+- **Elektrisch in plaats van diesel**: past de rit in de actieradius en het laadplan van een elektrische truck op die
+  standplaats (verbruik 1,1 tot 1,15 kWh per km, NACFE; de laadpunten en de accustand die de app al simuleert), dan het
+  voorstel "rijd deze rit elektrisch": CO2-besparing in kg en het kostenverschil in euro's (schatting).
+- **Lege kilometers eruit**: een retourlading of een andere volgorde die lege kilometers scheelt; kilometers, CO2 en
+  euro's.
+- **Een LZV in plaats van twee ritten** waar de route het toelaat en de chauffeur het mag (bevoegdheid, bouwsteen 2c).
+- **Minder wachttijd bij DC's** (ideeënbank 4) als vermeden stationair draaien.
+De factoren (CO2 per liter diesel, per kWh stroom in Nederland, kosten per km) komen uit openbare bronnen met datum
+(CO2emissiefactoren.nl, de NACFE-referentie die er al is) en staan in `src/data/BRONNEN.md`; tot ze nagelezen zijn
+"status zoek". Elk voorstel noemt zijn aannames en heet schatting. De planner past toe of wijst af; de directie ziet in
+het dashboard wat de voorstellen samen opleverden en wat er niet gebruikt werd.
+
+Lat: het dashboard laadt binnen een seconde, elk cijfer klikt door, de som van de duurzaamheidsvoorstellen op een dag is
+reproduceerbaar (test), en geen enkel voorstel zet een rit op een truck zonder voldoende accu of een chauffeur zonder
+bevoegdheid. Schatting: twee agentrondes, 2 dagen.
+
 ## 3. Wat uit 4.0 bleef liggen (klein, mee in dezelfde ronde)
 
 - Twee tekstpunten in het Assistent-paneel ("nooit namen of nummers", "dertig vragen per uur").
@@ -152,12 +204,13 @@ de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De vragen
 1. Het rooster en de tellers per chauffeur (A en B, met de weekregels van punt 1), en het model achter Bezetting (F).
 2. Plannen en vrijgeven, het bericht aan de chauffeur, de ritopdracht naar de boordcomputer (C, D, E), en het scherm
    Bezetting (F).
-3. Voorkeursbod en eerlijk verdelen (punt 2), vaste routes en plekkennis (punt 2b).
-4. De kleine punten.
-5. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
+3. Voorkeursbod en eerlijk verdelen (punt 2), vaste routes en plekkennis (2b), het chauffeursprofiel (2c).
+4. Het dashboard voor de directie en de duurzame voorstellen met berekening (2d).
+5. De kleine punten.
+6. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
    4.0: artifact, demosite en SafeTools op dezelfde build, via de website-sessie.
 
-Schatting voor het geheel: zeven tot acht dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
+Schatting voor het geheel: tien tot elf dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
 kunnen apart live.
 
 ## Risico's en signalen
