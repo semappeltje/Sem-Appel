@@ -11,8 +11,9 @@
 // - de body: 400 bij een lege, kapotte of te grote body, een te grote dag, geen JSON-header, een onbekende soort, een
 //   vraag die ontbreekt of te lang is, een lijst die te lang is, een dag zonder tijd; 405 bij GET; 403 van een andere site
 // - de toegang: 401 zonder of met een verkeerde Basic-login (voor het lezen van de body, zonder aanroep, met
-//   WWW-Authenticate); elke login uit DEMO_LOGINS werkt (komma, puntkomma of regeleinde ertussen, een dubbele punt in het
-//   wachtwoord, UTF-8); 500 zonder DEMO_LOGINS; de logs bevatten de header niet
+//   WWW-Authenticate); elke login uit DEMO_LOGINS werkt, gelezen zoals de gate (alleen een komma ertussen, de hele tekst
+//   naam:wachtwoord, dus een dubbele punt, spatie of puntkomma in het wachtwoord mag, UTF-8); 500 zonder DEMO_LOGINS;
+//   de logs bevatten de header niet
 // - de sleutel: 500 zonder ANTHROPIC_API_KEY (en geen aanroep); 500 bij een onzinnige ASSISTENT_MODEL
 // - de rem: 20 aanroepen per uur per IP-adres, de 21e een 429 met Retry-After en zonder aanroep; een ander IP gaat door;
 //   na een uur weer vrij; ASSISTENT_REM zet een andere grens, een onzinnige waarde valt terug op 20
@@ -415,14 +416,16 @@ groep('Toegang: de login van de demosite (401) zonder aanroep van de API');
   check(kapot.res.status === 401, 'zonder login gaat de toegang voor de body: 401, geen 400');
   const tweede = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: basic('tweede:ander-wachtwoord') } });
   check(tweede.res.status === 200, 'de tweede login uit DEMO_LOGINS (na een komma) werkt');
-  const regels = { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: 'een:a1 ; twee:b:2\n drie:\u00fcmlaut\u00e9' };
+  const regels = { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: ' een:a 1;x , twee:b:2,drie:\u00fcmlaut\u00e9 ' };
+  const spatie = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('een:a 1;x') } });
   const dubbel = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('twee:b:2') } });
   const utf8 = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('drie:\u00fcmlaut\u00e9') } });
   const half = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('twee:b') } });
-  check(dubbel.res.status === 200 && utf8.res.status === 200 && half.res.status === 401, 'puntkomma en regeleinde als scheiding, een dubbele punt in het wachtwoord, UTF-8; een half wachtwoord niet');
+  const deel = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('een:a') } });
+  check(spatie.res.status === 200 && dubbel.res.status === 200 && utf8.res.status === 200 && half.res.status === 401 && deel.res.status === 401, 'alleen een komma scheidt (zoals de gate): een spatie, puntkomma of dubbele punt in het wachtwoord mag, UTF-8 ook; een half wachtwoord niet');
   const leeg = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: ' ' } });
-  check(leeg.res.status === 500 && /DEMO_LOGINS/.test(leeg.data.fout) && nb.aanroepen.length === 3, 'zonder DEMO_LOGINS: 500 met een leesbare fout en geen aanroep (dicht)');
-  check(JSON.stringify(F.leesLogins('a:1, b:2;c:3\nd:4:5 :x y: ')) === JSON.stringify([{ naam: 'a', wachtwoord: '1' }, { naam: 'b', wachtwoord: '2' }, { naam: 'c', wachtwoord: '3' }, { naam: 'd', wachtwoord: '4:5' }]), 'leesLogins: komma, puntkomma, spatie en regeleinde; de eerste dubbele punt scheidt; zonder naam of wachtwoord telt niet');
+  check(leeg.res.status === 500 && /DEMO_LOGINS/.test(leeg.data.fout) && nb.aanroepen.length === 4, 'zonder DEMO_LOGINS: 500 met een leesbare fout en geen aanroep (dicht)');
+  check(JSON.stringify(F.leesLogins(' a:1, b:2;c:3 ,zonder, :x ,, d:4:5')) === JSON.stringify(['a:1', 'b:2;c:3', ':x', 'd:4:5']), 'leesLogins leest als de gate: alleen een komma scheidt, getrimd, een deel telt met een dubbele punt erin');
   check((await F.loginGeldig(basic('kijker:proef-wachtwoord'), LOGINS)) === true && (await F.loginGeldig(basic('kijker:proef-wachtwoord '), LOGINS)) === false && (await F.loginGeldig(null, LOGINS)) === false && (await F.loginGeldig(basic('kijker'), LOGINS)) === false, 'loginGeldig: precies de login, niets anders');
 }
 

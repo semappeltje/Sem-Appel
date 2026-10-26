@@ -684,26 +684,20 @@ export function resetRem() {
 }
 
 /**
- * Leest DEMO_LOGINS: "naam:wachtwoord", meer logins gescheiden door een komma, puntkomma, spatie of regeleinde; de eerste
- * dubbele punt scheidt naam en wachtwoord (een wachtwoord mag er zelf een bevatten). Een deel zonder naam of wachtwoord
- * telt niet.
+ * Leest DEMO_LOGINS precies zoals de gate (netlify/edge-functions/gate.ts): logins gescheiden door een komma, elk deel
+ * getrimd, en een deel telt als er een dubbele punt in staat. Een login is de hele tekst "naam:wachtwoord"; een spatie
+ * of puntkomma erin hoort bij het wachtwoord.
  */
-export function leesLogins(bron: string): { naam: string; wachtwoord: string }[] {
-  const uit: { naam: string; wachtwoord: string }[] = [];
-  for (const deel of bron.split(/[,;\s]+/)) {
-    const i = deel.indexOf(':');
-    if (i < 1 || i === deel.length - 1) continue;
-    uit.push({ naam: deel.slice(0, i), wachtwoord: deel.slice(i + 1) });
-  }
-  return uit;
+export function leesLogins(bron: string): string[] {
+  return bron.split(',').map((s) => s.trim()).filter((s) => s.includes(':'));
 }
 
 const sha256 = async (s: string): Promise<Uint8Array> => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
 
 /**
  * Is de Authorization-header een Basic-login uit DEMO_LOGINS? De browser stuurt hem vanzelf mee op een fetch binnen de
- * site zodra de gate om een login vroeg. Vergelijkt de SHA-256-digest van naam en wachtwoord met die van elke login,
- * alle 32 bytes en alle logins, zonder vroeg te stoppen (constante tijd).
+ * site zodra de gate om een login vroeg. Vergelijkt de SHA-256-digest van de hele gedecodeerde tekst ("naam:wachtwoord",
+ * zoals de gate) met die van elke login, alle 32 bytes en alle logins, zonder vroeg te stoppen (constante tijd).
  */
 export async function loginGeldig(header: string | null, logins: string): Promise<boolean> {
   const m = /^\s*Basic\s+([A-Za-z0-9+/=_-]+)\s*$/i.exec(header ?? '');
@@ -715,12 +709,10 @@ export async function loginGeldig(header: string | null, logins: string): Promis
   } catch {
     return false;
   }
-  const i = paar.indexOf(':');
-  if (i < 1) return false;
-  const gegeven = await sha256(`${paar.slice(0, i)}\n${paar.slice(i + 1)}`);
+  const gegeven = await sha256(paar);
   let goed = 0;
   for (const l of leesLogins(logins)) {
-    const d = await sha256(`${l.naam}\n${l.wachtwoord}`);
+    const d = await sha256(l);
     let v = 0;
     for (let k = 0; k < 32; k++) v |= gegeven[k] ^ d[k];
     if (v === 0) goed = 1;

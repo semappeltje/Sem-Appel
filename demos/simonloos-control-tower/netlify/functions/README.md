@@ -22,7 +22,8 @@ De demo draait op controltower-demo.netlify.app, uit de demo-repo met `public/in
 2. Controleer dat de gate ook `/api/assistent` afschermt. Kijk in `gate.ts` naar `export const config`: met
    `path: '/*'` en geen `excludedPath` voor `/api` is het goed. Valt `/api/*` buiten de gate, dan kan iedereen met
    de URL de functie aanroepen en betaal jij voor die vragen. De functie controleert de login daarom ook zelf: de
-   Authorization-header (Basic) tegen `DEMO_LOGINS`, dezelfde variabele als de gate. Zonder login geeft hij een 401,
+   Authorization-header (Basic) tegen `DEMO_LOGINS`, dezelfde variabele als de gate en op dezelfde manier gelezen
+   (logins gescheiden door een komma, de hele tekst naam:wachtwoord). Zonder login geeft hij een 401,
    ook aan curl; zonder `DEMO_LOGINS` in zijn eigen omgeving weigert hij alles (500). De gate blijft de eerste deur;
    door de eigen controle maakt het niet uit of de gate ook `/.netlify/functions/assistent` dekt.
 3. Omgevingsvariabelen in Netlify (project controltower-demo, Project configuration, Environment variables):
