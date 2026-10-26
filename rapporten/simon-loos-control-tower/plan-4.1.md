@@ -213,6 +213,55 @@ de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De vragen
 Schatting voor het geheel: tien tot elf dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
 kunnen apart live.
 
+## 6. Stand na ronde 1 (26 oktober, avond)
+
+Drie agents bouwden tegelijk, elk in een eigen tak; alles staat samengevoegd op `claude/happy-darwin-3ytmwi` en is
+gebouwd (artifact 15.883.993 bytes, 116.007 onder de grens van 16 MB).
+
+**Gebouwd**
+- Vrijgeven, het bericht aan de chauffeur en de ritopdracht (bouwstenen C, D en E): de weergave Vrijgeven (toets 7),
+  per dienst chauffeur, voertuig, oplegger, ritten en status; "Planning vrijgeven" voor alles tegelijk, na een
+  wijziging alleen het verschil; het bericht met begintijd, plek, voertuig, oplegger, ritten, pauze en einde; de
+  bevestiging (gesimuleerd: na drie kwartier 231 bevestigd, 23 gezien, 24 niet gezien, die 47 onder "Wacht op
+  bevestiging" met een belknop); per rit een OTM5-ritopdracht (chauffeur alleen als nummer), per standplaats te
+  exporteren (Wognum 482 ritopdrachten, 2.089 entiteiten geldig tegen OTM 5.9). Directie en HR zien de knop niet.
+- Rij- en rusttijden over de week (A) en het rooster (B): `src/tellers.js` (gereden vandaag, deze week, twee weken,
+  laatste rust en weekrust met compensatie, volgende verplichte rust, "kan nog" in één zin), op de chauffeurspagina,
+  in de lijst Chauffeurs, in de kandidaatkaart en op het planbord (per chauffeur "nog 4 uur" en een rustblok van 11 of
+  45 uur na de dienst); 56 uur per week, 90 in twee weken en de weekrust uiterlijk na zes dagen als harde grens in de
+  toets, de kandidaten en de toewijzing. `src/rooster.js`: contract (vol, deeltijd, halve dagen, oproep), dagdelen per
+  weekdag, om de week een zesde dag, vakantie en ziek; buiten het rooster alleen met een reden (dialoog op het planbord,
+  logregel). Het model achter Bezetting (F): `src/bezetting.js`, per standplaats en heel Nederland, per dag en dagdeel
+  voor veertien dagen nodig, beschikbaar, verschil en kosten, met voorstellen als gegevens (het scherm is ronde 2).
+- De directie leest het planbord mee (H): "Alleen-lezen: je kijkt mee", niets sleepbaar, geen Rit inplannen.
+- Dashboard en duurzame voorstellen (2d, K): bovenaan Rapporten zes blokken met 23 cijfers, elk met een trend over
+  dertig dagen (29 dagen gesimuleerde historie, zo vermeld) en doorklik naar de lijst erachter; "Bekijk" per
+  werkgebied, regio of standplaats. `src/duurzaam.js`: elektrisch in plaats van diesel (accu uit `fleet.stateAt`, km x
+  1,15 kWh plus 15 procent marge), lege kilometers eruit, LZV (alleen met truck en bevoegdheid), wachten bij een DC;
+  elk voorstel met berekening, aannames en "schatting"; de planner past toe of wijst af met reden, de directie krijgt
+  geen knoppen. Heel Nederland op maandag 10:00: 61 voorstellen, samen 3.197 kg CO2 en 2.285 euro per dag
+  (schatting). De factoren met status en bron staan in `src/data/BRONNEN.md`.
+
+**Tests van ronde 1** (groen bij elke agent op zijn eigen build; de eindrun op de samengevoegde build, met de zestien
+suites van 4.0 erbij, staat in de README van de app):
+`vrijgeven-check` (27), `week-check` (54), `bezetting.test` (4), `dashboard-check` (30), `duurzaam.test` (10),
+`toets.test` (19, was 14) en `verdeel.test` (6, was 5).
+
+**Ronde 2** (de volgende dag): het scherm Bezetting op `people.bezetting` (F), het voorkeursbod (G), vaste routes en
+plekkennis (I), het chauffeursprofiel (J, met de LZV-bevoegdheid die `duurzaam.js` nu uit een gesimuleerde vlag
+leest), de bezetting van het dashboard op het model van F, en de kleine punten: in het menu "Planbord, alleen-lezen"
+en voor de directie Rapporten als "Dashboard"; `#dashboard` als adres; `sl-dashboard` en `sl-vrijgave` in de lijst van
+wat de browser bewaart; een logregel als de toets een sleep weigert; de pauze als 15 plus 30; de afwisseling van
+normale en verkorte weekrust over twee weken en de compensatie als blok in het rooster; de pool van de simulatie van
+1,7 naar 1,85 chauffeurs per voertuig (verandert de vingerafdruk van de data-check, dus met een nieuwe ijking). Daarna
+de eindcontrole door een aparte agent tegen `acceptatie-4.1.md`, en pas dan de drie plekken (artifact, demosite,
+SafeTools).
+
+**Nalezen voor de proef**: de cao-regels (13 vrije weekenden per half jaar, het bekendmaken van diensten, de dagrust
+van 10 uur verkort), de factoren met status zoek of aanname (CO2 diesel 2,63 kg per liter, stationair draaien 3,0
+liter per uur, LZV 20 procent extra diesel en 1,5 keer de lading), en de vrachtwagenheffing. Dit is een signaal, geen
+juridisch advies.
+
 ## Risico's en signalen
 
 Alleen als signaal, geen juridisch advies: de cao-regels van 2026 (Staatscourant 2026, nr. 7211) staan in de code met

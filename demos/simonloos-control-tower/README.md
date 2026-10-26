@@ -1,5 +1,10 @@
 # Simon Loos Control Tower (demo, versie 4.0)
 
+Versie 4.1 is in aanbouw. Ronde 1 (26 oktober 2026) staat erin: Vrijgeven met het bericht aan de chauffeur en de
+OTM5-ritopdracht, rij- en rusttijden over de week met het rooster per chauffeur, het model achter Bezetting, de directie
+alleen-lezen op het planbord, en het dashboard met duurzame voorstellen. Het plan en de lat:
+`rapporten/simon-loos-control-tower/plan-4.1.md` en `acceptatie-4.1.md`.
+
 Werkende demo van een control tower voor Simon Loos: 1.300 gesimuleerde voertuigen
 (trekkers, bakwagens en bestelbussen) en 1.700 opleggers die over het **echte wegennet**
 rijden, op een kaart die zonder internet werkt. Versie 2.0 was het ontwerp uit het
