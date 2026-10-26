@@ -21,6 +21,15 @@ Voor land, water en de landsgrens: alle vlakken en lijnen die het ruimere kader 
 | base / water | meren, rivieren, kanalen, havens en het IJ (`water.json`) | ODbL (OpenStreetMap) |
 | divisions / division_boundary | de landsgrens van Nederland met België en Duitsland (`land.json`, veld `grens`) | ODbL (OpenStreetMap) |
 
+**Licentie van wat we uit OpenStreetMap afleiden.** De wegen, de toegangsroutes, het land, het water, de landsgrens, de
+terreinen en de gebouwen zijn afgeleid uit OpenStreetMap (via Overture). Die afgeleide gegevens vallen onder de Open
+Database License 1.0 (ODbL, https://opendatacommons.org/licenses/odbl/1-0/). Ze staan in `graph.json`,
+`roads_display.json`, `toegang.json`, `land.json`, `water.json`, `buildings.json` en de terreinen in `places.json`, en
+gebouwd in `data.js` en `buildings.js`. Wie ze wil gebruiken, mag dat onder dezelfde licentie, met de vermelding
+"© OpenStreetMap-bijdragers". De kaart noemt de bron rechtsonder, met een link naar openstreetmap.org/copyright. De
+winkels en DC's (Overture Places) vallen onder CDLA Permissive 2.0, de provincies en de bebouwing (Natural Earth) zijn
+publiek domein. De simulatie zelf (voertuigen, chauffeurs, ritten, tijden) is geen afgeleide van OpenStreetMap.
+
 ## Standplaatsen (42)
 
 Adres uit de vacaturepagina's van werkenbijsimonloos.nl (het `jobLocation`-adres in de JSON-LD van elke vacature, en de
