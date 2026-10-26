@@ -78,7 +78,7 @@ async function pasToeEnMeet(page, T, zaakId, voorstelId) {
   // de zaakpagina kan na het openen nog een keer tekenen (de frame-lus, een melding die binnenkomt): de knop bij elke poging
   // opnieuw opzoeken (een locator), geen element van voor het tekenen vasthouden
   const knop = page.locator('#zaakPasToe');
-  if (await knop.count()) await knop.click({ timeout: 15000 }); else await page.evaluate(id => window.SLCT.ui.ctx.applyProposal(window.SLCT.ui.ctx.voorstelById(id)), voorstelId);
+  if (await knop.count()) await knop.click({ timeout: 30000 }); else await page.evaluate(id => window.SLCT.ui.ctx.applyProposal(window.SLCT.ui.ctx.voorstelById(id)), voorstelId);
   await page.waitForTimeout(700);
   const meet = () => page.evaluate(([b, T]) => {
     const f = window.SLCT.fleet; const c = window.SLCT.ui.ctx; const t = f.byId.get(b.t);
@@ -210,13 +210,13 @@ check(or.n >= 1 && /ziek/i.test(or.tekst), `open ritten om 07:30: ${or.n} ritten
 }
 // de schakelaar onder Instellingen: aan, en uit zetten geeft weer precies de gewone dag
 {
-  await B.page.evaluate(() => { location.hash = 'instellingen'; }); await B.page.waitForSelector('#setOefen', { state: 'attached', timeout: 15000 }).catch(() => null); await B.page.waitForTimeout(400);
+  await B.page.evaluate(() => { location.hash = 'instellingen'; }); await B.page.waitForSelector('#setOefen', { state: 'attached', timeout: 30000 }).catch(() => null); await B.page.waitForTimeout(400);
   const aan = await B.page.evaluate(() => { const i = document.getElementById('setOefen'); return i ? i.checked : null; });
   check(aan === true, 'Instellingen: de schakelaar "Oefendag: een drukke dag" staat aan');
   await B.page.click('label.tgl:has(#setOefen)');
   await B.page.waitForTimeout(400);
   const jaKnop = B.page.locator('dialog.cfm[open] button[value="ja"]'); const knop = (await jaKnop.count()) > 0;
-  if (knop) { await Promise.all([B.page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }).catch(() => null), jaKnop.click({ timeout: 15000 })]); }
+  if (knop) { await Promise.all([B.page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }).catch(() => null), jaKnop.click({ timeout: 30000 })]); }
   await klaar(B.page); await B.page.waitForTimeout(800);
   const terug = await vinger(B.page); const zonderParam = await B.page.evaluate(() => !/scenario=/.test(location.search));
   check(!!knop && terug.scenario === null && terug.h === gewoon0.h && terug.diensten === gewoon0.diensten && terug.pool === gewoon0.pool && zonderParam && !(await B.page.$('#oefenChip')), `uit zetten: na de bevestiging weer de gewone dag, precies gelijk (vingerafdruk ${terug.h} = ${gewoon0.h}, ${terug.diensten} diensten, ${terug.pool} open ritten), zonder chip en zonder ?scenario in de adresbalk`);

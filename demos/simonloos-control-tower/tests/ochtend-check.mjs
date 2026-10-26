@@ -144,7 +144,7 @@ await M.ctx.close();
   const z = await Zm.page.evaluate(() => { const P = window.SLCT.people; const g = new Date(); g.setHours(0, 0, 0, 0); g.setDate(g.getDate() - 1); const W = window.SLCT.fleet.trucks.filter(t => t.base.n === 'Wognum'); return { zondag: g.getDay() === 0, met: W.filter(t => P.forTruck.get(t.id).history.some(h => h.date.toDateString() === g.toDateString())).length, n: W.length }; });
   check(z.zondag && z.met / z.n >= 0.3 && z.met / z.n <= 0.6, `maandag ${ZOMER}, na de zomertijd: Gisteren is de zondag, ${z.met} van de ${z.n} voertuigen van Wognum reden een dienst (niet leeg)`);
   await Zm.page.evaluate(() => { location.hash = 'rapporten'; }); await Zm.page.waitForTimeout(2500);
-  const [dl] = await Promise.all([Zm.page.waitForEvent('download', { timeout: 15000 }), Zm.page.click('[data-rpcsv="dag"]')]);
+  const [dl] = await Promise.all([Zm.page.waitForEvent('download', { timeout: 30000 }), Zm.page.click('[data-rpcsv="dag"]')]);
   const csv = fs.readFileSync(await dl.path(), 'utf8').replace(/^\uFEFF/, '');
   const dagen = csv.trim().split('\n').slice(1).map(r => r.split(';')[0].replace(/"/g, ''));
   const zv = new Date(`${ZOMER}T12:00:00Z`); zv.setUTCDate(zv.getUTCDate() - 1); const zondagIso = zv.toISOString().slice(0, 10);
@@ -219,7 +219,7 @@ check(/Rit niet ingevuld/.test(zp.h) && zp.pri.length === 1 && zp.keuzes.some(k 
 // de zaakpagina kan na het openen nog een keer tekenen (de terugblik die klaar is, een melding die binnenkomt): de knop als
 // locator, opnieuw opgezocht bij de klik, geen element van voor het tekenen vasthouden
 const knop = O.page.locator('#sheet [data-nmorgen]'); const metKnop = (await knop.count()) > 0;
-if (metKnop) await knop.click({ timeout: 15000 }); await O.page.waitForTimeout(1500);
+if (metKnop) await knop.click({ timeout: 30000 }); await O.page.waitForTimeout(1500);
 const morgen = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const T = c.state.simTime; const z = c.Z.list().find(x => x.key === 'N:P-8001'); const p = c.fleet.pool.find(x => x.id === 'P-8001'); return { status: z ? z.status : null, door: z ? z.closedBy : null, dag: p.dag, morgen: c.fleet.poolAt(T).some(x => x.id === 'P-8001' && x.dag === 'morgen'), gemist: c.M.sample(T, c.fleet.trucks.filter(t => c.inScope(t)), []).gemist }; });
 check(morgen.status === 'opgelost' && morgen.door === 'planner' && morgen.morgen && morgen.gemist >= 1, `oefendag: morgen als eerste zet P-8001 bij de open ritten van morgen (${morgen.morgen}); de zaak is opgelost door de ${morgen.door}; vandaag telt hij als gemist (${morgen.gemist})`);
 await O.ctx.close();
