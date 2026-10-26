@@ -11,8 +11,8 @@ import { KIND, TRT } from '../fleet.js';
 import { esc, ic, fmt, hhmm, plate, on, VST, ritBadge, swap, kortStop, initials } from './base.js';
 import { poolInvoer, pool, poolNu, absT, docksVan, vensterAbs } from './planwijzig.js';
 import * as IP from './inplannen.js';
-import { openRitDialoog, kansChip, belSpan } from './openritten.js';
-import { urgentie, urgentieTxt, urgentieKlas, prognose, voorkeurenVan, pastVoorkeur, ritVoor, toegewezen, wieSoort, collegaOm } from './invulling.js';
+import { openRitDialoog, kansChip, belSpan, besteTxt } from './openritten.js';
+import { urgentie, urgentieTxt, urgentieKlas, prognose, voorkeurenVan, pastVoorkeur, ritVoor, toegewezen, wieSoort, collegaOm, handelMoment } from './invulling.js';
 
 const MIN = 60000;
 const KLEUR = { drive: 'var(--c-onderweg)', stop: 'var(--c-klant)', pauze: 'var(--c-pauze)', laden: '#0E7490', koppel: 'var(--c-terrein)', ontkoppel: 'var(--c-terrein)', terrein: 'var(--c-terrein)', dock: 'var(--c-terrein)' };
@@ -408,9 +408,11 @@ function createBoard(ctx, el) {
   }
 
   // ---------- pool ----------
-  function poolItems(sp) { return poolNu(ctx).filter(p => p.sp === sp.n && !collegaOm(ctx, p, T())).map(p => [p, urgentie(ctx, p)]).sort((a, b) => (a[0].dag === 'morgen') - (b[0].dag === 'morgen') || a[1] - b[1]).map(x => x[0]); }
+  // op urgentie zoals Open ritten: het eerste moment waarop je iets moet doen (invulling.handelMoment)
+  function poolItems(sp) { return poolNu(ctx).filter(p => p.sp === sp.n && !collegaOm(ctx, p, T())).map(p => [p, handelMoment(ctx, p)]).sort((a, b) => (a[0].dag === 'morgen') - (b[0].dag === 'morgen') || a[1] - b[1] || (a[0].id < b[0].id ? -1 : 1)).map(x => x[0]); }
   const uur = m => { m = Math.round(m); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} u`; };
   const bekendTxt = p => p.bekend === undefined || p.bekend === null ? '' : p.bekend < 0 ? 'sinds gisteren' : `sinds ${hhmm(p.bekend)}`;
+  const bestTxt = p => { try { return besteTxt(ctx, p); } catch { return ''; } };
   function poolHtml(sp) {
     const L = poolItems(sp); const dag = f.poolDag; const V = L.filter(p => (p.dag || 'vandaag') === dag);
     const n0 = L.filter(p => (p.dag || 'vandaag') === 'vandaag').length, n1 = L.length - n0;
@@ -420,6 +422,7 @@ function createBoard(ctx, el) {
       <div class="pk-s" title="${esc(st.map(x => x.naam).join(', '))}">${esc(st.map(x => kortStop(x.naam)).join(' · ') || 'rit')}</div>
       <div class="pk-m">laden ${p.venster ? `${hhmm(p.venster[0])}–${hhmm(p.venster[1])}` : 'vrij'} · ${uur(p.duur || (inv.t1 - inv.t0))} · ${fmt(p.km || inv.km)} km</div>
       <div class="pk-r" title="${esc(red)}">${dag === 'vandaag' ? belSpan(ctx, p, '', ' · ') : ''}${esc(red)}${bekendTxt(p) ? ` · ${esc(bekendTxt(p))}` : ''}</div>
+      ${bestTxt(p) ? `<div class="pk-r" title="De aanbevolen kandidaat (schatting); niemand staat bij twee ritten als eerste keus">${esc(bestTxt(p))}</div>` : ''}
       <div class="pk-a">${ctx.can('act') ? `<button class="btn xs" type="button" data-pkwaar="${esc(p.id)}" title="Eigen chauffeurs, oproepkrachten en charters, elk met reden en kosten">${ic('plus', 13)}Rit inplannen</button>` : ''}${p.route ? `<button class="btn xs ghost" type="button" data-pkkaart="${esc(p.id)}" title="De route van rit ${esc(p.id)} op de kaart">${ic('map', 13)}Kaart</button>` : ''}</div></div>`; };
     return `<div class="pk-bar"><button class="pk-tg" type="button" data-pktg="1" aria-expanded="${f.poolOpen}">${ic(f.poolOpen ? 'chevd' : 'chevu', 15)}<b>Open ritten</b> <span class="n">${L.length}</span></button>
       <div class="seg" role="group" aria-label="Dag"><button type="button" data-pkdag="vandaag" aria-pressed="${dag === 'vandaag'}">Vandaag ${n0}</button><button type="button" data-pkdag="morgen" aria-pressed="${dag === 'morgen'}">Morgen ${n1}</button></div>

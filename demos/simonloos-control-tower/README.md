@@ -122,14 +122,15 @@ omdat MapLibre een web worker start.
 Met `dist/` op een webserver (`cd dist && python3 -m http.server 8774 --bind 127.0.0.1`):
 
 ```
-node tests/toets.test.mjs                                   # de toetsregels van het planbord en een bouwcontrole op de stylesheet (elke animatie een @keyframes op het hoogste niveau), zonder browser
+node tests/toets.test.mjs                                   # de toetsregels van het planbord, zonder browser
+node --test tests/verdeel.test.mjs                          # de toewijzing over alle open ritten (Hongaars en gretig), zonder browser
 node tests/verify.mjs 8774 [gl|nogl] [plain|embedded] [map]  # laden, thema en kiosk op de root, geen overloop op 1440 en 390 px, minder beweging, alle weergaven
 node tests/ui-check.mjs 8774 [gl|nogl] [plain|embedded]      # ruim 100 controles van de werking: adressen, de kaart vanuit elke weergave, belmenu, planbord (arcering, herladen), voorstellen, zaken, zoeken, de topbalk (ook op de oefendag, op 1440, 1280, 1024, 820, 768 en 390 px, met het menu dat tussen 761 en 1100 px vanzelf inklapt en de keuze van de kijker die blijft; niets breder dan het scherm; rechts verspringt niets tussen weergaven), een adres met een # geeft hooguit een melding, de cijfers van een zaakpagina op 390 px, pagina's boven het paneel en Terug, de samenhang van onderweg en vertraagd en om 15:00 van elk getal met een begrip (onderweg, vertraagd, bij klant, te laat, gemist) op het Overzicht, de kaart, het standplaatspaneel en Open ritten, sneltoetsen, 390 px
 node tests/data-check.mjs http://127.0.0.1:8774/index.html    # de echte plekken en de geijkte dag
 node tests/map-check.mjs http://127.0.0.1:8774/index.html     # de kaart en de beweging, en het eerste beeld (nooit alleen zee)
 node tests/3d-check.mjs http://127.0.0.1:8774/index.html      # de 3D-wereld
 node tests/portretten-check.mjs http://127.0.0.1:8774/index.html  # de beelden van voertuigen en opleggers (foto of render)
-node tests/open-ritten-check.mjs http://127.0.0.1:8774/index.html # de vraagkant op de data, bellen zonder tel:, de Assistent door de echte serverfunctie
+node tests/open-ritten-check.mjs http://127.0.0.1:8774/index.html # de vraagkant op de data, het advies (niemand twee keer, onder 300 ms, Plan alle open ritten), bellen zonder tel:, de Assistent door de echte serverfunctie
 node tests/assistent-check.mjs                                # de serverfunctie van de Assistent, zonder browser
 node tests/voorstel-check.mjs http://127.0.0.1:8774/index.html # voorstellen met winst, Op tijd bij aankomst, vertrek per kandidaat, de oefendag
 node tests/otm5-check.mjs                                     # de vertaling naar en van OTM5 (zie src/otm5.js)
@@ -165,6 +166,23 @@ wie thuis is, moet eerst naar de standplaats (35 tot 65 minuten, vast per persoo
 verderop rijdt die afstand erbij), een eigen chauffeur die na zijn dienst rijdt vertrekt na die dienst en het koppelen, een
 charter rijdt van zijn eigen plaats. Loopt het venster al, dan vertrekt de rit zodra die kandidaat er kan zijn; het blok op
 het planbord en het bericht hebben die tijd, en de kandidaat krijgt de waarschuwing aanrijtijd.
+
+**Het advies belooft nooit dezelfde persoon twee keer.** Over alle open ritten van een dag (heel Nederland, zodat elke
+planner hetzelfde ziet) kiest één toewijzing (`invulling.verdeling` op `src/verdeel.js`, Hongaars) voor elke rit zijn eigen
+beste kandidaat: niemand twee keer, een charter niet vaker dan hij trekkers vrij heeft, en wie al voor een andere rit
+tegelijk gevraagd of al toegewezen is, blijft bij die rit. De waarde van een kandidaat is zijn kans op een ja met een kleine
+opslag voor eigen mensen (8 punten) en de flexibele schil (4 punten) boven een charter; een rit van vandaag krijgt alleen wie
+het venster haalt, zolang iemand dat haalt, en gaat voor een rit waarvoor niemand het venster meer haalt. Die ene kandidaat
+staat overal: in de rij en het advies van Open ritten, bij Toewijzen, op de kaart in de bak van het planbord en als
+hoofdknop in de zaak. Wordt iemand elders gevraagd of ingezet, dan schuift de rest mee. Gemeten (gesimuleerd, maandag 26
+oktober 2026): voor de toewijzing deelde 55 tot 65 procent van de open ritten zijn beste kandidaat met een andere rit; nu
+niemand, bij 55 tot 76 open ritten tegelijk. Hongaars tegen gretig op belmoment: Hongaars verwacht 0,5 tot 1,2 ja's per dag
+meer (24,9 tegen 24,4 om 04:00; 49,8 tegen 49,0 om 10:00) en rekent in 5 tot 16 ms; de kandidaten van alle open ritten
+rekenen kost het meeste, samen 20 tot 160 ms op een drukke machine (schatting; de toets eist onder 300 ms). Daarom Hongaars.
+**Plan alle open ritten** (de knop boven de lijst in Open ritten) toont het voorstel voor alle open ritten van de dag in het
+werkgebied tegelijk; de planner vraagt per rit of de aangevinkte in één keer, en elke toewijzing krijgt haar eigen regel in
+het logboek en de zaak. Open ritten en de bak op het planbord staan op het eerste moment waarop je iets moet doen (het
+laatste belmoment of het begin van het venster, `invulling.handelMoment`), zodat een rit die nu een zaak is bovenaan staat.
 
 Rusttijd: de cao beroepsgoederenvervoer is strenger dan EU 561/2006. EU 561 staat drie keer 9 uur verkorte rust toe
 tussen twee weekrusten; de cao hoogstens drie keer 10 uur, verder 11 uur (Staatscourant 2026, nr. 7211; status zoek,
@@ -596,13 +614,21 @@ waarop nog iemand het venster haalt. Per kandidaat van `fleet.kandidaten` (eigen
 charters, allemaal) is dat het eind van het venster min zijn aanrijtijd (van huis: de vraag, reizen en inklokken; een
 charter vanaf zijn eigen plaats); wie op dienst is en na zijn dienst kan, vraag je tot het eind van die dienst (dan
 koppelt hij meteen). Het belmoment is het laatste van die momenten, op vijf minuten naar beneden; het hangt niet af van de
-klok en verandert alleen met het plan. Een half uur ervoor wordt de rit een zaak (zie Meldingen); de collega's vullen een
+klok en verandert alleen met het plan. Een half uur ervoor wordt de rit een zaak (zie Meldingen), meteen met prioriteit
+hoog: hoog als het belmoment binnen 30 minuten valt of de beste kandidaat onder 60 procent kans op een ja heeft, laag alleen
+met meer dan een uur en een kandidaat boven 80 procent, anders middel (`invulling.ritPrio`; zo stond P-8001 op de oefendag
+om 05:30 niet meer op laag met nog 25 minuten). In de fase bel is de hoofdknop van de zaak **Vraag ze tegelijk**: de kleinste
+groep die samen minstens 90 procent kans op een ja geeft (hoogstens vier), allemaal mensen die het venster halen als je nu
+vraagt, de aanbevolen kandidaat eerst en niemand die al de eerste keus van een andere rit is; "Vraag <naam>" staat ernaast
+als gewone knop, en na het vragen noteer je het ja van wie het eerst antwoordt. De collega's vullen een
 rit op het laatst in, net voordat hij een zaak zou worden, en een rit die niemand meer op tijd kan rijden, vullen ook zij
 niet in. Gemeten in de app op maandag 26 oktober 2026 (gesimuleerd, heel Nederland): 14 van de 119 open ritten van vandaag
 vult niemand in. Zoals het was, kwam hun zaak pas na het venster: 14 gemist. Nu komt elke zaak terwijl iemand het
-venster nog haalt, mediaan 70 minuten voor het eind van het venster; vraagt de planner dan de beste kandidaat, dan blijven
-er naar verwachting 6,7 gemist (met de kans op een ja, een schatting), vraagt hij er tot vier tegelijk, 1,2. Wacht hij
-tot het belmoment zelf, dan 7,8 en 6,6. Op de oefendag: 18 zaken, 8,5 met de beste kandidaat, 1,4 met vier tegelijk.
+venster nog haalt, mediaan 70 minuten voor het eind van het venster; vraagt de planner dan alleen de aanbevolen kandidaat,
+dan blijven er naar verwachting 6,9 gemist (met de kans op een ja, een schatting), vraagt hij de groep tegelijk (gemiddeld
+3,7 mensen), 1,7. Op de oefendag: 18 zaken, 8,7 met alleen de beste, 2,1 met de groep. Eerder stond hier 1,2 en 1,4: dat
+telde de vier beste van elke rit apart, ook als dezelfde mensen bij twee ritten in de groep zaten; nu is elke naam één keer
+beloofd.
 
 Gesimuleerd: voertuigen, opleggers, wagennummers, kentekens, chauffeurs en hun
 diensten, ritten, koppelingen, ladingen, temperaturen, tijden, vertragingen, wachttijden, de indeling van de docks,
@@ -624,7 +650,7 @@ dezelfde toestand geeft.
 - `src/tables.js`: tabellen voertuigen, opleggers en chauffeurs, lostijden, laden (met de grafieken per kwartier), pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, planners per standplaats (een per 15 tot 25 voertuigen, over vroeg, dag en avond), voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
-- `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd)
+- `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd); `src/verdeel.js`: één toewijzing over alle open ritten van een dag (Hongaars en gretig; puur, zonder imports, met `tests/verdeel.test.mjs`)
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
 - `src/icons.js`, `src/style.css`: iconen en het ontwerpsysteem

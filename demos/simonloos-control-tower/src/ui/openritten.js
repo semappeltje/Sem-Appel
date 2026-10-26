@@ -11,7 +11,7 @@ import { SP, DIV } from '../places.js';
 import { TRT } from '../fleet.js';
 import { esc, ic, fmt, hhmm, nl1, empty, on, swap, kortStop, initials, belKnop } from './base.js';
 import { poolInvoer, poolNu, vensterAbs, pool as poolAlles } from './planwijzig.js';
-import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing, gemistIn, ritFase, belmoment, belLabel, haaltVenster, collegaMoment, vensterVandaag, klantPlanning, klantBerichtGemist, morgenVenster, morgenAlsEerste, collegaIn, collegaOm } from './invulling.js';
+import { urgentie, urgentieTxt, urgentieKlas, prognose, advies, kandidatenVan, wijsToe, wijsToeAlle, besteVoor, handelMoment, verdeling, bevestig, trekTerug, contact, toegewezen, toewijzingen, euro, KOSTEN_UITLEG, wieSoort, waarschuwing, gemistIn, ritFase, belmoment, belLabel, haaltVenster, collegaMoment, vensterVandaag, klantPlanning, klantBerichtGemist, morgenVenster, morgenAlsEerste, collegaIn, collegaOm } from './invulling.js';
 
 export const REDEN = { ziek: 'Ziekmelding', 'uitval voertuig': 'Voertuig uitgevallen', 'extra rit klant': 'Extra rit van de klant', 'nieuw uit OTM5': 'Nieuw uit OTM5' };
 const OPLN = { koel: 'koeloplegger', vries: 'vriesoplegger', droog: 'gesloten oplegger', huif: 'schuifzeiloplegger', lzv: 'LZV-combinatie', silo: 'silo-oplegger', drank: 'drankenoplegger', city: 'city-oplegger' };
@@ -25,15 +25,20 @@ export const klantKort = k => String(k || 'Rit').replace(/^Albert Heijn\b/, 'AH'
 // duur (met pauze) en kilometers zoals de data ze geeft, anders uit de route
 export const duurVan = (p, inv) => p.duur || (inv.t1 - inv.t0);
 export const kmVan = (p, inv) => p.km || inv.km || 0;
-const namenTxt = L => (L.length < 2 ? L.join('') : `${L.slice(0, -1).join(', ')} en ${L[L.length - 1]}`);
+export const namenTxt = L => (L.length < 2 ? L.join('') : `${L.slice(0, -1).join(', ')} en ${L[L.length - 1]}`);
 
 // de open ritten in het werkgebied, op urgentie (fleet.poolAt zonder wat al is toegewezen, en zonder wat een collega al
 // invulde); en wat er al is toegewezen
+// op urgentie: het eerste moment waarop je iets moet doen, het laatste belmoment of het begin van het venster
+// (invulling.handelMoment); een rit die nu een zaak is (fase bel of laat) komt zo boven een rit waarvoor nog tijd is
 export function openIn(ctx) {
   const T = ctx.state.simTime;
   return poolNu(ctx).filter(p => { const sp = spVan(p.sp); return sp && ctx.inScopeBase(sp, p.div) && !collegaOm(ctx, p, T); })
-    .map(p => ({ p, u: urgentie(ctx, p) })).sort((a, b) => (a.p.dag === 'morgen') - (b.p.dag === 'morgen') || a.u - b.u).map(x => x.p);
+    .map(p => ({ p, u: handelMoment(ctx, p) })).sort((a, b) => (a.p.dag === 'morgen') - (b.p.dag === 'morgen') || a.u - b.u || (a.p.id < b.p.id ? -1 : 1)).map(x => x.p);
 }
+// de aanbevolen kandidaat in een paar woorden, voor een rij of kaart ("vraag B. Ruiter"; een charter met zijn naam)
+export const korteNaam = k => (k.soort === 'charter' ? k.naam : String(k.naam || '').replace(/^(\S)\S*\s+/, '$1. '));
+export function besteTxt(ctx, p) { const k = besteVoor(ctx, p); return k ? `vraag ${korteNaam(k)}` : ''; }
 export const toegewezenIn = ctx => toegewezen(ctx).filter(p => { const sp = spVan(p.sp); return sp && ctx.inScopeBase(sp, p.div); });
 // het laatste belmoment op een kaart of regel ("uiterlijk vragen 06:50"; invulling.belLabel), rood vanaf een half uur ervoor
 export const belSpan = (ctx, p, voor = '', na = '') => { const bl = belLabel(ctx, p); return bl ? `${voor}<span class="${bl.rood ? 'tbad' : ''}">${esc(bl.tekst)}</span>${na}` : ''; };
@@ -41,12 +46,12 @@ export const belSpan = (ctx, p, voor = '', na = '') => { const bl = belLabel(ctx
 // ---------- een rij in de lijst ----------
 function rijHtml(ctx, p, on2) {
   const inv = poolInvoer(p, spVan(p.sp)); const u = urgentie(ctx, p); const pg = prognose(ctx, p); const v = vensterAbs(p) || [inv.t0, inv.t0 + 60];
-  const bel = belSpan(ctx, p);
+  const bel = belSpan(ctx, p); let best = '', bestVol = ''; try { const k = besteVoor(ctx, p); if (k) { best = `vraag ${korteNaam(k)}`; bestVol = k.naam; } } catch { best = ''; }
   return `<li><button class="or-i ${on2 ? 'on' : ''}" type="button" data-or="${esc(p.id)}" ${on2 ? 'aria-current="true"' : ''}>
     <span class="or-u ${urgentieKlas(u, p)}">${esc(urgentieTxt(u, p))}</span>
     <span class="or-t"><b>${esc(klantKort(p.klant))}</b><small>${esc(p.sp)}</small></span>
     <span class="or-m">laden ${hhmm(v[0])}–${hhmm(v[1])} · ${uurTxt(duurVan(p, inv))} · ${esc(wagenTxt(p))}</span>
-    <span class="or-c">${bel ? `<span class="or-r">${bel}</span>` : ''}<span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${kansChip(pg)}</span></button></li>`;
+    <span class="or-c">${bel ? `<span class="or-r">${bel}</span>` : ''}<span class="or-r">${esc(REDEN[p.reden] || p.reden || 'open rit')}</span>${best ? `<span class="or-r" title="${esc(bestVol)}: de aanbevolen kandidaat (schatting); niemand staat bij twee ritten als eerste keus">${esc(best)}</span>` : ''}${kansChip(pg)}</span></button></li>`;
 }
 // een gemiste rit van vandaag: het venster is voorbij en niemand rijdt hem (of hij ging morgen als eerste)
 function gemistRijHtml(ctx, p, on2) {
@@ -94,6 +99,9 @@ function contactKnoppen(ctx, item, k) {
 }
 
 // ---------- de kandidaten (gedeeld met de dialoog op het planbord) ----------
+// waarom een eigen chauffeur meer kost dan zijn uurloon (inzet.js: kosten.toeslag, 'overuren' of 'extra dienst', met
+// 'weekend' erbij): "met overuren, schatting"; zonder toeslag alleen "schatting"
+export const kostenNoot = k => (k && k.kosten && k.kosten.toeslag ? `met ${k.kosten.toeslag}, schatting` : 'schatting');
 function kandidaatHtml(ctx, item, k, i, kan, pri) {
   const WK = ctx.fleet.WAARSCHUWING_KORT || {};
   const doel = k.soort === 'charter' ? `charter/${k.id}` : k.soort === 'oproep' ? `oproep/${k.id}` : `persoon/${k.id}/overzicht`;
@@ -108,20 +116,36 @@ function kandidaatHtml(ctx, item, k, i, kan, pri) {
   return `<li class="kd-i ${k.beschikbaar ? '' : 'nee'}"><span class="av sm${k.soort === 'charter' ? ' sq' : ''}">${esc(initials(k.naam))}</span>
     <div class="kd-w"><span class="kd-n"><b><button class="lnk quiet" type="button" data-open="${esc(doel)}">${esc(k.naam)}</button></b><small>${esc(sub)}</small></span>${why[0] ? `<span class="kd-why">${esc(why[0])}</span>` : ''}${rest ? `<span class="kd-why2">${esc(rest)}</span>` : ''}${chips ? `<span class="kd-r">${chips}</span>` : ''}</div>
     <div class="kd-f" title="Kans dat ${esc(k.naam)} ja zegt (schatting)"><b class="${ja >= 60 ? 'tok' : ja < 35 ? 'twarn' : ''}">${ja} %</b><small>kans op ja</small></div>
-    <div class="kd-k" title="${esc(k.kosten ? k.kosten.uitleg : '')}"><b>${euro(k.kosten ? k.kosten.bedrag : 0)}</b><small>schatting</small></div>
+    <div class="kd-k" title="${esc(k.kosten ? k.kosten.uitleg : '')}"><b>${euro(k.kosten ? k.kosten.bedrag : 0)}</b><small>${esc(kostenNoot(k))}</small></div>
     <div class="kd-a">${contactKnoppen(ctx, item, k)}${kan && k.beschikbaar ? `<button class="btn sm ${pri ? 'pri' : ''}" type="button" data-kies="${k.soort}:${i}">Toewijzen</button>` : kan ? '<span class="hint">niet beschikbaar</span>' : ''}</div></li>`;
 }
+// wie al tegelijk gevraagd is voor deze rit
+const alSamen = item => (item.contact || []).filter(c => c.soort === 'samen');
+// in de fase bel (het belmoment binnen een half uur) is tegelijk vragen de hoofdknop: de groep haalt het venster allemaal
+const faseBel = (ctx, item) => ritFase(ctx, item, ctx.state.simTime) === 'bel';
 function samenHtml(ctx, item, KD) {
-  const S = KD.samen; if (!S || !ctx.can('act')) return '';
-  const al = (item.contact || []).filter(c => c.soort === 'samen');
+  const S = KD.samen; if (!ctx.can('act')) return '';
+  const al = alSamen(item);
   if (al.length) return `<section class="kd-samen al">${ic('users', 18)}<div><b>Tegelijk gevraagd om ${hhmm(al[0].T)}</b><p>${esc(namenTxt(al.map(c => c.wie)))}. Wie het eerst ja zegt, wijs je hieronder toe.</p><p class="kd-msg">${esc(groepsbericht(item))}</p></div><div class="kd-sa"><button class="btn sm" type="button" data-kopieer="${esc(groepsbericht(item))}">${ic('copy', 14)}Kopieer bericht</button></div></section>`;
-  return `<section class="kd-samen">${ic('users', 18)}<div><b>Vraag tegelijk uit</b><p>${esc(namenTxt(S.wie.map(k => k.naam)))}: samen ${S.kans} % kans op minstens één ja, tegen ${S.alleen} % als je alleen de eerste vraagt (schatting). Eén bericht naar ${S.wie.length}; wie het eerst ja zegt, krijgt de rit.</p></div><div class="kd-sa"><button class="btn sm" type="button" data-samen="1">${ic('send', 14)}Vraag ze tegelijk</button></div></section>`;
+  if (!S) return '';
+  const bel = faseBel(ctx, item);
+  return `<section class="kd-samen">${ic('users', 18)}<div><b>Vraag tegelijk uit</b><p>${esc(namenTxt(S.wie.map(k => k.naam)))}: samen ${S.kans} % kans op minstens één ja, tegen ${S.alleen} % als je alleen ${esc(S.wie[0].naam)} vraagt (schatting). Eén bericht naar ${S.wie.length}; wie het eerst ja zegt, krijgt de rit.${bel ? ' Allemaal halen ze het venster als je nu vraagt.' : ''}</p></div><div class="kd-sa"><button class="btn sm ${bel ? 'pri' : ''}" type="button" data-samen="1">${ic('send', 14)}Vraag ze tegelijk</button></div></section>`;
+}
+// Vraag tegelijk uit: vastgelegd als contact 'samen' (bewaard, zodat een collega ziet wie al gevraagd is), met een regel in
+// het logboek en in de zaak; er gaat niets de deur uit
+export function vraagTegelijk(ctx, item, S) {
+  const L = S.wie.map(k => k.naam);
+  contact(ctx, item, L, 'samen', `vroeg ${namenTxt(L)} tegelijk of ze open rit ${item.id} van ${item.klant || 'de klant'} kunnen rijden (samen ${S.kans} % kans op een ja, schatting)`);
+  if (ctx.Z && ctx.Z.logZaak) ctx.Z.logZaak(`N:${item.id}`, `tegelijk gevraagd aan ${namenTxt(L)} (samen ${S.kans} % kans op een ja, schatting)`);
+  ctx.L.toast('Demo: er gaat geen bericht de deur uit. In het echt gaat de vraag via de chauffeursapp of sms; wie het eerst ja zegt, wijs je toe.', { icon: 'send', ms: 8000 });
 }
 export function kandidatenHtml(ctx, item, KD) {
   const kan = ctx.can('act'); const best = KD.best;
+  // één aanbevolen knop: Toewijzen bij de aanbevolen kandidaat, behalve als tegelijk vragen de hoofdknop is (fase bel, nog niet gevraagd)
+  const priBest = !(KD.samen && faseBel(ctx, item) && !alSamen(item).length);
   const vanaf = L => { const K = L.filter(k => k.beschikbaar && k.kosten); return K.length ? euro(Math.min(...K.map(k => k.kosten.bedrag))) : null; };
   const som = [['eigen chauffeur', vanaf(KD.eigen)], ['oproepkracht of zzp\'er', vanaf(KD.oproep)], ['charter', vanaf(KD.charter)]].filter(x => x[1]);
-  const groep = (titel, sub, L, leeg) => `<section class="kd-g"><h3>${esc(titel)} <span class="n">${L.length}</span><span class="sub">${sub}</span></h3>${L.length ? `<ul class="kd-l">${L.map((k, i) => kandidaatHtml(ctx, item, k, i, kan, k === best)).join('')}</ul>` : `<p class="hint kd-leeg">${leeg}</p>`}</section>`;
+  const groep = (titel, sub, L, leeg) => `<section class="kd-g"><h3>${esc(titel)} <span class="n">${L.length}</span><span class="sub">${sub}</span></h3>${L.length ? `<ul class="kd-l">${L.map((k, i) => kandidaatHtml(ctx, item, k, i, kan, k === best && priBest)).join('')}</ul>` : `<p class="hint kd-leeg">${leeg}</p>`}</section>`;
   return `<div class="kd">
     ${som.length ? `<p class="kd-sum">${ic('info', 15)}<span>Kosten van deze rit: ${som.map(([n, v]) => `${n} vanaf ${v}`).join(', ')} (schatting).</span></p>` : ''}
     ${samenHtml(ctx, item, KD)}
@@ -145,9 +169,7 @@ export function bindKandidaten(ctx, root, itemVan, getKD, na) {
   });
   on(root, 'click', '[data-samen]', () => {
     const item = itemVan(); const KD = getKD(); const S = KD && KD.samen; if (!item || !S) return;
-    const L = S.wie.map(k => k.naam);
-    contact(ctx, item, L, 'samen', `vroeg ${namenTxt(L)} tegelijk of ze open rit ${item.id} van ${item.klant || 'de klant'} kunnen rijden (samen ${S.kans} % kans op een ja, schatting)`);
-    ctx.L.toast('Demo: er gaat geen bericht de deur uit. In het echt gaat de vraag via de chauffeursapp of sms; wie het eerst ja zegt, wijs je toe.', { icon: 'send', ms: 8000 });
+    vraagTegelijk(ctx, item, S);
     if (na) na(null, true);
   });
   on(root, 'click', '[data-kopieer]', (e, b) => {
@@ -180,11 +202,11 @@ function gemistHtml(ctx, item, KD, fase) {
       <div class="or-sa">${can ? `<button class="btn sm" type="button" data-ormorgen="1">${ic('cal', 14)}Morgen als eerste</button>` : ''}${belKnop(kp.naam, kp.tel, { extra: 'data-orkbel="1"' })}<button class="btn sm" type="button" data-orkbericht="1">${ic('copy', 14)}Kopieer bericht</button><button class="btn sm ghost" type="button" data-open="melding/N-${esc(item.id)}">Open de zaak</button></div></div></section>`;
 }
 // fase bel: het laatste belmoment komt binnen een half uur; wie je nu vraagt en het venster haalt (invulling.haaltVenster)
-function belHtml(ctx, item) {
+function belHtml(ctx, item, KD) {
   const b = belmoment(ctx, item); if (!b || b.T === null) return '';
-  const HV = haaltVenster(ctx, item); const k = HV[0] || null;
+  const HV = haaltVenster(ctx, item); const k = KD && KD.best && typeof KD.best.vertrek === 'number' && KD.best.vertrek <= item.venster[1] ? KD.best : HV[0] || null; const S = KD ? KD.samen : null;
   return `<section class="or-st wacht">${ic('clock', 20)}<div class="or-sw"><b>Uiterlijk ${hhmm(b.T)} iemand vragen</b>
-      <p>Daarna haalt niemand het venster meer.${k ? ` ${esc(k.naam)} (${esc(wieSoort(k))}) kan nu nog om ${hhmm(k.vertrek)} weg, ${Math.round((k.kans || 0) * 100)} % kans op een ja (schatting).` : ''}${HV.length > 1 ? ` ${HV.length} kandidaten halen het venster als je nu vraagt.` : ''}</p>
+      <p>Daarna haalt niemand het venster meer.${k ? ` ${esc(k.naam)} (${esc(wieSoort(k))}) kan nu nog om ${hhmm(k.vertrek)} weg, ${Math.round((k.kans || 0) * 100)} % kans op een ja (schatting).` : ''}${S && !alSamen(item).length ? ` Vraag ze tegelijk (hieronder): ${esc(namenTxt(S.wie.map(x => x.naam)))}, samen ${S.kans} %.` : HV.length > 1 ? ` ${HV.length} kandidaten halen het venster als je nu vraagt.` : ''}</p>
       <div class="or-sa"><button class="btn sm ghost" type="button" data-open="melding/N-${esc(item.id)}">Open de zaak</button></div></div></section>`;
 }
 function wachtHtml(ctx, item, v) {
@@ -214,13 +236,16 @@ function detailHtml(ctx, item) {
   // niets meer. Komt het belmoment binnen een half uur: dat bovenaan, dan de prognose en de kandidaten.
   const fase = ritFase(ctx, item, ctx.state.simTime);
   if (!item.morgenEerste && (fase === 'gemist' || fase === 'laat')) { const KD = kandidatenVan(ctx, item); return `${kop}${gemistHtml(ctx, item, KD, fase)}${gevraagdHtml(item)}${kandidatenHtml(ctx, item, KD)}`; }
-  const gm = gemistHtml(ctx, item) + (fase === 'bel' ? belHtml(ctx, item) : '');
-  const pg = prognose(ctx, item); const ad = advies(ctx, item, pg); const KD = kandidatenVan(ctx, item); const b = pg.basis;
+  const KD = kandidatenVan(ctx, item);
+  const gm = gemistHtml(ctx, item) + (fase === 'bel' ? belHtml(ctx, item, KD) : '');
+  const pg = prognose(ctx, item); const ad = advies(ctx, item, pg); const b = pg.basis;
+  // het advies van de data, met de aanbevolen kandidaat erbij (dezelfde als in de lijst, op het planbord en in de zaak)
+  const bk = KD.best; const adTekst = `${ad.tekst || ''}${bk ? ` Beste kandidaat: ${bk.naam} (${wieSoort(bk)}, ${Math.round((bk.kans || 0) * 100)} % kans op een ja, schatting${bk.gedeeld ? '; ook de eerste keus van een andere rit' : ''}).` : ''}`.trim();
   const bar = b && b.n ? (() => { const tot = Math.max(1, b.n); const niet = b.n - b.ingevuld; const seg = (n, cls, l) => (n ? `<i class="${cls}" style="width:${(n / tot * 100).toFixed(2)}%" title="${esc(`${l}: ${n}`)}"></i>` : ''); return `<div class="pg-bar2" role="img" aria-label="${esc(`Van ${b.n} vergelijkbare ritten: ${b.eigen} eigen chauffeur, ${b.oproep} oproepkracht of zzp'er, ${b.charter} charter, ${niet} niet ingevuld`)}">${seg(b.eigen, 's1', 'eigen chauffeur')}${seg(b.oproep, 's2', 'oproepkracht of zzp\'er')}${seg(b.charter, 's3', 'charter')}${seg(niet, 's0', 'niet ingevuld')}</div><div class="pg-leg"><span><i class="s1"></i>eigen ${b.eigen}</span><span><i class="s2"></i>oproep of zzp ${b.oproep}</span><span><i class="s3"></i>charter ${b.charter}</span><span><i class="s0"></i>niet ingevuld ${niet}</span></div>`; })() : '';
   return `${kop}${gm}
     <section class="or-pg" aria-label="Prognose"><div class="or-pk"><div><b class="${kansKlas(pg.kans)}">${pg.kans} %</b><span>kans op invulling</span></div><div><b class="${kansKlas(pg.opTijd)}">${pg.opTijd} %</b><span>kans op tijd weg</span></div></div>
       <div class="or-pt"><p><b>${esc(pg.tekst)}.</b> ${esc(pg.uitleg || '')}</p>${bar}<p class="hint">Gesimuleerde historie van acht weken. Met echte data: een export uit het TMS (rit, venster, wanneer bekend, door wie ingevuld) en het vertrek uit de boordcomputer.</p></div></section>
-    ${ad.tekst ? `<p class="note ${ad.sev}">${ic(ad.sev === 'info' ? 'info' : 'alert', 16)}<span>${esc(ad.tekst)}</span></p>` : ''}
+    ${adTekst ? `<p class="note ${ad.sev}">${ic(ad.sev === 'info' ? 'info' : 'alert', 16)}<span>${esc(adTekst)}</span></p>` : ''}
     ${gevraagdHtml(item)}
     ${kandidatenHtml(ctx, item, KD)}`;
 }
@@ -251,7 +276,8 @@ export function renderOpenRitten(ctx, el) {
   if (sel && !narrow && sel.dag === 'morgen' !== (S.dag === 'morgen') && !sel.gepland && !sel.morgenEerste) S.dag = sel.dag === 'morgen' ? 'morgen' : 'vandaag';
   const toonDetail = !!sel && (!narrow || !!S.sel);
   const lijst = `<div class="or-l" ${narrow && toonDetail ? 'hidden' : ''}>
-      <div class="or-bar"><div class="seg" role="group" aria-label="Dag"><button type="button" data-ordag="vandaag" aria-pressed="${S.dag !== 'morgen'}">Vandaag <span class="n">${vd.length}</span></button><button type="button" data-ordag="morgen" aria-pressed="${S.dag === 'morgen'}">Morgen <span class="n">${mo.length}</span></button></div><span class="hint or-sort">op urgentie</span></div>
+      <div class="or-bar"><div class="seg" role="group" aria-label="Dag"><button type="button" data-ordag="vandaag" aria-pressed="${S.dag !== 'morgen'}">Vandaag <span class="n">${vd.length}</span></button><button type="button" data-ordag="morgen" aria-pressed="${S.dag === 'morgen'}">Morgen <span class="n">${mo.length}</span></button></div><span class="hint or-sort" title="Het eerste moment waarop je iets moet doen: het laatste belmoment of het begin van het venster">op urgentie</span></div>
+      ${L.length >= 2 && ctx.can('act') ? `<p class="hint" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:10px 16px 0"><button class="btn sm" type="button" data-orplan="${S.dag === 'morgen' ? 'morgen' : 'vandaag'}">${ic('users', 14)}Plan alle open ritten</button><span>${L.length} ritten, elk zijn eigen kandidaat</span></p>` : ''}
       ${S.dag !== 'morgen' && gm.length ? `<div class="or-g or-gemist"><h3>Gemist vandaag <span class="n">${gm.length}</span></h3><ol class="or-list">${gm.map(p => gemistRijHtml(ctx, p, sel === p)).join('')}</ol></div>` : ''}
       ${wacht.length ? `<div class="or-g"><h3>Wacht op een ja <span class="n">${wacht.length}</span></h3><ol class="or-list">${wacht.map(p => wachtRijHtml(ctx, p, sel === p)).join('')}</ol></div>` : ''}
       <div class="or-g"><h3>${S.dag === 'morgen' ? 'Open voor morgen' : 'Open'} <span class="n">${L.length}</span></h3>${L.length ? `<ol class="or-list">${L.map(p => rijHtml(ctx, p, sel === p)).join('')}</ol>` : `<p class="hint or-leeg">${S.dag === 'morgen' ? 'Nog geen open ritten voor morgen. Die komen tussen 13:00 en 16:30 binnen.' : 'Alles van vandaag is ingevuld in je werkgebied.'}</p>`}</div>
@@ -270,6 +296,7 @@ export function renderOpenRitten(ctx, el) {
     on(el, 'click', '[data-or]', (e, b) => { ctx.ui.or.sel = b.dataset.or; ctx.go(`openritten/${b.dataset.or}`); const t = el.querySelector('#orTitel'); if (t && ctx.narrow()) t.focus({ preventScroll: true }); });
     on(el, 'click', '[data-ordag]', (e, b) => { ctx.ui.or.dag = b.dataset.ordag; ctx.ui.or.sel = null; renderOpenRitten(ctx, el); ctx.syncHash(); });
     on(el, 'click', '[data-orlijst]', () => { ctx.ui.or.sel = null; ctx.go('openritten'); });
+    on(el, 'click', '[data-orplan]', (e, b) => planAlleDialoog(ctx, b.dataset.orplan === 'morgen' ? 'morgen' : 'vandaag', () => renderOpenRitten(ctx, el)));
     on(el, 'click', '[data-orkaart]', () => { const it = huidig(); if (it && ctx.toonPoolrit) ctx.toonPoolrit(it); });
     on(el, 'click', '[data-orbev]', () => { const it = huidig(); if (it) bevestig(ctx, it); });
     on(el, 'click', '[data-orterug]', () => { const it = huidig(); if (it) { trekTerug(ctx, it); ctx.ui.or.sel = it.id; renderOpenRitten(ctx, el); } });
@@ -291,6 +318,44 @@ export function renderOpenRitten(ctx, el) {
     // pijltjes door de lijst
     on(el, 'keydown', '.or-i', (e, b) => { if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return; const L2 = [...el.querySelectorAll('.or-i')]; const i = L2.indexOf(b); const n = L2[i + (e.key === 'ArrowDown' ? 1 : -1)]; if (n) { e.preventDefault(); n.focus(); } });
   }
+}
+
+// ---------- Plan alle open ritten: het voorstel voor alle open ritten van een dag in het werkgebied tegelijk ----------
+// Voor elke rit zijn eigen aanbevolen kandidaat (invulling.besteVoor: één toewijzing over alle open ritten, niemand twee
+// keer). De planner keurt per rit (Vraag) of in één keer goed (Vraag de aangevinkte); elke toewijzing krijgt haar eigen regel
+// in het logboek en de zaak. Een rit die intussen is toegewezen, verdwijnt uit de lijst; de rest schuift mee.
+export function planAlleDialoog(ctx, dag, na) {
+  const rijen = () => openIn(ctx).filter(p => (p.dag === 'morgen') === (dag === 'morgen')).map(p => { let k = null; try { k = besteVoor(ctx, p); } catch { k = null; } return { p, k }; });
+  const v = verdeling(ctx, dag);
+  const rij = ({ p, k }, i) => {
+    const inv = poolInvoer(p, spVan(p.sp)); const vs = vensterAbs(p) || [inv.t0, inv.t0 + 60]; const bl = belLabel(ctx, p);
+    const kop = `<span class="kd-n"><b>${esc(klantKort(p.klant))} · ${esc(p.sp)}</b><small>${esc(p.id)} · laden ${dag === 'morgen' ? 'morgen ' : ''}${hhmm(vs[0])}–${hhmm(vs[1])}${bl ? ` · ${esc(bl.tekst)}` : ''}</small></span>`;
+    if (!k) return `<li class="kd-i nee"><span class="av sm">?</span><div class="kd-w">${kop}<span class="kd-why">Niemand over voor deze rit: iedereen die kan, is al de eerste keus van een andere rit.</span></div><div class="kd-a"><button class="btn sm ghost" type="button" data-open="openritten/${esc(p.id)}">Open de rit</button></div></li>`;
+    const laat = p.dag !== 'morgen' && typeof k.vertrek === 'number' && k.vertrek > p.venster[1];
+    return `<li class="kd-i" data-plan="${esc(p.id)}"><span class="av sm${k.soort === 'charter' ? ' sq' : ''}">${esc(initials(k.naam))}</span>
+      <div class="kd-w">${kop}<span class="kd-why">${esc(k.naam)} (${esc(wieSoort(k))}) · vertrek ${hhmm(k.vertrek)}${laat ? ' · na het venster' : ''}${k.gedeeld ? ' · ook eerste keus van een andere rit' : ''}</span>${(k.waarschuwingen || []).length ? `<span class="kd-r">${k.waarschuwingen.map(w => `<span class="rz let" title="${esc(waarschuwing(ctx, w))}">${ic('alert', 12)}${esc((ctx.fleet.WAARSCHUWING_KORT || {})[w] || w)}</span>`).join('')}</span>` : ''}</div>
+      <div class="kd-f" title="Kans dat ${esc(k.naam)} ja zegt (schatting)"><b class="${k.kans >= 0.6 ? 'tok' : k.kans < 0.35 ? 'twarn' : ''}">${Math.round((k.kans || 0) * 100)} %</b><small>kans op ja</small></div>
+      <div class="kd-k" title="${esc(k.kosten ? k.kosten.uitleg : '')}"><b>${euro(k.kosten ? k.kosten.bedrag : 0)}</b><small>${esc(kostenNoot(k))}</small></div>
+      <div class="kd-a"><label class="tgl" title="Meenemen in Vraag de aangevinkte"><input type="checkbox" checked data-plank="${esc(p.id)}" aria-label="${esc(p.id)} meenemen"><i></i></label><button class="btn sm" type="button" data-planvraag="${esc(p.id)}" ${i === 0 ? 'autofocus' : ''}>${ic('send', 14)}Vraag</button></div></li>`;
+  };
+  const html = () => {
+    const R = rijen(); const met = R.filter(r => r.k).length; const verw = R.reduce((a, r) => a + (r.k ? r.k.kans || 0 : 0), 0);
+    return `<div class="dlg-h"><h2>Plan alle open ritten <span class="badge sm outline">${dag === 'morgen' ? 'morgen' : 'vandaag'}</span></h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div>
+    <div class="dlg-b"><p class="hint">Voor elke open rit in je werkgebied de aanbevolen kandidaat: één toewijzing over alle open ritten van ${dag === 'morgen' ? 'morgen' : 'vandaag'}, dus niemand staat bij twee ritten als eerste keus en een charter niet vaker dan hij trekkers vrij heeft. Vraag per rit, of allemaal tegelijk. Naar verwachting ${verw.toFixed(1).replace('.', ',')} van de ${met} zeggen ja (de kansen opgeteld, schatting); wie nee zegt, komt terug bij de open ritten.</p>
+      ${R.length ? `<ul class="kd-l" data-planlijst="1">${R.map(rij).join('')}</ul>` : '<p class="hint">Alles is ingevuld.</p>'}
+      <p class="hint">${v.ritten} open ${v.ritten === 1 ? 'rit' : 'ritten'} in heel Nederland in de toewijzing, gerekend in ${String(v.ms).replace('.', ',')} ms. Kansen, kosten en vertrek zijn schattingen; de rit staat gearceerd op het planbord tot er een ja is.</p></div>
+    <div class="dlg-f"><button class="btn" type="button" data-close>Sluiten</button><button class="btn pri" type="button" data-planalle="1" ${met ? '' : 'disabled'}>${ic('send', 15)}<span>Vraag de aangevinkte (<span data-plann>${met}</span>)</span></button></div>`;
+  };
+  ctx.L.openDialog(html(), { wide: true, label: 'Plan alle open ritten', onBind: d => {
+    const teken = () => { const y = (d.querySelector('.dlg-b') || {}).scrollTop || 0; d.innerHTML = html(); const nb = d.querySelector('.dlg-b'); if (nb) nb.scrollTop = y; };
+    const tel = () => { const n = d.querySelectorAll('[data-plank]:checked').length; const s = d.querySelector('[data-plann]'); if (s) s.textContent = n; const b = d.querySelector('[data-planalle]'); if (b) b.disabled = !n; };
+    on(d, 'change', '[data-plank]', tel);
+    on(d, 'click', '[data-planvraag]', (e, b) => { const r = rijen().find(x => x.p.id === b.dataset.planvraag); if (r && r.k && wijsToe(ctx, r.p, r.k).ok) { teken(); if (na) na(); } });
+    on(d, 'click', '[data-planalle]', () => {
+      const ids = new Set([...d.querySelectorAll('[data-plank]:checked')].map(x => x.dataset.plank)); const paren = rijen().filter(r => r.k && ids.has(r.p.id)).map(r => ({ item: r.p, k: r.k }));
+      if (!paren.length) return; wijsToeAlle(ctx, paren); ctx.L.closeDialog(); if (na) na();
+    });
+  } });
 }
 
 // ---------- dialoog op het planbord: "Rit inplannen" met de drie groepen ----------

@@ -41,7 +41,8 @@ const uur = m => `${(Math.round(m / 6) / 10).toString().replace('.', ',')} uur`;
 const euro = x => `€ ${Math.round(x).toLocaleString('nl-NL')}`;
 const km = (a, b) => { const c = Math.cos((a.lat + b.lat) / 2 * Math.PI / 180); return Math.hypot((a.lon - b.lon) * c * 111.32, (a.lat - b.lat) * 111.32); };
 const spVan = n => SP.find(s => s.n === n);
-const kosten = (bedrag, uitleg) => ({ bedrag: Math.round(bedrag / 5) * 5, schatting: true, uitleg });
+// toeslag: waarom een eigen chauffeur meer kost dan zijn uurloon ('overuren', 'extra dienst', met 'weekend' erbij), of null
+const kosten = (bedrag, uitleg, toeslag = null) => ({ bedrag: Math.round(bedrag / 5) * 5, schatting: true, uitleg, toeslag });
 const r2 = x => Math.round(x * 100) / 100;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // Een zzp'er of oproepkracht mag een oproep binnen vier dagen weigeren (Wet arbeidsmarkt in balans; de cao kan dat tot 24 uur
@@ -188,7 +189,7 @@ export function eigenKandidaat(c, ctx) {
   return {
     soort: 'eigen', id: c.id, naam: c.naam, score: r2(score), kans: r2(kansJa), redenen: R,
     uren: { gereden: Math.round(gereden / 6) / 10, over: Math.round(over / 6) / 10, naRit: Math.round(Math.max(0, over - ctx.rijMin) / 6) / 10, week: Math.round(week * 2) / 2, weekMax },
-    kosten: kosten(bedrag, `${uur(uren * 60)} x ${euro(uurloon)}${toeslag > 1 ? ` x ${String(toeslag).replace('.', ',')} (${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''})` : ''} + ${Math.round(ctx.km)} km x ${Math.round(kmK * 100)} cent`),
+    kosten: kosten(bedrag, `${uur(uren * 60)} x ${euro(uurloon)}${toeslag > 1 ? ` x ${String(toeslag).replace('.', ',')} (${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''})` : ''} + ${Math.round(ctx.km)} km x ${Math.round(kmK * 100)} cent`, toeslag > 1 ? `${vrijDag ? 'extra dienst' : 'overuren'}${ctx.weekend ? ', weekend' : ''}` : null),
     beschikbaar: true, waarschuwingen: W, voertuig: ctx.voertuig ? ctx.voertuig.id : null, past: { score: p.score, oordeel: p.oordeel }, aanrij, vertrek, gesimuleerd: true,
   };
 }

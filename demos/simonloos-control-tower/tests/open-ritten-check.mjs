@@ -3,11 +3,16 @@
 //   npm run build && (cd dist && python3 -m http.server 8774 --bind 127.0.0.1) &
 //   node tests/open-ritten-check.mjs [http://127.0.0.1:8774/index.html]
 //
-// Open ritten op de data (fleet.poolAt, fleet.prognose, fleet.kandidaten, fleet.wijsToe): de lijst op urgentie met reden en
-// kans op invulling, één rit uitgeklapt met de kans op invulling en de kans op tijd, het advies van de data in één zin en
+// Open ritten op de data (fleet.poolAt, fleet.prognose, fleet.kandidaten, fleet.wijsToe): de lijst op urgentie (het eerste
+// moment waarop je iets moet doen: het laatste belmoment of het venster) met reden, kans op invulling en de aanbevolen
+// kandidaat, één rit uitgeklapt met de kans op invulling en de kans op tijd, het advies van de data in één zin en
 // de kandidaten van fleet.kandidaten in drie groepen; Vraag tegelijk uit; toewijzen aan een eigen chauffeur (wacht op een
 // ja, dan bevestigd), aan een oproepkracht ("Kan niet" zet hem terug) en aan een charter (een eigen rij op het planbord);
 // na herladen dezelfde toewijzingen. Bellen belt niet (geen tel:-link): de knop toont het nummer met een melding.
+// Het advies (invulling.verdeling, src/verdeel.js): één toewijzing over alle open ritten van de dag in heel Nederland, dus
+// geen persoon staat bij twee ritten als eerste keus en een charter niet vaker dan hij trekkers vrij heeft; dezelfde naam in
+// de rij, bij Toewijzen, in het advies en op de kaart van het planbord; onder 300 ms voor heel Nederland; en de dialoog
+// Plan alle open ritten (per rit of in één keer, elke toewijzing in het logboek).
 // Charters en oproepkrachten: twee tabbladen met een tabel, de pagina's, een afgeschermd nummer van een persoon, het
 // signaal over de Wet DBA alleen op de pagina van een zzp'er. Voorkeuren en tevredenheid op de chauffeurspagina, de
 // stille markering op het planbord, de rapporten (invulling per week, roosterfit per standplaats). De Assistent met data-ai: drie ingangen; het verzoek gaat door de echte
@@ -58,10 +63,15 @@ await go('#openritten', 2500);
 const lijst = await page.evaluate(() => {
   const c = window.SLCT.ui.ctx; const rows = [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar):not(.or-gemist) .or-i:not(.wacht)')];
   const ids = rows.map(r => r.dataset.or); const P = ids.map(id => c.fleet.pool.find(p => p.id === id));
-  const u = P.map(p => (p.dag === 'morgen' ? 9999 : p.venster[0] - c.state.simTime));
-  return { n: rows.length, sorted: u.every((x, i) => i === 0 || x >= u[i - 1]), kans: rows.every(r => /kans \d+ %/.test(r.textContent)), reden: rows.every(r => r.querySelector('.or-r') && r.querySelector('.or-r').textContent.trim()), detail: !!document.querySelector('#v-openritten .or-d h2'), groepen: [...document.querySelectorAll('#v-openritten .kd-g h3')].map(h => h.firstChild.textContent.trim()), pg: !!document.querySelector('#v-openritten .or-pg .or-pk b'), nav: (document.querySelector('[data-nav="openritten"] .nc') || {}).textContent, prim: document.querySelectorAll('#v-openritten .kd .btn.pri').length };
+  // op urgentie: het eerste moment waarop je iets moet doen (invulling.handelMoment: het belmoment of het venster)
+  const u = P.map(p => (p.dag === 'morgen' ? 9999 : c.ui.advies.handelMoment(p) - c.state.simTime));
+  const namen = rows.map(r => { const x = [...r.querySelectorAll('.or-r')].find(e => /^vraag /.test(e.textContent.trim())); return x ? x.textContent.trim().slice(6) : ''; });
+  // in de rij kort: de voorletter en de achternaam (een charter met zijn naam)
+  const best = P.map(p => { const k = c.ui.advies.besteVoor(p); return k ? (k.soort === 'charter' ? k.naam : k.naam.replace(/^(\S)\S*\s+/, '$1. ')) : ''; });
+  return { n: rows.length, sorted: u.every((x, i) => i === 0 || x >= u[i - 1]), kans: rows.every(r => /kans \d+ %/.test(r.textContent)), reden: rows.every(r => r.querySelector('.or-r') && r.querySelector('.or-r').textContent.trim()), detail: !!document.querySelector('#v-openritten .or-d h2'), groepen: [...document.querySelectorAll('#v-openritten .kd-g h3')].map(h => h.firstChild.textContent.trim()), pg: !!document.querySelector('#v-openritten .or-pg .or-pk b'), nav: (document.querySelector('[data-nav="openritten"] .nc') || {}).textContent, prim: document.querySelectorAll('#v-openritten .kd .btn.pri').length, namen, best };
 });
-check(lijst.n > 0 && lijst.sorted && lijst.kans && lijst.reden, `open ritten: ${lijst.n} op urgentie, elk met reden en kans op invulling`);
+check(lijst.n > 0 && lijst.sorted && lijst.kans && lijst.reden, `open ritten: ${lijst.n} op urgentie (het belmoment of het venster, wat eerder komt), elk met reden en kans op invulling`);
+check(lijst.namen.length > 0 && lijst.namen.every((n, i) => n === lijst.best[i]) && lijst.namen.filter(Boolean).length === lijst.best.filter(Boolean).length, `elke rij noemt de aanbevolen kandidaat van het advies (${lijst.namen.filter(Boolean).length} van ${lijst.n}: ${lijst.namen.filter(Boolean).slice(0, 3).join(', ')})`);
 // Het laatste belmoment: een rit waarvoor niemand het venster nog haalt (fase laat), toont de keuzes van een gemiste rit
 // zonder prognose; de uitgeklapte rit hieronder is de eerste die nog iemand op tijd kan rijden.
 const rijen = await page.evaluate(() => [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar):not(.or-gemist) .or-i:not(.wacht)')].map(r => ({ id: r.dataset.or, laat: /niemand haalt het venster/.test(r.textContent), bel: (r.textContent.match(/uiterlijk vragen \d\d:\d\d/) || [''])[0] })));
@@ -85,12 +95,17 @@ const data1 = await page.evaluate(() => {
   const ui = [...document.querySelectorAll('#v-openritten .kd-i [data-open]')].map(b => b.dataset.open.split('/')[1]);
   const pk = [...document.querySelectorAll('#v-openritten .or-pk b')].map(b => b.textContent.trim()); const lab = [...document.querySelectorAll('#v-openritten .or-pk span')].map(b => b.textContent.trim());
   const note = (document.querySelector('#v-openritten .or-d > .note') || {}).textContent || '';
-  return { pk, lab, kans: Math.round(pg.kans * 100), opTijd: Math.round(pg.opTijd * 100), advies: pg.advies, note: note.trim(), uitleg: (document.querySelector('#v-openritten .or-pt p') || {}).textContent || '', ids: K.map(k => k.id).join(','), ui: ui.join(','), inPool: c.fleet.poolAt(T, zonder).some(p => p.id === id) };
+  const b = c.ui.advies.besteVoor(it); const priK = document.querySelector('#v-openritten .kd-i .btn.pri'); const priLi = priK && priK.closest('.kd-i'); const priOpen = priLi && priLi.querySelector('[data-open]');
+  return { pk, lab, kans: Math.round(pg.kans * 100), opTijd: Math.round(pg.opTijd * 100), advies: pg.advies, note: note.trim(), uitleg: (document.querySelector('#v-openritten .or-pt p') || {}).textContent || '', ids: K.map(k => k.id).join(','), ui: ui.join(','), inPool: c.fleet.poolAt(T, zonder).some(p => p.id === id), best: b ? b.naam : '', bestId: b ? b.id : '', priBij: priOpen ? priOpen.dataset.open.split('/')[1] : '', priSamen: !!document.querySelector('#v-openritten .kd-samen .btn.pri') };
 });
-check(data1.pk[0] === `${data1.kans} %` && data1.pk[1] === `${data1.opTijd} %` && data1.lab.join('|') === 'kans op invulling|kans op tijd weg' && data1.note === data1.advies && data1.uitleg.includes('vergelijkbare ritten'), `prognose uit fleet.prognose: ${data1.pk.join(' en ')} (invulling, op tijd); advies: "${data1.advies}"`);
-// dezelfde kandidaten als fleet.kandidaten; wie met de rit de rust van de cao niet haalt, staat in zijn groep achteraan
-const zelfde = data1.ids && data1.ids.split(',').sort().join() === data1.ui.split(',').sort().join();
-check(zelfde && data1.inPool, `kandidaten uit fleet.kandidaten (met people en wat al is toegewezen), dezelfde ${data1.ui.split(',').length}${data1.ids === data1.ui ? ', in dezelfde volgorde' : ', wie de cao-rust niet haalt achteraan in zijn groep'}`);
+check(data1.pk[0] === `${data1.kans} %` && data1.pk[1] === `${data1.opTijd} %` && data1.lab.join('|') === 'kans op invulling|kans op tijd weg' && data1.note.startsWith(data1.advies) && (!data1.best || data1.note.includes(`Beste kandidaat: ${data1.best}`)) && data1.uitleg.includes('vergelijkbare ritten'), `prognose uit fleet.prognose: ${data1.pk.join(' en ')} (invulling, op tijd); advies: "${data1.advies}"${data1.best ? `, met de aanbevolen kandidaat ${data1.best}` : ''}`);
+// dezelfde kandidaten als fleet.kandidaten (de aanbevolen kandidaat komt erbij als hij niet in de eerste vijf of vier van
+// zijn groep staat); wie met de rit de rust van de cao niet haalt, staat in zijn groep achteraan
+const uiIds = data1.ui.split(','); const dataIds = data1.ids ? data1.ids.split(',') : []; const extra = uiIds.filter(x => !dataIds.includes(x));
+const zelfde = dataIds.every(x => uiIds.includes(x)) && (extra.length === 0 || (extra.length === 1 && extra[0] === data1.bestId));
+check(zelfde && data1.inPool, `kandidaten uit fleet.kandidaten (met people en wat al is toegewezen), dezelfde ${dataIds.length}${extra.length ? ` plus de aanbevolen ${extra[0]}` : ''}${data1.ids === data1.ui ? ', in dezelfde volgorde' : ', wie de cao-rust niet haalt achteraan in zijn groep'}`);
+// één aanbevolen knop, bij dezelfde kandidaat als het advies (of Vraag ze tegelijk in de fase bel)
+check(data1.priBij === data1.bestId || data1.priSamen, `de aanbevolen knop staat bij ${data1.priSamen ? 'Vraag ze tegelijk (fase bel)' : `${data1.best} (${data1.priBij})`}, zoals het advies`);
 // geen echte tel:-links; Bel toont het nummer met een melding
 check(!(await page.$('#app a[href^="tel:"]')), 'open ritten: geen tel:-link');
 const belK = await page.$('#v-openritten .kd [data-bel]');
@@ -112,6 +127,29 @@ for (const id of await page.evaluate(() => [...document.querySelectorAll('#v-ope
 check(samenOk && samenOk.n >= 2 && /tegelijk/.test(samenOk.log) && samenOk.al && /Demo: er gaat geen bericht de deur uit/.test(samenOk.toast) && /samen \d+ % kans/.test(samenOk.v), `Vraag tegelijk uit: ${samenOk ? `${samenOk.n} mensen, één bericht (${samenOk.v.slice(0, 90)}...)` : 'niet gevonden'}`);
 await go('#openritten', 1200);
 check(+lijst.nav === lijst.n, `teller bij Open ritten in de linkerbalk (${lijst.nav})`);
+// ---------- het advies: één toewijzing over alle open ritten van Nederland ----------
+const adv = await page.evaluate(() => {
+  const c = window.SLCT.ui.ctx; const A = c.ui.advies; const T = c.state.simTime;
+  const V = A.verdeling('vandaag'); const tel = new Map(); let met = 0;
+  for (const k of V.uit.values()) { if (!k) continue; met++; tel.set(k.id, (tel.get(k.id) || 0) + 1); }
+  const cap = new Map(c.fleet.CHARTERS.map(x => [x.id, x.beschikbaar.vandaag]));
+  const dubbel = [...tel.entries()].filter(([id, n]) => n > 1 && !(cap.has(id) && n <= cap.get(id))).map(([id, n]) => `${id} x${n}`);
+  // zonder cache: dezelfde rijen, Hongaars en gretig, met de rekentijd van alleen het verdelen
+  const vg = A.vergelijk('vandaag');
+  // de rekentijd: drie keer vers (zonder cache), de snelste telt (de machine draait ook andere controles)
+  const tijden = [0, 1, 2].map(() => A.meet('vandaag')); const ms = Math.min(...tijden);
+  // de kaart op het planbord noemt dezelfde kandidaat als Open ritten (de ritten van Wognum)
+  const W = [...V.uit.entries()].filter(([id, k]) => k && c.fleet.pool.find(p => p.id === id && p.sp === 'Wognum' && T < p.venster[1])).map(([id, k]) => ({ id, naam: k.naam, soort: k.soort }));
+  return { ritten: V.ritten, met, dubbel, ms, tijden, vg, W: W.slice(0, 3) };
+});
+check(adv.ritten > 0 && adv.met > 0 && !adv.dubbel.length, `advies: ${adv.ritten} open ritten van vandaag in heel Nederland, ${adv.met} met een eigen kandidaat, niemand twee keer als eerste keus (een charter hoogstens zijn vrije trekkers)${adv.dubbel.length ? `; dubbel: ${adv.dubbel.join(', ')}` : ''}`);
+check(adv.ms < 300, `de toewijzing voor heel Nederland rekent in ${String(adv.ms).replace('.', ',')} ms (de snelste van ${adv.tijden.map(x => String(x).replace('.', ',')).join(', ')}; onder 300; Hongaars ${String(adv.vg.hongaars.ms).replace('.', ',')} ms, gretig ${String(adv.vg.gretig.ms).replace('.', ',')} ms voor het verdelen zelf; verwacht ja: ${String(adv.vg.hongaars.verwachtJa).replace('.', ',')} tegen ${String(adv.vg.gretig.verwachtJa).replace('.', ',')})`);
+if (adv.W.length) {
+  await go('#planbord', 2500);
+  const pbNaam = await page.evaluate(W => W.map(x => { const k = document.querySelector(`#v-planbord [data-pk="${x.id}"]`); return k ? { id: x.id, ok: k.textContent.includes(`vraag ${x.naam}`) } : null; }), adv.W.map(x => ({ ...x, naam: x.soort === 'charter' ? x.naam : x.naam.replace(/^(\S)\S*\s+/, '$1. ') })));
+  check(pbNaam.some(Boolean) && pbNaam.filter(Boolean).every(x => x.ok), `de kaarten op het planbord noemen dezelfde kandidaat als Open ritten (${pbNaam.filter(Boolean).map(x => x.id).join(', ')})`);
+  await go('#openritten', 1200);
+}
 // eigen chauffeur: de vraag gaat uit (wacht op een ja), dan bevestigd
 let sel1 = null;
 for (const id of await page.evaluate(() => [...document.querySelectorAll('#v-openritten .or-g:not(.or-klaar) .or-i:not(.wacht)')].map(b => b.dataset.or))) {
@@ -164,6 +202,29 @@ if (ch) {
   await go(`#openritten/${ch}`, 1200); await page.click('#v-openritten [data-orbev]'); await page.waitForTimeout(800);
   check(await page.evaluate(id => window.SLCT.ui.ctx.fleet.pool.find(p => p.id === id).toegewezen.status === 'bevestigd', ch), 'charter bevestigd na het bellen');
 } else check(false, 'geen rit met een charter gevonden');
+// Plan alle open ritten (na de drie groepen, met wat er nog open staat): de dialoog met per rit de aanbevolen kandidaat;
+// één rit via Vraag, dan één via Vraag de aangevinkte; de rest blijft open
+{
+  const nOpen = await page.evaluate(() => document.querySelectorAll('#v-openritten .or-g:not(.or-klaar):not(.or-gemist) .or-i:not(.wacht)').length);
+  const knop = page.locator('#v-openritten [data-orplan]');
+  if ((await knop.count()) && nOpen >= 2) {
+    await knop.first().click(); await page.waitForTimeout(1200);
+    const d1 = await page.evaluate(() => ({ rijen: document.querySelectorAll('.dlg [data-plan]').length, zonder: document.querySelectorAll('.dlg .kd-i.nee').length, n: +(document.querySelector('.dlg [data-plann]') || {}).textContent, ids: [...document.querySelectorAll('.dlg [data-plan]')].map(x => x.dataset.plan), namen: [...document.querySelectorAll('.dlg [data-plan] .kd-why')].map(x => x.textContent.split(' (')[0]) }));
+    const uniek = new Set(d1.namen).size === d1.namen.length;
+    check(d1.rijen + d1.zonder === nOpen && d1.n === d1.rijen && uniek, `Plan alle open ritten: ${d1.rijen} ritten met een kandidaat${d1.zonder ? ` en ${d1.zonder} zonder` : ''} (${nOpen} open), elke naam één keer, ${d1.n} aangevinkt`);
+    const eerste = d1.ids[0]; const log0 = await page.evaluate(() => window.SLCT.ui.ctx.A.acts.log.length);
+    await page.locator(`.dlg [data-planvraag="${eerste}"]`).click({ timeout: 15000 }); await page.waitForTimeout(1200);
+    const d2 = await page.evaluate(([id, l0]) => { const c = window.SLCT.ui.ctx; const it = c.fleet.pool.find(p => p.id === id); return { tw: it.toegewezen ? it.toegewezen.status : null, weg: !document.querySelector(`.dlg [data-plan="${id}"]`), open: !!document.querySelector('.dlg'), log: c.A.acts.log.slice(0, c.A.acts.log.length - l0).map(x => x.txt) }; }, [eerste, log0]);
+    check(d2.tw === 'aangevraagd' && d2.weg && d2.open && d2.log.some(t => /^vroeg /.test(t) && t.includes(eerste)), `Vraag bij ${eerste}: toegewezen (wacht op een ja), uit de dialoog, in het logboek ("${(d2.log.find(t => t.includes(eerste)) || '').slice(0, 70)}")`);
+    // alleen de eerste overgebleven rit aangevinkt laten, dan in één keer
+    const rest = await page.evaluate(() => { const L = [...document.querySelectorAll('.dlg [data-plank]')]; L.slice(1).forEach(x => { x.checked = false; x.dispatchEvent(new Event('change', { bubbles: true })); }); return { n: +(document.querySelector('.dlg [data-plann]') || {}).textContent, id: L[0] ? L[0].dataset.plank : null }; });
+    const log1 = await page.evaluate(() => window.SLCT.ui.ctx.A.acts.log.length);
+    if (rest.id) { await page.locator('.dlg [data-planalle]').click({ timeout: 15000 }); await page.waitForTimeout(1500); }
+    const d3 = await page.evaluate(([id, l1]) => { const c = window.SLCT.ui.ctx; const it = id ? c.fleet.pool.find(p => p.id === id) : null; return { tw: it && it.toegewezen ? it.toegewezen.status : null, dicht: !document.querySelector('.dlg'), log: c.A.acts.log.slice(0, c.A.acts.log.length - l1).map(x => x.txt), toast: [...document.querySelectorAll('#toasts .toast')].map(x => x.textContent).join(' | ') }; }, [rest.id, log1]);
+    check(rest.n === 1 && d3.tw === 'aangevraagd' && d3.dicht && d3.log.some(t => /^vroeg /.test(t) && t.includes(rest.id)) && d3.log.some(t => /in één keer 1 kandidaat/.test(t)) && /1 rit gevraagd/.test(d3.toast), `Vraag de aangevinkte (1): ${rest.id} toegewezen, de dialoog dicht, een regel per rit en een regel voor het geheel in het logboek, één melding`);
+    await go('#openritten', 1200);
+  } else check(nOpen < 2, `Plan alle open ritten: ${nOpen} open ritten, de knop alleen bij twee of meer`);
+}
 // herladen
 const fp = () => page.evaluate(() => window.SLCT.ui.ctx.fleet.pool.filter(p => p.gepland).map(p => `${p.id}:${p.toegewezen ? `${p.toegewezen.soort}/${p.toegewezen.status}` : ''}`).sort().join(','));
 const voor = await fp(); await page.reload({ waitUntil: 'load' }); await load(); await page.waitForTimeout(800);

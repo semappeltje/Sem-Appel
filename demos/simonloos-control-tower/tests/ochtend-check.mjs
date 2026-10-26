@@ -121,7 +121,10 @@ await M.ctx.close();
   const gezien = [];
   for (const x of L) {
     await N4.page.selectOption('#pbSel', x.sp); await N4.page.waitForTimeout(1200);
-    await N4.page.fill('#pbQ', x.t); await N4.page.waitForTimeout(1500);
+    await N4.page.fill('#pbQ', x.t);
+    // het bord tekent na het zoeken opnieuw; op een drukke machine duurt dat langer dan een vaste wachttijd (een van vijf
+    // runs vond 9 van de 10 blokken): wacht op het blok zelf, tot 10 seconden
+    await N4.page.waitForSelector(`#v-planbord [data-task-id="g-${x.rit}"]`, { timeout: 10000 }).catch(() => null); await N4.page.waitForTimeout(300);
     const blok = await N4.page.evaluate(id => { const n = document.querySelector(`#v-planbord [data-task-id="g-${id}"]`); return n ? { vast: n.classList.contains('vast'), tekst: n.textContent.replace(/\s+/g, ' ').trim(), streep: !!n.querySelector('span[style*="repeating-linear-gradient"]') } : null; }, x.rit);
     if (blok && blok.vast && blok.streep && /van gisteren/.test(blok.tekst)) gezien.push(x.t);
   }
@@ -180,8 +183,13 @@ const belTekst = async (page, sel) => page.evaluate(s => { const c = document.qu
 if (z0 && z0.fase === 'bel' && typeof z0.bel === 'number') {
   const Tb = Math.min(z0.bel - 5, z0.first + 10); await zet(O.page, Tb);
   await O.page.evaluate(() => { location.hash = 'melding/N-P-8001'; }); await O.page.waitForTimeout(1800);
-  const zb = await O.page.evaluate(() => { const s = document.getElementById('sheet'); return { pri: [...s.querySelectorAll('.btn.pri')].map(b => b.textContent.trim()), keuzes: [...s.querySelectorAll('.prop .prop-h')].map(x => x.textContent.trim()), kpi: [...s.querySelectorAll('.pg-kpis small')].map(x => x.textContent.trim()) }; });
-  check(zb.pri.length === 1 && /^Vraag /.test(zb.pri[0]) && zb.keuzes.some(k => /Haalt het venster/.test(k)) && zb.keuzes.some(k => /Morgen als eerste/.test(k)) && zb.keuzes.some(k => /klant/.test(k)) && zb.kpi.includes('Uiterlijk vragen'), `oefendag ${hm(Tb)}: de zaakpagina heeft één hoofdknop (${zb.pri.join(', ')}) en de keuzes (${zb.keuzes.join(', ')})`);
+  const zb = await O.page.evaluate(() => { const s = document.getElementById('sheet'); const c = window.SLCT.ui.ctx; const z = c.Z.list().find(x => x.key === 'N:P-8001'); const p = c.fleet.pool.find(x => x.id === 'P-8001'); const S = c.ui.advies.samen(p); const best = c.ui.advies.besteVoor(p); return { pri: [...s.querySelectorAll('.btn.pri')].map(b => b.textContent.trim()), keuzes: [...s.querySelectorAll('.prop .prop-h')].map(x => x.textContent.trim()), kpi: [...s.querySelectorAll('.pg-kpis small')].map(x => x.textContent.trim()), prio: (s.querySelector('.pg-a .prio') || {}).textContent || '', zprio: z ? z.prio : null, samen: S ? { n: S.wie.length, kans: S.kans, halen: S.wie.every(k => k.vertrek <= p.venster[1]), namen: S.wie.map(k => k.naam) } : null, best: best ? best.naam : '', gewoon: [...s.querySelectorAll('.prop .btn:not(.pri)')].map(b => b.textContent.trim()) }; });
+  const hoofdOk = zb.samen ? zb.pri[0] === 'Vraag ze tegelijk' && zb.keuzes.some(k => /Vraag tegelijk uit/.test(k)) && zb.gewoon.includes(`Vraag ${zb.best}`) : /^Vraag /.test(zb.pri[0]);
+  check(zb.pri.length === 1 && hoofdOk && zb.keuzes.some(k => /de beste|Haalt het venster/.test(k)) && zb.keuzes.some(k => /Morgen als eerste/.test(k)) && zb.keuzes.some(k => /klant/.test(k)) && zb.kpi.includes('Uiterlijk vragen'), `oefendag ${hm(Tb)}: de zaakpagina heeft één hoofdknop (${zb.pri.join(', ')}${zb.samen ? `: ${zb.samen.namen.join(', ')}, samen ${zb.samen.kans} %, allemaal halen ze het venster (${zb.samen.halen})` : ''}) en ernaast Vraag ${zb.best} als gewone knop; de keuzes (${zb.keuzes.join(', ')})`);
+  check(zb.prio === 'Hoog' && zb.zprio === 'hoog' && (!zb.samen || zb.samen.halen), `oefendag ${hm(Tb)}: de zaak staat op prioriteit Hoog (het belmoment binnen 30 minuten), niet meer op Laag`);
+  // Meldingen: de zaak van P-8001 staat op urgentie bovenaan tussen de open zaken van Wognum, niet onder een lagere prioriteit
+  const volg = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const L = c.Z.open(); const i = L.findIndex(z => z.key === 'N:P-8001'); return { i, n: L.length, prios: L.map(z => z.prio), boven: L.slice(0, Math.max(0, i)).map(z => `${z.kind} ${z.prio}`) }; });
+  check(volg.i >= 0 && volg.boven.every(x => / hoog$/.test(x)), `Meldingen op urgentie: P-8001 op plek ${volg.i + 1} van ${volg.n}, alleen zaken met prioriteit hoog erboven${volg.boven.length ? ` (${volg.boven.slice(0, 3).join(', ')})` : ''}`);
   await O.page.evaluate(() => { location.hash = 'openritten'; }); await O.page.waitForTimeout(1800);
   const orb = await belTekst(O.page, '#v-openritten [data-or="P-8001"]');
   check(orb.rood && orb.tekst === `uiterlijk vragen ${hm(z0.bel)}`, `oefendag ${hm(Tb)}: in Open ritten staat bij P-8001 "${orb.tekst}" in rood`);
@@ -208,8 +216,10 @@ await O.page.evaluate(() => { location.hash = 'melding/N-P-8001'; }); await O.pa
 const zp = await O.page.evaluate(() => { const s = document.getElementById('sheet'); return { h: (s.querySelector('h1') || {}).textContent || '', pri: [...s.querySelectorAll('.btn.pri')].map(b => b.textContent.trim()), keuzes: [...s.querySelectorAll('.prop .prop-h')].map(x => x.textContent.trim()), tel: !!s.querySelector('a[href^="tel:"]') }; });
 check(/Rit niet ingevuld/.test(zp.h) && zp.pri.length === 1 && zp.keuzes.some(k => /Morgen als eerste/.test(k)) && zp.keuzes.some(k => /klant/.test(k)) && !zp.tel, `oefendag 06:45: de zaakpagina "${zp.h.replace(/\s+/g, ' ').trim()}" met de keuzes (${zp.keuzes.join(', ')}) en één hoofdknop (${zp.pri.join(', ')}), geen tel:-link`);
 // morgen als eerste: de zaak is daarna door de planner opgelost, de rit staat bij morgen en blijft vandaag gemist
-const knop = await O.page.$('#sheet [data-nmorgen]');
-if (knop) await knop.click(); await O.page.waitForTimeout(1500);
+// de zaakpagina kan na het openen nog een keer tekenen (de terugblik die klaar is, een melding die binnenkomt): de knop als
+// locator, opnieuw opgezocht bij de klik, geen element van voor het tekenen vasthouden
+const knop = O.page.locator('#sheet [data-nmorgen]'); const metKnop = (await knop.count()) > 0;
+if (metKnop) await knop.click({ timeout: 15000 }); await O.page.waitForTimeout(1500);
 const morgen = await O.page.evaluate(() => { const c = window.SLCT.ui.ctx; const T = c.state.simTime; const z = c.Z.list().find(x => x.key === 'N:P-8001'); const p = c.fleet.pool.find(x => x.id === 'P-8001'); return { status: z ? z.status : null, door: z ? z.closedBy : null, dag: p.dag, morgen: c.fleet.poolAt(T).some(x => x.id === 'P-8001' && x.dag === 'morgen'), gemist: c.M.sample(T, c.fleet.trucks.filter(t => c.inScope(t)), []).gemist }; });
 check(morgen.status === 'opgelost' && morgen.door === 'planner' && morgen.morgen && morgen.gemist >= 1, `oefendag: morgen als eerste zet P-8001 bij de open ritten van morgen (${morgen.morgen}); de zaak is opgelost door de ${morgen.door}; vandaag telt hij als gemist (${morgen.gemist})`);
 await O.ctx.close();

@@ -75,7 +75,10 @@ async function pasToeEnMeet(page, T, zaakId, voorstelId) {
   const belofte = await page.evaluate(id => { const p = window.SLCT.ui.ctx.voorstelById(id); if (!p) return null; return { t: p.t.id, kort: p.kort, winst: JSON.parse(JSON.stringify(p.winst)), acts: JSON.parse(JSON.stringify(p.acts || [p.act])) }; }, voorstelId);
   if (!belofte) return { belofte: null };
   await page.evaluate(id => { location.hash = `melding/${id}`; }, zaakId); await page.waitForTimeout(1200);
-  const knop = await page.$('#zaakPasToe'); if (knop) await knop.click(); else await page.evaluate(id => window.SLCT.ui.ctx.applyProposal(window.SLCT.ui.ctx.voorstelById(id)), voorstelId);
+  // de zaakpagina kan na het openen nog een keer tekenen (de frame-lus, een melding die binnenkomt): de knop bij elke poging
+  // opnieuw opzoeken (een locator), geen element van voor het tekenen vasthouden
+  const knop = page.locator('#zaakPasToe');
+  if (await knop.count()) await knop.click({ timeout: 15000 }); else await page.evaluate(id => window.SLCT.ui.ctx.applyProposal(window.SLCT.ui.ctx.voorstelById(id)), voorstelId);
   await page.waitForTimeout(700);
   const meet = () => page.evaluate(([b, T]) => {
     const f = window.SLCT.fleet; const c = window.SLCT.ui.ctx; const t = f.byId.get(b.t);
@@ -212,8 +215,8 @@ check(or.n >= 1 && /ziek/i.test(or.tekst), `open ritten om 07:30: ${or.n} ritten
   check(aan === true, 'Instellingen: de schakelaar "Oefendag: een drukke dag" staat aan');
   await B.page.click('label.tgl:has(#setOefen)');
   await B.page.waitForTimeout(400);
-  const knop = await B.page.$('dialog.cfm[open] button[value="ja"]');
-  if (knop) { await Promise.all([B.page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }).catch(() => null), knop.click()]); }
+  const jaKnop = B.page.locator('dialog.cfm[open] button[value="ja"]'); const knop = (await jaKnop.count()) > 0;
+  if (knop) { await Promise.all([B.page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }).catch(() => null), jaKnop.click({ timeout: 15000 })]); }
   await klaar(B.page); await B.page.waitForTimeout(800);
   const terug = await vinger(B.page); const zonderParam = await B.page.evaluate(() => !/scenario=/.test(location.search));
   check(!!knop && terug.scenario === null && terug.h === gewoon0.h && terug.diensten === gewoon0.diensten && terug.pool === gewoon0.pool && zonderParam && !(await B.page.$('#oefenChip')), `uit zetten: na de bevestiging weer de gewone dag, precies gelijk (vingerafdruk ${terug.h} = ${gewoon0.h}, ${terug.diensten} diensten, ${terug.pool} open ritten), zonder chip en zonder ?scenario in de adresbalk`);

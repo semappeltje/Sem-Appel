@@ -16,6 +16,7 @@ import { fmt, hhmm } from './base.js';
 import { vensterAbs, planPoolRit, haalPoolRitTerug, pool as poolAlles } from './planwijzig.js';
 import { NORM, duur } from './toets.js';
 import { thuisMin, AANRIJ_KOPPELEN } from '../inzet.js';
+import { verdeel } from '../verdeel.js';
 
 export const euro = v => `€ ${fmt(Math.round((+v || 0) / 5) * 5)}`;
 const Tn = ctx => ctx.state.simTime;
@@ -97,15 +98,24 @@ export function voorkeurRegels(vk) {
 export const pastVoorkeur = (ctx, vk, rit) => (vk ? ctx.fleet.past(vk, rit) : null);
 
 // ---------- kandidaten voor een open rit (fleet.kandidaten, met people en wat al is toegewezen) ----------
-// { eigen, oproep, charter (in de volgorde van de data), alle, best (de ene aanbevolen), samen (Vraag tegelijk uit) }
+// { eigen, oproep, charter (in de volgorde van de data), alle, best (de ene aanbevolen: uit de toewijzing over alle open
+// ritten, zie hieronder), samen (Vraag tegelijk uit) }. Staat de aanbevolen kandidaat niet in de eerste vijf (of vier) van
+// zijn groep, dan komt hij er achteraan bij, zodat zijn knop er is.
 const kCache = new Map();
+const verVan = ctx => (ctx.R && ctx.R.ver ? ctx.R.ver() : 0);
+// wie al gevraagd of gebeld is, telt mee in elke cache-sleutel: een vraag aan de een verschuift het advies voor de ander
+const contactSig = ctx => { let n = 0; for (const p of poolAlles(ctx)) n += p.contact ? p.contact.length : 0; return n; };
+const sleutel = (ctx, item) => `${item.id}|${Math.floor(Tn(ctx) / 5)}|${verVan(ctx)}|${contactSig(ctx)}`;
 export function kandidatenVan(ctx, item) {
-  const key = `${item.id}|${Math.floor(Tn(ctx) / 5)}|${ctx.R && ctx.R.ver ? ctx.R.ver() : 0}`;
+  const key = sleutel(ctx, item);
   const c = kCache.get(key); if (c) return c;
   const L0 = (ctx.fleet.kandidaten(item, { T: Tn(ctx), people: ctx.people, toegewezen: toewijzingen(ctx), max: { eigen: 5, oproep: 4, charter: 4 } }) || []).map(k => caoRust(ctx, item, k));
   const groep = s => L0.filter(k => k.soort === s).sort((x, y) => y.beschikbaar - x.beschikbaar);
-  const out = { eigen: groep('eigen'), oproep: groep('oproep'), charter: groep('charter') }; const L = [...out.eigen, ...out.oproep, ...out.charter];
-  Object.assign(out, { alle: L, best: besteVan(L), samen: samenVragen(L) });
+  const out = { eigen: groep('eigen'), oproep: groep('oproep'), charter: groep('charter') };
+  const b = besteVoor(ctx, item); let best = null;
+  if (b) { best = out[b.soort].find(k => k.id === b.id) || null; if (!best) { out[b.soort].push(b); best = b; } }
+  const L = [...out.eigen, ...out.oproep, ...out.charter];
+  Object.assign(out, { alle: L, best, samen: samenVragen(ctx, item, best) });
   if (kCache.size > 40) kCache.clear();
   kCache.set(key, out); return out;
 }
@@ -123,17 +133,139 @@ function caoRust(ctx, item, k) {
   if (rust >= NORM.rustVerkort) return k;
   return { ...k, beschikbaar: false, cao: rust, redenen: [`Houdt ${duur(rust)} rust tot de volgende dienst: minder dan 10 uur (cao beroepsgoederenvervoer, strenger dan EU 561)`, ...(k.redenen || [])] };
 }
-// de ene aanbevolen kandidaat: de eerste die beschikbaar is en waarschijnlijk ja zegt (eigen mensen eerst, zoals de data
-// ze ordent); zegt niemand waarschijnlijk ja, dan wie de grootste kans heeft
-function besteVan(L) { const kan = L.filter(k => k.beschikbaar); return kan.find(k => k.kans >= 0.5) || kan.slice().sort((a, b) => b.kans - a.kans)[0] || null; }
+// alle kandidaten van een rit (niet alleen de eerste vijf of vier per groep), met de cao-rust; per vijf minuten, planversie
+// en wat al gevraagd is opnieuw
+const aCache = new Map(); let aSig = '';
+const ALLE = { eigen: 999, oproep: 999, charter: 999 };
+export function alleKandidaten(ctx, p) {
+  const sig = `${Math.floor(Tn(ctx) / 5)}|${verVan(ctx)}`; if (sig !== aSig) { aCache.clear(); aSig = sig; }
+  let L = aCache.get(p.id); if (L) return L;
+  L = (ctx.fleet.kandidaten(p, { T: Tn(ctx), people: ctx.people, toegewezen: toewijzingen(ctx), max: ALLE }) || []).map(k => caoRust(ctx, p, k));
+  aCache.set(p.id, L); return L;
+}
+
+// ---------- één advies per open rit: de beste kandidaat, wie je tegelijk vraagt, de prioriteit ----------
+// Het advies belooft nooit dezelfde persoon twee keer. Over alle open ritten van een dag (heel Nederland, zodat elke planner
+// hetzelfde advies ziet) kiest één toewijzing (src/verdeel.js, Hongaars) voor elke rit zijn eigen beste kandidaat: niemand
+// twee keer, een charter niet vaker dan hij trekkers vrij heeft, en wie al voor een andere rit tegelijk gevraagd is, blijft
+// bij die rit. De waarde van een kandidaat voor een rit is zijn kans op een ja, met een kleine opslag voor eigen mensen
+// (8 punten) en de flexibele schil (4 punten) boven een charter: bij een gelijke kans eerst eigen chauffeurs (goedkoper, de
+// rit blijft in eigen hand), dan oproepkrachten, dan een charter. Een rit van vandaag krijgt alleen wie het venster haalt,
+// zolang iemand dat haalt (haaltVenster); zo'n rit gaat voor een rit waarvoor niemand het venster meer haalt. Alles een
+// schatting, zoals de kans zelf. Per vijf minuten, planversie en wat al gevraagd is opnieuw; het rekent in de browser (de
+// toets eist onder 300 ms voor alle open ritten van Nederland).
+export const OPSLAG = { eigen: 0.08, oproep: 0.04, charter: 0 };
+export const waardeVan = k => (k.kans || 0) + (OPSLAG[k.soort] || 0);
+export const dagVanRit = dagVan;
+// de open ritten van een dag die nog iemand nodig hebben, zoals de planner ze nu ziet (ook een rit waarvan het venster al
+// voorbij is: die kan nog laat gereden worden)
+export function openVoor(ctx, dag) {
+  const T = Tn(ctx);
+  return poolAlles(ctx).filter(p => dagVan(p) === dag && !p.gepland && !p.morgenEerste && p.venster && p.bekend <= T && (dag === 'morgen' || !collegaOm(ctx, p, T)));
+}
+// wie het venster van rit p haalt als je nu vraagt (vandaag), anders iedereen die beschikbaar is
+function kanVoor(ctx, p) {
+  if (p.dag !== 'morgen' && Tn(ctx) < p.venster[1]) { const H = haaltVenster(ctx, p); if (H.length) return { L: H, haalt: true }; }
+  return { L: alleKandidaten(ctx, p).filter(k => k.beschikbaar), haalt: false };
+}
+// per naam de rit waarvoor iemand al tegelijk gevraagd is (contact 'samen'), onder de open ritten van die dag
+function tegelijkGevraagd(ctx, dag) {
+  const m = new Map();
+  for (const p of poolAlles(ctx)) { if (p.gepland || dagVan(p) !== dag) continue; for (const c of p.contact || []) if (c.soort === 'samen' && !m.has(c.wie)) m.set(c.wie, p.id); }
+  return m;
+}
+const vdCache = new Map();
+const nu = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+// de rijen voor verdeel.js: per open rit van de dag zijn kandidaten met waarde en capaciteit (en de kandidaten zelf op id)
+function rijenVoor(ctx, dag) {
+  const open = openVoor(ctx, dag); const gevraagd = tegelijkGevraagd(ctx, dag);
+  // wie vandaag al een rit heeft (toegewezen, ook als hij nog op een ja wacht), is geen eerste keus voor een tweede
+  const bezet = new Set(toegewezen(ctx).filter(p => dagVan(p) === dag && p.toegewezen.soort !== 'charter').map(p => p.toegewezen.id));
+  const perRit = new Map(); const rijen = [];
+  for (const p of open) {
+    const { L, haalt } = kanVoor(ctx, p); const b = belmoment(ctx, p);
+    const K = L.filter(k => !bezet.has(k.id) && (!gevraagd.has(k.naam) || gevraagd.get(k.naam) === p.id));
+    perRit.set(p.id, new Map(K.map(k => [k.id, k])));
+    rijen.push({ id: p.id, volgorde: b && b.T !== null ? b.T : p.venster[0], kandidaten: K.map(k => ({ id: k.id, waarde: waardeVan(k) + (haalt ? 0.5 : 0), cap: k.soort === 'charter' ? charterVrij(ctx, charterById(ctx, k.id) || { beschikbaar: {} }, dag) : 1 })) });
+  }
+  return { open, rijen, perRit };
+}
+// { uit: Map rit-id -> kandidaat (het object uit de lijst van die rit) of null, ritten, ms, sig }
+export function verdeling(ctx, dag) {
+  const sig = `${Math.floor(Tn(ctx) / 5)}|${verVan(ctx)}|${contactSig(ctx)}`;
+  const c = vdCache.get(dag); if (c && c.sig === sig) return c;
+  const t0 = nu();
+  const { open, rijen, perRit } = rijenVoor(ctx, dag);
+  const toe = verdeel(rijen, 'hongaars'); const uit = new Map();
+  for (const p of open) { const id = toe.get(p.id); uit.set(p.id, id ? perRit.get(p.id).get(id) || null : null); }
+  const out = { sig, uit, ritten: open.length, ms: Math.round((nu() - t0) * 10) / 10 };
+  vdCache.set(dag, out);
+  // voor de toetsen en metingen: dezelfde functies, bereikbaar via window.SLCT.ui.ctx.ui.advies
+  if (ctx.ui && !ctx.ui.advies) ctx.ui.advies = { verdeling: d => verdeling(ctx, d), besteVoor: p => besteVoor(ctx, p), handelMoment: p => handelMoment(ctx, p), ritPrio: (p, T) => ritPrio(ctx, p, T), samen: p => kandidatenVan(ctx, p).samen, vergelijk: d => vergelijkMethoden(ctx, d), meet: d => { vdCache.delete(d); aCache.clear(); hvCache.clear(); return verdeling(ctx, d).ms; } };
+  return out;
+}
+// Hongaars tegen gretig op belmoment, op dezelfde rijen (voor de meting): per methode de ritten met een kandidaat, de som
+// van hun kansen op een ja (het verwachte aantal ja's) en de rekentijd, zonder cache
+export function vergelijkMethoden(ctx, dag) {
+  const { open, rijen, perRit } = rijenVoor(ctx, dag); const uit = {};
+  for (const m of ['hongaars', 'gretig']) {
+    const t0 = nu(); const toe = verdeel(rijen, m); const ms = nu() - t0; let n = 0, kans = 0;
+    for (const p of open) { const id = toe.get(p.id); const k = id ? perRit.get(p.id).get(id) : null; if (k) { n++; kans += k.kans || 0; } }
+    uit[m] = { ritten: open.length, metKandidaat: n, verwachtJa: Math.round(kans * 10) / 10, ms: Math.round(ms * 100) / 100 };
+  }
+  return uit;
+}
+// de aanbevolen kandidaat voor een rit: uit de toewijzing; blijft er voor deze rit niemand over, dan toch de beste van zijn
+// eigen lijst, gemarkeerd als gedeeld (de planner ziet dat hij ook de eerste keus van een andere rit is)
+export function besteVoor(ctx, p) {
+  if (!p || p.gepland || !p.venster) return null;
+  const v = verdeling(ctx, dagVan(p)); if (v.uit.has(p.id)) { const k = v.uit.get(p.id); if (k) return k; }
+  const { L } = kanVoor(ctx, p); const b = L.slice().sort((x, y) => waardeVan(y) - waardeVan(x))[0] || null;
+  return b ? { ...b, gedeeld: true } : null;
+}
+// wie van de open ritten van dezelfde dag al de eerste keus van een andere rit is (personen; een charter telt pas als zijn
+// vrije trekkers op zijn)
+function eersteKeusElders(ctx, item) {
+  const v = verdeling(ctx, dagVan(item)); const S = new Set(); const ch = new Map();
+  for (const [id, k] of v.uit) { if (!k || id === item.id) continue; if (k.soort === 'charter') ch.set(k.id, (ch.get(k.id) || 0) + 1); else S.add(k.id); }
+  for (const [id, n] of ch) { const c = charterById(ctx, id); if (!c || n >= charterVrij(ctx, c, dagVan(item))) S.add(id); }
+  return S;
+}
 // Vraag tegelijk uit: de kleinste groep die samen minstens 90 procent kans op een ja geeft (de kansen als onafhankelijk
-// gerekend, een schatting), hoogstens vier; alleen als de beste kandidaat alleen onder de 90 procent zit
-export function samenVragen(L) {
-  const kan = L.filter(k => k.beschikbaar && k.kans > 0.05).sort((a, b) => b.kans - a.kans || a.kosten.bedrag - b.kosten.bedrag);
-  if (kan.length < 2 || kan[0].kans >= 0.9) return null;
+// gerekend, een schatting), hoogstens vier: de aanbevolen kandidaat eerst, dan wie de grootste kans heeft; vandaag alleen
+// wie het venster haalt, en niemand die al de eerste keus van een andere rit is. Geen groep als de beste alleen al 90
+// procent heeft, of als er niemand bij kan.
+export function samenVragen(ctx, item, best) {
+  if (!best || !best.beschikbaar) return null;
+  const { L, haalt } = kanVoor(ctx, item);
+  if (item.dag !== 'morgen' && Tn(ctx) < item.venster[1] && !haalt) return null;
+  const elders = eersteKeusElders(ctx, item);
+  const rest = L.filter(k => k.kans > 0.05 && k.beschikbaar && !(k.id === best.id && k.soort === best.soort) && !elders.has(k.id)).sort((a, b) => b.kans - a.kans || a.kosten.bedrag - b.kosten.bedrag);
+  const kan = [best, ...rest];
+  if (kan.length < 2 || best.kans >= 0.9) return null;
   const wie = []; let geen = 1;
   for (const k of kan) { wie.push(k); geen *= 1 - k.kans; if (1 - geen >= 0.9 || wie.length >= 4) break; }
-  return { wie, kans: Math.round((1 - geen) * 100), alleen: Math.round(kan[0].kans * 100) };
+  if (wie.length < 2) return null;
+  return { wie, kans: Math.round((1 - geen) * 100), alleen: Math.round(best.kans * 100) };
+}
+// Het eerste moment waarop de planner iets moet doen: het laatste belmoment of het begin van het venster, wat eerder komt
+// (een rit van morgen ligt 1440 minuten verder). Open ritten en de bak op het planbord staan op dit moment gesorteerd.
+export function handelMoment(ctx, p) {
+  if (!p.venster) return 9999 + 1440;
+  if (p.dag === 'morgen') return p.venster[0] + 1440;
+  const b = belmoment(ctx, p); const B = b && b.T !== null && b.T >= Math.max(0, p.bekend) ? b.T : null;
+  return B === null ? p.venster[0] : Math.min(B, p.venster[0]);
+}
+// De prioriteit van de zaak "Rit niet ingevuld" in de fase bel: hoog als het belmoment binnen 30 minuten valt of de beste
+// kandidaat onder 60 procent kans op een ja heeft; laag alleen met ruim tijd (meer dan een uur) en een kandidaat met een
+// hoge kans (80 procent); anders middel. De zaak komt een half uur voor het belmoment, dus in de praktijk staat hij meteen
+// op hoog: zolang je nog iemand kunt vragen, moet je opletten. In de fasen laat en gemist is hij altijd hoog.
+export function ritPrio(ctx, p, T) {
+  const b = belmoment(ctx, p); const B = b && b.T !== null ? b.T : null; const tot = B === null ? -Infinity : B - T;
+  const best = besteVoor(ctx, p); const kans = best ? best.kans || 0 : 0;
+  if (tot <= 30 || kans < 0.6) return 'hoog';
+  if (tot > 60 && kans >= 0.8) return 'laag';
+  return 'middel';
 }
 
 // ---------- het laatste belmoment en de zaak "Rit niet ingevuld" ----------
@@ -154,7 +286,6 @@ export function samenVragen(L) {
 // laat gereden); een rit die naar morgen ging, wel. Alles gesimuleerd.
 export const MORGEN_EERSTE = [240, 300];
 export const BEL_VOORAF = 30;
-const ALLE = { eigen: 999, oproep: 999, charter: 999 };
 // het laatste moment waarop kandidaat k het venster nog haalt (minuten van vandaag; -Infinity als nooit)
 function laatsteVraag(k, v1) {
   if (k.soort === 'eigen' && k.aanrij === AANRIJ_KOPPELEN) return Math.max(v1 - thuisMin(k.id), k.vertrek <= v1 ? k.vertrek - AANRIJ_KOPPELEN : -Infinity);
@@ -182,8 +313,7 @@ export function haaltVenster(ctx, p) {
   const sig = `${Math.floor(Tn(ctx) / 5)}|${ctx.R && ctx.R.ver ? ctx.R.ver() : 0}`; if (sig !== hvSig) { hvCache.clear(); hvSig = sig; }
   if (hvCache.has(p.id)) return hvCache.get(p.id);
   const v1 = p.venster[1];
-  const L = (ctx.fleet.kandidaten(p, { T: Tn(ctx), people: ctx.people, toegewezen: toewijzingen(ctx), max: ALLE }) || []).map(k => caoRust(ctx, p, k))
-    .filter(k => k.beschikbaar && typeof k.vertrek === 'number' && k.vertrek <= v1).sort((a, b) => b.kans - a.kans || a.kosten.bedrag - b.kosten.bedrag);
+  const L = alleKandidaten(ctx, p).filter(k => k.beschikbaar && typeof k.vertrek === 'number' && k.vertrek <= v1).sort((a, b) => b.kans - a.kans || a.kosten.bedrag - b.kosten.bedrag);
   hvCache.set(p.id, L); return L;
 }
 // De collega's (fleet: p.collega, gesimuleerd, zo vaak als de prognose zegt) vullen een rit op het laatst in, maar voordat
@@ -263,10 +393,11 @@ function verrijk(ctx, w) {
   const x = w.soort === 'charter' ? charterById(ctx, w.id) : w.soort === 'oproep' ? oproepById(ctx, w.id) : null;
   return { ...w, waarschuwingen: w.waarschuwingen || [], beschikbaar: true, tel: x ? x.tel : null, email: x && x.email ? x.email : null, contactpersoon: x && x.contactpersoon ? x.contactpersoon : null };
 }
-export function wijsToe(ctx, item, k) {
-  if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers wijzen ritten toe.', { icon: 'lock' }); return { ok: false }; }
+// opts.stil: geen melding en niet opnieuw tekenen (Plan alle open ritten doet dat één keer voor allemaal)
+export function wijsToe(ctx, item, k, opts = {}) {
+  if (!ctx.can('act')) { if (!opts.stil) ctx.L.toast('Alleen planners en regiomanagers wijzen ritten toe.', { icon: 'lock' }); return { ok: false }; }
   const res = ctx.runAction({ k: 'toewijs', id: item.id, wie: kKort(k), T: Tn(ctx) }, true);
-  if (!res || !res.ok) { ctx.L.toast(res && res.tekst ? res.tekst : 'Toewijzen lukte niet.', { icon: 'alert' }); return { ok: false }; }
+  if (!res || !res.ok) { if (!opts.stil) ctx.L.toast(res && res.tekst ? res.tekst : 'Toewijzen lukte niet.', { icon: 'alert' }); return { ok: false, tekst: res && res.tekst ? res.tekst : 'Toewijzen lukte niet.' }; }
   const it = poolAlles(ctx).find(p => p.id === item.id); const tw = it.toegewezen; const v = vensterAbs(it);
   const kort = ctx.fleet.WAARSCHUWING_KORT || {}; const lt = tw.waarschuwingen.map(w => kort[w] || w);
   ctx.A.log(`vroeg ${k.naam} (${wieSoort(k)}) voor open rit ${it.id} van ${it.klant || 'de klant'} (${it.sp}, laden ${it.dag === 'morgen' ? 'morgen ' : ''}${hhmm(v[0])}); kosten ongeveer ${euro(tw.kosten)} (schatting)${lt.length ? `; let op: ${lt.join(', ')}` : ''}`, { pool: it.id });
@@ -275,8 +406,19 @@ export function wijsToe(ctx, item, k) {
   // een eigen chauffeur die nu op dienst is, krijgt de vraag op de boordcomputer
   const p = k.soort === 'eigen' ? ctx.people.byId.get(k.id) : null;
   if (p && p.dienst && p.dienst.t && tw.bericht && ctx.sendMsg) ctx.sendMsg(p.dienst.t, tw.bericht.tekst, true, true);
+  if (opts.stil) return { ok: true };
   ctx.L.toast(`Gevraagd aan ${k.naam}. De rit staat gearceerd op het planbord tot je bevestigt.`, { icon: 'check', ms: 6000 });
   ctx.refreshAll(false); return { ok: true };
+}
+// Plan alle open ritten: elke rit aan zijn eigen aanbevolen kandidaat, op volgorde (elke toewijzing met haar eigen regel in
+// het logboek en de zaak), dan één melding en één keer opnieuw tekenen. paren: [{ item, k }]. { n, fout: [tekst] }
+export function wijsToeAlle(ctx, paren) {
+  if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers wijzen ritten toe.', { icon: 'lock' }); return { n: 0, fout: [] }; }
+  let n = 0; const fout = [];
+  for (const { item, k } of paren) { const r = wijsToe(ctx, item, k, { stil: true }); if (r.ok) n++; else fout.push(`${item.id}: ${r.tekst || 'lukte niet'}`); }
+  if (n) ctx.A.log(`vroeg in één keer ${n} ${n === 1 ? 'kandidaat' : 'kandidaten'} voor ${n} open ${n === 1 ? 'rit' : 'ritten'} (Plan alle open ritten)`);
+  ctx.L.toast(`${n} ${n === 1 ? 'rit' : 'ritten'} gevraagd${fout.length ? `, ${fout.length} niet` : ''}. Ze staan gearceerd op het planbord tot je bevestigt.`, { icon: 'check', ms: 7000 });
+  ctx.refreshAll(false); return { n, fout };
 }
 export function bevestig(ctx, item) {
   ctx.runAction({ k: 'bevestig', id: item.id, T: Tn(ctx) }, true);
