@@ -54,6 +54,18 @@ wat kan); geen dienst buiten het rooster of boven de rij- en rusttijden zonder b
 geeft alleen het verschil door. Schatting: drie agentrondes, 2 tot 3 dagen, bovenop de rondes van 1 en 2 hieronder (die
 erin opgaan).
 
+**F. Knelpunten tussen planning en behoefte: te veel of te weinig mensen.** Per standplaats, per dag en dagdeel, voor
+de komende twee weken: hoeveel chauffeurs de ritten vragen (uit het plan en de prognose uit de historie), hoeveel er
+volgens het rooster kunnen (na vakantie, ziek, rust, rij- en rusttijden), en het verschil. Te weinig: open ritten,
+charters en gemiste ritten, met de kosten als schatting. Te veel: betaalde uren zonder rit, ook als schatting. Eén
+scherm "Bezetting" met de twee weken als balken (rood tekort, blauw overschot), per standplaats en voor heel Nederland,
+met wat je eraan kunt doen: een dienst verschuiven, een collega van een standplaats verderop lenen, extra diensten
+aanbieden via het voorkeursbod, of een charter eerder vastleggen. De tweede bouwsteen van de bezettingsplanning op
+termijn (ideeënbank 22, reserve op maat).
+
+Besluiten van Sem, 26 oktober: de directie krijgt het planbord alleen-lezen (kijken, niet slepen); het voorkeursbod is in
+de demo per chauffeur zichtbaar.
+
 ## 1. Rij- en rusttijden over de week (jouw punt 1)
 
 Wat erbij komt:
@@ -111,17 +123,16 @@ de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De vragen
 
 ## 5. Volgorde en oplevering
 
-1. Het rooster en de tellers per chauffeur (A en B, met de weekregels van punt 1).
-2. Plannen en vrijgeven, het bericht aan de chauffeur, de ritopdracht naar de boordcomputer (C, D, E).
+1. Het rooster en de tellers per chauffeur (A en B, met de weekregels van punt 1), en het model achter Bezetting (F).
+2. Plannen en vrijgeven, het bericht aan de chauffeur, de ritopdracht naar de boordcomputer (C, D, E), en het scherm
+   Bezetting (F).
 3. Voorkeursbod en eerlijk verdelen (punt 2).
 4. De kleine punten.
 5. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
    4.0: artifact, demosite en SafeTools op dezelfde build, via de website-sessie.
 
-Schatting voor het geheel: vijf tot zes dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
-kunnen apart live. Jij beslist over twee dingen vooraf: of de
-directie het planbord alleen-lezen krijgt, en of het voorkeursbod in de demo per chauffeur zichtbaar mag zijn of alleen
-per groep (de OR-vraag).
+Schatting voor het geheel: zes tot zeven dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
+kunnen apart live.
 
 ## Risico's en signalen
 
