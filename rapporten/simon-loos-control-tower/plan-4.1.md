@@ -1,7 +1,8 @@
 # Plan 4.1: wat de volgende keer live gaat
 
-Voor Sem, 26 oktober 2026. Jouw twee punten staan bovenaan: rij- en rusttijden over de hele week, en de voorkeursstem
-van chauffeurs. Daarna wat uit 4.0 bleef liggen. Alles gesimuleerd tot de proef met echte data; elke schatting heet
+Voor Sem, 26 oktober 2026 (bijgewerkt na je aanvulling van vanavond). De kern van 4.1 is het planproces van begin
+tot eind: het rooster en de rij- en rusttijden van elke chauffeur, de planning die de planner vrijgeeft, het bericht aan de
+chauffeur, en de ritten naar de boordcomputer. Daarna de voorkeursstem en wat uit 4.0 bleef liggen. Alles gesimuleerd tot de proef met echte data; elke schatting heet
 schatting. Volgorde is prioriteit; wat af en groen is gaat mee, wat niet af is blijft eruit (dezelfde regel als bij 4.0).
 
 ## Wat 4.0 al doet (geen dubbel werk)
@@ -13,6 +14,45 @@ schatting. Volgorde is prioriteit; wat af en groen is gaat mee, wat niet af is b
 - Voorkeuren: per chauffeur weekdag en dagdeel (vroeg, dag, avond, nacht), ritsoort en regio; "past slecht bij de
   voorkeur" als stille stip op het planbord, de kans op een ja rekent ermee, en een tevredenheidscijfer per standplaats
   (`src/voorkeuren.js`, `src/inzet.js`).
+
+## 0. Het planproces van begin tot eind (jouw aanvulling van 26 oktober)
+
+Wat je zei: de planner hoeft niet na te denken over wat een chauffeur de afgelopen week reed; het systeem houdt de rij- en
+rusttijden van de individuele chauffeur bij (voldoende nachtrust erbij), en sluit aan op zijn eigen rooster (van een
+volle week tot een halve dag). Is de planning akkoord, dan gaat hij per mail of app naar de chauffeur, zodat hij weet wat
+hij de volgende dag of dienst doet; en de ritten gaan naar de boordcomputer. Zo lees ik het, in vijf bouwstenen:
+
+**A. Gerealiseerd zonder nadenken.** Per chauffeur een teller die vanzelf gevuld wordt: gereden vandaag, deze week, deze
+twee weken, de laatste rust, de volgende verplichte rust. In de demo uit de simulatie; in het echt uit de tachograaf en
+de boordcomputer (werkstaten). De planner ziet per chauffeur één regel: "kan vandaag nog 3 uur 10 rijden, weekrust
+vanaf vrijdag 18:00". Kandidaten die het niet halen, komen niet in de lijst; de planner hoeft niet te rekenen.
+
+**B. Het rooster van de chauffeur.** Elke chauffeur heeft een rooster: contract (volle week, deeltijd, een halve dag,
+oproep), beschikbare dagen en dagdelen, vakantie, ziek, rustdag. De planning plant alleen binnen dat rooster; afwijken
+kan alleen als de planner het bewust doet, met reden, en het komt in het logboek. Rij- en rusttijden en rooster
+samen bepalen wie wanneer kan. In de demo gesimuleerd met variatie; in het echt uit het roostersysteem en HR.
+
+**C. Plannen en vrijgeven.** De planner maakt de planning voor morgen (of de volgende dienst) per standplaats en keurt hem
+goed met één handeling: "Planning vrijgeven". Elke dienst krijgt een status: concept, vrijgegeven, gezien door de
+chauffeur, bevestigd, onderweg, afgerond. Verandert er na het vrijgeven iets (een rit erbij, een andere tijd), dan
+ziet de planner precies wat er verschilt en geeft hij alleen dat verschil opnieuw vrij.
+
+**D. Het bericht aan de chauffeur.** Bij vrijgeven krijgt elke chauffeur zijn dienst van morgen: begintijd, voertuig,
+oplegger, de ritten met tijden en adressen, de pauze, en een link. Per mail, of in de chauffeursapp als die er is. De
+chauffeur bevestigt met één tik ("gezien" en "akkoord"); blijft dat uit, dan ziet de planner het (de wachtklok,
+ideeënbank 44). In de demo: het bericht als voorbeeld op het scherm, "verstuurd" in het logboek en een gesimuleerde
+bevestiging; in het echt via een maildienst of de app van de boordcomputer.
+
+**E. Naar de boordcomputer.** Bij vrijgeven (of bij de bevestiging van de chauffeur) gaan de ritten als ritopdracht
+naar de boordcomputer van het voertuig: stops, tijden, laadadres, oplegger. In de demo als OTM5-bericht dat je kunt
+bekijken en exporteren (`src/otm5.js` bestaat al); in de proef de echte koppeling. Welke boordcomputer en welke
+koppeling (Trimble of een andere), bepalen we met ICT; dat staat hieronder bij "nodig van Simon Loos".
+
+Lat: op de oefendag plant de planner Wognum voor morgen zonder één keer zelf uren te tellen (de app toont per chauffeur
+wat kan); geen dienst buiten het rooster of boven de rij- en rusttijden zonder bewuste afwijking in het logboek; na
+"Planning vrijgeven" heeft elke chauffeur een bericht en elke rit een OTM5-ritopdracht; een wijziging na vrijgeven
+geeft alleen het verschil door. Schatting: drie agentrondes, 2 tot 3 dagen, bovenop de rondes van 1 en 2 hieronder (die
+erin opgaan).
 
 ## 1. Rij- en rusttijden over de week (jouw punt 1)
 
@@ -63,20 +103,23 @@ staat in de README als schatting). Schatting: twee agentrondes, 1 tot 2 dagen.
 
 ## 4. Wat ervoor nodig is van Simon Loos
 
-Voor de simulatie niets. Voor de proef met echte data: het dienstrooster en de contracturen per chauffeur (HR), de
-tachograafdownloads of de werkstaten uit de boordcomputer (Trimble), de open ritten met venster uit het TMS (OTM5 uit
-ORTEC of Navitrans), en een afspraak met de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De
-vragen staan in `na-4.0.md`.
+Voor de simulatie niets. Voor de proef met echte data: het rooster en de contracturen per chauffeur (HR of het
+roostersysteem), de tachograafdownloads of de werkstaten uit de boordcomputer, de open ritten met venster uit het TMS
+(OTM5 uit ORTEC of Navitrans), het kanaal naar de chauffeur (welke mail of welke app, en wie de adressen beheert), de
+koppeling van de boordcomputer voor ritopdrachten (welk merk, welke API, wie de sleutel beheert), en een afspraak met
+de OR over het voorkeursbod en over wat er per chauffeur zichtbaar is. De vragen staan in `na-4.0.md`.
 
 ## 5. Volgorde en oplevering
 
-1. Rij- en rusttijden over de week (lat, tests, teller, toewijzing, Assistent).
-2. Voorkeursbod en eerlijk verdelen.
-3. De kleine punten.
-4. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
+1. Het rooster en de tellers per chauffeur (A en B, met de weekregels van punt 1).
+2. Plannen en vrijgeven, het bericht aan de chauffeur, de ritopdracht naar de boordcomputer (C, D, E).
+3. Voorkeursbod en eerlijk verdelen (punt 2).
+4. De kleine punten.
+5. Eindcontrole door een aparte agent tegen een bijgewerkte lat (`acceptatie-4.1.md`), daarna dezelfde oplevering als
    4.0: artifact, demosite en SafeTools op dezelfde build, via de website-sessie.
 
-Schatting voor het geheel: drie tot vier dagen werk, in rondes zoals bij 4.0. Jij beslist over twee dingen vooraf: of de
+Schatting voor het geheel: vijf tot zes dagen werk, in rondes zoals bij 4.0; de eerste twee stappen zijn de kern en
+kunnen apart live. Jij beslist over twee dingen vooraf: of de
 directie het planbord alleen-lezen krijgt, en of het voorkeursbod in de demo per chauffeur zichtbaar mag zijn of alleen
 per groep (de OR-vraag).
 
@@ -85,4 +128,7 @@ per groep (de OR-vraag).
 Alleen als signaal, geen juridisch advies: de cao-regels van 2026 (Staatscourant 2026, nr. 7211) staan in de code met
 status "zoek" en moeten nagelezen worden voor de proef; rij- en rusttijden uit de tachograaf zijn persoonsgegevens met
 een wettelijke bewaartermijn; een voorkeursbod en een eerlijkheidsregel zijn een wijziging van het rooster en raken de
-instemming van de OR.
+instemming van de OR. Een rooster of dienst per mail is een persoonsgegeven in een extern kanaal (bewaartermijn,
+wie de adressen beheert); de cao kent termijnen voor het bekendmaken van diensten (status zoek, nalezen voor de proef);
+en een ritopdracht naar de boordcomputer is een wijziging in een systeem van een leverancier: dat gaat in de proef pas
+na een test op één voertuig.
