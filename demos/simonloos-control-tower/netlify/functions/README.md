@@ -52,7 +52,7 @@ node tests/assistent-check.mjs
 
 Dat vraagt Node 22.18 of nieuwer (met een oudere 22: `node --experimental-strip-types tests/assistent-check.mjs`).
 De check laadt de functie met een nagebootste fetch en controleert onder meer: de grenzen van de body (400, 403,
-405), de sleutel (500), de rem (de 31e aanroep is een 429), dat er geen naam, telefoonnummer of e-mailadres in de
+405), de toegang (401), de sleutel (500), de rem (de 21e aanroep is een 429), dat er geen naam, telefoonnummer of e-mailadres in de
 prompt komt, de vorm van de aanroep (model, max_tokens, effort, schema, geen temperature), de drie soorten, de Let
 op-regels en elke fout van de AI-dienst (502, 503, 504). Er gaat niets naar buiten.
 
