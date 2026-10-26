@@ -10,9 +10,12 @@
 // Wat er gecontroleerd wordt:
 // - de body: 400 bij een lege, kapotte of te grote body, een te grote dag, geen JSON-header, een onbekende soort, een
 //   vraag die ontbreekt of te lang is, een lijst die te lang is, een dag zonder tijd; 405 bij GET; 403 van een andere site
+// - de toegang: 401 zonder of met een verkeerde Basic-login (voor het lezen van de body, zonder aanroep, met
+//   WWW-Authenticate); elke login uit DEMO_LOGINS werkt (komma, puntkomma of regeleinde ertussen, een dubbele punt in het
+//   wachtwoord, UTF-8); 500 zonder DEMO_LOGINS; de logs bevatten de header niet
 // - de sleutel: 500 zonder ANTHROPIC_API_KEY (en geen aanroep); 500 bij een onzinnige ASSISTENT_MODEL
-// - de rem: 30 aanroepen per uur per IP-adres, de 31e een 429 met Retry-After en zonder aanroep; een ander IP gaat door;
-//   na een uur weer vrij
+// - de rem: 20 aanroepen per uur per IP-adres, de 21e een 429 met Retry-After en zonder aanroep; een ander IP gaat door;
+//   na een uur weer vrij; ASSISTENT_REM zet een andere grens, een onzinnige waarde valt terug op 20
 // - privacy: wat naar de API gaat (de body van de nagebootste fetch) bevat geen namen, voornamen, korte namen,
 //   telefoonnummers of e-mailadressen, wel de nummers en pseudoniemen; de lijst personen, onbekende velden en velden
 //   als telefoon gaan niet mee; een winkelnaam als "Albert Heijn" blijft heel; een eigen tag in een notitie sluit het
@@ -43,10 +46,14 @@ const groep = (t) => console.log(`\n# ${t}`);
 // ---------- hulpjes ----------
 const ADRES = 'https://controltower-demo.netlify.app/api/assistent';
 const klok = { t: Date.UTC(2026, 9, 26, 6, 40) };
+// een proeflogin, alleen voor deze controle (de echte DEMO_LOGINS staan alleen in Netlify)
+const LOGINS = 'kijker:proef-wachtwoord,tweede:ander-wachtwoord';
+const basic = (paar) => `Basic ${Buffer.from(paar, 'utf8').toString('base64')}`;
+const LOGIN_HEADER = basic('kijker:proef-wachtwoord');
 function verzoek(body, { method = 'POST', headers = {}, raw } = {}) {
   return new Request(ADRES, {
     method,
-    headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-nf-client-connection-ip': '192.0.2.10', ...headers },
+    headers: { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-nf-client-connection-ip': '192.0.2.10', authorization: LOGIN_HEADER, ...headers },
     body: method === 'GET' ? undefined : raw ?? JSON.stringify(body),
   });
 }
@@ -68,7 +75,8 @@ function nabootsing(antwoord, { status = 200, stop = 'end_turn', voor = [], raw 
   return { fetch, aanroepen };
 }
 function deps(fetch, { env = { ANTHROPIC_API_KEY: 'sk-test-nep' }, logs = [] } = {}) {
-  return { fetch, getEnv: (k) => env[k], log: (l) => logs.push(l), now: () => klok.t };
+  const omgeving = { DEMO_LOGINS: LOGINS, ...env };
+  return { fetch, getEnv: (k) => omgeving[k], log: (l) => logs.push(l), now: () => klok.t };
 }
 async function roep(body, opts = {}) {
   const { fetch = nabootsing(GOED.vraag).fetch, env, logs, ip, ...rest } = opts;
@@ -150,7 +158,7 @@ const lang = (n) => Array.from({ length: n }, (_, i) => `woord${i}`).join(' ');
 groep('Laden en vorm');
 check(typeof F.handle === 'function' && typeof F.default === 'function', 'de functie exporteert een handler (default) en handle');
 check(F.config && F.config.path === '/api/assistent', 'config.path is /api/assistent');
-check(F.DEFAULT_MODEL === 'claude-sonnet-5-5' && F.MAX_TOKENS === 1500 && F.RATE_LIMIT === 30, 'standaard: claude-sonnet-5-5, max_tokens 1.500, rem 30 per uur');
+check(F.DEFAULT_MODEL === 'claude-sonnet-5-5' && F.MAX_TOKENS === 1500 && F.RATE_LIMIT === 20, 'standaard: claude-sonnet-5-5, max_tokens 1.500, rem 20 per uur');
 
 // =====================================================================================================================
 groep('Body en grenzen (400, 403, 405) zonder aanroep van de API');
@@ -353,22 +361,22 @@ groep('Een ander model via ASSISTENT_MODEL');
 }
 
 // =====================================================================================================================
-groep('De rem: 30 per uur per IP-adres');
+groep('De rem: 20 per uur per IP-adres');
 {
   F.resetRem();
   const nb = nabootsing(GOED.vraag);
   const ip = '203.0.113.7';
   let goed = 0;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 20; i++) {
     const { res } = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip });
     if (res.status === 200) goed++;
   }
-  check(goed === 30, `30 aanroepen achter elkaar: alle 30 gaan door (${goed})`);
+  check(goed === 20, `20 aanroepen achter elkaar: alle 20 gaan door (${goed})`);
   const logs = [];
   const { res, data } = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip, logs });
   const wacht = Number(res.headers.get('retry-after'));
-  check(res.status === 429 && /30 vragen per uur/.test(data.fout) && wacht > 0 && wacht <= 3600, `de 31e: 429 met { fout } en Retry-After (${res.status}, ${wacht} s)`);
-  check(nb.aanroepen.length === 30, 'de 31e roept de API niet aan');
+  check(res.status === 429 && /20 vragen per uur/.test(data.fout) && wacht > 0 && wacht <= 3600, `de 21e: 429 met { fout } en Retry-After (${res.status}, ${wacht} s)`);
+  check(nb.aanroepen.length === 20, 'de 21e roept de API niet aan');
   check(JSON.parse(logs[0]).uitkomst === 'rem' && !logs[0].includes(ip), 'logregel "rem", zonder IP-adres');
   const ander = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip: '203.0.113.8' });
   check(ander.res.status === 200, 'een ander IP-adres gaat gewoon door');
@@ -378,6 +386,44 @@ groep('De rem: 30 per uur per IP-adres');
   const later = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip });
   check(later.res.status === 200, 'na een uur is er weer plek');
   F.resetRem();
+  // een andere grens via ASSISTENT_REM
+  const env = { ANTHROPIC_API_KEY: 'sk-test-nep', ASSISTENT_REM: '3' };
+  const ip3 = '203.0.113.9';
+  let goed3 = 0;
+  for (let i = 0; i < 3; i++) if ((await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip: ip3, env })).res.status === 200) goed3++;
+  const vierde = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, ip: ip3, env });
+  check(goed3 === 3 && vierde.res.status === 429 && /3 vragen per uur/.test(vierde.data.fout), 'ASSISTENT_REM=3: drie gaan door, de vierde is een 429 die 3 noemt');
+  check(F.remVan('3') === 3 && F.remVan(' 7 ') === 7 && F.remVan('abc') === 20 && F.remVan('0') === 20 && F.remVan('5000') === 20 && F.remVan('2.5') === 20 && F.remVan(undefined) === 20 && F.remVan('') === 20, 'remVan: 1 tot 1000 als geheel getal, anders 20');
+  F.resetRem();
+}
+
+// =====================================================================================================================
+groep('Toegang: de login van de demosite (401) zonder aanroep van de API');
+{
+  const nb = nabootsing(GOED.vraag);
+  const logs = [];
+  const zonder = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: '' }, logs });
+  check(zonder.res.status === 401 && /^Basic realm=/.test(zonder.res.headers.get('www-authenticate') || '') && /Log eerst in/.test(zonder.data.fout), 'zonder Authorization: 401 met WWW-Authenticate Basic en een leesbare fout');
+  check(nb.aanroepen.length === 0, 'zonder login geen aanroep van de API');
+  check(JSON.parse(logs[0]).uitkomst === 'geen-toegang' && !logs.join('').includes('Basic'), 'logregel "geen-toegang", zonder de header');
+  const fout = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: basic('kijker:verkeerd') } });
+  const onbekend = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: basic('niemand:proef-wachtwoord') } });
+  const bearer = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: 'Bearer proef-wachtwoord' } });
+  const rommel = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: 'Basic ###' } });
+  check(fout.res.status === 401 && onbekend.res.status === 401 && bearer.res.status === 401 && rommel.res.status === 401 && nb.aanroepen.length === 0, 'een verkeerd wachtwoord, een onbekende naam, Bearer of rommel: 401, zonder aanroep');
+  const kapot = await roep(null, { fetch: nb.fetch, raw: '{', headers: { authorization: '' } });
+  check(kapot.res.status === 401, 'zonder login gaat de toegang voor de body: 401, geen 400');
+  const tweede = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, headers: { authorization: basic('tweede:ander-wachtwoord') } });
+  check(tweede.res.status === 200, 'de tweede login uit DEMO_LOGINS (na een komma) werkt');
+  const regels = { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: 'een:a1 ; twee:b:2\n drie:\u00fcmlaut\u00e9' };
+  const dubbel = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('twee:b:2') } });
+  const utf8 = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('drie:\u00fcmlaut\u00e9') } });
+  const half = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: regels, headers: { authorization: basic('twee:b') } });
+  check(dubbel.res.status === 200 && utf8.res.status === 200 && half.res.status === 401, 'puntkomma en regeleinde als scheiding, een dubbele punt in het wachtwoord, UTF-8; een half wachtwoord niet');
+  const leeg = await roep({ soort: 'vraag', vraag: 'Hoe staat het?', dag: DAG }, { fetch: nb.fetch, env: { ANTHROPIC_API_KEY: 'sk-test-nep', DEMO_LOGINS: ' ' } });
+  check(leeg.res.status === 500 && /DEMO_LOGINS/.test(leeg.data.fout) && nb.aanroepen.length === 3, 'zonder DEMO_LOGINS: 500 met een leesbare fout en geen aanroep (dicht)');
+  check(JSON.stringify(F.leesLogins('a:1, b:2;c:3\nd:4:5 :x y: ')) === JSON.stringify([{ naam: 'a', wachtwoord: '1' }, { naam: 'b', wachtwoord: '2' }, { naam: 'c', wachtwoord: '3' }, { naam: 'd', wachtwoord: '4:5' }]), 'leesLogins: komma, puntkomma, spatie en regeleinde; de eerste dubbele punt scheidt; zonder naam of wachtwoord telt niet');
+  check((await F.loginGeldig(basic('kijker:proef-wachtwoord'), LOGINS)) === true && (await F.loginGeldig(basic('kijker:proef-wachtwoord '), LOGINS)) === false && (await F.loginGeldig(null, LOGINS)) === false && (await F.loginGeldig(basic('kijker'), LOGINS)) === false, 'loginGeldig: precies de login, niets anders');
 }
 
 // =====================================================================================================================
@@ -401,12 +447,14 @@ groep('De standaard-export: process.env en fetch van Node');
   F.resetRem();
   const oudFetch = globalThis.fetch;
   const oudSleutel = process.env.ANTHROPIC_API_KEY;
+  const oudLogins = process.env.DEMO_LOGINS;
   const oudLog = console.log;
   const nb = nabootsing(GOED.briefing);
   const gelogd = [];
   try {
     globalThis.fetch = nb.fetch;
     process.env.ANTHROPIC_API_KEY = 'sk-test-uit-process-env';
+    process.env.DEMO_LOGINS = LOGINS;
     console.log = (l) => gelogd.push(l);
     const res = await F.default(verzoek({ soort: 'briefing', dag: DAG }), { ip: '198.51.100.9' });
     console.log = oudLog;
@@ -422,6 +470,8 @@ groep('De standaard-export: process.env en fetch van Node');
     globalThis.fetch = oudFetch;
     if (oudSleutel === undefined) delete process.env.ANTHROPIC_API_KEY;
     else process.env.ANTHROPIC_API_KEY = oudSleutel;
+    if (oudLogins === undefined) delete process.env.DEMO_LOGINS;
+    else process.env.DEMO_LOGINS = oudLogins;
   }
 }
 

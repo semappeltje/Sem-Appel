@@ -45,8 +45,9 @@
  *        model      het model dat antwoordde; gebruik: tokens in en uit.
  *        vervangen  hoeveel namen door een nummer zijn vervangen en hoeveel telefoonnummers en e-mailadressen weg zijn.
  *   -> 4xx/5xx { ok: false, fout: "<Nederlandse melding>" }
- *        400 verkeerde, lege of te grote body. 403 niet vanaf deze site. 405 geen POST. 429 de rem (met Retry-After).
- *        500 sleutel of model niet ingesteld. 502, 503 of 504: de AI-dienst gaf een fout, is druk of te traag, of het
+ *        400 verkeerde, lege of te grote body. 401 geen of een verkeerde login (Basic, DEMO_LOGINS; met WWW-Authenticate).
+ *        403 niet vanaf deze site. 405 geen POST. 429 de rem (met Retry-After).
+ *        500 sleutel, model of DEMO_LOGINS niet ingesteld. 502, 503 of 504: de AI-dienst gaf een fout, is druk of te traag, of het
  *        antwoord haalde de controle niet (een fout antwoord wordt nooit half getoond).
  *
  * Namen. Een persoon gaat nooit met zijn naam naar de API. De functie vervangt elke naam door het nummer van de persoon
@@ -73,8 +74,15 @@
  * effort low, het schema en de controle in deze functie. Weigeren de veiligheidsfilters een verzoek, dan probeert de
  * API het zelf op een ander model (fallbacks "default", header server-side-fallback-2026-07-01).
  *
- * Omgeving (Netlify, scope Functions): ANTHROPIC_API_KEY (geheim), ASSISTENT_MODEL (optioneel).
- * Rem: 30 aanroepen per uur per IP-adres, in het geheugen van deze instantie. Netlify draait soms meer instanties en
+ * Toegang. De functie controleert de login van de demosite zelf: de Authorization-header (Basic) tegen DEMO_LOGINS,
+ * dezelfde variabele als de gate (netlify/edge-functions/gate.ts). Zo maakt het niet uit of de gate het pad /api/assistent
+ * of /.netlify/functions/assistent dekt: zonder login komt niemand bij de API, ook niet met curl. De controle komt voor het
+ * lezen van de body (een verzoek zonder login kost niets en leert niets) en vergelijkt SHA-256-digests in constante tijd.
+ * Zonder DEMO_LOGINS weigert de functie alles (500): dicht, zoals de rest van de site.
+ *
+ * Omgeving (Netlify, scope Functions): ANTHROPIC_API_KEY (geheim), DEMO_LOGINS (geheim, dezelfde als de gate),
+ * ASSISTENT_MODEL (optioneel), ASSISTENT_REM (optioneel, de rem per uur).
+ * Rem: 20 aanroepen per uur per IP-adres (ASSISTENT_REM, 1 tot 1000), in het geheugen van deze instantie. Netlify draait soms meer instanties en
  * begint na een pauze opnieuw: dit is een rem op ongelukken, geen budget. Het budget is de bestedingslimiet in de
  * Anthropic Console.
  * Logs: per aanroep een regel met soort, model, tokens, duur en uitkomst; nooit de dag, de vraag, het antwoord of het IP.
@@ -95,7 +103,13 @@ const DENKEN_UIT: Record<string, { type: string }> = { 'claude-sonnet-5-5': { ty
 export const MAX_TOKENS = 1500;
 /** Extra ruimte voor een model dat altijd mee denkt: denken telt mee in max_tokens, het antwoord mag niet afbreken. */
 export const DENK_RUIMTE = 4000;
-export const RATE_LIMIT = 30;
+export const RATE_LIMIT = 20;
+export const RATE_LIMIT_MAX = 1000;
+/** De rem uit ASSISTENT_REM (een geheel getal van 1 tot 1000), anders RATE_LIMIT. */
+export function remVan(waarde: string | undefined): number {
+  const n = Number((waarde ?? '').trim());
+  return (waarde ?? '').trim() !== '' && Number.isInteger(n) && n >= 1 && n <= RATE_LIMIT_MAX ? n : RATE_LIMIT;
+}
 export const RATE_WINDOW_MS = 60 * 60 * 1000;
 /** Netlify stopt een synchrone functie na 60 s; laat ruimte om netjes te antwoorden. */
 const API_TIMEOUT_MS = 45_000;
@@ -652,9 +666,9 @@ export interface Deps {
 /** Aanroepen per IP-adres in het afgelopen uur (alleen deze instantie; zie de kop). Alleen in het geheugen. */
 const aanroepen = new Map<string, number[]>();
 
-export function neemPlek(ip: string, nu: number): { ok: true } | { ok: false; vrijOp: number } {
+export function neemPlek(ip: string, nu: number, max: number = RATE_LIMIT): { ok: true } | { ok: false; vrijOp: number } {
   const recent = (aanroepen.get(ip) ?? []).filter((t) => nu - t < RATE_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT) {
+  if (recent.length >= max) {
     aanroepen.set(ip, recent);
     return { ok: false, vrijOp: recent[0] + RATE_WINDOW_MS };
   }
@@ -667,6 +681,51 @@ export function neemPlek(ip: string, nu: number): { ok: true } | { ok: false; vr
 /** Voor de tests. */
 export function resetRem() {
   aanroepen.clear();
+}
+
+/**
+ * Leest DEMO_LOGINS: "naam:wachtwoord", meer logins gescheiden door een komma, puntkomma, spatie of regeleinde; de eerste
+ * dubbele punt scheidt naam en wachtwoord (een wachtwoord mag er zelf een bevatten). Een deel zonder naam of wachtwoord
+ * telt niet.
+ */
+export function leesLogins(bron: string): { naam: string; wachtwoord: string }[] {
+  const uit: { naam: string; wachtwoord: string }[] = [];
+  for (const deel of bron.split(/[,;\s]+/)) {
+    const i = deel.indexOf(':');
+    if (i < 1 || i === deel.length - 1) continue;
+    uit.push({ naam: deel.slice(0, i), wachtwoord: deel.slice(i + 1) });
+  }
+  return uit;
+}
+
+const sha256 = async (s: string): Promise<Uint8Array> => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+
+/**
+ * Is de Authorization-header een Basic-login uit DEMO_LOGINS? De browser stuurt hem vanzelf mee op een fetch binnen de
+ * site zodra de gate om een login vroeg. Vergelijkt de SHA-256-digest van naam en wachtwoord met die van elke login,
+ * alle 32 bytes en alle logins, zonder vroeg te stoppen (constante tijd).
+ */
+export async function loginGeldig(header: string | null, logins: string): Promise<boolean> {
+  const m = /^\s*Basic\s+([A-Za-z0-9+/=_-]+)\s*$/i.exec(header ?? '');
+  if (!m) return false;
+  let paar: string;
+  try {
+    const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    paar = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+  } catch {
+    return false;
+  }
+  const i = paar.indexOf(':');
+  if (i < 1) return false;
+  const gegeven = await sha256(`${paar.slice(0, i)}\n${paar.slice(i + 1)}`);
+  let goed = 0;
+  for (const l of leesLogins(logins)) {
+    const d = await sha256(`${l.naam}\n${l.wachtwoord}`);
+    let v = 0;
+    for (let k = 0; k < 32; k++) v |= gegeven[k] ^ d[k];
+    if (v === 0) goed = 1;
+  }
+  return goed === 1;
 }
 
 const KOPPEN = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex' };
@@ -710,6 +769,16 @@ export async function handle(req: Request, deps: Deps, context?: { ip?: string }
 
 async function verwerk(req: Request, deps: Deps, context: { ip?: string } | undefined, log: (velden: Record<string, unknown>) => void): Promise<Response> {
   if (req.method !== 'POST') return fout(405, 'Gebruik POST.', {}, { allow: 'POST' });
+  // Eerst de login van de demosite (zie de kop: Toegang), voor het lezen van de body. Zonder DEMO_LOGINS blijft alles dicht.
+  const logins = deps.getEnv('DEMO_LOGINS');
+  if (!logins || !logins.trim()) {
+    log({ uitkomst: 'geen-logins' });
+    return fout(500, 'De assistent is niet afgeschermd: DEMO_LOGINS ontbreekt in Netlify, scope Functions (zie netlify/functions/README.md).');
+  }
+  if (!(await loginGeldig(req.headers.get('authorization'), logins))) {
+    log({ uitkomst: 'geen-toegang' });
+    return fout(401, 'Log eerst in op de demosite.', {}, { 'www-authenticate': 'Basic realm="Control Tower", charset="UTF-8"' });
+  }
   // Alleen de app op dezelfde site: een browser zegt met Sec-Fetch-Site waar het verzoek vandaan komt.
   const site = req.headers.get('sec-fetch-site');
   if (site && site !== 'same-origin' && site !== 'none') {
@@ -759,11 +828,12 @@ async function verwerk(req: Request, deps: Deps, context: { ip?: string } | unde
   }
 
   const ip = (context?.ip || req.headers.get('x-nf-client-connection-ip') || 'onbekend').trim();
-  const plek = neemPlek(ip, deps.now());
+  const rem = remVan(deps.getEnv('ASSISTENT_REM'));
+  const plek = neemPlek(ip, deps.now(), rem);
   if (!plek.ok) {
     log({ soort, uitkomst: 'rem' });
     const wacht = Math.max(1, Math.ceil((plek.vrijOp - deps.now()) / 1000));
-    return fout(429, `Je hebt het maximum van ${RATE_LIMIT} vragen per uur bereikt. Probeer het na ${klok(plek.vrijOp)} opnieuw.`, {}, { 'retry-after': String(wacht) });
+    return fout(429, `Je hebt het maximum van ${rem} vragen per uur bereikt. Probeer het na ${klok(plek.vrijOp)} opnieuw.`, {}, { 'retry-after': String(wacht) });
   }
 
   const schoon = anonimiseer(invoer.dag, invoer.vraag);

@@ -21,15 +21,23 @@ De demo draait op controltower-demo.netlify.app, uit de demo-repo met `public/in
    Node (22 of nieuwer). Het pad zit in het bestand: `export const config = { path: '/api/assistent' }`.
 2. Controleer dat de gate ook `/api/assistent` afschermt. Kijk in `gate.ts` naar `export const config`: met
    `path: '/*'` en geen `excludedPath` voor `/api` is het goed. Valt `/api/*` buiten de gate, dan kan iedereen met
-   de URL de functie aanroepen en betaal jij voor die vragen. De functie weigert zelf verzoeken uit een browser op
-   een andere site (403), maar dat houdt curl niet tegen. De gate wel.
+   de URL de functie aanroepen en betaal jij voor die vragen. De functie controleert de login daarom ook zelf: de
+   Authorization-header (Basic) tegen `DEMO_LOGINS`, dezelfde variabele als de gate. Zonder login geeft hij een 401,
+   ook aan curl; zonder `DEMO_LOGINS` in zijn eigen omgeving weigert hij alles (500). De gate blijft de eerste deur;
+   door de eigen controle maakt het niet uit of de gate ook `/.netlify/functions/assistent` dekt.
 3. Omgevingsvariabelen in Netlify (project controltower-demo, Project configuration, Environment variables):
    - `ANTHROPIC_API_KEY` staat er al. Controleer dat de scope Functions aanstaat.
+   - `DEMO_LOGINS` staat er al voor de gate. De functie leest dezelfde variabele: geef hem ook de scope Functions,
+     anders antwoordt de functie met een 500 "DEMO_LOGINS ontbreekt". De waarde zelf blijft waar hij is; zet hem
+     nergens anders neer.
    - `ASSISTENT_MODEL` is optioneel en niet geheim. Zonder deze variabele is het `claude-sonnet-5-5`
      (zie "Een ander model").
+   - `ASSISTENT_REM` is optioneel en niet geheim: de rem per IP-adres per uur, een geheel getal van 1 tot 1000.
+     Zonder is het 20 (zie "De rem").
    Een nieuwe of gewijzigde waarde werkt pas na een nieuwe deploy.
 4. Deploy (een push, of Deploys, Trigger deploy). De functie staat daarna onder Logs, Functions als `assistent`.
-5. Test met curl, zoals hieronder: eerst een 405 en een 400 (die kosten niets), dan een echte vraag.
+5. Test met curl, zoals hieronder: eerst een 405, een 401 en een 400 (die kosten niets), dan een echte vraag met
+   je login.
 
 Niet nodig: een regel in `netlify.toml`, een redirect of CORS-headers. De app roept de functie aan op dezelfde site.
 
@@ -47,20 +55,24 @@ De check laadt de functie met een nagebootste fetch en controleert onder meer: d
 prompt komt, de vorm van de aanroep (model, max_tokens, effort, schema, geen temperature), de drie soorten, de Let
 op-regels en elke fout van de AI-dienst (502, 503, 504). Er gaat niets naar buiten.
 
-Op de demosite, na de deploy. Vraagt de gate een inlog, geef die mee zoals `gate.ts` hem verwacht (bijvoorbeeld
-`-u gebruiker:wachtwoord` bij Basic, of `-H 'Cookie: ...'` met het cookie uit je browser).
+Op de demosite, na de deploy, met een login uit `DEMO_LOGINS` (`-u`): de gate en de functie vragen er allebei om.
+Typ de login in je terminal; zet hem nergens in een bestand of een chat.
 
 ```sh
 ADRES=https://controltower-demo.netlify.app/api/assistent
+LOGIN='naam:wachtwoord'
 
 # 405: alleen POST
 curl -sS -i "$ADRES" | head -1
 
-# 400 met een leesbare fout: een lege body
+# 401: zonder login, ook met curl
 curl -sS -X POST "$ADRES" -H 'Content-Type: application/json' -d ''
 
+# 400 met een leesbare fout: een lege body
+curl -sS -u "$LOGIN" -X POST "$ADRES" -H 'Content-Type: application/json' -d ''
+
 # Een echte vraag (kost ongeveer een dollarcent)
-curl -sS -X POST "$ADRES" -H 'Content-Type: application/json' -d '{
+curl -sS -u "$LOGIN" -X POST "$ADRES" -H 'Content-Type: application/json' -d '{
   "soort": "vraag",
   "vraag": "Welke ritten halen hun venster niet, en wat stel je voor?",
   "dag": {
@@ -94,16 +106,24 @@ Gaat nooit mee:
 - telefoonnummers en e-mailadressen (in tekst `[telefoonnummer]` en `[e-mailadres]`), en velden als telefoon,
   email, adres, bsn en iban;
 - velden die de functie niet kent;
-- het IP-adres, cookies en alles van de gate.
+- het IP-adres, cookies, de login (de Authorization-header) en alles van de gate.
 
 De grens: een naam die nergens in de dag staat, herkent de functie in vrije tekst niet. De app zet daarom iedereen
 die in de dag of in de vraag voorkomt in `personen`, met zijn nummer. Het antwoord bevat nummers; de app zet die
-terug in een naam als hij dat wil. De functie bewaart niets.
+terug in een naam als hij dat wil.
+
+## Wat er bewaard wordt
+
+Niets van de kijker. De functie heeft geen opslag: geen vraag, geen antwoord, geen dag, geen IP-adres en geen
+login blijft ergens achter. In de log van Netlify staat per aanroep alleen de soort, het model, de tokens, de duur
+en de uitkomst. Wat Anthropic met API-verkeer doet, staat in zijn voorwaarden (zie "Wat er nodig is voor echte
+data").
 
 ## De rem
 
-30 aanroepen per uur per IP-adres, geteld in het geheugen van de functie. Bij de 31e: een 429 met `{ fout }` en
-`Retry-After` in seconden. Netlify kan meer instanties tegelijk draaien en begint na een pauze met een lege teller.
+20 aanroepen per uur per IP-adres, geteld in het geheugen van de functie. Bij de 21e: een 429 met `{ fout }` en
+`Retry-After` in seconden. `ASSISTENT_REM` zet een andere grens (1 tot 1000), bijvoorbeeld 60 voor een demodag met
+meer kijkers achter het IP-adres van één kantoor; een nieuwe waarde werkt na een deploy. Netlify kan meer instanties tegelijk draaien en begint na een pauze met een lege teller.
 Het is dus een rem op ongelukken (een knop die blijft hangen, een lus in de app), geen budget. Het budget is de
 bestedingslimiet in de Anthropic Console: zet die op een bedrag dat bij een demo past, bijvoorbeeld $10 per maand.
 
@@ -140,9 +160,11 @@ Zet `ASSISTENT_MODEL` (scope Functions) en deploy opnieuw.
 |---|---|---|
 | 400 | "De body is leeg", "dag.zaken: hoogstens 30", "De dag is te groot" | De app stuurt iets verkeerd of te veel; de melding zegt wat |
 | 403 | "De assistent werkt alleen vanuit de Control Tower op deze site" | Een andere site riep de functie aan; zo hoort het |
+| 401 | "Log eerst in op de demosite" | De login van de demosite zit niet op het verzoek: de browser stuurt hem mee zodra de gate erom vroeg (de pagina herladen); met curl `-u` |
 | 405 | "Gebruik POST" | Alleen POST |
-| 429 | "Je hebt het maximum van 30 vragen per uur bereikt" | Wachten tot de tijd in de melding |
+| 429 | "Je hebt het maximum van 20 vragen per uur bereikt" | Wachten tot de tijd in de melding, of `ASSISTENT_REM` hoger zetten |
 | 500 | "ANTHROPIC_API_KEY ontbreekt" | Stap 3 hierboven, daarna opnieuw deployen |
+| 500 | "DEMO_LOGINS ontbreekt" | De variabele van de gate ook de scope Functions geven, daarna opnieuw deployen |
 | 500 | "ASSISTENT_MODEL is geen geldige modelnaam" | De variabele verbeteren of weghalen |
 | 502 | "De AI-dienst weigert de sleutel" | De sleutel is fout of ingetrokken: een nieuwe in de Console |
 | 502 | "voldeed niet aan de regels (vorm of lengte)" | Opnieuw proberen; de log zegt welk veld (zonder inhoud) |
@@ -168,7 +190,8 @@ fout waren. Nooit de dag, de vraag, het antwoord of het IP-adres.
 - Toon het antwoord als tekst (`textContent`), nooit als HTML: het komt van een AI.
 - Toon `letOp` altijd, en bij de assistent dat de gegevens gesimuleerd zijn.
 - Een fout heeft altijd `{ ok: false, fout }`: toon `fout`. Valt de functie weg (404 in SafeTools, waar hij niet
-  staat), val dan terug op de vaste antwoorden die de app nu heeft.
+  staat), val dan terug op de vaste antwoorden die de app nu heeft. Een 401 betekent dat de login van de demosite
+  niet op het verzoek zat: de pagina herladen zet hem terug.
 
 ## Over de keuzes
 
