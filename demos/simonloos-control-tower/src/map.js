@@ -90,6 +90,8 @@ export function createMap(container, opts) {
   wacht.innerHTML = '<span>De kaart wordt getekend</span>'; wacht.style.background = PAL[theme].land;
   map.getCanvasContainer().after(wacht);
   let wachtAf = false, wachtTimer = 0;
+  // het vangnet: faalt een bron van de basiskaart (een fout bij het laden), dan is er niets om op te wachten
+  map.on('error', e => { const id = e && e.sourceId; if ((id === 'land' || id === 'water' || id === 'ofm' || id === 'luchtfoto' || id === 'brt') && !wachtAf) weg(); });
   function weg() {
     if (wachtAf) return; wachtAf = true; clearTimeout(wachtTimer); map.off('render', wachtOp);
     if (reducedMotion()) { wacht.remove(); return; }
@@ -111,8 +113,10 @@ export function createMap(container, opts) {
   function wachtOp() {
     if (wachtAf || !map.getLayer('land') || !map.getLayer('water')) return;
     const c = map.getContainer(); if (!c.clientWidth || !c.clientHeight) return;
-    // lukt het nooit (een fout in een bron), dan na 12 s toch de kaart
-    if (!wachtTimer) wachtTimer = setTimeout(weg, 12000);
+    // lukt het nooit, dan na 30 s toch de kaart (bij een fout in een bron meteen, hierboven). Op een zwaar belaste machine
+    // duurt het verwerken van land en water meer dan 12 s, en met een net van 12 s stond daar dan toch de zee: liever een
+    // kaart die langer "De kaart wordt getekend" zegt dan een kaart die verkeerd is
+    if (!wachtTimer) wachtTimer = setTimeout(weg, 30000);
     if (!geladen('land') || !geladen('water')) return;
     const online = !!map.getLayer('o-bg') && !verborgen('o-bg');
     const klaar = !verborgen('land') ? inBeeld('land') : online ? bronKlaar('ofm') && OFM_ZICHT.some(inBeeld) : bronKlaar('luchtfoto') && bronKlaar('brt');
