@@ -22,15 +22,30 @@ naam naar de API, alle suites groen).
 ## C. Plannen en vrijgeven
 - "Planning vrijgeven" per standplaats voor morgen (of de volgende dienst); statussen per dienst: concept, vrijgegeven,
   gezien, bevestigd, onderweg, afgerond; na een wijziging alleen het verschil opnieuw vrijgeven (test).
+- Stand ronde 1 (26 oktober): gebouwd, weergave Vrijgeven (toets 7, `#vrijgeven/<standplaats>`). Bewijs in
+  `tests/vrijgeven-check.mjs`: om 01:00 staan de 278 diensten van Wognum op concept, na vrijgeven alle 278 op vrijgegeven
+  met 278 logregels en een samenvatting; de tweede dienst van een voertuig een half uur later geeft bij precies die dienst
+  het verschil ("Begin 15:20 wordt 15:50 · Rit R-10014 vertrekt 16:08 in plaats van 15:38") en Wijzigingen vrijgeven
+  stuurt alleen dat; om 13:00 volgen onderweg en afgerond de simulatie; de directie en HR zien de knop niet; na herladen
+  is alles gelijk; de oefendag heeft een eigen vrijgave. De demo heeft een dag: vrijgegeven wordt wat nog niet begon (zie
+  README).
 
 ## D. Het bericht aan de chauffeur
 - Bij vrijgeven een bericht per chauffeur: begintijd, voertuig, oplegger, ritten met tijden en adressen, pauze, link;
   als voorbeeld op het scherm, "verstuurd" in het logboek, gesimuleerde bevestiging ("gezien", "akkoord"); zonder
   bevestiging ziet de planner het (test). In de demo gaat er niets de deur uit.
+- Stand ronde 1: gebouwd. Bewijs in `tests/vrijgeven-check.mjs`: het bericht heeft begintijd, voertuig, oplegger, de
+  ritten met tijden en adressen, de pauze en de link `#rit/<id>` (die de rit opent; Terug komt terug); 45 minuten na
+  vrijgeven 231 bevestigd, 23 gezien, 24 niet gezien en 47 bij "Wacht op bevestiging" met een belknop; geen tel:, geen
+  mailto, geen verzoek naar buiten. De wachtklok als zaak staat er nog niet (vraagt een nieuwe soort in `zaken.js`).
 
 ## E. Ritopdracht naar de boordcomputer
 - Bij vrijgeven of bevestiging een OTM5-ritopdracht per rit (stops, tijden, laadadres, oplegger), te bekijken en te
   exporteren; geldig volgens `src/otm5.js` (test).
+- Stand ronde 1: gebouwd. Bewijs in `tests/vrijgeven-check.mjs`: de export van Wognum heeft 482 ritopdrachten, een per
+  rit, en alle 2.089 entiteiten valideren tegen OTM 5.9 met elke verwijzing in het bestand; geen naam van een chauffeur;
+  de verschoven ritten gingen als versie 2; het paneel van een rit geeft een geldig los bericht. Welke boordcomputer en
+  welke koppeling: open vraag voor ICT (README).
 
 ## F. Bezetting tegen behoefte
 - Per standplaats en heel Nederland, per dag en dagdeel voor veertien dagen: nodig, beschikbaar, verschil, kosten

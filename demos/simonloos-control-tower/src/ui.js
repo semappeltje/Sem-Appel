@@ -25,6 +25,7 @@ import { renderPlanbord, updateNowline } from './ui/planbord.js';
 import { verplaatsRit, planPoolRit, pool } from './ui/planwijzig.js';
 import { naInplannen, voerActieUit, gemistIn } from './ui/invulling.js';
 import { renderOpenRitten, openIn, orStand } from './ui/openritten.js';
+import { renderVrijgeven } from './ui/vrijgeven.js';
 import { renderPoule, charterPage, oproepPage } from './ui/poule.js';
 import { renderVoertuigen, renderOpleggers, renderChauffeurs, renderLostijden, renderLaden, renderPauze } from './tables.js';
 import { truckPage, trailerPage, personPage, TRUCK_TABS, TRAILER_TABS, PERSON_TABS } from './sheets.js';
@@ -35,7 +36,7 @@ export { fmtDrive };
 const REPLIES = ['Ontvangen.', 'Oké, doe ik.', 'Begrepen, ik rij door naar de volgende stop.', 'Top, bedankt.'];
 const DIVDESC = { winkel: 'Albert Heijn, Jumbo, Plus, Lidl, SPAR, Vomar', netwerk: 'DC naar DC, crossdock Tiel en Geldermalsen, LZV', bulk: 'Poeders, granulaat, suiker', dranken: 'Heineken, Bavaria, Vrumona', bezorg: 'AH Home Service, bestelbussen' };
 const STKEYS = ['vertraagd', 'onderweg', 'klant', 'pauze', 'terrein'];
-const VIEW_HASH = { overzicht: 'overzicht', kaart: 'kaart', ritten: 'ritten', meldingen: 'meldingen', openritten: 'openritten', planbord: 'planbord', voertuigen: 'voertuigen', opleggers: 'opleggers', chauffeurs: 'chauffeurs', charters: 'charters', standplaatsen: 'standplaatsen', laden: 'laden', lostijden: 'lostijden', pauze: 'pauzeplekken', rapporten: 'rapporten', instellingen: 'instellingen' };
+const VIEW_HASH = { overzicht: 'overzicht', kaart: 'kaart', ritten: 'ritten', meldingen: 'meldingen', openritten: 'openritten', planbord: 'planbord', vrijgeven: 'vrijgeven', voertuigen: 'voertuigen', opleggers: 'opleggers', chauffeurs: 'chauffeurs', charters: 'charters', standplaatsen: 'standplaatsen', laden: 'laden', lostijden: 'lostijden', pauze: 'pauzeplekken', rapporten: 'rapporten', instellingen: 'instellingen' };
 const HASH_VIEW = { ...Object.fromEntries(Object.entries(VIEW_HASH).map(([k, v]) => [v, k])), pauze: 'pauze', trucks: 'voertuigen', mensen: 'chauffeurs', dashboard: 'overzicht' };
 const ALIAS = { trucks: 'voertuigen', mensen: 'chauffeurs', pauzeplekken: 'pauze' };
 
@@ -43,6 +44,9 @@ const ALIAS = { trucks: 'voertuigen', mensen: 'chauffeurs', pauzeplekken: 'pauze
 // sneltoetsen gelden dan alleen binnen de app en het hal-scherm vraagt om volledig scherm.
 export function createUI(fleet, state, store, { people, rest, lostijden, root = document.getElementById('app'), embedded = false }) {
   const $ = id => document.getElementById(id);
+  // de weergave Vrijgeven (4.1) maakt zijn eigen plek in het skelet, na het planbord: een pagina die het skelet spiegelt
+  // (SafeTools) hoeft er niets voor te doen
+  if (!$('v-vrijgeven') && $('views')) { const s = document.createElement('section'); s.className = 'view'; s.id = 'v-vrijgeven'; s.setAttribute('aria-label', 'Vrijgeven'); const pb = $('v-planbord'); if (pb) pb.after(s); else $('views').insertBefore(s, $('panel')); }
   const L = createLayers(root); const A = createActs(store, state);
   // kaartje bij een voertuig- of opleggernummer: wat het nu doet, in drie regels
   L.setHover(id => {
@@ -273,7 +277,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   // per weergave een eigen ritme: lijsten met live tijden elke seconde, grote tabellen elke drie seconden
   function refreshView(force) {
     const el = $('v-' + view); if (!el) return; const typingHere = document.activeElement && el.contains(document.activeElement) && /^(TEXTAREA)$/.test(document.activeElement.tagName);
-    const every = { overzicht: 8, ritten: 16, meldingen: 8, openritten: 16, planbord: 16, standplaatsen: 8, voertuigen: 24, opleggers: 24, chauffeurs: 24, charters: 60, laden: 80, rapporten: 120 }[view];
+    const every = { overzicht: 8, ritten: 16, meldingen: 8, openritten: 16, planbord: 16, vrijgeven: 16, standplaatsen: 8, voertuigen: 24, opleggers: 24, chauffeurs: 24, charters: 60, laden: 80, rapporten: 120 }[view];
     if (!force && (!every || tick % every !== 0 || typingHere)) return;
     renderView(view);
   }
@@ -286,6 +290,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       else if (v === 'openritten') renderOpenRitten(ctx, el);
       else if (v === 'charters') renderPoule(ctx, el);
       else if (v === 'planbord') renderPlanbord(ctx, el);
+      else if (v === 'vrijgeven') renderVrijgeven(ctx, el);
       else if (v === 'standplaatsen') renderStandplaatsen(ctx, el);
       else if (v === 'voertuigen') renderVoertuigen(ctx, el);
       else if (v === 'opleggers') renderOpleggers(ctx, el);
@@ -693,6 +698,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       charters: () => [`De flexibele schil · ${sc}`, sc],
       // de dag die het bord toont (ui.pb.dag, de stand van planbord.js): gisteren en morgen met hun eigen datum
       planbord: () => { const d = ui.pb && ui.pb.dag; const n = d === 'gisteren' ? -1 : d === 'morgen' ? 1 : 0; return n ? [`${esc(pbSp.n)} · ${esc(dagNaam(n))} (${d})`, `${n < 0 ? 'Gisteren' : 'Morgen'} · ${esc(pbSp.n)}`] : [`${esc(pbSp.n)} · ${esc(today)}`, `${esc(pbSp.n)} · ${esc(todayKort)}`]; },
+      vrijgeven: () => [`${esc(pbSp.n)} · planning van ${esc(today)}`, `${esc(pbSp.n)} · ${esc(todayKort)}`],
       voertuigen: () => [`${fmt(k.inScope || 0)} voertuigen · ${fmt(k.inzet || 0)} ingezet`, `${fmt(k.inzet || 0)} van ${fmt(k.inScope || 0)} ingezet`],
       opleggers: () => [`${fmt(k.trailers || 0)} opleggers · ${fmt(k.loose || 0)} los`, `${fmt(k.loose || 0)} van ${fmt(k.trailers || 0)} los`],
       chauffeurs: () => [`${sc} · een voertuig per dienst`, sc],
@@ -728,6 +734,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (view === 'kaart') { if (selTruck) return 'voertuig/' + selTruck.id; if (selTrailer) return 'oplegger/' + selTrailer.id; if (selSp && panelMode === 'sp' && panelOpen()) return 'standplaats/' + selSp.n; if (selWinkel && panelMode === 'winkel' && panelOpen()) return 'winkel/' + (selWinkel.id || selWinkel.name); if (kaartDoel) return `${kaartDoel.soort}/${kaartDoel.id}`; }
     if (view === 'standplaatsen' && ui.spSel) return 'standplaatsen/' + ui.spSel;
     if (view === 'openritten' && ui.or && ui.or.sel) return 'openritten/' + ui.or.sel;
+    if (view === 'vrijgeven') return 'vrijgeven/' + pbSp.n;
     if (view === 'charters' && ui.pouleTab === 'oproep') return 'charters/oproep';
     return VIEW_HASH[view] || 'overzicht';
   }
@@ -761,6 +768,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if (wasKlant && !klantId) { follow = false; selTruck = null; frame(true); }
       if (k === 'planbord' && id) { if (page) closePage(); ui.pbKlaar = id; if (view === 'planbord') renderView('planbord'); else setView('planbord', true); }
       else if (k === 'openritten') { if (page) closePage(); orStand(ctx); ui.or.sel = id || null; if (id) { const it = pool(ctx).find(x => x.id === id); if (it) ui.or.dag = it.dag === 'morgen' ? 'morgen' : 'vandaag'; } if (view === 'openritten') renderView('openritten'); else setView('openritten', true); }
+      else if (k === 'vrijgeven') { if (page) closePage(); const sp = SP.find(s => s.n === id); if (sp) { pbSp = sp; ui.vgSpVast = sp.n; } if (view === 'vrijgeven') renderView('vrijgeven'); else setView('vrijgeven', true); }
       else if (k === 'charters') { if (page) closePage(); ui.pouleTab = id === 'oproep' ? 'oproep' : 'charters'; if (view === 'charters') renderView('charters'); else setView('charters', true); }
       else if (k === 'charter' && id) { if (!page && !explicit && view !== 'charters') setView('charters', true); openPage('charter', id); }
       else if (k === 'oproep' && id) { if (!page && !explicit && view !== 'charters') setView('charters', true); ui.pouleTab = ui.pouleTab || 'oproep'; openPage('oproep', id); }
@@ -863,7 +871,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   // ---------- sneltoetsen ----------
   function showKeys() {
     const k = (a, b) => `<div><span>${esc(b)}</span><span>${a.split(' ').map(x => `<span class="kbd">${esc(x)}</span>`).join('')}</span></div>`;
-    L.openDialog(`<div class="dlg-h"><h2>Sneltoetsen</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div><div class="dlg-b"><div class="keys">${[['/', 'Zoeken'], ['Ctrl K', 'Zoeken'], ['?', 'Dit overzicht'], ['Esc', 'Sluiten of terug'], ['1', 'Overzicht'], ['2', 'Kaart'], ['3', 'Ritten'], ['4', 'Meldingen'], ['5', 'Planbord'], ['6', 'Voertuigen'], ['7', 'Opleggers'], ['8', 'Chauffeurs'], ['9', 'Standplaatsen'], ['0', 'Laden'], ['m', 'Meldingen'], ['a', 'Assistent'], ['f', 'Volg het gekozen voertuig'], ['o', 'Losse opleggers op de kaart'], ['b', 'Bezorgbussen op de kaart'], ['d', '3D-wereld'], ['[', 'Menu in- of uitklappen'], ['↑ ↓', 'Rijen in een tabel'], ['Enter', 'Rij of suggestie openen'], ['Spatie', 'Rij selecteren']].map(([a, b]) => k(a, b)).join('')}</div><p class="hint">Ingebed in een andere pagina werken de toetsen zodra je in de app hebt geklikt.</p></div>`, { label: 'Sneltoetsen' });
+    L.openDialog(`<div class="dlg-h"><h2>Sneltoetsen</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div><div class="dlg-b"><div class="keys">${[['/', 'Zoeken'], ['Ctrl K', 'Zoeken'], ['?', 'Dit overzicht'], ['Esc', 'Sluiten of terug'], ...KEYS.map((x, i) => VIEWS[i] && [x, VIEWS[i][1]]).filter(Boolean), ['m', 'Meldingen'], ['a', 'Assistent'], ['f', 'Volg het gekozen voertuig'], ['o', 'Losse opleggers op de kaart'], ['b', 'Bezorgbussen op de kaart'], ['d', '3D-wereld'], ['[', 'Menu in- of uitklappen'], ['↑ ↓', 'Rijen in een tabel'], ['Enter', 'Rij of suggestie openen'], ['Spatie', 'Rij selecteren']].map(([a, b]) => k(a, b)).join('')}</div><p class="hint">Ingebed in een andere pagina werken de toetsen zodra je in de app hebt geklikt.</p></div>`, { label: 'Sneltoetsen' });
   }
   document.addEventListener('keydown', e => {
     // Ingebed in een pagina: alleen toetsen met de focus in de app tellen (een klik in de app geeft de root de focus).

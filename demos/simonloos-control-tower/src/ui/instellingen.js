@@ -13,7 +13,7 @@ const KEYS = {
   'sl-acties': 'Acties van vandaag: zaken, notities, toegepaste voorstellen, berichten, logboek', 'sl-views': 'Opgeslagen weergaven', 'sl-instellingen': 'Je naam en meldingsnormen',
   'sl-kolommen': 'Gekozen kolommen per tabel', 'sl-lostijden': 'Overgenomen lostijden', 'sl-rest': 'Je beoordelingen van pauzeplekken', 'sl-overdracht': 'Overdracht naar de volgende dienst',
   'sl-3d': '3D-wereld aan of uit', 'sl-kaartlaag': 'Gekozen basiskaart', 'sl-kaartfilter': 'Statusfilter, dimmen en bezorgbussen op de kaart', 'sl-tabelstand': 'Zoekwoord, filters en sortering per tabel', 'sl-tabelweergaven': 'Opgeslagen weergaven per tabel', 'sl-meldweergave': 'Meldingen als lijst of als bord', 'sl-pbhint': 'Uitleg bij het planbord gelezen', 'sl-online': 'Online basiskaart aan of uit (voor oudere versies)',
-  'sl-oefendag': 'Oefendag aan of uit', 'sl-acties-oefendag': 'Acties op de oefendag: zaken, notities, toegepaste voorstellen, berichten, logboek (apart van de gewone dag)',
+  'sl-vrijgave': 'Vrijgegeven planning: per dag en standplaats wat de chauffeurs kregen (gesimuleerd)', 'sl-oefendag': 'Oefendag aan of uit', 'sl-acties-oefendag': 'Acties op de oefendag: zaken, notities, toegepaste voorstellen, berichten, logboek (apart van de gewone dag)',
 };
 // ---------- oefendag: een vaste drukke dag om mee te oefenen (src/oefendag.js, fleet.scenario) ----------
 // Aan of uit vraagt een herlaad: de dag wordt bij het laden opgebouwd. ?scenario=druk in de adresbalk zet hem ook aan (en

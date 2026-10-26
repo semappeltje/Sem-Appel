@@ -16,7 +16,7 @@ const browser = await chromium.launch({ args });
 let fail = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'OK ' : 'FOUT'} ${msg}`); if (!ok) fail++; };
 // alle zestien onderdelen van het menu, ook Open ritten en Charters en oproepkrachten
-const VIEWS = ['overzicht', 'kaart', 'ritten', 'meldingen', 'openritten', 'planbord', 'voertuigen', 'opleggers', 'chauffeurs', 'charters', 'standplaatsen', 'laden', 'lostijden', 'pauze', 'rapporten', 'instellingen'];
+const VIEWS = ['overzicht', 'kaart', 'ritten', 'meldingen', 'openritten', 'planbord', 'vrijgeven', 'voertuigen', 'opleggers', 'chauffeurs', 'charters', 'standplaatsen', 'laden', 'lostijden', 'pauze', 'rapporten', 'instellingen'];
 for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm: true }]) {
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, isMobile: vp.w < 500, hasTouch: vp.w < 500, reducedMotion: vp.rm ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage();

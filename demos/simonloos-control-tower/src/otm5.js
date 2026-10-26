@@ -2,8 +2,10 @@
 // Bron van de standaard: github.com/opentripmodel/otm5-change-requests (otm-api/otm-api-v5.9.yaml) en de documentatie in
 // github.com/opentripmodel/documentation. Zie rapporten/simon-loos-control-tower/echte-data-en-otm5.md.
 //
-// Puur: geen DOM, geen imports. Dit bestand hoort niet in de app-bundel (main.js en ui.js importeren het niet); het is het
-// bewijs dat ons model zonder herbouw in OTM5 past, en de basis voor de import van echte ritten later.
+// Puur: geen DOM, geen imports. Het bewijs dat ons model zonder herbouw in OTM5 past, en de basis voor de import van echte
+// ritten later. Sinds 4.1 maakt de app er ook de ritopdracht naar de boordcomputer mee (src/ui/ritopdracht.js, het enige
+// app-bestand dat het importeert: uitFleet, naarOtm5Van, isoTijd); het inlezen (vanOtm5) blijft buiten de bundel, want de
+// bundel neemt alleen mee wat gebruikt wordt (getoetst in tests/otm5-check.mjs).
 //
 // Drie stappen, met in het midden "onze vorm" (het eigen model aan de rand van het systeem, zoals OTM zelf aanraadt:
 // "translate between OTM and your internal format at the boundaries of your services"):

@@ -89,9 +89,16 @@ if (bestand) {
 // ---------- 1. puur, buiten de bundel, UUID en tijd ----------
 const src = readFileSync(path.join(app, 'src', 'otm5.js'), 'utf8');
 check(!/^\s*import\s/m.test(src) && !/\brequire\(/.test(src) && !/\bdocument\.|\bwindow\./.test(src), 'src/otm5.js is puur: geen imports, geen DOM');
-const appSrc = ['main.js', 'ui.js', 'views.js', 'map.js', 'fleet.js', 'tables.js', 'sheets.js', 'people.js', 'places.js', 'roads.js', 'rest.js', 'energy.js', 'lostijden.js', 'scene3d.js']
-  .map(f => { try { return readFileSync(path.join(app, 'src', f), 'utf8'); } catch { return ''; } }).join('\n');
-check(!/otm5(\.js)?['"]/.test(appSrc), 'src/otm5.js wordt door geen enkel app-bestand geïmporteerd (zit niet in de bundel)');
+// 4.1: de ritopdracht naar de boordcomputer (src/ui/ritopdracht.js) maakt zijn OTM5 met dit bestand; dat is het enige
+// app-bestand dat het importeert. Het inlezen (vanOtm5) hoort niet in de bundel: de bundel neemt alleen mee wat gebruikt
+// wordt, dus de teksten die alleen vanOtm5 kent, staan niet in dist/index.html.
+const { readdirSync } = await import('node:fs');
+const jsVan = d => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? jsVan(path.join(d, e.name)) : /\.js$/.test(e.name) ? [path.join(d, e.name)] : []);
+const importeurs = jsVan(path.join(app, 'src')).filter(f => !/otm5\.js$/.test(f) && /from\s+['"][./]+otm5(\.js)?['"]/.test(readFileSync(f, 'utf8'))).map(f => path.relative(path.join(app, 'src'), f));
+check(importeurs.length === 1 && importeurs[0] === path.join('ui', 'ritopdracht.js'), `alleen src/ui/ritopdracht.js importeert src/otm5.js (${importeurs.join(', ') || 'geen'})`);
+const bundelPad = path.join(app, 'dist', 'index.html');
+if (existsSync(bundelPad)) { const b = readFileSync(bundelPad, 'utf8'); check(!b.includes('document zonder herkenbare OTM5-entiteit') && !b.includes('onbekende entiteit overgeslagen') && b.includes('simonloos:ritnummer'), 'de bundel heeft de ritopdracht, maar niet het inlezen van OTM5 (vanOtm5 blijft eruit)'); }
+else console.log('--   dist/index.html ontbreekt: de controle op de bundel slaat over (eerst npm run build)');
 check(uuid5('python.org', '6ba7b810-9dad-11d1-80b4-00c04fd430c8') === '886313e1-3b8a-5372-9b90-0c9aee199e5d', `UUID v5 volgens RFC 4122 (bekende testwaarde; naamruimte Simon Loos ${NS})`);
 const tijden = [[DATUM, 0], [DATUM, 367.25], [DATUM, -195], [DATUM, 1500.5], ['2026-10-25', 90], ['2026-10-25', 150], ['2026-10-25', 200], ['2026-03-29', 60], ['2026-03-29', 200], ['2026-07-01', 720]];
 const tijdFout = tijden.filter(([d, m]) => Math.abs(minutenVan(isoTijd(d, m), d) - m) > 1e-6);

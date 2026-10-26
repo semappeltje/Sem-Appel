@@ -1003,6 +1003,45 @@ for (const oef of [true, false]) {
   await r.ctx.close();
 }
 
+// J17. Vrijgeven (4.1), op 1440 en 390 px, licht en donker: na Planning vrijgeven en met een rij open (het bericht en de
+// ritten) breekt in de weergave geen tekst af en steekt niets uit; het bericht staat licht op licht of donker op donker
+// (de tokens van het thema). Esc sluit het paneel van een ritopdracht en zet de focus terug op de knop; Terug vanaf het
+// planbord brengt je weer op Vrijgeven van dezelfde standplaats.
+const vgMeet = () => {
+  const v = document.getElementById('v-vrijgeven'); const uit = [];
+  for (const x of v.querySelectorAll('h2, h3, b, small, span, button, select, li, p, .badge')) {
+    if (!x.getClientRects().length || x.closest('pre') || getComputedStyle(x).display === 'inline') continue;
+    if (x.scrollWidth > x.clientWidth + 1) uit.push(`${x.tagName.toLowerCase()} "${x.textContent.trim().slice(0, 30)}"`);
+  }
+  const pg = v.querySelector('.page'); if (pg && pg.scrollWidth > pg.clientWidth + 1) uit.push(`pagina ${pg.scrollWidth - pg.clientWidth} px te breed`);
+  const lum = c => { const m = (c.match(/\d+(\.\d+)?/g) || [0, 0, 0]).map(Number); const f = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
+  const msg = v.querySelector('.vg-msg');
+  return { uit, n: v.querySelectorAll('.vg-d').length, thema: document.getElementById('app').dataset.theme, bg: msg ? lum(getComputedStyle(msg).backgroundColor) : -1, fg: msg ? lum(getComputedStyle(msg).color) : -1 };
+};
+for (const [w, h] of [[1440, 900], [390, 844]]) for (const thema of ['light', 'dark']) {
+  const r = await nieuwePagina({ width: w, height: h }); const p = r.page; const donker = thema === 'dark'; const lbl = `J17 Vrijgeven ${w} px ${donker ? 'donker' : 'licht'}`;
+  await laadDag(p, false);
+  if (donker) await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme());
+  await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 60; S.ui.frame(true); location.hash = '#vrijgeven/Wognum'; }); await p.waitForTimeout(1000);
+  await p.click('#v-vrijgeven [data-vg="vrij"]'); await p.waitForSelector('#dialog [data-vgok]', { timeout: 5000 }); await p.click('#dialog [data-vgok]'); await p.waitForTimeout(900);
+  await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 105; S.ui.frame(true); S.ui.ctx.refreshAll(); }); await p.waitForTimeout(600);
+  const k = await p.evaluate(() => (document.querySelector('#v-vrijgeven .vg-d[data-wacht="1"]') || document.querySelector('#v-vrijgeven .vg-d')).dataset.k);
+  await p.click(`#v-vrijgeven [data-vgs="${k}"]`); await p.waitForTimeout(600);
+  const m = await p.evaluate(vgMeet);
+  check(!m.uit.length && m.n > 10 && m.thema === thema && (donker ? m.bg < 0.05 && m.fg > 0.6 : m.bg > 0.9 && m.fg < 0.05), `${lbl}: ${m.n} diensten, een rij open; geen tekst die afbreekt of uitsteekt${m.uit.length ? `: ${m.uit.slice(0, 4).join(', ')}` : ''}; het bericht ${donker ? 'licht op donker' : 'donker op licht'} (luminantie tekst ${m.fg.toFixed(2)}, vlak ${m.bg.toFixed(2)})`);
+  const id = await p.evaluate(k => document.querySelector(`.vg-d[data-k="${k}"] [data-vgro]`).dataset.vgro, k);
+  await p.click(`.vg-d[data-k="${k}"] [data-vgro="${id}"]`); await p.waitForTimeout(800);
+  const open = await p.evaluate(() => !document.getElementById('dialog').hidden && !!document.querySelector('#dialog pre[data-ritopdracht]'));
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  const na = await p.evaluate(id => ({ dicht: document.getElementById('dialog').hidden, focus: !!document.activeElement && document.activeElement.dataset.vgro === id, hash: decodeURIComponent(location.hash) }), id);
+  await p.evaluate(() => window.SLCT.ui.ctx.navTo('planbord')); await p.waitForTimeout(900);
+  const pb = await p.evaluate(() => decodeURIComponent(location.hash));
+  await p.goBack(); await p.waitForTimeout(900);
+  const terug = await p.evaluate(() => ({ hash: decodeURIComponent(location.hash), on: document.getElementById('v-vrijgeven').classList.contains('on'), sp: (document.getElementById('vgSp') || {}).value }));
+  check(open && na.dicht && na.focus && na.hash === '#vrijgeven/Wognum' && /^#planbord/.test(pb) && terug.hash === '#vrijgeven/Wognum' && terug.on && terug.sp === 'Wognum', `${lbl}: Esc sluit het paneel van ritopdracht ${id} en de focus staat weer op de knop; Terug vanaf het planbord (${pb}) geeft Vrijgeven van Wognum terug (${terug.hash})`);
+  await r.ctx.close();
+}
+
 const realErrors = errors.filter(e => !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED/.test(e));
 check(realErrors.length === 0, `console-fouten: ${realErrors.length}${realErrors.length ? '\n   ' + realErrors.slice(0, 6).join('\n   ') : ''}`);
 await browser.close();

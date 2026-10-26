@@ -7,7 +7,7 @@ import logo from '../assets/logo.png';
 import { openIn } from './openritten.js';
 
 export const NAV = [
-  { g: '', items: [['overzicht', 'Overzicht', 'dash'], ['kaart', 'Kaart', 'map'], ['ritten', 'Ritten', 'route'], ['meldingen', 'Meldingen', 'alert'], ['openritten', 'Open ritten', 'inbox'], ['planbord', 'Planbord', 'gantt']] },
+  { g: '', items: [['overzicht', 'Overzicht', 'dash'], ['kaart', 'Kaart', 'map'], ['ritten', 'Ritten', 'route'], ['meldingen', 'Meldingen', 'alert'], ['openritten', 'Open ritten', 'inbox'], ['planbord', 'Planbord', 'gantt'], ['vrijgeven', 'Vrijgeven', 'send']] },
   { g: 'Vloot', items: [['voertuigen', 'Voertuigen', 'truck'], ['opleggers', 'Opleggers', 'trailer'], ['chauffeurs', 'Chauffeurs', 'users'], ['charters', 'Charters en oproep', 'contact']] },
   { g: 'Locaties', items: [['standplaatsen', 'Standplaatsen', 'depot'], ['laden', 'Laden', 'bolt'], ['lostijden', 'Lostijden', 'timer'], ['pauze', 'Pauzeplekken', 'coffee']] },
   { g: 'Analyse', items: [['rapporten', 'Rapporten', 'bars'], ['instellingen', 'Instellingen', 'settings']] },
