@@ -43,12 +43,12 @@ export function createNav(ctx) {
   // die alleen van de breedte afhangt, zodat de knoppen rechts niet verspringen als je van weergave wisselt: een smaller
   // zoekveld (met een kortere tekst erin), het label van de rol, de snelheid bij de klok, het label van het werkgebied (dat
   // staat meestal ook in de ondertitel), het woord bij de chip van de oefendag (de chip blijft, met het icoon en de uitleg
-  // bij aanwijzen) en het kleinste zoekveld; daarna gaat een eerdere stap terug als een latere hem overbodig maakte. Dan
-  // de titel zelf: de ondertitel en de titel elk in hun korte vorm als de lange afbreekt. Breekt er dan nog iets af, dan
-  // de overige stappen rechts; pas daarna breekt een lange titel af met een ellips. De tekst in het zoekveld past zich aan
-  // zijn breedte aan.
+  // bij aanwijzen), het kleinste zoekveld en als allerlaatste de knoppen van rol en werkgebied (ze staan ook in het
+  // gebruikersmenu); daarna gaat een eerdere stap terug als een latere hem overbodig maakte. Dan de titel zelf: de
+  // ondertitel en de titel elk in hun korte vorm als de lange afbreekt. Breekt er dan nog iets af, dan de overige stappen
+  // rechts; pas daarna breekt een lange titel af met een ellips. De tekst in het zoekveld past zich aan zijn breedte aan.
   // Gemeten na elke wijziging van de kop of de labels, en bij elke andere maat van de topbalk (ook ingebed).
-  const RECHTS = ['k-zoek', 'k-rol', 'k-snel', 'k-wg', 'k-oef', 'k-zoek2'];
+  const RECHTS = ['k-zoek', 'k-rol', 'k-snel', 'k-wg', 'k-oef', 'k-zoek2', 'k-rol2', 'k-wg2'];
   const LINKS = ['k-sub', 'k-titel'];
   const STAPPEN = [...RECHTS, ...LINKS];
   // de ruimte die de titel minstens houdt als rechts zich aanpast: ongeveer een vijfde van de topbalk, 110 tot 240 px

@@ -101,10 +101,13 @@ const geldig = j => j && j.ok !== false && typeof j.antwoord === 'string' && j.a
 function foutTekst(e, wacht) {
   if (e === 'tijd') return 'Dat duurde te lang. Probeer het opnieuw.';
   if (e === 'ongeldig') return 'Het antwoord was onvolledig en wordt niet getoond. Probeer het opnieuw.';
-  if (e === 429) { const m = wacht > 0 ? Math.max(1, Math.ceil(wacht / 60)) : 0; return `Even wachten: dertig vragen per uur.${m ? ` Probeer het over ${m === 1 ? 'een minuut' : `${fmt(m)} minuten`} weer.` : ''}`; }
+  // het maximum per uur staat in de omgeving van de server (ASSISTENT_REM), niet in de app: geen getal in de tekst
+  if (e === 429) { const m = wacht > 0 ? Math.max(1, Math.ceil(wacht / 60)) : 0; return `Even wachten: het maximum van dit uur is bereikt.${m ? ` Probeer het over ${m === 1 ? 'een minuut' : `${fmt(m)} minuten`} weer.` : ''}`; }
   if (e === 400 || e === 413) return 'De assistent kon deze vraag niet verwerken. Maak hem korter of stel hem anders.';
   if (e === 403) return 'De assistent werkt alleen vanaf de demosite zelf.';
   if (e === 500) return 'De assistent is op de server nog niet ingesteld. De voorstellen en meldingen werken gewoon door.';
+  // de serverfunctie controleert zelf de login van de demosite (sinds 26 oktober): zonder die login een 401
+  if (e === 401) return 'De login van de demosite zit niet op dit verzoek. Laad de pagina opnieuw; voorstellen en meldingen werken gewoon door.';
   if (typeof e === 'number') return 'De AI-dienst is nu niet bereikbaar of te traag. Probeer het over een minuut opnieuw; voorstellen en meldingen werken gewoon door.';
   return 'Geen verbinding met de assistent. Controleer je internetverbinding.';
 }

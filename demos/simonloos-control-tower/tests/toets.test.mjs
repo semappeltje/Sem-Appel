@@ -1,6 +1,7 @@
-// Kleine test van de toetsregels (src/ui/toets.js): node --test tests/toets.test.mjs
+// Kleine test van de toetsregels (src/ui/toets.js), en een bouwcontrole op de stylesheet: node tests/toets.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { toets, rangschik, rijZonderPauze, NORM } from '../src/ui/toets.js';
 
 const voertuig = { id: 'T-1050', soort: 'trekker', ev: false, standplaats: 'Wognum' };
@@ -119,4 +120,24 @@ test('de dag van de chauffeur: maxRij uit de dienst', () => {
   const dienst = { bestuurder: 'Kees Bakker', t0: 300, t1: 470, maxRij: 600, rijden: [{ t0: 300, t1: 460 }], pauzes: [{ t0: 460, t1: 470 }] };
   const u = toets({ voertuig, dienst, rit, start: 480, context: { volgendeDienst: 300 } });
   assert.equal(u.effect.rijtijdOverMin, 600 - 160 - 180);
+});
+
+// Bouwcontrole (ronde 3, 26 oktober 2026): elke animatie in src/style.css heeft een @keyframes op het hoogste niveau.
+// Binnen de geneste regel .slct negeert de browser een @keyframes (ook na het afvlakken door de build), en dan liep tot
+// 26 oktober geen enkele animatie van menu, dialoog, melding of laadbalk. Zo komt dat niet terug.
+test('elke animatie in style.css heeft een @keyframes op het hoogste niveau', () => {
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  // de @keyframes met de diepte van de accolades waarop ze staan: alleen diepte 0 telt
+  const boven = new Set(), genest = []; let diepte = 0;
+  for (const m of css.matchAll(/@keyframes\s+([\w-]+)|[{}]/g)) {
+    if (m[0] === '{') diepte++; else if (m[0] === '}') diepte--; else if (diepte === 0) boven.add(m[1]); else genest.push(m[1]);
+  }
+  // de namen die animation en animation-name gebruiken (geen tijden, functies of sleutelwoorden)
+  const WOORD = new Set(['none', 'infinite', 'forwards', 'backwards', 'both', 'alternate', 'alternate-reverse', 'normal', 'reverse', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear', 'step-start', 'step-end', 'running', 'paused', 'initial', 'inherit', 'unset', 'revert']);
+  const gebruikt = new Set();
+  for (const d of css.matchAll(/animation(?:-name)?\s*:\s*([^;}]+)/g)) for (const deel of d[1].replace(/[\w-]+\([^)]*\)/g, '').split(',')) for (const w of deel.trim().split(/\s+/)) if (/^[a-zA-Z_][\w-]*$/.test(w) && !WOORD.has(w)) gebruikt.add(w);
+  assert.ok(gebruikt.size >= 5, `er horen animaties in de stylesheet te staan (gevonden: ${[...gebruikt].join(', ')})`);
+  for (const n of gebruikt) assert.ok(boven.has(n), `@keyframes ${n} ontbreekt op het hoogste niveau van style.css (gebruikt door een animation of animation-name)`);
+  assert.deepEqual(genest, [], `geneste @keyframes negeert de browser: ${genest.join(', ')}`);
+  for (const n of boven) assert.ok(gebruikt.has(n), `@keyframes ${n} wordt door geen enkele animatie gebruikt`);
 });

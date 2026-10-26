@@ -155,7 +155,8 @@ export function renderOverzicht(ctx, el) {
   // drie getallen: hoe gaat het (op tijd), wat loopt uit (vertraagd) en wat moet nog ingevuld (open ritten)
   const ov = openIn(ctx).filter(p => p.dag !== 'morgen'); const ovSnel = ov.filter(p => urgentie(ctx, p) < 60).length;
   const K = [
-    { l: 'Op tijd', v: `${nl1(now.ontime)} %`, d: ago ? now.ontime - ago.ontime : null, unit: 'pt', good: 1, s: ser.map(x => x.ontime), sub: `${fmt(now.stops)} stops vandaag, ${fmt(now.late)} na het tijdvenster`, min: null },
+    // gemist naast op tijd: open ritten van vandaag die na hun laadvenster niemand reed (metrics.gemistTot); alleen als er zijn
+    { l: 'Op tijd', v: `${nl1(now.ontime)} %`, d: ago ? now.ontime - ago.ontime : null, unit: 'pt', good: 1, s: ser.map(x => x.ontime), sub: `${fmt(now.stops)} stops vandaag, ${fmt(now.late)} na het tijdvenster${now.gemist ? `, ${now.gemist === 1 ? '1 rit' : `${fmt(now.gemist)} ritten`} gemist` : ''}`, min: null },
     // dezelfde begrippen als de briefing en de filterbalk van de kaart: onderweg rijdt volgens plan, vertraagd rijdt
     // achter op plan, bij een klant apart; samen zijn ze alles wat niet op het terrein of in de pauze staat
     { l: 'Vertraagd', v: fmt(now.vertraagd), d: ago ? now.vertraagd - ago.vertraagd : null, good: -1, s: ser.map(x => x.vertraagd), sub: `${fmt(now.onderweg)} onderweg · ${fmt(now.klant)} bij een klant`, min: 0 },

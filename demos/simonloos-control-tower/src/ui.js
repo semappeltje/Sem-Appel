@@ -23,7 +23,7 @@ import { renderInstellingen } from './ui/instellingen.js';
 import { renderStandplaatsen, renderHal, renderKlant } from './views.js';
 import { renderPlanbord, updateNowline } from './ui/planbord.js';
 import { verplaatsRit, planPoolRit, pool } from './ui/planwijzig.js';
-import { naInplannen, voerActieUit } from './ui/invulling.js';
+import { naInplannen, voerActieUit, gemistIn } from './ui/invulling.js';
 import { renderOpenRitten, openIn, orStand } from './ui/openritten.js';
 import { renderPoule, charterPage, oproepPage } from './ui/poule.js';
 import { renderVoertuigen, renderOpleggers, renderChauffeurs, renderLostijden, renderLaden, renderPauze } from './tables.js';
@@ -65,7 +65,11 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   let volgGestart = null, laatstePlek = { id: null, t: 0 };
   const S = new Map(), TRS = new Map(), prevSt = new Map(); const feed = [], chat = []; let exceptions = [], trailerEx = [], counts = { onderweg: 0, klant: 0, pauze: 0, vertraagd: 0, terrein: 0 }, kpi = {}, msgCount = 0;
   const ui = {}; let vcache = null, vtick = -1;
-  if (store.get('sl-nav') === 'c') root.classList.add('nav-c');
+  // Het menu: zelf ingeklapt (sl-nav 'c') of zelf uitgeklapt ('o') blijft zo. Zonder eigen keuze klapt het vanzelf in
+  // tussen 761 en 1100 px breed (een tablet of een smal venster), zoals Gmail en Linear doen: de topbalk en de pagina
+  // houden dan hun ruimte. Gemeten aan de app zelf, dus ook ingebed.
+  const menuIn = () => { const k = store.get('sl-nav'); const w = root.clientWidth; return k === 'c' || (k !== 'o' && w >= 761 && w <= 1100); };
+  root.classList.toggle('nav-c', menuIn());
 
   // ---------- rechten en werkgebied ----------
   const can = perm => perm === 'act' ? role === 'planner' || role === 'regiomanager' : (CAN[perm] || []).includes(role);
@@ -79,8 +83,11 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   const narrow = () => root.clientWidth <= 760;
   const driverName = t => { const s = S.get(t.id); return (s && s.driver) || t.driver || ''; };
   const trailerState = tr => { let s = TRS.get(tr.id); if (!s) { s = fleet.trailerStateAt(tr, state.simTime); TRS.set(tr.id, s); } return s; };
-  const today = new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
-  const todayKort = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  // de dag van de simulatie (fleet.vandaag, dezelfde als het planbord), lang en kort; dagNaam(-1) is gisteren
+  const dagVan = n => { const v = fleet.vandaag || new Date(); return new Date(v.getFullYear(), v.getMonth(), v.getDate() + n); };
+  const dagNaam = n => dagVan(n).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const today = dagNaam(0);
+  const todayKort = dagVan(0).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
 
   // ---------- berichten ----------
   function sendMsg(t, text, me = true, quiet = false) {
@@ -141,7 +148,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     A.acts.applied.push({ id: p.id, kind: p.kind, title: p.title, action: p.action, sev: p.sev, T: state.simTime, key: p.key, winst: p.winst ? { soort: p.winst.soort, min: p.winst.min || 0 } : null }); A.save();
     Z.markApplied(p.key, p);
     A.log(`paste een voorstel toe bij ${p.kind.toLowerCase()} ${p.t ? p.t.id : p.tr ? p.tr.id : ''}: ${p.kort.toLowerCase()}${p.winst && p.winst.min ? ` (${p.winst.min} min winst)` : ''}`, { zaak: p.key, t: p.t ? p.t.id : null });
-    for (const b of p.berichten || []) A.log(`gaf ${b.aan} de nieuwe ETA door: "${b.tekst}"`, { zaak: p.key, t: p.t ? p.t.id : null });
+    // een eigen vestiging (b.intern, zoals Simon Loos Geldermalsen) krijgt een intern bericht; een klant de nieuwe ETA
+    for (const b of p.berichten || []) A.log(b.intern ? `stuurde ${b.aan} een intern bericht: "${b.tekst}"` : `gaf ${b.aan} de nieuwe ETA door: "${b.tekst}"`, { zaak: p.key, t: p.t ? p.t.id : null });
     if (p.t) feed.unshift({ T: state.simTime, t: p.t, txt: `voorstel toegepast: ${p.kort.toLowerCase()}`, sev: 'ok' });
     frame(true); refreshAll();
     L.toast(`Toegepast: ${p.kort}.${p.winst && p.winst.min ? ` ${p.winst.min} min winst.` : ''}${p.t ? ` ${p.t.id} heeft een bericht gekregen.` : ''}`, { icon: 'check' });
@@ -679,9 +687,12 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       kaart: () => [`${sc} · ${esc(divLabel())}`, sc],
       ritten: () => { const n = fmt(R.all().filter(r => inScope(r.t)).length); return [`${sc} · ${n} ritten vandaag`, `${n} ritten · ${sc}`]; },
       meldingen: () => [`${fmt(c.open)} open · ${fmt(c.verlopen)} over de deadline · ${sc}`, `${fmt(c.open)} open · ${fmt(c.verlopen)} te laat`],
-      openritten: () => { const L = openIn(ctx); const v = L.filter(p => p.dag !== 'morgen').length; return [`${fmt(v)} open vandaag · ${fmt(L.length - v)} morgen · ${sc}`, `${fmt(v)} vandaag · ${fmt(L.length - v)} morgen`]; },
+      // de gemiste ritten van vandaag (in Open ritten onder Gemist vandaag) staan erbij als er zijn; in de korte vorm gaan
+      // ze voor morgen
+      openritten: () => { const L = openIn(ctx); const v = L.filter(p => p.dag !== 'morgen').length; const g = gemistIn(ctx).length; const gm = g ? ` · ${fmt(g)} gemist` : ''; return [`${fmt(v)} open vandaag${gm} · ${fmt(L.length - v)} morgen · ${sc}`, g ? `${fmt(v)} vandaag${gm}` : `${fmt(v)} vandaag · ${fmt(L.length - v)} morgen`]; },
       charters: () => [`De flexibele schil · ${sc}`, sc],
-      planbord: () => [`${esc(pbSp.n)} · ${esc(today)}`, `${esc(pbSp.n)} · ${esc(todayKort)}`],
+      // de dag die het bord toont (ui.pb.dag, de stand van planbord.js): gisteren en morgen met hun eigen datum
+      planbord: () => { const d = ui.pb && ui.pb.dag; const n = d === 'gisteren' ? -1 : d === 'morgen' ? 1 : 0; return n ? [`${esc(pbSp.n)} · ${esc(dagNaam(n))} (${d})`, `${n < 0 ? 'Gisteren' : 'Morgen'} · ${esc(pbSp.n)}`] : [`${esc(pbSp.n)} · ${esc(today)}`, `${esc(pbSp.n)} · ${esc(todayKort)}`]; },
       voertuigen: () => [`${fmt(k.inScope || 0)} voertuigen · ${fmt(k.inzet || 0)} ingezet`, `${fmt(k.inzet || 0)} van ${fmt(k.inScope || 0)} ingezet`],
       opleggers: () => [`${fmt(k.trailers || 0)} opleggers · ${fmt(k.loose || 0)} los`, `${fmt(k.loose || 0)} van ${fmt(k.trailers || 0)} los`],
       chauffeurs: () => [`${sc} · een voertuig per dienst`, sc],
@@ -887,7 +898,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     else if (e.key === 'd') set3dMode(!three);
     else if (e.key === '[') toggleNav();
   });
-  function toggleNav() { const c = root.classList.toggle('nav-c'); store.set('sl-nav', c ? 'c' : ''); nav.renderSide(); setTimeout(() => { try { mapApi && mapApi.map.resize(); } catch { /* */ } }, 220); }
+  // zelf in- of uitklappen is een keuze die blijft ('c' of 'o'), ook op een breedte waar het menu vanzelf inklapt
+  function toggleNav() { const c = root.classList.toggle('nav-c'); store.set('sl-nav', c ? 'c' : 'o'); nav.renderSide(); setTimeout(() => { try { mapApi && mapApi.map.resize(); } catch { /* */ } }, 220); }
   function toggleTheme() { const t = root.dataset.theme === 'dark' ? 'light' : 'dark'; root.dataset.theme = t; state.theme = t; store.set('sl-theme', t); if (mapApi) mapApi.setTheme(t); nav.renderTop(); refreshAll(); }
   // simulatieklok
   function setTime(T) { state.simTime = ((T % 1440) + 1440) % 1440; ui.pbVolg = true; frame(true); }
@@ -936,6 +948,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   // elke andere weergave) half leeg. Meteen terugzetten.
   for (const el of [root, $('views')]) el.addEventListener('scroll', () => { if (el.scrollTop || el.scrollLeft) { el.scrollTop = 0; el.scrollLeft = 0; } }, { passive: true });
   let rsz = null; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(() => { refreshAll(); }, 150); });
+  // het menu volgt de breedte van de app (menuIn), voordat de browser tekent; een eigen keuze blijft staan
+  function menuStand() { const c = menuIn(); if (root.classList.contains('nav-c') === c) return; root.classList.toggle('nav-c', c); nav.renderSide(); setTimeout(() => { try { mapApi && mapApi.map.resize(); } catch { /* */ } }, 220); }
+  if (typeof ResizeObserver === 'function') new ResizeObserver(menuStand).observe(root);
 
   function attachMap(api) {
     mapApi = api; K.mountTimebar(ctx); K.bindMapbar(ctx);
@@ -964,14 +979,23 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (!root.querySelector(':scope > .skip')) { const sk = document.createElement('button'); sk.type = 'button'; sk.className = 'skip'; sk.textContent = 'Naar de inhoud'; sk.addEventListener('click', naarInhoud); root.insertBefore(sk, root.firstChild); }
     nav.bind(); nav.renderSide(); nav.renderBottom(); nav.renderTop();
     restoreActs(); R.bump();
-    // een nieuw adres (terugknop, of een link of adres met een #) geeft popstate en hashchange na elkaar: een keer uitvoeren,
-    // anders zet bijvoorbeeld #planbord/<rit> de rit twee keer klaar (twee meldingen)
-    let laatsteAdres = { h: null, t: 0 };
+    // Een nieuw adres (de terugknop, een link of een adres met een #) geeft twee berichten na elkaar voor dezelfde ingang in
+    // de geschiedenis: popstate en dan hashchange. Een keer verwerken: het tweede bericht heeft hetzelfde adres, dezelfde
+    // ingang (het volgnummer in history.state) en de andere soort. Niet op tijd: tot ronde 3 gold een grens van 250 ms vanaf
+    // het begin van de afhandeling, en een planbord opbouwen duurt vaak langer; dan zette #planbord/<rit> de rit twee keer
+    // klaar en kwam de melding "staat klaar" twee keer (gemeten op 1440 px vanaf het Overzicht, 26 oktober).
+    let laatsteAdres = { h: null, n: null, bron: '' };
     // De eerste ingang van de app krijgt volgnummer 0 (Terug blijft dan in de app). Een ingang zonder volgnummer is dus
     // nieuw: een adres dat iemand intypte of een link met een #; die krijgt er een, zodat Terug op die pagina teruggaat
     // naar waar je was (zoals de terugknop van de browser) in plaats van naar de lijst.
     try { if (!history.state) history.replaceState({ n: 0 }, '', location.href); } catch { /* afgeschermd venster */ }
-    const opAdres = () => { if (!history.state) { try { history.replaceState({ n: ++seq }, '', location.href); } catch { /* idem */ } } const h = readHash(); if (h === currentHash()) return; const nu = performance.now(); if (laatsteAdres.h === h && nu - laatsteAdres.t < 250) return; laatsteAdres = { h, t: nu }; onHash(); };
+    const opAdres = e => {
+      if (!history.state) { try { history.replaceState({ n: ++seq }, '', location.href); } catch { /* idem */ } }
+      const h = readHash(); if (h === currentHash()) return;
+      const n = history.state ? history.state.n : null; const bron = e ? e.type : '';
+      if (laatsteAdres.h === h && laatsteAdres.n === n && laatsteAdres.bron && laatsteAdres.bron !== bron) return;
+      laatsteAdres = { h, n, bron }; onHash();
+    };
     window.addEventListener('popstate', opAdres);
     window.addEventListener('hashchange', opAdres);
     if (profile) applyProfile(false); else openWizard(1);

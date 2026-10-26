@@ -368,6 +368,9 @@
      weg (een knop houdt zijn icoon, de uitleg staat in de tooltip en voor een schermlezer in aria-label) */
   .top.k-rol #roleBtn .tx,.top.k-snel #clockBtn small,.top.k-wg #wgBtn .tx,.top.k-oef #oefenChip .tx{display:none}
   .top.k-oef #oefenChip{padding:0 6px}
+  /* het allerlaatste (een uitgeklapt menu op een smal scherm): de knoppen van rol en werkgebied gaan weg; beide staan ook in
+     het gebruikersmenu (Werkgebied wijzigen, met de rol) en in de ondertitel */
+  .top.k-rol2 #roleBtn,.top.k-wg2 #wgBtn{display:none}
   @container slct (min-width:761px){
     .top.k-zoek .zoek{width:232px}
     .top.k-zoek2 .zoek{width:150px;min-width:150px}
@@ -558,6 +561,14 @@
   .pg-kpis b .kpi-lock{display:block;white-space:normal;font-size:13.5px;font-weight:500;letter-spacing:0;line-height:1.35;color:var(--muted);padding-top:3px}
   .pg-kpis span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4}
   .pg-kpis .bad b{color:var(--bad)}.pg-kpis .warn b{color:var(--warn)}.pg-kpis .ok b{color:var(--ok)}
+  /* op een smalle telefoon staan de drie cijfers onder elkaar, zodat een lange waarde (Boordcomputer, Droge
+     kruidenierswaren) de volle breedte heeft; mag een waarde dan nog niet passen, dan loopt hij door op de volgende regel */
+  @container slct (max-width:479px){
+    .pg-kpis{grid-template-columns:minmax(0,1fr)}
+    .pg-kpis>div{border-left:0;border-top:1px solid var(--line)}
+    .pg-kpis>div:first-child{border-top:0}
+    .pg-kpis b{white-space:normal;overflow-wrap:anywhere}
+  }
   .pg .tabs{margin-bottom:20px}
   .pg-cols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
   .pg-cols.wide{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}

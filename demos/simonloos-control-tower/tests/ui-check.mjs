@@ -665,14 +665,17 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
     const sel = `.sg-task.aangevraagd[data-task-id="R-${kies}"]`;
     const st = await p.evaluate(s => { const t = document.querySelector(s); if (!t) return null; const a = t.querySelector('.sg-arc'); const av = t.querySelector('.sg-av'); const cs = a ? getComputedStyle(a) : null; const r = t.getBoundingClientRect(), ra = a ? a.getBoundingClientRect() : null; return { arc: !!a && cs.display !== 'none' && /repeating-linear-gradient/.test(cs.backgroundImage) && Math.abs(ra.width - r.width) < 2, av: av ? av.textContent : '', avZicht: !!av && av.offsetWidth > 0, w: Math.round(r.width) }; }, sel);
     if (st) {
-      const vgl = await p.evaluate(s => { const t = document.querySelector(s); const row = t.closest('.sg-row') ? null : null; const L = [...document.querySelectorAll('.sg-task.pb-rit.st-gepland:not(.aangevraagd)')].filter(x => { const r = x.getBoundingClientRect(); return r.width > 60 && r.left >= 0 && r.right <= innerWidth && r.top > 0 && r.bottom < innerHeight; }); return L[0] ? L[0].dataset.taskId : null; }, sel);
+      // het vergelijkingsblok: een gewone geplande rit binnen de rechthoek van het bord zelf (.sg-timeline-body), niet in de
+      // bufferrij erboven (dan scrolt de schermafbeelding het bord en haalt de virtualisatie het blok weg), en zonder
+      // arcering of strepen (een aangevraagde rit, een blok van gisteren)
+      const vgl = await p.evaluate(s => { const t = document.querySelector(s); const body = document.querySelector('#v-planbord .sg-timeline-body'); const B = body ? body.getBoundingClientRect() : { left: 0, right: innerWidth, top: 0, bottom: innerHeight }; const gestreept = x => !!x.querySelector('.sg-arc') || x.classList.contains('pb-hist') || /repeating-linear-gradient/.test(getComputedStyle(x).backgroundImage); const L = [...document.querySelectorAll('#v-planbord .sg-task.pb-rit.st-gepland:not(.aangevraagd)')].filter(x => { if (x === t || gestreept(x)) return false; const r = x.getBoundingClientRect(); return r.width > 60 && r.left >= B.left + 2 && r.right <= B.right - 2 && r.top >= B.top + 2 && r.bottom <= B.bottom - 2; }); return L[0] ? L[0].dataset.taskId : null; }, sel);
       const meetPx = async () => { await p.addStyleTag({ content: '.slct .sg-task .sg-l{visibility:hidden!important}' }).catch(() => {}); const a = await (await p.$(sel)).screenshot(); const b = vgl ? await (await p.$(`.sg-task[data-task-id="${vgl}"]`)).screenshot() : null; await p.evaluate(() => { for (const s of document.querySelectorAll('style')) if (s.textContent.includes('.sg-l{visibility:hidden!important}')) s.remove(); }); return { av: wissels(pngPixels(a)), gewoon: b ? wissels(pngPixels(b)) : null }; };
       const licht = await meetPx();
       await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme()); await p.waitForTimeout(900);
       const donker = await meetPx();
       await p.evaluate(() => window.SLCT.ui.ctx.toggleTheme()); await p.waitForTimeout(300);
       const ok = px => px.av >= 12 && (px.gewoon === null || px.av > px.gewoon * 2);
-      check(st.arc && st.av === 'gevraagd' && st.avZicht && ok(licht) && ok(donker), `planbord: R-${kies} wacht op een ja en is gearceerd boven de segmenten (kleurwissels licht ${licht.av} tegen ${licht.gewoon} bij een gewone rit, donker ${donker.av} tegen ${donker.gewoon}), met "${st.av}" erbij`);
+      check(st.arc && st.av === 'gevraagd' && st.avZicht && ok(licht) && ok(donker), `planbord: R-${kies} wacht op een ja en is gearceerd boven de segmenten (kleurwissels licht ${licht.av}${vgl ? ` tegen ${licht.gewoon} bij de gewone rit ${vgl} binnen het bord` : ', geen gewone rit binnen het bord om mee te vergelijken'}, donker ${donker.av}${vgl ? ` tegen ${donker.gewoon}` : ''}), met "${st.av}" erbij`);
     } else check(false, `planbord: R-${kies} staat niet als aangevraagde rit op het bord`);
   } else note('geen kandidaat om toe te wijzen');
   // J8. herladen: de stand van het planbord (per chauffeur, zoom, morgen) en de dag van Open ritten komen terug
@@ -702,6 +705,33 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
   const rm = await p.evaluate(() => ({ lock: !!document.querySelector('#sheet .locked'), kpi: /Harde remmingen/.test(document.getElementById('sheet').textContent) }));
   check(rm.lock && !rm.kpi, 'regiomanager: het tabblad Rijden van een chauffeur is afgeschermd (geen harde remmingen of overtredingen per chauffeur)');
   await p.evaluate(() => window.SLCT.ui.ctx.setRole('planner'));
+  // J17 (ronde 3). Een adres met een # geeft hooguit één melding: de browser stuurt popstate en hashchange na elkaar voor
+  // dezelfde ingang, de app verwerkt er een. Tot ronde 3 zette #planbord/<rit> vanaf het Overzicht de rit twee keer klaar
+  // (twee keer "staat klaar"), omdat het bord opbouwen langer duurde dan de tijdgrens van 250 ms. Elke ingang vanaf het
+  // Overzicht, en de terugknop naar het planbord.
+  await p.evaluate(() => { const S = window.SLCT; S.state.playing = false; S.state.simTime = 450; S.ui.frame(true); S.ui.ctx.refreshAll(); window.__toasts = []; new MutationObserver(ms => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1 && n.classList.contains('toast')) window.__toasts.push(n.textContent.trim().slice(0, 70)); }).observe(document.getElementById('toasts'), { childList: true }); });
+  const ritVan17 = sp => p.evaluate(sp => { const c = window.SLCT.ui.ctx; const T = c.state.simTime; const r = c.R.all().find(x => (sp ? x.t.base.n === sp : x.t.base.n !== 'Wognum') && c.R.stateOf(x, T, c.S).st === 'gepland' && x.dep > T + 60 && x.dep < T + 300); return r ? r.id : null; }, sp);
+  const ritWog = await ritVan17('Wognum'); const ritElders = await ritVan17(null);
+  const zaak17 = await p.evaluate(() => { const z = window.SLCT.ui.ctx.Z.list()[0]; return z ? z.id : null; });
+  const ingangen17 = [ritWog && `planbord/${ritWog}`, ritElders && `planbord/${ritElders}`, ritWog && `rit/${ritWog}`, 'plaats/Hoorn', zaak17 && `melding/${zaak17}`].filter(Boolean);
+  const uitslag17 = [];
+  for (const h of ingangen17) {
+    await p.evaluate(() => window.SLCT.ui.ctx.go('view:overzicht')); await p.waitForTimeout(700);
+    await p.evaluate(h => { window.__toasts = []; location.hash = '#' + h; }, h); await p.waitForTimeout(3000);
+    uitslag17.push({ h, t: await p.evaluate(() => window.__toasts.slice()) });
+  }
+  // de terugknop: vanaf het Overzicht naar #planbord/<rit>, dan naar de ritpagina, dan terug naar het planbord
+  if (ritWog) {
+    await p.evaluate(() => window.SLCT.ui.ctx.go('view:overzicht')); await p.waitForTimeout(700);
+    await p.evaluate(h => { location.hash = '#planbord/' + h; }, ritWog); await p.waitForTimeout(2500);
+    await p.evaluate(h => { location.hash = '#rit/' + h; }, ritWog); await p.waitForTimeout(1200);
+    await p.evaluate(() => { window.__toasts = []; }); await p.goBack(); await p.waitForTimeout(3000);
+    uitslag17.push({ h: `terug naar planbord/${ritWog}`, t: await p.evaluate(() => window.__toasts.slice()) });
+  }
+  // het planbord zegt een keer dat de rit klaarstaat; een ander adres geeft hooguit een melding (zonder WebGL zegt de kaart
+  // bij #plaats/... een keer dat ze WebGL nodig heeft)
+  const fout17 = uitslag17.filter(x => /planbord\//.test(x.h) ? !(x.t.length === 1 && /staat klaar|al begonnen/.test(x.t[0])) : x.t.length > 1);
+  check(ingangen17.length >= 4 && !fout17.length, `een adres met een # geeft één melding of geen: ${uitslag17.map(x => `${x.h} ${x.t.length}`).join(', ')}${fout17.length ? `; FOUT: ${fout17.map(x => `${x.h}: ${x.t.join(' | ') || 'geen melding'}`).join('; ')}` : ''}`);
   // J15. de paginatitel op 1440 px, licht en donker
   await titelToets(p, 1440);
   await cj.close();
@@ -718,10 +748,34 @@ if (mode === 'gl') {
   } else note('390 px: geen gebeurtenis met een voertuig');
   await c3.close();
 }
+// 1e (ronde 3): de drie cijfers van een zaakpagina passen op 390 px, ook met een lange waarde (Techniek: Boordcomputer;
+// Koeling en Oplegger: de lading, zoals Droge kruidenierswaren). Onder 480 px staan ze onder elkaar. Heel Nederland in
+// beeld, zodat elke soort er is; Koeling alleen op de oefendag (de koelstoring op een koeloplegger van Wognum).
+async function kpiToets(p, lbl, verwacht) {
+  await p.evaluate(() => { const c = window.SLCT.ui.ctx; c.F.sps = new Set(); c.F.regios = new Set(); c.frame(true); c.refreshAll(); });
+  const kpiMeet = () => [...document.querySelectorAll('#sheet .pg-kpis > div')].map(d => { const b = d.querySelector('b'); if (!b) return null; const rd = d.getBoundingClientRect(), rb = b.getBoundingClientRect(); return { t: b.textContent.trim().replace(/\s+/g, ' ').slice(0, 40), over: Math.max(0, Math.round(rb.right - rd.right), b.scrollWidth - b.clientWidth), kolommen: getComputedStyle(d.parentElement).gridTemplateColumns.split(' ').length }; }).filter(Boolean);
+  const gezien = {}; const uit = []; const ok = [];
+  for (const T of [600, 690, 840, 990, 450, 1110]) {
+    await p.evaluate(T => { const S = window.SLCT; S.state.playing = false; S.state.simTime = T; S.ui.frame(true); S.ui.ctx.refreshAll(); }, T); await p.waitForTimeout(300);
+    const L = await p.evaluate(() => window.SLCT.ui.ctx.Z.list().filter(z => ['Techniek', 'Koeling', 'Oplegger'].includes(z.kind)).map(z => [z.kind, z.id]));
+    for (const [k, id] of L) {
+      if (gezien[k]) continue; gezien[k] = id;
+      await p.evaluate(id => { location.hash = '#melding/' + id; }, id); await p.waitForTimeout(900);
+      const m = await p.evaluate(kpiMeet);
+      if (!m.length) uit.push(`${k} ${id}: geen cijfers`); for (const x of m) { if (x.over > 1) uit.push(`${k} ${id}: "${x.t}" ${x.over} px te breed`); if (x.kolommen !== 1) uit.push(`${k} ${id}: ${x.kolommen} kolommen op 390 px`); }
+      ok.push(`${k} (${m.map(x => `"${x.t}"`).join(', ')})`);
+      await p.evaluate(() => window.SLCT.ui.ctx.closePage()); await p.waitForTimeout(200);
+    }
+    if (Object.keys(gezien).length === 3) break;
+  }
+  const mist = verwacht.filter(k => !gezien[k]);
+  check(!mist.length && !uit.length, `${lbl}: de cijfers van de zaakpagina's staan onder elkaar en geen waarde loopt uit zijn vak: ${ok.join('; ') || 'geen zaak gevonden'}${mist.length ? `; niet gevonden: ${mist.join(', ')}` : ''}${uit.length ? `; FOUT: ${uit.join('; ')}` : ''}`);
+}
 // J15 op een telefoon (390 px), ook zonder WebGL
 {
   const { ctx: c4, p } = await paginaWognum({ width: 390, height: 844 });
   await titelToets(p, 390);
+  await kpiToets(p, '390 px, gewone dag', ['Techniek', 'Oplegger']);
   await c4.close();
 }
 
@@ -807,31 +861,84 @@ const topbalkMeet = () => {
   let rechts = 0; for (const k of tb.querySelectorAll('.top-r *')) { const r = k.getBoundingClientRect(); if (r.width) rechts = Math.max(rechts, r.right); }
   if (rechts > T.right + 0.5) uit.push(`${Math.round(rechts - T.right)} px rechts eraf`);
   const oc = document.getElementById('oefenChip');
-  return { uit, chip: oc ? { zicht: oc.getClientRects().length > 0, naam: oc.getAttribute('aria-label') || oc.textContent.trim(), tekst: oc.querySelector('.tx') && oc.querySelector('.tx').getClientRects().length > 0 } : null, stappen: [...tb.classList].filter(c => /^k-/.test(c)).join(' '), rechts: [...tb.classList].filter(c => /^k-(zoek2?|rol|snel|wg|oef)$/.test(c)).sort().join(' ') };
+  const vt = document.getElementById('vtitle');
+  return { uit, titelBreed: vt ? vt.clientWidth : 0, chip: oc ? { zicht: oc.getClientRects().length > 0, naam: oc.getAttribute('aria-label') || oc.textContent.trim(), tekst: oc.querySelector('.tx') && oc.querySelector('.tx').getClientRects().length > 0 } : null, stappen: [...tb.classList].filter(c => /^k-/.test(c)).join(' '), rechts: [...tb.classList].filter(c => /^k-(zoek2?|rol|snel|wg|oef)$/.test(c)).sort().join(' ') };
 };
-for (const oef of [true, false]) for (const w of [1440, 1280, 390]) {
-  const vp = { width: w, height: w > 500 ? 900 : 844 };
-  const r = await nieuwePagina(vp); const p = r.page;
+// Niets breder dan het scherm: het document, de app, de topbalk, de weergave, de pagina en de detailpagina, en geen vaste
+// laag die rechts buiten de app steekt
+const overloopMeet = () => {
+  const root = document.getElementById('app'); const uit = [];
+  if (document.documentElement.scrollWidth > innerWidth) uit.push(`document ${document.documentElement.scrollWidth - innerWidth} px te breed`);
+  const kijk = (el, n) => { if (!el || !el.getClientRects().length) return; const d = el.scrollWidth - el.clientWidth; if (d > 1) uit.push(`${n} ${d} px te breed`); };
+  kijk(root, 'app'); kijk(document.getElementById('topbar'), 'topbalk'); kijk(document.querySelector('#views > .view.on'), 'weergave'); kijk(document.querySelector('#views > .view.on .page'), 'pagina'); kijk(document.getElementById('sheet'), 'detailpagina');
+  const R = root.getBoundingClientRect();
+  for (const sel of ['#topbar', '#side', '#bottombar', '#panel.open', '#sheet .pg-bar', '#sheet .pg-h', '#sheet .pg-kpis']) { const el = document.querySelector(sel); if (!el || !el.getClientRects().length) continue; const r = el.getBoundingClientRect(); if (r.right > R.right + 1) uit.push(`${sel} ${Math.round(r.right - R.right)} px buiten de app`); }
+  return uit;
+};
+// een ronde over alle weergaven en een paar pagina's op de maat van nu: de topbalk, de chip van de oefendag, de overloop
+async function topbalkRonde(p, w, oef, menu) {
+  const adressen = await p.evaluate(() => { const c = window.SLCT.ui.ctx; return [...document.querySelectorAll('#views > .view')].map(v => 'view:' + v.id.replace(/^v-/, '')).concat(c.Z.list().slice(0, 4).map(z => 'melding/' + z.id), [`rit/${c.R.all()[0].id}`, 'voertuig/T-1068/vandaag', 'persoon/P-0001']); });
+  const fout = []; const over = []; const stappen = new Set(); const rechts = new Set(); let chip = null, ellips = 0, smalst = Infinity;
+  for (const a of adressen) {
+    await p.evaluate(a => window.SLCT.ui.ctx.go(a), a); await p.waitForTimeout(200);
+    const m = await p.evaluate(topbalkMeet); if (m.stappen) stappen.add(m.stappen); rechts.add(m.rechts); chip = chip || m.chip; smalst = Math.min(smalst, m.titelBreed);
+    // met het menu dat de kijker op een tablet zelf uitklapte, is de titel het enige dat nog mag wijken: hij breekt dan af
+    // met een ellips (de laatste stap van de topbalk); de rest blijft heel en er valt niets af
+    const uit = menu ? m.uit.filter(x => !/^(titel|ondertitel) /.test(x)) : m.uit; if (menu && uit.length !== m.uit.length) ellips++;
+    if (uit.length) fout.push(`${a}: ${uit.join(', ')}`);
+    if (oef && (!m.chip || !m.chip.zicht || !/Oefendag/.test(m.chip.naam))) fout.push(`${a}: geen chip van de oefendag`);
+    const o = await p.evaluate(overloopMeet); if (o.length) over.push(`${a}: ${o.join(', ')}`);
+  }
+  const lbl = `${w} px, ${oef ? 'oefendag' : 'gewone dag'}${menu ? ` (${menu})` : ''}`;
+  if (menu && smalst < 60) fout.push(`de titel houdt maar ${smalst} px`);
+  check(!fout.length && (!oef || chip), `${lbl}: in de topbalk breekt niets af bij ${adressen.length} weergaven en pagina's${oef && chip ? ` (de chip ${chip.tekst ? 'met het woord Oefendag' : 'als icoon'}, naam "${chip.naam}")` : ''}${menu ? `; de titel wijkt als laatste, met een ellips bij ${ellips} van ${adressen.length}, en houdt minstens ${smalst} px` : ''}; wat ruimte maakte: ${[...stappen].join(' | ') || 'niets nodig'}${fout.length ? `; FOUT: ${fout.slice(0, 4).join('; ')}` : ''}`);
+  check(!over.length, `${lbl}: niets breder dan het scherm bij ${adressen.length} weergaven en pagina's${over.length ? `; FOUT: ${over.slice(0, 4).join('; ')}` : ''}`);
+  if (w >= 1280) check(rechts.size === 1, `${lbl}: rechts in de topbalk verspringt niet tussen weergaven en pagina's (${[...rechts].map(x => x || 'niets').join(' | ')})`);
+}
+const laadDag = async (p, oef) => {
   await p.goto(url, { waitUntil: 'load' });
   await p.evaluate(wg => { try { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify(wg)); } catch { /* geen opslag */ } }, WOGNUM);
   await p.goto(url + (oef ? '?scenario=druk' : ''), { waitUntil: 'load' }); await p.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 300_000, polling: 500 }); await p.waitForTimeout(1000);
   await p.evaluate(() => { const S = window.SLCT; S.state.playing = false; S.state.simTime = 450; S.ui.frame(true); S.ui.ctx.refreshAll(); });
-  const adressen = await p.evaluate(() => { const c = window.SLCT.ui.ctx; return [...document.querySelectorAll('#views > .view')].map(v => 'view:' + v.id.replace(/^v-/, '')).concat(c.Z.list().slice(0, 4).map(z => 'melding/' + z.id), [`rit/${c.R.all()[0].id}`, 'voertuig/T-1068/vandaag', 'persoon/P-0001']); });
-  const fout = []; const stappen = new Set(); const rechts = new Set(); let chip = null;
-  for (const a of adressen) {
-    await p.evaluate(a => window.SLCT.ui.ctx.go(a), a); await p.waitForTimeout(200);
-    const m = await p.evaluate(topbalkMeet); if (m.stappen) stappen.add(m.stappen); rechts.add(m.rechts); chip = chip || m.chip;
-    if (m.uit.length) fout.push(`${a}: ${m.uit.join(', ')}`);
-    if (oef && (!m.chip || !m.chip.zicht || !/Oefendag/.test(m.chip.naam))) fout.push(`${a}: geen chip van de oefendag`);
-  }
-  check(!fout.length && (!oef || chip), `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: in de topbalk breekt niets af bij ${adressen.length} weergaven en pagina's${oef && chip ? ` (de chip ${chip.tekst ? 'met het woord Oefendag' : 'als icoon'}, naam "${chip.naam}")` : ''}; wat ruimte maakte: ${[...stappen].join(' | ') || 'niets nodig'}${fout.length ? `; FOUT: ${fout.slice(0, 4).join('; ')}` : ''}`);
-  if (w >= 1280) check(rechts.size === 1, `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: rechts in de topbalk verspringt niet tussen weergaven en pagina's (${[...rechts].map(x => x || 'niets').join(' | ')})`);
-  if (oef && w === 1440) {
+};
+// Het bureaublad: per dag een pagina die van maat verandert (1440, 1280, 1024, 820, 768; het menu en de topbalk volgen de
+// maat van de app vanzelf). Tussen 761 en 1100 px klapt het menu vanzelf in (ronde 3, zoals Gmail en Linear); klapt de
+// kijker het daar zelf uit, dan blijft dat zo, ook op een andere maat, en past de topbalk nog steeds.
+for (const oef of [true, false]) {
+  const r = await nieuwePagina({ width: 1440, height: 900 }); const p = r.page;
+  await laadDag(p, oef);
+  if (oef) {
     // de oefendag om 15:00: vertraagd zonder zaak (N5); de briefing zegt dat niemand na zijn venster komt
     await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 900; S.ui.frame(true); S.ui.ctx.refreshAll(); S.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
     const o = await p.evaluate(samenhangOverzicht); const b = await samenhangKaart(p); const sf = samenhangFout(o, b);
     check(!sf.length && (!b.vertraagd || /Niemand komt na zijn venster|na (zijn|hun) venster|De grootste/.test(o.speelt)), `oefendag 15:00: "${o.speelt.replace(/^Speelt/, '')}"; op de kaart Vertraagd ${b.vertraagd}, Onderweg ${b.onderweg}${sf.length ? `: ${sf.join('; ')}` : ''}`);
+    await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 450; S.ui.frame(true); S.ui.ctx.refreshAll(); });
   }
+  for (const w of [1440, 1280, 1024, 820, 768]) {
+    await p.setViewportSize({ width: w, height: 900 }); await p.waitForTimeout(600);
+    const dicht = await p.evaluate(() => document.getElementById('app').classList.contains('nav-c'));
+    check(dicht === (w <= 1100), `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: het menu ${dicht ? 'is vanzelf ingeklapt' : 'staat open'} (ingeklapt tussen 761 en 1100 px)`);
+    await topbalkRonde(p, w, oef, '');
+    if (w === 1024 || w === 768) {
+      await p.evaluate(() => window.SLCT.ui.ctx.toggleNav()); await p.waitForTimeout(400);
+      const open = await p.evaluate(() => ({ open: !document.getElementById('app').classList.contains('nav-c'), k: localStorage.getItem('sl-nav') }));
+      await topbalkRonde(p, w, oef, 'menu zelf uitgeklapt');
+      await p.setViewportSize({ width: w - 24, height: 900 }); await p.waitForTimeout(500);
+      const blijft = await p.evaluate(() => !document.getElementById('app').classList.contains('nav-c'));
+      await p.evaluate(() => { window.SLCT.ui.ctx.toggleNav(); try { localStorage.removeItem('sl-nav'); } catch { /* geen opslag */ } });
+      await p.setViewportSize({ width: w, height: 900 }); await p.waitForTimeout(500);
+      const dichtNa = await p.evaluate(() => document.getElementById('app').classList.contains('nav-c'));
+      check(open.open && open.k === 'o' && blijft && dichtNa, `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: zelf uitklappen blijft staan (sl-nav ${open.k}; op ${w - 24} px ${blijft ? 'nog open' : 'dicht'}), en zonder eigen keuze klapt het weer vanzelf in (${dichtNa ? 'ingeklapt' : 'open'})`);
+    }
+  }
+  await r.ctx.close();
+}
+// de telefoon (390 px, met aanraking): een eigen context per dag; op de oefendag ook de cijfers van de zaak Koeling
+for (const oef of [true, false]) {
+  const r = await nieuwePagina({ width: 390, height: 844 }); const p = r.page;
+  await laadDag(p, oef);
+  await topbalkRonde(p, 390, oef, '');
+  if (oef) await kpiToets(p, '390 px, oefendag', ['Koeling', 'Techniek', 'Oplegger']);
   await r.ctx.close();
 }
 
