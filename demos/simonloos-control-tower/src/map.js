@@ -93,7 +93,7 @@ export function createMap(container, opts) {
   // het vangnet: faalt een bron van de basiskaart (een fout bij het laden), dan is er niets om op te wachten
   map.on('error', e => { const id = e && e.sourceId; if ((id === 'land' || id === 'water' || id === 'ofm' || id === 'luchtfoto' || id === 'brt') && !wachtAf) weg(); });
   function weg() {
-    if (wachtAf) return; wachtAf = true; clearTimeout(wachtTimer); map.off('render', wachtOp);
+    if (wachtAf) return; wachtAf = true; clearTimeout(wachtTimer); clearInterval(tikker);
     if (reducedMotion()) { wacht.remove(); return; }
     requestAnimationFrame(() => { wacht.classList.add('weg'); setTimeout(() => wacht.remove(), 260); });
   }
@@ -118,18 +118,28 @@ export function createMap(container, opts) {
   // en water samen meer dan 12 s, en het oude net van 12 s liep al tijdens het laden mee, zodat toch de zee stond. Liever
   // een kaart die langer "De kaart wordt getekend" zegt dan een kaart die verkeerd is
   function net() { wachtTimer = 0; if (!wachtAf && kijkt()) weg(); }
+  // Gemeten met een eigen tik (elke 120 ms), niet in het render-bericht van de kaart: een meting daarin hield onder
+  // belasting het tekenen tegen (met het vlak nog in beeld en de camera in beweging tekende de kaart geen enkel beeld
+  // meer, ronde 4). queryRenderedFeatures leest het laatst getekende beeld; een bron of laag die net verandert, geeft
+  // hooguit een tik later antwoord.
+  let klaarSinds = 0;
   function wachtOp() {
-    if (wachtAf || !map.getLayer('land') || !map.getLayer('water')) return;
-    if (!kijkt()) { if (wachtTimer) { clearTimeout(wachtTimer); wachtTimer = 0; } return; }
-    if (!wachtTimer) wachtTimer = setTimeout(net, 30000);
-    if (!geladen('land') || !geladen('water')) return;
-    // pas als de camera stilstaat: tijdens de vlucht naar het werkgebied vraagt elk beeld nieuwe tegels
-    if (typeof map.isMoving === 'function' && map.isMoving()) return;
-    const online = !!map.getLayer('o-bg') && !verborgen('o-bg');
-    const klaar = !verborgen('land') ? inBeeld('land') : online ? bronKlaar('ofm') && OFM_ZICHT.some(inBeeld) : bronKlaar('luchtfoto') && bronKlaar('brt');
-    if (klaar) weg();
+    try {
+      if (wachtAf || !map.getLayer('land') || !map.getLayer('water')) return;
+      if (!kijkt()) { if (wachtTimer) { clearTimeout(wachtTimer); wachtTimer = 0; } klaarSinds = 0; return; }
+      if (!wachtTimer) wachtTimer = setTimeout(net, 30000);
+      if (!geladen('land') || !geladen('water')) { klaarSinds = 0; return; }
+      const online = !!map.getLayer('o-bg') && !verborgen('o-bg');
+      const klaar = !verborgen('land') ? inBeeld('land') : online ? bronKlaar('ofm') && OFM_ZICHT.some(inBeeld) : bronKlaar('luchtfoto') && bronKlaar('brt');
+      if (!klaar) { klaarSinds = 0; return; }
+      // beweegt de camera nog (de vlucht naar het werkgebied vraagt elk beeld nieuwe tegels), dan hooguit anderhalve
+      // seconde wachten op stilstand; een volgcamera beweegt altijd en mag het vlak niet vasthouden
+      if (!klaarSinds) klaarSinds = performance.now();
+      if (typeof map.isMoving === 'function' && map.isMoving() && performance.now() - klaarSinds < 1500) return;
+      weg();
+    } catch { /* de volgende tik opnieuw */ }
   }
-  map.on('render', wachtOp);
+  const tikker = setInterval(wachtOp, 120);
   const clock = opts.clock || null;
   let trailersOn = false; let scene3d = null, three = false; let ready = false; const onReady = [];
   const motion = createMotion();
