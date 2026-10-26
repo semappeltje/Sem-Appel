@@ -58,7 +58,10 @@ assistent-check (185 van 185, zonder API), otm5-check, data-check (vingerafdruk 
 plain, gl embedded en nogl plain, open-ritten-check (47), voorstel-check (26), ochtend-check (39: maandag en zondag
 om 04:00, 05:30 en 06:30, de maandag na de zomertijd, de oefendag), portretten-check, ui-check gl (168) en nogl
 (160), 3d-check (18) en map-check (102 van 103; de ene meting is de draaisnelheid van de volgcamera in 3D, die in de
-run met twee stromen tegelijk 200 graden per seconde mat en bij herhaling op een rustige machine KAARTHERHALING).
+run met twee stromen tegelijk 200 graden per seconde mat en bij herhaling op een rustige machine 68, bij een grens van
+60: de camera begrenst zichzelf op 60 graden per seconde met de klok van de eigen beeldlus, de test leest de tijd van het
+beeld waarin MapLibre tekent, en op een software-GPU lopen die twee tot 15 procent uiteen; op dezelfde code was de
+meting eerder vandaag groen. Geen gebrek in de app; de test krijgt een meting met dezelfde klok, zie de ideeënbank).
 Daarvoor drie eindcontroles door een aparte agent tegen `acceptatie-4.0.md`; het oordeel van de derde: opleveren na
 twee herstelpunten (het eerste kaartbeeld op een trage machine, het belmoment dat in de rij afbrak), beide hersteld
 en opnieuw gemeten in deze build.
