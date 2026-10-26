@@ -949,8 +949,11 @@ for (const oef of [true, false]) {
     check(!sf.length && (!b.vertraagd || /Niemand komt na zijn venster|na (zijn|hun) venster|De grootste/.test(o.speelt)), `oefendag 15:00: "${o.speelt.replace(/^Speelt/, '')}"; op de kaart Vertraagd ${b.vertraagd}, Onderweg ${b.onderweg}${sf.length ? `: ${sf.join('; ')}` : ''}`);
     await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 450; S.ui.frame(true); S.ui.ctx.refreshAll(); });
   }
+  // het menu volgt de maat via een ResizeObserver, dus pas meten als de app de nieuwe maat heeft en het menu zijn stand
+  // (onder belasting, met SwiftShader, kan een beeld langer dan een halve seconde duren; een echte fout blijft na 5 s staan)
+  const maat = async (w, dichtVerwacht) => { await p.setViewportSize({ width: w, height: 900 }); await p.waitForFunction(w => Math.abs(document.getElementById('app').getBoundingClientRect().width - w) < 1, w, { timeout: 5000 }).catch(() => {}); await p.waitForFunction(d => document.getElementById('app').classList.contains('nav-c') === d, dichtVerwacht, { timeout: 5000 }).catch(() => {}); await p.waitForTimeout(300); };
   for (const w of [1440, 1280, 1024, 820, 768]) {
-    await p.setViewportSize({ width: w, height: 900 }); await p.waitForTimeout(600);
+    await maat(w, w <= 1100);
     const dicht = await p.evaluate(() => document.getElementById('app').classList.contains('nav-c'));
     check(dicht === (w <= 1100), `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: het menu ${dicht ? 'is vanzelf ingeklapt' : 'staat open'} (ingeklapt tussen 761 en 1100 px)`);
     await topbalkRonde(p, w, oef, '');
@@ -958,10 +961,10 @@ for (const oef of [true, false]) {
       await p.evaluate(() => window.SLCT.ui.ctx.toggleNav()); await p.waitForTimeout(400);
       const open = await p.evaluate(() => ({ open: !document.getElementById('app').classList.contains('nav-c'), k: localStorage.getItem('sl-nav') }));
       await topbalkRonde(p, w, oef, 'menu zelf uitgeklapt');
-      await p.setViewportSize({ width: w - 24, height: 900 }); await p.waitForTimeout(500);
+      await maat(w - 24, false);
       const blijft = await p.evaluate(() => !document.getElementById('app').classList.contains('nav-c'));
       await p.evaluate(() => { window.SLCT.ui.ctx.toggleNav(); try { localStorage.removeItem('sl-nav'); } catch { /* geen opslag */ } });
-      await p.setViewportSize({ width: w, height: 900 }); await p.waitForTimeout(500);
+      await maat(w, true);
       const dichtNa = await p.evaluate(() => document.getElementById('app').classList.contains('nav-c'));
       check(open.open && open.k === 'o' && blijft && dichtNa, `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: zelf uitklappen blijft staan (sl-nav ${open.k}; op ${w - 24} px ${blijft ? 'nog open' : 'dicht'}), en zonder eigen keuze klapt het weer vanzelf in (${dichtNa ? 'ingeklapt' : 'open'})`);
     }
