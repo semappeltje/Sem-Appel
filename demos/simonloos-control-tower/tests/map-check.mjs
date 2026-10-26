@@ -288,7 +288,9 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
     if (o.via) { await page.waitForTimeout(1200); await page.evaluate(() => { window.__eb.start = performance.now(); window.SLCT.ui.ctx.go('view:kaart'); }); }
     else await page.evaluate(() => { window.__eb.start = performance.now(); });
     if (shots && !o.via) { mkdirSync(shots, { recursive: true }); await page.screenshot({ path: `${shots}/kaart-openen-${lab.replace(/[^a-z0-9]+/gi, '-')}-direct.png` }); }
-    await page.waitForFunction(() => !document.querySelector('.kaart-wacht'), null, { timeout: 30000, polling: 100 }).catch(() => {});
+    // met de processor vier keer trager en andere tests ernaast kan land en water verwerken meer dan 30 s duren: dan
+    // staat het vlak er terecht nog (het net telt alleen terwijl iemand kijkt); tot 70 s wachten
+    await page.waitForFunction(() => !document.querySelector('.kaart-wacht'), null, { timeout: 70000, polling: 100 }).catch(() => {});
     await page.waitForTimeout(400);
     const E = await page.evaluate(() => ({ ...window.__eb, vlak: !!document.querySelector('.kaart-wacht') }));
     if (shots) await page.screenshot({ path: `${shots}/kaart-openen-${lab.replace(/[^a-z0-9]+/gi, '-')}-klaar.png` });
