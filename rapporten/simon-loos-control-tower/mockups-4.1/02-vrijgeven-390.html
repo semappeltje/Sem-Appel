@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Vrijgeven (telefoon)</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.st{display:flex;gap:6px;overflow:hidden;margin:10px 0}
+.st span{flex:none}
+.dl{display:flex;flex-direction:column;gap:8px}
+.d{border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.d .h{display:flex;align-items:center;gap:8px}
+.d .h b{font-size:13.5px}
+.d .h .badge{margin-left:auto}
+.d .m{font-size:12px;color:var(--muted);margin-top:2px}
+.d.sel{border-color:var(--sel-line);background:var(--sel)}
+.d .df{font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--sel-line);color:var(--text2)}
+.nieuwhier{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:var(--warn-soft);color:var(--warn);font-size:10.5px;font-weight:700}
+.go{position:fixed;left:0;right:0;bottom:60px;padding:10px 16px;background:var(--bg);border-top:1px solid var(--line)}
+.go .btn{width:100%}
+.go .hint{text-align:center;margin-top:4px}
+</style></head>
+<body data-actief="vrijgeven" data-titel="Vrijgeven" data-crumb="Wognum · di 27 okt · 52 diensten" data-klok="16:20">
+<div class="m-app"><header id="mtop"></header>
+<div class="m-page">
+  <div class="st"><span class="chip on">Alle <span class="n">52</span></span><span class="chip">Concept <span class="n">7</span></span><span class="chip">Gewijzigd <span class="n">1</span></span><span class="chip">Geen reactie <span class="n">3</span></span></div>
+  <div class="dl">
+    <div class="d sel"><div class="h"><b>Jolanda de Vries</b><span class="badge b-bad sm">Gewijzigd</span></div><div class="m">05:30 tot 16:55 · T-1133 · 3 ritten <span class="nieuwhier">eerste keer</span></div>
+      <div class="df"><b>+</b> rit 3, AH Enkhuizen 15:15 tot 16:00 · eind 14:40 wordt 16:55</div></div>
+    <div class="d"><div class="h"><b>Youssef Bakker</b><span class="badge b-out sm">Concept</span></div><div class="m">04:30 tot 09:40 · halve dag · 1 rit</div></div>
+    <div class="d"><div class="h"><b>Kevin Mulder</b><span class="badge b-out sm">Concept</span></div><div class="m">05:00 tot 14:10 · oproep · 2 ritten <span class="nieuwhier">eerste keer</span></div></div>
+    <div class="d"><div class="h"><b>Martijn Koning</b><span class="badge b-warn sm">Geen reactie · 70 min</span></div><div class="m">04:45 tot 15:05 · T-1194 · 3 ritten</div></div>
+    <div class="d"><div class="h"><b>Linda Zeeman</b><span class="badge b-info sm">Gezien 15:42</span></div><div class="m">05:15 tot 15:30 · T-1120 · 3 ritten</div></div>
+    <div class="d"><div class="h"><b>Jeroen Ruiter</b><span class="badge b-info sm">Gezien 15:51</span></div><div class="m">06:00 tot 16:10 · T-1180 · 2 ritten <span class="nieuwhier">eerste keer</span></div></div>
+    <div class="d"><div class="h"><b>Ahmed Karsten</b><span class="badge b-ok sm">Bevestigd 15:48</span></div><div class="m">04:30 tot 14:40 · T-1212 · 3 ritten</div></div>
+  </div>
+</div>
+<div class="go"><span class="btn lg pri"><i data-ic="send"></i>Planning vrijgeven (8)</span><div class="hint">7 nieuw en 1 verschil; de rest is al weg</div></div>
+<nav id="mbar"></nav></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Bezetting (telefoon)</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.mk{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.mk>div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.mk .l{font-size:11.5px;font-weight:600;color:var(--muted)}
+.mk .v{font-size:20px;font-weight:600}
+.mk .s{font-size:11px;color:var(--muted)}
+.rows{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:52px 1fr 64px;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--line);font-size:12.5px}
+.row:first-child{border-top:0}
+.row.sel{background:var(--sel)}
+.dv{position:relative;height:16px}
+.dv::before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px solid var(--line2)}
+.dv i{position:absolute;top:3px;height:10px;border-radius:2px}
+.dv i.t{right:50%;background:var(--tekort)}
+.dv i.o{left:50%;background:var(--over)}
+.row .n{text-align:right;font-weight:600;font-size:12px}
+.open{padding:8px 10px 10px;border-top:1px solid var(--line);background:var(--sel)}
+.open .dd{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0 8px}
+.open .dd span{border-radius:5px;text-align:center;font-size:11.5px;font-weight:600;padding:4px 0;background:var(--bg)}
+.vv{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-top:1px solid var(--line2)}
+.vv .btn{margin-left:auto}
+</style></head>
+<body data-actief="bezetting" data-titel="Bezetting" data-crumb="Wognum · twee weken · gesimuleerd" data-klok="15:42">
+<div class="m-app"><header id="mtop"></header>
+<div class="m-page">
+  <div class="seg" style="width:100%"><span class="on" style="flex:1;justify-content:center">Wognum</span><span style="flex:1;justify-content:center">Heel Nederland</span></div>
+  <div class="mk">
+    <div><div class="l">Tekort</div><div class="v" style="color:var(--tekort-t)" id="k-t"></div><div class="s" id="k-kt"></div></div>
+    <div><div class="l">Overschot</div><div class="v" style="color:var(--over-t)" id="k-o"></div><div class="s" id="k-ko"></div></div>
+  </div>
+  <div class="rows" id="rows"></div>
+</div>
+<nav id="mbar"></nav></div>
+<script src="iconen.js"></script><script src="bezetting-data.js"></script>
+<script>
+const B = window.BEZ, eur = n => '€ ' + n.toLocaleString('nl-NL');
+document.getElementById('k-t').textContent = B.tekort;
+document.getElementById('k-o').textContent = B.over;
+document.getElementById('k-kt').textContent = eur(Math.round(B.kostenTekort / 100) * 100) + ' (schatting)';
+document.getElementById('k-ko').textContent = eur(Math.round(B.kostenOver / 100) * 100) + ' (schatting)';
+const SEL = 7, MAX = 7, idx = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+document.getElementById('rows').innerHTML = idx.map(i => { const d = B.perDag[i]; const net = d.over - d.tekort;
+  return `<div class="row ${i === SEL ? 'sel' : ''}"><b>${B.dagen[i]}</b><div class="dv">${d.tekort ? `<i class="t" style="width:${d.tekort / MAX * 50}%"></i>` : ''}${d.over ? `<i class="o" style="width:${d.over / MAX * 50}%"></i>` : ''}</div><span class="n" style="color:${net < 0 ? 'var(--tekort-t)' : net > 0 ? 'var(--over-t)' : 'var(--muted)'}">${d.tekort ? '−' + d.tekort : ''}${d.tekort && d.over ? ' / ' : ''}${d.over ? '+' + d.over : ''}${!d.tekort && !d.over ? '0' : ''}</span></div>` +
+  (i === SEL ? `<div class="open"><div style="font-size:12px;font-weight:600">Per dagdeel</div><div class="dd">${B.delen.map((n, j) => { const v = B.verschil[i][j]; return `<span style="color:${v < 0 ? 'var(--tekort-t)' : v > 0 ? 'var(--over-t)' : 'var(--muted)'}">${n}<br>${v > 0 ? '+' + v : v < 0 ? '−' + -v : '0'}</span>`; }).join('')}</div>
+   <div class="vv"><i data-ic="swap"></i>Youssef Bakker naar vroeg<span class="btn xs">Verschuif</span></div>
+   <div class="vv"><i data-ic="depot"></i>Twee lenen van Zaandam<span class="btn xs">Vraag</span></div>
+   <div class="vv"><i data-ic="star"></i>Twee extra via het bod<span class="btn xs pri">Bied aan</span></div></div>` : ''); }).join('');
+</script>
+<script src="mock.js"></script>
+</body></html>

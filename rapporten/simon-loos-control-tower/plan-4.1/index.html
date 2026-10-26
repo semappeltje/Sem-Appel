@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Control Tower 4.1</title>
+<meta name="description" content="Plan 4.1 van de Control Tower voor Simon Loos: het planproces van begin tot eind, scherm voor scherm, met mockups, de lat, eigen ideeën, wat Simon Loos levert, de volgorde en de risico's.">
+<style>
+/* Opzet: hetzelfde gedrukte voorstel als voorstel/index.html (huisstijl Simon Loos: wit papier, één kolom, rood en
+   goudgeel alleen als beeldmerk en band). In print A4 met marges, elk hoofdstuk een nieuwe pagina, de mockups op
+   volle breedte met een onderschrift, en paginanummers in de marge. Letter: Inter als die lokaal is, anders system-ui. */
+:root {
+  --paper: #ffffff; --panel: #f5f5f3; --panel-2: #ebebe8; --ink: #17181b; --ink-2: #40434b; --ink-3: #676c75;
+  --rule: #e2e2df; --rule-2: #c8c9c5; --red: #e3001f; --red-text: #c2001b; --red-wash: #fdebed;
+  --gold-wash: #fdf3e0; --gold-text: #7a4c00; --ok: #1d7543; --ok-wash: #e5f2e9; --info: #1d4ed8; --info-wash: #eaf0fd;
+  --sl-red: #e3001f; --sl-gold: #f0a526;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fs-xs: .78rem; --fs-s: .875rem; --fs-b: 1.0625rem; --fs-lead: 1.2rem; --fs-h3: 1.0625rem;
+  --fs-h2: clamp(1.6rem, 1.15rem + 1.5vw, 2.1rem); --fs-h1: clamp(2.1rem, 1.3rem + 3.2vw, 3.3rem);
+  --measure: 40em;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121316; --panel: #1b1c20; --panel-2: #25272c; --ink: #ececea; --ink-2: #c4c6cb; --ink-3: #969aa3;
+    --rule: #2b2d32; --rule-2: #3e4147; --red: #ff3f53; --red-text: #ff6e7c; --red-wash: #3b151b;
+    --gold-wash: #382a10; --gold-text: #f4c46a; --ok: #62c78e; --ok-wash: #15291d; --info: #93c5fd; --info-wash: #152238; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121316; --panel: #1b1c20; --panel-2: #25272c; --ink: #ececea; --ink-2: #c4c6cb; --ink-3: #969aa3;
+  --rule: #2b2d32; --rule-2: #3e4147; --red: #ff3f53; --red-text: #ff6e7c; --red-wash: #3b151b;
+  --gold-wash: #382a10; --gold-text: #f4c46a; --ok: #62c78e; --ok-wash: #15291d; --info: #93c5fd; --info-wash: #152238; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font); font-size: var(--fs-b); line-height: 1.58;
+  font-feature-settings: "cv05" 1; -webkit-font-smoothing: antialiased; }
+img { max-width: 100%; display: block; }
+p { margin: 0 0 .9em; }
+h1, h2, h3, h4 { font-weight: 600; text-wrap: balance; color: var(--ink); }
+h3 { font-size: var(--fs-h3); line-height: 1.3; margin: 0 0 .5em; }
+h4 { font-size: var(--fs-s); margin: 0 0 .35em; }
+ul, ol { margin: 0 0 1em; padding-left: 1.2em; }
+li { margin-bottom: .3em; }
+li::marker { color: var(--ink-3); }
+b, strong { font-weight: 600; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; background: var(--panel); padding: 0 .25em; border-radius: 3px; }
+.wrap { max-width: 1040px; margin-inline: auto; padding-inline: 16px; }
+.prose > p, .prose > ul, p.prose { max-width: var(--measure); }
+.muted { color: var(--ink-3); } .small { font-size: var(--fs-s); }
+.mark { --m: 7px; display: inline-grid; grid-template-columns: repeat(2, var(--m)); gap: calc(var(--m) * .3); transform: skewX(-12deg); flex: none; }
+.mark span { display: block; width: var(--m); height: var(--m); background: var(--sl-gold); }
+.mark span:nth-child(n+3) { background: var(--sl-red); }
+.band { height: 8px; background: linear-gradient(var(--sl-gold) 0 50%, var(--sl-red) 50% 100%); }
+
+/* voorkant */
+.cover { padding-block: 36px 0; }
+.cover-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-s); color: var(--ink-2); }
+.brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink); }
+.brand .mark { --m: 9px; }
+.cover h1 { font-size: var(--fs-h1); line-height: 1.08; letter-spacing: -.022em; margin: 60px 0 18px; max-width: 20ch; }
+.cover-sub { font-size: var(--fs-lead); line-height: 1.45; color: var(--ink-2); max-width: 34em; margin: 0 0 22px; }
+.cover-meta { display: flex; flex-wrap: wrap; gap: 6px 28px; font-size: var(--fs-s); color: var(--ink-2); margin-bottom: 32px; }
+.cover-meta b { color: var(--ink); }
+.cover-art { margin: 0; }
+.cover-art img { width: 100%; height: auto; border: 1px solid var(--rule); border-top: 0; }
+.cover-art figcaption { margin-top: 10px; font-size: var(--fs-s); color: var(--ink-2); }
+
+/* hoofdstukken */
+.ch { padding-block: 64px 8px; }
+.ch + .ch { border-top: 1px solid var(--rule); }
+.ch-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.ch-head .mark { --m: 6px; }
+.ch-num { font-size: var(--fs-s); font-weight: 600; color: var(--ink-3); min-width: 1.4em; }
+.ch h2 { font-size: var(--fs-h2); line-height: 1.14; letter-spacing: -.016em; margin: 0; }
+.lead { font-size: var(--fs-lead); line-height: 1.45; font-weight: 500; max-width: 36em; margin: 0 0 22px; }
+.sub { margin-top: 40px; }
+.sub-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.sub-head .letter { flex: none; display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 5px; background: var(--ink); color: var(--paper); font-size: var(--fs-s); font-weight: 700; }
+.sub-head h3 { margin: 0; font-size: calc(var(--fs-h3) * 1.18); }
+
+/* kort */
+.kort-list { list-style: none; padding: 0; margin: 0 0 24px; }
+.kort-list li { display: grid; grid-template-columns: 11em 1fr; gap: 6px 24px; padding: 13px 0; border-top: 1px solid var(--rule); margin: 0; }
+.kort-list li:last-child { border-bottom: 1px solid var(--rule); }
+.kort-list .k { font-weight: 600; }
+.toc ol { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 32px; }
+.toc li { display: grid; grid-template-columns: 1.8em 1fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px dotted var(--rule-2); font-size: var(--fs-s); break-inside: avoid; }
+.toc .n { color: var(--ink-3); font-weight: 600; }
+.toc a { text-decoration: none; color: inherit; }
+.toc .pg { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* feiten per bouwsteen: nu, wat verandert, lat */
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; margin: 0 0 16px; font-size: var(--fs-s); }
+.facts > div { border-top: 2px solid var(--ink); padding-top: 8px; min-width: 0; }
+.facts > div.lat { border-top-color: var(--sl-red); }
+.facts dt { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-3); margin-bottom: 4px; letter-spacing: .02em; }
+.facts dd { margin: 0; }
+.facts ul { padding-left: 1em; margin: 0; }
+.facts li { margin-bottom: .2em; }
+
+/* per scherm: ziet, klikt, gebeurt */
+.tablewrap { overflow-x: auto; margin: 10px 0 18px; }
+table { border-collapse: collapse; width: 100%; font-size: var(--fs-s); line-height: 1.45; }
+th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: var(--fs-xs); border-bottom: 1.5px solid var(--ink); padding: 6px 10px 6px 0; vertical-align: bottom; }
+td { border-bottom: 1px solid var(--rule); padding: 7px 10px 7px 0; vertical-align: top; }
+td:first-child { font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.screens td:first-child { width: 17%; }
+
+figure { margin: 22px 0; }
+figure img { width: 100%; height: auto; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--panel); }
+figcaption { font-size: var(--fs-s); line-height: 1.5; color: var(--ink-2); margin-top: 8px; }
+figcaption b { color: var(--ink); }
+.fig-side { display: grid; grid-template-columns: minmax(0, 1fr) 13.5rem; gap: 24px; align-items: start; margin: 22px 0; }
+.fig-side figure { margin: 0; }
+.fig-2 { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 20px; align-items: start; margin: 22px 0; }
+.fig-2 figure { margin: 0; }
+.crop { overflow: hidden; border: 1px solid var(--rule-2); border-radius: 6px; background: var(--panel); }
+.crop img { border: 0; border-radius: 0; max-width: none; }
+
+.note { border-left: 3px solid var(--sl-gold); background: var(--gold-wash); padding: 10px 14px; margin: 14px 0; font-size: var(--fs-s); border-radius: 0 6px 6px 0; }
+.note.info { border-left-color: var(--info); background: var(--info-wash); }
+.note b { color: var(--ink); }
+
+/* ideeen */
+.idea { padding-top: 18px; margin-top: 22px; border-top: 1px solid var(--rule); break-inside: avoid; }
+.idea-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.idea-head h3 { margin: 0; font-size: calc(var(--fs-h3) * 1.1); }
+.idea-n { font-size: var(--fs-s); color: var(--ink-3); font-weight: 600; }
+.idea dl { display: grid; grid-template-columns: 9.5em 1fr; gap: 5px 16px; margin: 0; font-size: var(--fs-s); }
+.idea dt { font-weight: 600; color: var(--ink-3); font-size: var(--fs-xs); padding-top: .15em; }
+.idea dd { margin: 0; }
+.chip { display: inline-block; font-size: var(--fs-xs); font-weight: 600; border-radius: 4px; padding: 0 6px; background: var(--panel-2); color: var(--ink-2); vertical-align: 1px; }
+
+.ask { list-style: none; padding: 0; margin: 0; }
+.ask li { padding: 8px 0; border-top: 1px solid var(--rule); margin: 0; font-size: var(--fs-s); }
+.ask li b { display: inline; }
+.sig { display: grid; grid-template-columns: 10em 1fr; gap: 4px 20px; margin: 0; }
+.sig dt { font-weight: 600; padding: 9px 0; border-top: 1px solid var(--rule); }
+.sig dd { margin: 0; padding: 9px 0; border-top: 1px solid var(--rule); font-size: var(--fs-s); }
+.endline { margin-top: 40px; padding-block: 18px 40px; border-top: 1px solid var(--rule); font-size: var(--fs-s); color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .facts, .fig-side, .fig-2 { grid-template-columns: 1fr; }
+  .facts > div { margin-bottom: 12px; }
+  .kort-list li, .idea dl, .sig { grid-template-columns: 1fr; }
+  .toc ol { columns: 1; }
+  .fig-side figure.phone { max-width: 16rem; }
+}
+
+/* ---------- print: A4, licht ---------- */
+@page {
+  size: A4;
+  margin: 16mm 18mm 18mm 18mm;
+  @bottom-left { content: "Control Tower 4.1  ·  Plan van Sem Appel, SafeTail  ·  26 oktober 2026"; font-family: Inter, sans-serif; font-size: 7pt; color: #676c75; vertical-align: top; padding-top: 5mm; }
+  @bottom-right { content: counter(page) " / " counter(pages); font-family: Inter, sans-serif; font-size: 7pt; font-weight: 600; color: #676c75; vertical-align: top; padding-top: 5mm; }
+}
+@page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+@media print {
+  html:root {
+    --paper: #ffffff; --panel: #f5f5f3; --panel-2: #ebebe8; --ink: #17181b; --ink-2: #40434b; --ink-3: #676c75;
+    --rule: #e2e2df; --rule-2: #c8c9c5; --red: #e3001f; --red-text: #c2001b; --gold-wash: #fdf3e0; --info-wash: #eaf0fd; --info: #1d4ed8;
+    --fs-xs: 7.2pt; --fs-s: 8.3pt; --fs-b: 9.5pt; --fs-lead: 11pt; --fs-h3: 10.2pt; --fs-h2: 18pt; --fs-h1: 30pt; --measure: none;
+    color-scheme: light;
+  }
+  html, body { background: #fff; }
+  body { line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; orphans: 3; widows: 3; }
+  .wrap { max-width: none; padding: 0; }
+  a { text-decoration: none; color: inherit; }
+  .ch { break-before: page; padding: 0; border: 0 !important; }
+  .ch.flow { break-before: auto; margin-top: 9mm; }
+  .ch-head { margin-bottom: 3.5mm; }
+  .lead { margin-bottom: 4mm; max-width: none; }
+  .sub { margin-top: 6mm; }
+  .sub.page { break-before: page; margin-top: 0; }
+  h2, h3, h4, .ch-head, .sub-head, .idea-head { break-after: avoid; }
+  figure, .fig-side, .fig-2, .facts, .idea, tr, .kort-list li, .note, .toc, .sig dt, .sig dd { break-inside: avoid; }
+  .tablewrap { overflow: visible; margin: 2.5mm 0 4mm; }
+  thead { display: table-header-group; }
+  th, td { padding: 1.4mm 2.4mm 1.4mm 0; }
+  figure { margin: 4mm 0; }
+  .sub > figure > img { width: 90%; }
+  #b-k > figure > img { width: 79%; }
+  figure img, .crop { border-radius: 3px; }
+  figcaption { margin-top: 1.8mm; }
+  .fig-side { grid-template-columns: minmax(0, 1fr) 50mm; gap: 6mm; margin: 4mm 0; }
+  .fig-2 { gap: 6mm; margin: 4mm 0; }
+  .facts { gap: 0 6mm; margin-bottom: 3mm; }
+  .kort-list li { padding: 2.6mm 0; grid-template-columns: 36mm 1fr; }
+  .idea { margin-top: 4mm; padding-top: 3mm; }
+  .note { margin: 3mm 0; }
+  .endline { display: none; }
+  .cover { height: 297mm; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .cover > .wrap { padding: 20mm 22mm 0; flex: 1; display: flex; flex-direction: column; }
+  .cover h1 { margin: 30mm 0 6mm; max-width: 150mm; }
+  .cover-sub { max-width: 145mm; margin-bottom: 6mm; }
+  .cover-meta { margin-bottom: 0; }
+  .cover-art { margin-top: auto; }
+  .cover-art .band { height: 4mm; margin: 0 -22mm; }
+  .cover-art img { width: 210mm; max-width: none; margin: 0 -22mm; height: 131mm; object-fit: cover; object-position: 0 0; border: 0; }
+  .cover-art figcaption { padding: 3mm 0 6mm; font-size: 7.3pt; color: var(--ink-3); max-width: 160mm; }
+}
+</style>
+</head>
+<body>
+
+<header class="cover" id="top">
+  <div class="wrap">
+    <div class="cover-top">
+      <span class="brand"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>Simon Loos</span>
+      <span>Plan 4.1 · Control Tower</span>
+    </div>
+    <h1>Control Tower 4.1: het planproces van begin tot eind</h1>
+    <p class="cover-sub">Wat er verandert voor de planner, de chauffeur en de directie: scherm voor scherm, met mockups, de lat waarop we het toetsen, vijf eigen ideeën, wat Simon Loos levert en in welke volgorde het live gaat.</p>
+    <div class="cover-meta"><span><b>26 oktober 2026</b></span><span>Plan van <b>Sem Appel</b>, SafeTail</span><span>Voor Sem en de directie</span></div>
+    <figure class="cover-art">
+      <div class="band" aria-hidden="true"></div>
+      <img src="img/02-vrijgeven.jpg" width="1440" height="900" alt="Mockup van het nieuwe scherm Vrijgeven voor Wognum: de diensten van morgen met hun status en de rode knop Planning vrijgeven.">
+      <figcaption><b>Vrijgeven, een van de nieuwe schermen.</b> De planning van morgen voor Wognum met de status per dienst. Mockup; alle namen, ritten en tijden zijn gesimuleerd.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<main>
+<section class="ch" id="kort" aria-labelledby="kort-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><h2 id="kort-t">In het kort</h2></div>
+    <p class="lead">Met 4.1 wordt de Control Tower het planproces van begin tot eind: van wie er morgen kan, via de planning die de planner vrijgeeft, tot het bericht op de telefoon van de chauffeur en de rit in de boordcomputer.</p>
+    <ol class="kort-list">
+      <li><span class="k">Voor de planner</span><span class="v">Hij rekent niet meer zelf met uren. Bij elke chauffeur staat wat hij nog mag rijden en wanneer zijn rust begint; wie het niet haalt of niet in zijn rooster past, staat niet in de lijst. Hij geeft de planning van morgen met één knop vrij en ziet wie het gezien en bevestigd heeft.</span></li>
+      <li><span class="k">Voor de chauffeur</span><span class="v">Hij krijgt zijn dienst van morgen op zijn telefoon, met zijn rust erbij en uitleg over een adres waar hij nog nooit was. Hij bevestigt met één tik. Verandert er iets, dan krijgt hij alleen het verschil. Hij geeft zijn voorkeur voor extra diensten zelf op.</span></li>
+      <li><span class="k">Voor de directie</span><span class="v">Een dashboard met op tijd, gemist, invulling en kosten, bezetting, kosten per kilometer, lege kilometers, wachttijd, rij- en rusttijden en CO2, met een trend over dertig dagen. De directie kijkt mee op het planbord, alleen-lezen.</span></li>
+      <li><span class="k">Te veel of te weinig mensen</span><span class="v">Een nieuw scherm Bezetting zet twee weken vooruit per dag en dagdeel naast elkaar wat de ritten vragen en wat het rooster kan, met de kosten als schatting en wat je eraan kunt doen.</span></li>
+      <li><span class="k">Hoeveel werk</span><span class="v">Tien tot elf dagen werk in zes stappen (schatting, uit het plan). De eerste twee stappen zijn de kern en kunnen apart live.</span></li>
+      <li><span class="k">Wat we nodig hebben</span><span class="v">Voor de simulatie niets. Voor een proef: het rooster en de contracturen, tachograaf of werkstaten, de open ritten uit het TMS in OTM5, het kanaal naar de chauffeur, de koppeling met de boordcomputer en een afspraak met de OR.</span></li>
+    </ol>
+    <nav class="toc" aria-labelledby="toc-t">
+      <h3 id="toc-t">Inhoud</h3>
+      <ol>
+        <li><span class="n">1</span><a href="#waarom">Waarom 4.1</a><span class="pg" data-pg="waarom"></span></li>
+        <li><span class="n">2</span><a href="#bouwstenen">De bouwstenen, scherm voor scherm</a><span class="pg" data-pg="bouwstenen"></span></li>
+        <li><span class="n">3</span><a href="#bod">Het voorkeursbod en de directie</a><span class="pg" data-pg="bod"></span></li>
+        <li><span class="n">4</span><a href="#ideeen">Vijf eigen ideeën</a><span class="pg" data-pg="ideeen"></span></li>
+        <li><span class="n">5</span><a href="#nodig">Wat Simon Loos levert</a><span class="pg" data-pg="nodig"></span></li>
+        <li><span class="n">6</span><a href="#volgorde">Volgorde en schatting</a><span class="pg" data-pg="volgorde"></span></li>
+        <li><span class="n">7</span><a href="#risico">Risico's en signalen</a><span class="pg" data-pg="risico"></span></li>
+      </ol>
+    </nav>
+    <p class="small muted" style="margin-top:14px">Alles in de schermen is gesimuleerd: de namen van chauffeurs komen uit de simulatie van de demo en zijn verzonnen. Elk bedrag en elke besparing is een schatting met de onderbouwing erbij.</p>
+  </div>
+</section>
+
+<section class="ch" id="waarom" aria-labelledby="waarom-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">1</span><h2 id="waarom-t">Waarom 4.1</h2></div>
+    <p class="lead">4.0 laat zien wat er gebeurt en helpt bij een gat. 4.1 maakt het plan zelf: wie kan, wat hij doet, en dat iedereen het weet.</p>
+    <h3>Wat Sem en zijn vader vroegen</h3>
+    <ul class="prose">
+      <li><b>De planner hoeft niet na te denken over wat een chauffeur de afgelopen week reed.</b> Het systeem houdt de rij- en rusttijden en de nachtrust van elke chauffeur zelf bij.</li>
+      <li><b>Het eigen rooster van de chauffeur telt</b>, van een volle week tot een halve dag.</li>
+      <li><b>Is de planning akkoord, dan gaat hij per mail of app naar de chauffeur</b>, zodat die weet wat hij de volgende dag of dienst doet.</li>
+      <li><b>De ritten gaan naar de boordcomputer.</b></li>
+      <li><b>Je ziet waar je te veel of te weinig mensen hebt.</b></li>
+      <li>Later op de avond kwamen erbij: <b>vaste routes en voorkeursroutes</b>, <b>uitleg over een adres</b> voor wie er voor het eerst komt, <b>de chauffeur als persoon</b> (bevoegdheden, afspraken, ervaring) en <b>een dashboard voor de directie met duurzame voorstellen</b>.</li>
+      <li>Twee besluiten van Sem: de directie ziet het planbord <b>alleen-lezen</b>, en het voorkeursbod is <b>per chauffeur zichtbaar</b>.</li>
+    </ul>
+    <h3>Hoe wij het lezen</h3>
+    <ul class="prose">
+      <li><b>Letterlijk:</b> elf bouwstenen, van tellers en rooster tot een dashboard. Ze staan in hoofdstuk 2, elk met de mockup en de lat.</li>
+      <li><b>Het doel:</b> een planning die klopt voordat hij de deur uitgaat. Geen dienst die een chauffeur niet mag rijden, geen chauffeur die het pas om 04:00 hoort, geen charter die op de dag zelf gebeld moet worden.</li>
+      <li><b>Wat er niet staat maar wel bij hoort:</b> een vertraging vandaag raakt de rust van morgen; een wijziging na het vrijgeven kost vertrouwen bij de chauffeur; verlof en ziekte veranderen de bezetting. Daarover gaan de eigen ideeën in hoofdstuk 4.</li>
+    </ul>
+    <h3>Wat 4.0 al doet</h3>
+    <p class="prose">Het planbord toetst elke sleep en elk voorstel per dag: na 4,5 uur rijden 45 minuten pauze, 9 uur rijden per dag (twee keer per week 10), en een dagrust van 11 uur, hoogstens drie keer 10 tussen twee weekrusten (de cao, strenger dan EU 561/2006). Voorkeuren per chauffeur tellen mee in de kans op een ja. Open ritten, de flexibele schil, Vraag tegelijk uit, het belmoment en een toewijzing over alle open ritten zijn er al. De dag kan in OTM5 5.9.0 en weer terug (<code>src/otm5.js</code>). 4.1 bouwt daarop voort; niets wordt dubbel gedaan.</p>
+  </div>
+</section>
+
+<section class="ch" id="bouwstenen" aria-labelledby="bouwstenen-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">2</span><h2 id="bouwstenen-t">De bouwstenen, scherm voor scherm</h2></div>
+    <p class="lead">Per bouwsteen: wat er nu is, wat er verandert, en per scherm wat de planner ziet, wat hij klikt en wat er dan gebeurt. Met de lat uit <code>acceptatie-4.1.md</code>.</p>
+
+    <div class="sub" id="b-a">
+      <div class="sub-head"><span class="letter">A</span><h3>Een teller per chauffeur</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Dagregels per voertuig, als waarschuwing bij de kandidaat. De week en de twee weken telt niemand; de planner rekent zelf.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Eén teller per chauffeur die zichzelf vult: vandaag, deze week, twee weken, de laatste rust, de volgende verplichte rust. Met de weekregels erbij: 56 uur per week, 90 per twee weken, weekrust 45 uur (verkort 24 met compensatie binnen drie weken), na zes dagrittijden een weekrust. De pauze van 45 minuten mag als 15 plus 30 (EU 561/2006, artikel 7).</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Geen sleep, voorstel of toewijzing brengt iemand over de week- of tweeweekgrens of onder zijn weekrust (test op maandag 05:30 en 10:00 en op de oefendag). De teller op de chauffeurspagina is gelijk aan de som van het planbord.</dd></div>
+      </dl>
+      <figure>
+        <img src="img/05-kandidaatkaart.jpg" width="1440" height="900" alt="Mockup van de kandidaatkaart bij een open rit: per chauffeur de teller, past in het rooster, ervaring op het adres, kans op een ja en kosten, en onderaan vier chauffeurs die afvallen met de reden.">
+        <figcaption><b>Figuur 1. De kandidaatkaart van een open rit.</b> Alleen wie het haalt staat in de lijst: rij- en rusttijd, rooster en bevoegdheid zijn al getoetst. Ilse Brouwer past in haar rooster, kent de route en gaf zich op voor extra werk. Onderaan wie afvalt en waarom: een te lange dag, de tweewekengrens, een rustdag, een verlopen code 95. Gesimuleerd.</figcaption>
+      </figure>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Open ritten, de kandidaatkaart</td><td>Per kandidaat één regel: "Kan morgen 9 uur rijden · weekrust vanaf vrijdag 22:00". Wie het niet haalt staat onder "Vallen af", met de reden.</td><td>Toewijzen</td><td>De rit gaat door de toets en telt mee in de teller van die chauffeur en op het planbord.</td></tr>
+          <tr><td>Planbord</td><td>Een rustblok per chauffeur (dagrust en weekrust) dat je niet kunt overschrijven.</td><td>Een rit naar een chauffeur slepen</td><td>Past het niet, dan weigert het bord met de reden: "na deze rit 91:10 in twee weken".</td></tr>
+          <tr><td>Chauffeurspagina</td><td>Drie meters (vandaag, week, twee weken) en welke grens het eerst telt.</td><td>Niets</td><td>De teller loopt mee met het plan; straks met de tachograaf.</td></tr>
+          <tr><td>Assistent</td><td>De uitleg: "kan niet, na deze rit 58 uur in de week".</td><td>Een vraag</td><td>Naar de API gaat een nummer, nooit een naam (zoals nu).</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Echte data: de teller leest straks uit de tachograaf (download via de boordcomputer) of de werkstaten. In 4.1 bouwen we het veld in OTM5-vorm, zodat de echte bron erin past.</p>
+    </div>
+
+    <div class="sub" id="b-b">
+      <div class="sub-head"><span class="letter">B</span><h3>Het rooster, en de chauffeur als persoon (J)</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Voorkeuren per chauffeur (dag, dagdeel, ritsoort, regio) als stille stip. Geen rooster, geen contract, geen bevoegdheden.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Elke chauffeur een rooster: contract (volle week, deeltijd, halve dag, oproep), dagen en dagdelen, vakantie, ziek, rustdag. Plannen alleen binnen het rooster; afwijken kan bewust, met reden in het logboek. En een profiel met bovenaan drie regels "wat je als planner moet weten".</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>De planning plant alleen binnen het rooster (test). De toewijzing en het planbord weigeren een rit zonder de juiste bevoegdheid, met reden (test). Een certificaat dat binnen 90 dagen verloopt staat op het Overzicht. Nooit een medische reden, nooit een ranglijst per persoon.</dd></div>
+      </dl>
+      <figure>
+        <img src="img/04-chauffeursprofiel.jpg" width="1440" height="900" alt="Mockup van het profiel van chauffeur Linda Zeeman met drie regels bovenaan, de teller van rij- en rusttijden, het rooster van drie weken, bevoegdheden met vervaldatum, afspraken, ervaring en vaste routes, het voorkeursbod, betrouwbaarheid per groep en een notitie.">
+        <figcaption><b>Figuur 2. De chauffeur als persoon.</b> Bovenaan wat de planner moet weten: ze kan vandaag nog 3 uur 10 rijden en haar weekrust begint vrijdag 18:00; ze krijgt de extra zaterdag uit het voorkeursbod; haar ADR verloopt over 63 dagen. De teller laat zien dat deze week de grens van 90 uur in twee weken eerder telt dan die van 56. Het rooster toont een volle week; op Wognum zijn er ook deeltijd, halve dagen en oproep. Gesimuleerd.</figcaption>
+      </figure>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Chauffeurspagina</td><td>Drie regels bovenaan, dan de teller, het rooster van drie weken, bevoegdheden met vervaldatum, afspraken, bereikbaarheid, ervaring en vaste routes, het voorkeursbod, betrouwbaarheid per groep en een notitie.</td><td>Notitie, Bericht, Plan in</td><td>Een notitie komt met datum en naam in het logboek. Plan in toont de open ritten die in zijn rooster en teller passen.</td></tr>
+          <tr><td>Kandidaatkaart</td><td>"Buiten het rooster" in grijs.</td><td>Wijk bewust af</td><td>De planner vult een reden in; die staat in het logboek.</td></tr>
+          <tr><td>Overzicht</td><td>Certificaten die binnen 90 dagen verlopen (code 95, ADR, heftruck).</td><td>De regel</td><td>Naar het profiel van die chauffeur.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Echte data: het rooster en de bevoegdheden uit HR of het roostersysteem, de ervaring uit het TMS, de afspraken en notities van de planners zelf. Betrouwbaarheid alleen per groep; per persoon alleen voor de planner die hem inzet, nooit op een scherm in de hal.</p>
+    </div>
+
+    <div class="sub" id="b-c">
+      <div class="sub-head"><span class="letter">C</span><h3>Plannen en vrijgeven</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Het planbord toont vandaag en morgen, maar er is geen moment waarop de planning af is. Een chauffeur hoort zijn dienst van de planner.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Een scherm Vrijgeven per standplaats, voor morgen of de volgende dienst. Elke dienst krijgt een status: concept, vrijgegeven, gezien, bevestigd, onderweg, afgerond. Eén knop "Planning vrijgeven". Verandert er daarna iets, dan gaat alleen het verschil opnieuw.</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Na "Planning vrijgeven" heeft elke chauffeur een bericht en elke rit een OTM5-ritopdracht; een wijziging na het vrijgeven geeft alleen het verschil door (test). Op de oefendag plant de planner Wognum voor morgen zonder één keer zelf uren te tellen.</dd></div>
+      </dl>
+      <div class="fig-side">
+        <figure>
+          <img src="img/02-vrijgeven.jpg" width="1440" height="900" alt="Mockup van het scherm Vrijgeven op 1440 pixels.">
+          <figcaption><b>Figuur 3. Vrijgeven op het bureau.</b> 52 diensten voor dinsdag: 7 concept, 3 vrijgegeven maar niet geopend, 11 gezien, 30 bevestigd en 1 gewijzigd. Rechts het verschil bij Jolanda de Vries: rit 3 erbij, ze is om 16:55 klaar in plaats van 14:40, en ze komt voor het eerst bij AH Enkhuizen. Gesimuleerd.</figcaption>
+        </figure>
+        <figure class="phone">
+          <img src="img/02-vrijgeven-390.jpg" width="390" height="844" alt="Mockup van Vrijgeven op een telefoon.">
+          <figcaption><b>Op 390 pixels.</b> De knop blijft onderaan staan.</figcaption>
+        </figure>
+      </div>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Vrijgeven</td><td>Tellers per status; de diensten met rooster, begin, eind, rijtijd, rust ervoor; "eerste keer" bij een nieuw adres.</td><td>Planning vrijgeven (8)</td><td>Zeven nieuwe diensten en één verschil gaan naar de chauffeurs en de boordcomputer. De 44 die al weg zijn, gaan niet opnieuw.</td></tr>
+          <tr><td>Een gewijzigde dienst</td><td>Wat erbij komt, wat verandert, wat gelijk blijft, en het bericht dat opnieuw gaat.</td><td>Verschil vrijgeven, Terugdraaien</td><td>Alleen het verschil gaat. De status wacht weer op "gezien".</td></tr>
+          <tr><td>Telefoon of tablet</td><td>Dezelfde diensten als kaarten, de knop onderaan.</td><td>Planning vrijgeven</td><td>Hetzelfde; handig in de hal of 's avonds thuis.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sub" id="b-d">
+      <div class="sub-head"><span class="letter">D</span><h3>Het bericht aan de chauffeur</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Geen bericht. De chauffeur hoort het van de planner, of ziet het pas in de boordcomputer.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Bij vrijgeven krijgt elke chauffeur zijn dienst: begintijd, voertuig, oplegger, de ritten met tijden en adressen, de pauze en een link. Hij bevestigt met één tik, "gezien" en "akkoord". Blijft het stil, dan ziet de planner het en komt er na 60 minuten een zaak (de wachtklok, ideeënbank 44).</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Bij vrijgeven een bericht per chauffeur, als voorbeeld op het scherm, "verstuurd" in het logboek en een gesimuleerde bevestiging; zonder bevestiging ziet de planner het (test). In de demo gaat er niets de deur uit.</dd></div>
+      </dl>
+      <figure>
+        <img src="img/03-bericht-chauffeur.jpg" width="1440" height="900" alt="Mockup van twee telefoons en een paneel: links de gewijzigde dienst van Jolanda de Vries met haar rust en de knoppen Gezien en Akkoord, in het midden de plekkenniskaart van AH Enkhuizen, rechts de tijdlijn die de planner terugziet.">
+        <figcaption><b>Figuur 4. Het bericht op de telefoon.</b> Links haar gewijzigde dienst: bovenaan wat er anders is, daaronder haar rust (vandaag klaar om 17:40, morgen begin 05:30: 11 uur 50) en de ritten. Bij AH Enkhuizen staat "Eerste keer hier"; in het midden de kaart die dan meegaat. Rechts wat de planner terugziet, van vrijgeven tot akkoord. Gesimuleerd; de tekst op de plekkenniskaart is een voorbeeld.</figcaption>
+      </figure>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de chauffeur of planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Telefoon van de chauffeur</td><td>Bovenaan zijn rust, dan de dienst; bij een wijziging alleen wat er anders is; bij een nieuw adres "Eerste keer hier".</td><td>Gezien, Akkoord, Kan niet</td><td>De status verschijnt bij de planner. Na akkoord gaan de ritten naar de boordcomputer. "Kan niet" maakt een open rit met kandidaten.</td></tr>
+          <tr><td>Vrijgeven</td><td>"Geen reactie · 70 min" in amber.</td><td>Bellen of opnieuw sturen</td><td>Na 60 minuten een zaak met een eigenaar.</td></tr>
+          <tr><td>Logboek</td><td>Verstuurd, gezien, akkoord, met de tijd.</td><td>Niets</td><td>Het bewijs voor later: wie wist wat, en wanneer.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Het kanaal kiezen we met Simon Loos. De boordcomputer van Trimble kent al een chauffeursapp met ritinstructies en berichten (systeemlandschap); dan zijn D en E één kanaal. Anders mail, of als proef de dienst als agenda-afspraak (idee 4 in hoofdstuk 4).</p>
+    </div>
+
+    <div class="sub" id="b-i">
+      <div class="sub-head"><span class="letter">I</span><h3>Vaste routes, voorkeursroutes en plekkennis</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Voorkeuren en de kans op een ja. Geen historie per adres, geen uitleg over een adres. De poortkaart per DC staat als idee in de ideeënbank (31).</dd></div>
+        <div><dt>Wat verandert</dt><dd>Per chauffeur de routes en klanten die hij vast of vaak rijdt, uit acht weken historie. Een vaste route gaat niet naar een ander zolang hij er is; een voorkeursroute weegt zwaar. Per klant en DC één kaart met hoe het daar werkt. Wie er voor het eerst komt (of langer dan een jaar niet), krijgt die kaart mee; een ervaren chauffeur niet.</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Een vaste route gaat niet naar een ander zolang de vaste chauffeur beschikbaar is; de kandidaatkaart toont "was hier 14 keer, laatst dinsdag" (test). Op de oefendag krijgt een nieuwe chauffeur de kaart in bericht en ritopdracht, een ervaren niet (test).</dd></div>
+      </dl>
+      <div class="fig-2">
+        <figure>
+          <div class="crop" style="aspect-ratio: 740 / 775"><img src="img/03-bericht-chauffeur.jpg" alt="Uitsnede: de stop bij AH Enkhuizen met Eerste keer hier, en de plekkenniskaart ernaast." style="width: 194.6%; margin-left: -4.05%; margin-top: -12.84%"></div>
+          <figcaption><b>Figuur 5. De plekkenniskaart naast de stop.</b> Alleen voor wie hier voor het eerst komt. De tekst is een voorbeeld.</figcaption>
+        </figure>
+        <figure>
+          <div class="crop" style="aspect-ratio: 800 / 420"><img src="img/05-kandidaatkaart.jpg" alt="Uitsnede: drie kandidaten met hun ervaring op het adres." style="width: 180%; margin-left: -77.5%; margin-top: -21.25%"></div>
+          <figcaption><b>Figuur 6. De ervaring op het adres op de kandidaatkaart.</b> Een voorkeursroute met "was hier 14 keer, laatst dinsdag", een eerste keer waarbij de kaart meegaat, en een vaste route die buiten het rooster valt. Gesimuleerd.</figcaption>
+        </figure>
+      </div>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat je ziet</th><th>Wat je klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Kandidaatkaart</td><td>"Vaste route (ma, wo)", "voorkeursroute · was hier 14 keer, laatst dinsdag", "eerste keer bij AH Hoorn".</td><td>Toewijzen</td><td>Een vaste route wint zolang de vaste chauffeur kan. Bij een eerste keer gaat de kaart mee.</td></tr>
+          <tr><td>Telefoon van de chauffeur</td><td>"Eerste keer hier" bij de stop; de kaart met aanrijroute, losplek, melden, lostijd, contact en bijzonderheden, met een stukje luchtfoto.</td><td>Zo werkt het hier</td><td>De kaart opent; terug naar de rit met één tik.</td></tr>
+          <tr><td>Ritpagina en Vrijgeven</td><td>"Nieuw voor deze chauffeur"; het filter "Eerste keer op een adres".</td><td>Het filter</td><td>De planner ziet wie morgen ergens voor het eerst komt, en kan het aanvullen.</td></tr>
+          <tr><td>Plekkenniskaart</td><td>Wat planners en chauffeurs erbij zetten: "melden bij de loge", "achteruit insteken dock 4", "geen LZV".</td><td>Aanvullen</td><td>Met datum en naam; de lostijd komt uit wat de app al meet.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Echte data: de historie wie welke rit reed uit het TMS, de laad- en losinstructies uit het klantendossier (ORTEC en Navitrans hebben daar velden voor), en wat planners en chauffeurs nu in hun hoofd of op papier hebben. De aanrijroute hebben we al, uit de toegangsroutes van Overture.</p>
+    </div>
+
+    <div class="sub" id="b-e">
+      <div class="sub-head"><span class="letter">E</span><h3>De ritopdracht naar de boordcomputer</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd><code>src/otm5.js</code> zet de gesimuleerde dag om naar OTM5 5.9.0 en weer terug, getest. Er gaat niets naar een boordcomputer.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Bij vrijgeven of bij het akkoord van de chauffeur een OTM5-ritopdracht per rit: stops, tijden, laadadres, oplegger, en bij een eerste keer de plekkenniskaart. Te bekijken en te exporteren, met de status naar de boordcomputer.</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Elke rit een ritopdracht die geldig is volgens <code>src/otm5.js</code> en zonder verschil terug te lezen is (test). In de proef pas na een test op één voertuig.</dd></div>
+      </dl>
+      <figure>
+        <img src="img/06-ritopdracht.jpg" width="1440" height="900" alt="Mockup van de ritpagina met links de stappen naar de boordcomputer en de stops, rechts het OTM5-bericht.">
+        <figcaption><b>Figuur 7. De rit naast het OTM5-bericht.</b> Links de weg naar de boordcomputer, van vrijgegeven om 16:24 tot ontvangen om 16:33. Rechts de ritopdracht zelf, ingekort: een trip met stops, tijden met de Nederlandse tijdzone, en onder "simonloos" wat OTM5 niet kent, zoals de plekkennis. Gesimuleerd; in de demo gaat er niets naar een voertuig.</figcaption>
+      </figure>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Ritpagina, tab Ritopdracht</td><td>De stappen: vrijgegeven, akkoord, gemaakt, verzonden, ontvangen, gestart. Daarnaast de opdracht zelf.</td><td>Kopieer, Exporteer OTM5, Opnieuw verzenden</td><td>In de demo een bestand en een regel in het logboek. In de proef de echte koppeling.</td></tr>
+          <tr><td>Vrijgeven</td><td>Bij elke dienst of de opdrachten zijn aangekomen.</td><td>Niets</td><td>Een opdracht die niet aankomt, wordt een zaak.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sub" id="b-f">
+      <div class="sub-head"><span class="letter">F</span><h3>Bezetting: te veel of te weinig mensen</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Open ritten per dag en de flexibele schil. Wat er volgende week tekortkomt, ziet niemand.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Per standplaats en heel Nederland, per dag en dagdeel, veertien dagen vooruit: nodig, kan, het verschil en de kosten (schatting). Met knoppen: een dienst verschuiven, een collega lenen, extra diensten aanbieden via het voorkeursbod, een charter vastleggen.</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>De som per dag klopt met rooster en plan (test). De knoppen werken en komen in het logboek.</dd></div>
+      </dl>
+      <div class="fig-side">
+        <figure>
+          <img src="img/01-bezetting.jpg" width="1440" height="900" alt="Mockup van het scherm Bezetting voor Wognum: twee weken balken, een raster per dagdeel en rechts de voorstellen voor dinsdag 3 november.">
+          <figcaption><b>Figuur 8. Bezetting van Wognum voor twee weken.</b> Het tekort zit vooral in de vroege dienst op dinsdag, donderdag en vrijdag, het overschot in de dagdienst. Een deel los je dus op door te verschuiven, zonder extra geld. Gesimuleerd.</figcaption>
+        </figure>
+        <figure class="phone">
+          <img src="img/01-bezetting-390.jpg" width="390" height="844" alt="Mockup van Bezetting op een telefoon.">
+          <figcaption><b>Op 390 pixels.</b> Een dag open, met de drie voorstellen.</figcaption>
+        </figure>
+      </div>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat de planner ziet</th><th>Wat hij klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Bezetting</td><td>Balken per dag: overschot boven de lijn in blauw, tekort eronder in rood. Daaronder per dagdeel.</td><td>Een dag</td><td>Rechts nodig, kan en verschil per dagdeel, en de voorstellen met hun effect en kosten.</td></tr>
+          <tr><td>Een voorstel</td><td>"Youssef Bakker van dag naar vroeg", "lenen van Zaandam", "extra via het voorkeursbod", "charter vastleggen".</td><td>Verschuif, Vraag aan, Bied aan, Leg vast</td><td>Het staat in het logboek en de balk werkt bij. Een aanbod gaat naar wie "extra: ja" opgaf, eerst naar wie dit kwartaal het minst extra reed.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small"><b>Hoe de kosten geschat zijn.</b> Een tekort rekenen we als charter voor een dienst van 9 uur tegen 55 euro per uur, het middelste chartertarief in de demo: 495 euro. In twee weken 35 tekorten, samen ongeveer 17.300 euro (schatting). Een overschot rekenen we als 9 betaalde uren zonder rit tegen 33 euro loonkosten per uur, de schatting die de demo voor een eigen chauffeur gebruikt: 297 euro. In twee weken 23, samen ongeveer 6.800 euro (schatting). Kilometers tellen we niet mee; met echte tarieven wordt het een echt bedrag.</p>
+    </div>
+
+    <div class="sub" id="b-k">
+      <div class="sub-head"><span class="letter">K</span><h3>Dashboard voor de directie en duurzame voorstellen</h3></div>
+      <dl class="facts">
+        <div><dt>Nu in 4.0</dt><dd>Rapporten per dag: kosten van charters per week en de roosterfit per standplaats.</dd></div>
+        <div><dt>Wat verandert</dt><dd>Rapporten wordt voor de directie een dashboard, per standplaats en voor heel Simon Loos, met een trend over dertig dagen; elk cijfer klikt door naar de lijst erachter. En per rit voorstellen met de berekening: elektrisch in plaats van diesel, lege kilometers eruit, een LZV in plaats van twee ritten, minder wachten.</dd></div>
+        <div class="lat"><dt>Lat</dt><dd>Het dashboard laadt binnen een seconde en elk cijfer klikt door (test). De som van de voorstellen op een dag is te herhalen (test). Geen voorstel zonder genoeg accu of zonder de juiste bevoegdheid (test).</dd></div>
+      </dl>
+      <figure>
+        <img src="img/07-dashboard.jpg" width="1440" height="900" alt="Mockup van het dashboard voor de directie met zes tegels, een grafiek van op tijd en gemist, de invulling van open ritten, rij- en rusttijden, bezetting per standplaats en een blok duurzaam.">
+        <figcaption><b>Figuur 9. Het dashboard, als directie bekeken.</b> Bovenaan "alleen-lezen: elk cijfer klikt door". Rij- en rusttijden per groep, niet per persoon. De duurzame cijfers zijn schattingen; de factoren staan met bron in <code>BRONNEN.md</code> en heten "zoek" tot ze nagelezen zijn. Gesimuleerd.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/08-voorstel-elektrisch.jpg" width="1440" height="900" alt="Mockup van het voorstel om een rit elektrisch te rijden, met de berekening van energie, CO2 en kosten, de controle van accu, laden, chauffeur en rooster, en de bron van elk getal.">
+        <figcaption><b>Figuur 10. "Rijd deze rit elektrisch", met de berekening.</b> Een rit van 148 km: diesel 43,7 liter en 140 kg CO2, elektrisch 163 kWh en 49 kg; 91 kg en 30 euro minder per rit, 22,7 ton en 7.400 euro per jaar als de rit elke werkdag zo gaat (schatting). Bronnen: het verbruik van 1,1 kWh per km komt van NACFE en staat al in de code; 29,5 liter per 100 km is het verbruik in de simulatie; 3,2 kg CO2 per liter diesel en 0,30 kg per kWh zijn schattingen die we nalezen op CO2emissiefactoren.nl; de kosten per km zijn de schattingen uit de demo.</figcaption>
+      </figure>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat je ziet</th><th>Wat je klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Dashboard (directie)</td><td>Op tijd, gemist, invulling en kosten, bezetting, kosten per kilometer, lege kilometers, wachttijd bij DC's, rij- en rusttijden, CO2 en het aandeel elektrisch.</td><td>Een cijfer</td><td>De lijst erachter, alleen-lezen. De directie kijkt, de planner handelt.</td></tr>
+          <tr><td>Duurzame voorstellen (planner)</td><td>Per voorstel de besparing in kilo's CO2 en euro's, de berekening en de bron van elk getal.</td><td>Pas toe, Wijs af</td><td>De rit verandert, of de reden van afwijzen gaat in het logboek. Het dashboard telt wat er gebruikt werd.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section class="ch" id="bod" aria-labelledby="bod-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">3</span><h2 id="bod-t">Het voorkeursbod en de directie</h2></div>
+    <p class="lead">Twee besluiten van Sem: het voorkeursbod is per chauffeur zichtbaar, en de directie ziet het planbord alleen-lezen.</p>
+    <div class="sub" style="margin-top:0">
+      <div class="sub-head"><span class="letter">G</span><h3>Het voorkeursbod per chauffeur</h3></div>
+      <p class="prose">Elke chauffeur geeft wekelijks zijn voorkeur op open diensten en ritten: ritsoort, tijden, weekend, regio, en wat hij liever niet doet. Zo werkt crew bidding in de luchtvaart en zelfroosteren in de zorg (ideeënbank 3 en 51). De toewijzing weegt de stem mee en rouleert: wie de laatste weken al veel extra reed of veel weekenden had, komt later aan de beurt. Per rit legt het systeem uit waarom iemand hem kreeg.</p>
+      <div class="tablewrap"><table class="screens">
+        <thead><tr><th>Scherm</th><th>Wat je ziet</th><th>Wat je klikt</th><th>Wat er dan gebeurt</th></tr></thead>
+        <tbody>
+          <tr><td>Chauffeurspagina</td><td>Het bod van deze week: "liever vroeg", "extra: za 7 nov", "liever niet: nacht, zondag", en wat hij kreeg met de uitleg: "eerste keus; ze reed dit kwartaal 2 extra diensten, het gemiddelde op Wognum is 4".</td><td>Niets (de chauffeur dient het in)</td><td>De vrije weekenden in het halfjaar tellen mee (de cao noemt er 13 per half jaar).</td></tr>
+          <tr><td>Kandidaatkaart</td><td>"Gaf zich op voor extra op dinsdag".</td><td>Toewijzen</td><td>Bij twee gelijke kandidaten wint de voorkeursstem.</td></tr>
+          <tr><td>Bezetting</td><td>"Drie gaven extra: ja op".</td><td>Bied aan</td><td>Het aanbod gaat eerst naar wie dit kwartaal het minst extra reed.</td></tr>
+          <tr><td>Telefoon of formulier</td><td>Het bod voor volgende week, met een sluitingstijd.</td><td>Indienen</td><td>In de demo gesimuleerd per chauffeur.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small"><b>Lat (G):</b> op de oefendag krijgt een rit met twee gelijke kandidaten de chauffeur met de voorkeursstem; over acht gesimuleerde weken is de spreiding van extra ritten en weekenden over de chauffeurs van Wognum kleiner dan nu (de meting als schatting in de README). <b>Signaal:</b> het bod is per chauffeur zichtbaar voor de planner en voor hemzelf, maar nooit als ranglijst aan de muur. Een voorkeursbod en een eerlijkheidsregel raken het rooster en dus de instemming van de OR.</p>
+    </div>
+    <div class="sub">
+      <div class="sub-head"><span class="letter">H</span><h3>De directie kijkt mee, alleen-lezen</h3></div>
+      <p class="prose">Met de rol Directie opent het planbord, Vrijgeven en Bezetting gewoon, maar zonder slepen, zonder knoppen die iets veranderen en zonder voorstellen toe te passen. Bovenaan staat "alleen-lezen", zodat niemand denkt dat iets kapot is. Elk cijfer op het dashboard klikt door naar dezelfde lijst die de planner ziet. Zo praten directie en planning over dezelfde cijfers, en blijft de beslissing bij de planner.</p>
+      <p class="small"><b>Lat (H):</b> de directie opent het planbord alleen-lezen: kijken, geen slepen, geen voorstellen toepassen (test). Dit sluit aan bij idee 43 uit de ideeënbank: een hal-scherm als alleen-lezen bord met een eigen sleutel.</p>
+    </div>
+  </div>
+</section>
+
+<section class="ch" id="ideeen" aria-labelledby="ideeen-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">4</span><h2 id="ideeen-t">Vijf eigen ideeën</h2></div>
+    <p class="lead">Niet gevraagd, wel nodig: vijf dingen die de bouwstenen pas echt laten werken. Elk met het probleem, een voorbeeld van elders, een schatting en een goedkope proef.</p>
+
+    <article class="idea">
+      <div class="idea-head"><span class="idea-n">1</span><h3>De rust van vannacht bewaakt de dienst van morgen</h3></div>
+      <dl>
+        <dt>Probleem</dt><dd>Een chauffeur die vandaag laat terug is, kan morgen niet vroeg beginnen. Nu merkt de nachtplanner dat om 04:00, als de wagen niet vertrekt. De teller van bouwsteen A kijkt naar het plan, niet naar de vertraging van vandaag.</dd>
+        <dt>Wat het doet</dt><dd>Zodra een dienst van vandaag uitloopt, rekent de app de rust tot morgen opnieuw uit. Is die te kort, dan wordt het om 18:00 een zaak en geen gat om 04:00: "Jolanda is om 18:20 klaar; morgen 05:30 geeft 11 uur 10, nog 15 minuten later en het past niet." De rust staat ook als eerste regel in het bericht (figuur 4).</dd>
+        <dt>Komt van</dt><dd>Crewplanning in de luchtvaart rekent bij een vertraging meteen de rust tot de volgende dienst opnieuw uit (de regels voor vlieg- en rusttijden), zodat de reservecrew 's avonds al gebeld wordt.</dd>
+        <dt>Levert op (schatting)</dt><dd>Elk gat dat 's avonds zichtbaar is, wordt een gewone open rit. In de simulatie kost een nachtrit 10 tot 17 minuten bellen (ideeënbank 21); een gat om 04:30 eindigt vaak in een charter van ongeveer 495 euro.</dd>
+        <dt>Goedkope proef</dt><dd>Twee weken eindtijden uit de tachograaf van Wognum naast de begintijden van de dag erna. Tel hoe vaak de rust onder 11 of 10 uur kwam, en hoe laat de planner het wist.</dd>
+      </dl>
+    </article>
+
+    <article class="idea">
+      <div class="idea-head"><span class="idea-n">2</span><h3>Een tijdhek na het vrijgeven</h3></div>
+      <dl>
+        <dt>Probleem</dt><dd>Vrijgeven heeft alleen waarde als het plan daarna rustig blijft. De klacht van chauffeurs gaat over de planning en de wijzigingen (ideeënbank 3). Met vrijgeven wordt elke late wijziging zichtbaar, en dus ook hoe vaak het gebeurt.</dd>
+        <dt>Wat het doet</dt><dd>Binnen bijvoorbeeld twaalf uur voor het begin vraagt een wijziging aan een vrijgegeven dienst een reden, en de app zoekt eerst een oplossing zonder die dienst: een concept, een oproepkracht, de reserve. Per standplaats telt hij de late wijzigingen.</dd>
+        <dt>Komt van</dt><dd>Het tijdhek in productieplanning: vlak voor de productie ligt het plan vast. In de Verenigde Staten vragen de Fair Workweek-wetten in onder meer New York en Oregon roosters ruim vooruit en een vergoeding bij een late wijziging (zoek: nalezen).</dd>
+        <dt>Levert op (schatting)</dt><dd>Minder late wijzigingen en een cijfer om op te sturen. Doel: de helft minder late wijzigingen binnen drie maanden (schatting, eerst meten).</dd>
+        <dt>Goedkope proef</dt><dd>Vier weken het logboek: hoeveel wijzigingen na het vrijgeven, en hoeveel binnen twaalf uur voor het begin. Dan één standplaats met het hek.</dd>
+      </dl>
+    </article>
+
+    <article class="idea">
+      <div class="idea-head"><span class="idea-n">3</span><h3>Verlof aanvragen met de bezetting erbij</h3></div>
+      <dl>
+        <dt>Probleem</dt><dd>Een vrije dag wordt nu goedgekeurd zonder te zien wat hij doet met de bezetting. Op een dag met al vier tekort wordt het dan een charter.</dd>
+        <dt>Wat het doet</dt><dd>Bij elke aanvraag toont de app de dag uit Bezetting: "dinsdag 3 november: tekort 5, met deze dag 6". Per dag een verlofruimte uit het rooster en de prognose. De chauffeur krijgt dezelfde dag antwoord.</dd>
+        <dt>Komt van</dt><dd>Verlofruimte per week in de zorg en bij luchtvaartmaatschappijen, waar verlof binnen een vast aantal plekken per periode wordt toegekend.</dd>
+        <dt>Levert op (schatting)</dt><dd>Minder tekort op drukke dagen; elk vermeden tekort is ongeveer een charter van 495 euro (de rekenregel van F). En sneller antwoord voor de chauffeur.</dd>
+        <dt>Goedkope proef</dt><dd>De volgende twintig aanvragen van Wognum met de planner door Bezetting halen. Tel hoeveel er op een tekortdag vallen en hoe snel er antwoord was.</dd>
+      </dl>
+    </article>
+
+    <article class="idea">
+      <div class="idea-head"><span class="idea-n">4</span><h3>De dienst als afspraak in de agenda van de telefoon</h3></div>
+      <dl>
+        <dt>Probleem</dt><dd>Voor bouwsteen D moet er een kanaal zijn. Een eigen app of een koppeling met de boordcomputer kost tijd, en zonder kanaal geen proef.</dd>
+        <dt>Wat het doet</dt><dd>Het bericht krijgt een agenda-bestand mee. De dienst staat dan in de agenda van elke telefoon, met een herinnering de avond ervoor. Een wijziging vervangt dezelfde afspraak, dus de chauffeur ziet alleen het verschil. Gezien en akkoord gaan via de link.</dd>
+        <dt>Komt van</dt><dd>Roosterapps in de zorg en de luchtvaart zetten diensten in de agenda van de telefoon. De standaard iCalendar (RFC 5545) heeft er een vast nummer per afspraak en een volgnummer per versie voor.</dd>
+        <dt>Levert op (schatting)</dt><dd>Een werkend kanaal voor de proef zonder app en zonder koppeling, voor bijna niets: één bestand per dienst.</dd>
+        <dt>Goedkope proef</dt><dd>Tien chauffeurs van Wognum, twee weken, de dienst als agenda-afspraak per mail naast de gewone manier. Tel hoe snel "gezien" komt en of er minder misverstanden zijn.</dd>
+      </dl>
+    </article>
+
+    <article class="idea">
+      <div class="idea-head"><span class="idea-n">5</span><h3>Geplande rijtijd uit de gereden tijd</h3></div>
+      <dl>
+        <dt>Probleem</dt><dd>De teller en de rust kloppen alleen als de geplande rijtijden kloppen. Is een rit in het plan te kort, dan belooft "kan nog 3 uur 10" uren die er niet zijn, en loopt de dag uit (idee 1).</dd>
+        <dt>Wat het doet</dt><dd>Per soort rit en dagdeel zet de app de geplande rijtijd op wat er in acht van de tien gevallen werkelijk gehaald wordt, uit de tachograaf. Een rit die structureel uitloopt, valt op.</dd>
+        <dt>Komt van</dt><dd>Luchtvaartmaatschappijen zetten de geplande vliegtijd per route en seizoen op de gevlogen tijden van eerder, niet op de kortste tijd.</dd>
+        <dt>Levert op (schatting)</dt><dd>Minder uitlopende diensten en minder rust die te kort wordt. Hoeveel, weten we pas na de proef.</dd>
+        <dt>Goedkope proef</dt><dd>Vier weken gepland tegen gereden per rit op Wognum. Tel hoeveel ritten meer dan vijftien minuten uitlopen, en in welk dagdeel.</dd>
+      </dl>
+    </article>
+    <p class="small" style="margin-top:14px"><b>Waarom deze vijf.</b> Ze maken bouwstenen A tot en met F pas betrouwbaar: de teller (1 en 5), het vrijgeven (2), de bezetting (3) en het bericht (4). <b>Bewust niet gekozen:</b> een ziekmelding die in één keer de open rit en de kandidaten maakt (zit grotendeels in Open ritten en Vraag tegelijk uit, ideeënbank 21 en 44); een voorspelling voor de feestweken (is ideeënbank 6); een ruilbeurs voor diensten (bouwt op ideeënbank 9 en heeft eerst het rooster, het kanaal en de OR nodig); een kalender voor de 13 vrije weekenden (zit in het voorkeursbod en het profiel).</p>
+  </div>
+</section>
+
+<section class="ch" id="nodig" aria-labelledby="nodig-t">
+  <div class="wrap">
+    <style>#nodig td:nth-child(1){width:25%}#nodig td:nth-child(2){width:24%}#nodig td:nth-child(3){width:9%}#volgorde td:nth-child(1){width:5%}#volgorde td:nth-child(2){width:40%}#volgorde td:nth-child(3){width:10%}#volgorde td:nth-child(4){width:8%}@media print{#nodig th,#nodig td,#volgorde th,#volgorde td{padding-top:.9mm;padding-bottom:.9mm}#volgorde .ch-head{margin-bottom:2mm}}</style>
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">5</span><h2 id="nodig-t">Wat Simon Loos levert voor de proef</h2></div>
+    <p class="prose">Voor de simulatie niets. Voor een proef op één standplaats het volgende, liefst als export, anders als een paar weken in Excel.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Wat</th><th>Van wie</th><th>Waarvoor</th><th>In welke vorm</th></tr></thead>
+      <tbody>
+        <tr><td>Rooster en contracturen per chauffeur</td><td>HR of het roostersysteem</td><td>B, F, J</td><td>Per week, per chauffeur: contract, dagen, dagdelen, vakantie, ziek</td></tr>
+        <tr><td>Tachograaf of werkstaten</td><td>Boordcomputer of tachograafanalyse</td><td>A, idee 1 en 5</td><td>Per dag per chauffeur: rijden, werk, pauze, rust</td></tr>
+        <tr><td>Open ritten met venster</td><td>TMS (ORTEC, Navitrans)</td><td>C, F</td><td>OTM5; Albert Heijn stuurt de ritten al als OTM5</td></tr>
+        <tr><td>Historie: wie reed welke rit</td><td>TMS</td><td>I, F</td><td>Acht weken, per rit de chauffeur</td></tr>
+        <tr><td>Laad- en losinstructies per adres</td><td>Klantendossier, planners, chauffeurs</td><td>I</td><td>De velden in ORTEC of Navitrans, en wat nu op papier staat</td></tr>
+        <tr><td>Bevoegdheden en certificaten</td><td>HR</td><td>J</td><td>Per chauffeur met vervaldatum: rijbewijs, code 95, ADR, LZV, heftruck</td></tr>
+        <tr><td>Het kanaal naar de chauffeur</td><td>ICT en HR</td><td>D</td><td>Welke app of mail, en wie de adressen beheert</td></tr>
+        <tr><td>De boordcomputer en zijn koppeling</td><td>ICT en de leverancier (in de repo: Trimble FleetXPS, nu onder Platform Science; nakijken)</td><td>E</td><td>Welk merk, welke API, wie de sleutel heeft, een testvoertuig</td></tr>
+        <tr><td>Verbruik en kosten per voertuigsoort</td><td>Wagenpark en financiën</td><td>K</td><td>Liters of kWh per km, kosten per km, de CO2-factoren die Simon Loos zelf rapporteert</td></tr>
+        <tr><td>Een afspraak met de OR</td><td>Directie en OR</td><td>G, J, D</td><td>Over het voorkeursbod en wat er per chauffeur zichtbaar is</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section class="ch flow" id="volgorde" aria-labelledby="volgorde-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">6</span><h2 id="volgorde-t">Volgorde, schatting en wat apart live kan</h2></div>
+    <p class="prose">Volgorde is prioriteit. Wat af en groen is, gaat mee; wat niet af is, blijft eruit, net als bij 4.0. De dagen zijn een schatting in agentrondes zoals bij 4.0: Sem bouwt via SafeTail, met AI als versneller zoals bij de demo, of stuurt het eigen team van Simon Loos aan.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Stap</th><th>Wat</th><th>Bouwstenen</th><th class="num">Dagen</th><th>Apart live?</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Het rooster en de tellers per chauffeur, met de weekregels; het model achter Bezetting</td><td>A, B, F</td><td class="num">2</td><td>Ja. De kandidatenlijst wordt meteen beter, zonder dat er iets de deur uitgaat.</td></tr>
+        <tr><td>2</td><td>Vrijgeven, het bericht, de ritopdracht en het scherm Bezetting</td><td>C, D, E, F</td><td class="num">2 tot 3</td><td>Ja, samen met 1. In de proef gaan bericht en ritopdracht pas echt weg na een test op één voertuig.</td></tr>
+        <tr><td>3</td><td>Voorkeursbod en eerlijk verdelen, vaste routes en plekkennis, het chauffeursprofiel</td><td>G, I, J</td><td class="num">3</td><td>Plekkennis en profiel wel; het voorkeursbod pas na de afspraak met de OR.</td></tr>
+        <tr><td>4</td><td>Dashboard voor de directie en duurzame voorstellen, en de directie alleen-lezen</td><td>K, H</td><td class="num">2</td><td>Ja, het is alleen-lezen en raakt het plan niet.</td></tr>
+        <tr><td>5</td><td>De kleine punten uit 4.0 (tekst in de Assistent, lange namen op 390 pixels, tests, de demosite in losse bestanden)</td><td></td><td class="num">0,5</td><td>Ja.</td></tr>
+        <tr><td>6</td><td>Eindcontrole door een aparte agent tegen <code>acceptatie-4.1.md</code>, dan dezelfde oplevering als 4.0</td><td></td><td class="num">0,5</td><td></td></tr>
+        <tr><td></td><td><b>Samen</b></td><td></td><td class="num"><b>10 tot 11</b></td><td>De schatting uit het plan.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section class="ch" id="risico" aria-labelledby="risico-t">
+  <div class="wrap">
+    <div class="ch-head"><span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span class="ch-num">7</span><h2 id="risico-t">Risico's en signalen</h2></div>
+    <p class="lead">Alleen als signaal, geen juridisch advies. Elk punt moet voor de proef nagekeken worden door wie daarover gaat.</p>
+    <dl class="sig">
+      <dt>AVG</dt><dd>Rij- en rusttijden uit de tachograaf, het rooster, de bevoegdheden en de berichten zijn persoonsgegevens, met een wettelijke bewaartermijn voor de tachograaf. Een dienst per mail of in de agenda van een telefoon is een persoonsgegeven in een extern kanaal: wie de adressen beheert, hoe lang het bewaard blijft, en bij de agenda een keuze van de chauffeur zelf. Nodig: een verwerkersovereenkomst en een bewaartermijn per soort gegeven.</dd>
+      <dt>OR</dt><dd>Een voorkeursbod en een eerlijkheidsregel veranderen hoe het rooster tot stand komt en raken de instemming van de OR. Betrouwbaarheid en de kans op een ja zijn bij echte data persoonsgegevens die op een beoordeling lijken: alleen per groep, per persoon alleen voor de planner die hem inzet, nooit op een scherm in de hal. Afspraken in het profiel: nooit een medische reden.</dd>
+      <dt>Cao</dt><dd>De cao-regels van 2026 (Staatscourant 2026, nr. 7211) staan in de code met status zoek en moeten voor de proef nagelezen worden: de verkorte dagrust van 10 uur, de 13 vrije weekenden per half jaar, de venstertijden en de termijnen voor het bekendmaken van diensten. Die termijnen bepalen ook wanneer "Planning vrijgeven" uiterlijk moet.</dd>
+      <dt>Boordcomputer</dt><dd>Een ritopdracht naar de boordcomputer is een wijziging in een systeem van een leverancier. Dat gaat in de proef pas na een test op één voertuig, met een weg terug. Bij een overgang van leverancier (Trimble naar Platform Science, nakijken) kan de koppeling veranderen; OTM5 als vorm houdt ons daar los van.</dd>
+      <dt>Cijfers</dt><dd>De CO2-factoren en de kosten per km zijn schattingen tot ze nagelezen zijn (CO2emissiefactoren.nl, de eigen cijfers van Simon Loos). Wie besparingen naar buiten brengt, doet dat pas met nagelezen factoren.</dd>
+      <dt>Klanten en merken</dt><dd>De plekkenniskaart gaat over adressen van klanten. Wat erop staat, komt van planners en chauffeurs en niet van de klant zelf; laat de klant meekijken voordat het buiten Simon Loos gedeeld wordt.</dd>
+    </dl>
+    <h3 style="margin-top:22px">Wat we moeten doorvragen</h3>
+    <ul class="ask">
+      <li><b>Planners:</b> wanneer de planning van morgen nu af is, en hoe laat een chauffeur hem uiterlijk moet hebben; hoe vaak er na dat moment nog iets verandert; wat er nu op papier staat over adressen.</li>
+      <li><b>HR:</b> waar het rooster en de bevoegdheden staan, en of er een export is.</li>
+      <li><b>ICT:</b> welke boordcomputer, welke koppeling en wie de sleutel heeft; welke mail of app de chauffeurs nu gebruiken.</li>
+      <li><b>Directie:</b> welke cijfers op het dashboard het eerst moeten, en welke CO2-factoren Simon Loos al gebruikt in de eigen rapportage.</li>
+      <li><b>OR:</b> of het voorkeursbod als proef op één standplaats mag, en onder welke voorwaarden.</li>
+    </ul>
+    <p class="endline">Control Tower 4.1 · plan van Sem Appel, SafeTail · 26 oktober 2026. Alle schermen zijn mockups met gesimuleerde gegevens.</p>
+  </div>
+</section>
+</main>
+</body>
+</html>

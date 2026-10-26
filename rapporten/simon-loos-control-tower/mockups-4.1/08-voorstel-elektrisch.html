@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Voorstel: rijd deze rit elektrisch</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.page{padding:14px 24px;display:grid;grid-template-columns:400px minmax(0,1fr);gap:14px;align-items:start}
+.vl{display:flex;flex-direction:column;gap:8px}
+.vi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px}
+.vi.sel{border-color:var(--sel-line);background:var(--sel);box-shadow:inset 3px 0 0 #1BAF7A}
+.vi .h{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px}
+.vi .h .ic{color:#1BAF7A}
+.vi .m{color:var(--text2);margin-top:2px}
+.vi .e{display:flex;gap:8px;margin-top:6px}
+.sum{border-top:1px solid var(--line);padding-top:8px;font-size:12.5px;display:flex;justify-content:space-between}
+.big{display:flex;align-items:flex-start;gap:12px}
+.big h2{font-size:19px}
+.big .act{margin-left:auto;display:flex;gap:8px}
+.cmp{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.cmp th{font-size:12px;color:var(--muted);text-align:left;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line2);background:var(--surface)}
+.cmp td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.cmp td small{display:block;font-size:11.5px}
+.cmp tr.tot td{font-weight:600;background:var(--ok-soft);border-bottom:0}
+.cmp td.r,.cmp th.r{text-align:right}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.acc{display:flex;align-items:center;gap:10px;font-size:12.5px;margin-top:6px}
+.acc .meter{flex:1;height:10px;border-radius:5px}
+.bron{font-size:12px;color:var(--text2);line-height:1.5}
+.bron div{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+.bron div:first-child{border-top:0}
+.st{display:inline-flex;height:18px;align-items:center;padding:0 6px;border-radius:4px;font-size:10.5px;font-weight:700}
+.st.g{background:var(--ok-soft);color:var(--ok)}.st.z{background:var(--warn-soft);color:var(--warn)}.st.s{background:var(--surface2);color:var(--muted)}
+</style></head>
+<body data-actief="planbord" data-titel="Duurzame voorstellen" data-crumb="Wognum · dinsdag 27 oktober · 4 voorstellen · alles schatting" data-klok="15:42">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="vl">
+    <div class="vi sel"><div class="h"><i data-ic="bolt"></i>Rijd rit T-1194/2 elektrisch</div><div class="m">T-1141 staat van 09:30 tot 15:00 vrij op Wognum, accu 92 %</div><div class="e"><span class="badge b-ok">−91 kg CO2</span><span class="badge b-ok">−€ 30</span></div></div>
+    <div class="vi"><div class="h"><i data-ic="route"></i>Lege kilometers eruit</div><div class="m">Leeggoed van AH Hoorn mee op rit T-1120/1 in plaats van een aparte ophaalrit</div><div class="e"><span class="badge b-ok">−38 km</span><span class="badge b-ok">−36 kg</span><span class="badge b-ok">−€ 21</span></div></div>
+    <div class="vi"><div class="h"><i data-ic="trailer"></i>Een LZV in plaats van twee ritten</div><div class="m">Twee ritten naar DC Zaandam in één combinatie; Ahmed Karsten is LZV-bevoegd en past</div><div class="e"><span class="badge b-ok">−74 km</span><span class="badge b-ok">−70 kg</span><span class="badge b-ok">−€ 95</span></div></div>
+    <div class="vi"><div class="h"><i data-ic="timer"></i>Minder wachten bij DC Zaandam</div><div class="m">Vertrek 25 min later; minder stationair draaien van de koelmachine</div><div class="e"><span class="badge b-ok">−4 kg</span><span class="badge b-grey">€ 0</span></div></div>
+    <div class="sum"><span>Samen, als je alles toepast</span><b>−201 kg CO2 · −€ 146</b></div>
+    <div class="hint">Geen voorstel zonder genoeg accu of zonder de juiste bevoegdheid. De planner past toe of wijst af; de directie ziet in het dashboard wat er gebruikt werd.</div>
+  </div>
+  <div class="card"><div class="card-b" style="padding-top:14px">
+    <div class="big"><div><h2>Rijd deze rit elektrisch</h2><div class="mut" style="font-size:12.5px">Rit T-1194/2 · laden Wognum 10:30 · AH Purmerend, AH Edam, AH Volendam · terug 14:10 · 148 km · Martijn Koning</div></div>
+      <div class="act"><span class="btn sm">Wijs af</span><span class="btn sm pri"><i data-ic="check"></i>Pas toe</span></div></div>
+    <table class="cmp">
+      <thead><tr><th></th><th>Nu: diesel, T-1194</th><th>Voorstel: elektrisch, T-1141</th><th class="r">Verschil</th></tr></thead>
+      <tbody>
+        <tr><td>Energie</td><td>148 km × 29,5 l per 100 km = <b>43,7 l</b></td><td>148 km × 1,1 kWh per km = <b>163 kWh</b></td><td class="r"></td></tr>
+        <tr><td>CO2</td><td>43,7 l × 3,2 kg = <b>140 kg</b></td><td>163 kWh × 0,30 kg = <b>49 kg</b></td><td class="r"><b>−91 kg</b></td></tr>
+        <tr><td>Kosten</td><td>148 km × € 0,55 = <b>€ 81</b></td><td>148 km × € 0,35 = <b>€ 52</b></td><td class="r"><b>−€ 30</b></td></tr>
+        <tr class="tot"><td>Per jaar</td><td colspan="2">als deze rit elke werkdag zo gaat (250 dagen)</td><td class="r">−22,7 t · −€ 7.400</td></tr>
+      </tbody>
+    </table>
+    <div class="two">
+      <div class="card" style="border-color:var(--line)"><div class="card-h"><h3>Past het?</h3></div><div class="card-b" style="font-size:12.5px">
+        <div class="acc"><span>Accu</span><div class="meter"><i style="width:62%"></i></div><span><b>92 %</b> wordt <b>62 %</b></span></div>
+        <div class="hint" style="margin-top:4px">540 kWh (gesimuleerd); de grens is 10 %, opletten onder 20 %</div>
+        <div style="margin-top:8px"><span class="tok">Laden</span> na de rit, 14:30 tot 16:00 op laadpunt 3, in de goedkoopste kwartieren</div>
+        <div style="margin-top:4px"><span class="tok">Chauffeur</span> Martijn Koning: CE, code 95, rijdt elektrisch</div>
+        <div style="margin-top:4px"><span class="tok">Rooster</span> T-1141 heeft om 16:30 weer een rit; past</div></div></div>
+      <div class="card"><div class="card-h"><h3>Waar de getallen vandaan komen</h3></div><div class="card-b bron">
+        <div><span>29,5 l per 100 km</span><span>verbruik diesel in de simulatie <span class="st s">gesimuleerd</span></span></div>
+        <div><span>1,1 kWh per km</span><span>NACFE, al in de code <span class="st g">gelezen</span></span></div>
+        <div><span>3,2 kg CO2 per liter</span><span>CO2emissiefactoren.nl <span class="st z">zoek, nalezen</span></span></div>
+        <div><span>0,30 kg CO2 per kWh</span><span>CO2emissiefactoren.nl <span class="st z">zoek, nalezen</span></span></div>
+        <div><span>€ 0,55 en € 0,35 per km</span><span>kosten per km in de demo <span class="st s">schatting</span></span></div>
+      </div></div>
+    </div>
+  </div></div>
+</div></div></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Vrijgeven</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.ctl{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ctl .sp{flex:1}
+.flow{display:flex;align-items:stretch;gap:0;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.flow>div{flex:1;padding:10px 14px;border-left:1px solid var(--line);position:relative}
+.flow>div:first-child{border-left:0}
+.flow .l{font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:6px}
+.flow .v{font-size:22px;font-weight:600;margin-top:2px}
+.flow .s{font-size:12px;color:var(--muted)}
+.flow .go{flex:1.35;background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:6px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:14px}
+table.t{font-size:12.5px}table.t th,table.t td{padding:0 7px}table.t td:first-child,table.t th:first-child{padding-left:12px}
+table.t td .sub2{display:block;font-size:11.5px;color:var(--muted);line-height:1.2}
+table.t td{height:43px}
+.nieuwhier{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:5px;background:var(--warn-soft);color:var(--warn);font-size:11px;font-weight:700}
+.diff{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.diff div{display:grid;grid-template-columns:18px 1fr;gap:6px;font-size:12.5px;padding:7px 9px;border-radius:7px;background:var(--surface)}
+.diff .p{background:var(--ok-soft)}.diff .p b:first-child{color:var(--ok)}
+.diff .w{background:var(--warn-soft)}.diff .w b:first-child{color:var(--warn)}
+.diff .g b:first-child{color:var(--faint)}
+.preview{border:1px dashed var(--line2);border-radius:8px;padding:9px 11px;font-size:12.5px;color:var(--text2);margin-top:10px}
+.preview b{color:var(--text)}
+</style></head>
+<body data-actief="vrijgeven" data-titel="Vrijgeven" data-crumb="Wognum · planning di 27 okt · gesimuleerd" data-klok="16:20">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="ctl">
+    <div class="seg"><span class="on">Morgen, di 27 okt</span><span>Volgende dienst</span><span>Week</span></div>
+    <div class="chips"><span class="chip on">Alle <span class="n">52</span></span><span class="chip">Concept <span class="n">7</span></span><span class="chip">Gewijzigd <span class="n">1</span></span><span class="chip">Nog geen reactie <span class="n">3</span></span><span class="chip">Eerste keer op een adres <span class="n">4</span></span></div>
+    <span class="sp"></span>
+    <span class="btn sm"><i data-ic="eye"></i>Voorbeeld bericht</span>
+  </div>
+  <div class="flow">
+    <div><div class="l"><span class="dot" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--c-terrein)"></span>Concept</div><div class="v">7</div><div class="s">nieuw sinds 15:10</div></div>
+    <div><div class="l"><span class="dot" style="background:var(--faint)"></span>Vrijgegeven</div><div class="v">3</div><div class="s">nog niet geopend</div></div>
+    <div><div class="l"><span class="dot" style="background:var(--c-klant)"></span>Gezien</div><div class="v">11</div><div class="s">wacht op akkoord</div></div>
+    <div><div class="l"><span class="dot" style="background:var(--c-onderweg)"></span>Bevestigd</div><div class="v">30</div><div class="s">akkoord van de chauffeur</div></div>
+    <div><div class="l"><span class="dot" style="background:var(--c-vertraagd)"></span>Gewijzigd na vrijgeven</div><div class="v">1</div><div class="s">verschil nog niet verstuurd</div></div>
+    <div class="go"><span class="btn lg pri"><i data-ic="send"></i>Planning vrijgeven (8)</span><span class="hint">7 nieuwe diensten en 1 verschil. De 44 die al weg zijn, gaan niet opnieuw.</span></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="overflow:hidden">
+      <table class="t">
+        <thead><tr><th>Status</th><th>Chauffeur</th><th>Rooster</th><th class="r">Begin</th><th>Wagen</th><th>Ritten</th><th class="r">Eind</th><th class="r">Rijden</th><th class="r">Rust ervoor</th></tr></thead>
+        <tbody>
+          <tr class="sel"><td><span class="badge b-bad"><span class="dot"></span>Gewijzigd</span></td><td><b>Jolanda de Vries</b><span class="sub2" hidden>P-0388</span></td><td>volle week</td><td class="r">05:30</td><td>T-1133</td><td>3 <span class="nieuwhier">eerste keer</span></td><td class="r">16:55</td><td class="r">4:35</td><td class="r">11:50</td></tr>
+          <tr><td><span class="badge b-out"><span class="dot"></span>Concept</span></td><td><b>Youssef Bakker</b><span class="sub2" hidden>P-0402</span></td><td>halve dag</td><td class="r">04:30</td><td>T-1140</td><td>1</td><td class="r">09:40</td><td class="r">3:20</td><td class="r">14:05</td></tr>
+          <tr><td><span class="badge b-out"><span class="dot"></span>Concept</span></td><td><b>Kevin Mulder</b><span class="sub2" hidden>P-0415</span></td><td>oproep</td><td class="r">05:00</td><td>T-1169</td><td>2 <span class="nieuwhier">eerste keer</span></td><td class="r">14:10</td><td class="r">6:05</td><td class="r">36:00</td></tr>
+          <tr><td><span class="badge b-out"><span class="dot"></span>Concept</span></td><td><b>Gerrit Hoogland</b><span class="sub2" hidden>P-0371</span></td><td>deeltijd</td><td class="r">06:15</td><td>T-1141</td><td>2</td><td class="r">15:20</td><td class="r">5:40</td><td class="r">13:30</td></tr>
+          <tr><td><span class="badge b-warn"><span class="dot"></span>Geen reactie · 70 min</span></td><td><b>Martijn Koning</b><span class="sub2" hidden>P-0420</span></td><td>volle week</td><td class="r">04:45</td><td>T-1194</td><td>3</td><td class="r">15:05</td><td class="r">7:30</td><td class="r">11:10</td></tr>
+          <tr><td><span class="badge b-info"><span class="dot"></span>Gezien 15:42</span></td><td><b>Linda Zeeman</b><span class="sub2" hidden>P-0417</span></td><td>volle week</td><td class="r">05:15</td><td>T-1120</td><td>3</td><td class="r">15:30</td><td class="r">6:50</td><td class="r">12:20</td></tr>
+          <tr><td><span class="badge b-info"><span class="dot"></span>Gezien 15:51</span></td><td><b>Jeroen Ruiter</b><span class="sub2" hidden>P-0409</span></td><td>volle week</td><td class="r">06:00</td><td>T-1180</td><td>2 <span class="nieuwhier">eerste keer</span></td><td class="r">16:10</td><td class="r">7:15</td><td class="r">11:30</td></tr>
+          <tr><td><span class="badge b-ok"><span class="dot"></span>Bevestigd 15:48</span></td><td><b>Ahmed Karsten</b><span class="sub2" hidden>P-0396</span></td><td>volle week</td><td class="r">04:30</td><td>T-1212</td><td>3</td><td class="r">14:40</td><td class="r">7:40</td><td class="r">12:05</td></tr>
+          <tr><td><span class="badge b-ok"><span class="dot"></span>Bevestigd 15:36</span></td><td><b>Henk Visser</b><span class="sub2" hidden>P-0377</span></td><td>deeltijd</td><td class="r">05:45</td><td>T-1136</td><td>2</td><td class="r">14:15</td><td class="r">5:55</td><td class="r">15:10</td></tr>
+          <tr><td><span class="badge b-ok"><span class="dot"></span>Bevestigd 15:29</span></td><td><b>Jeroen Mol</b><span class="sub2" hidden>P-0411</span></td><td>volle week</td><td class="r">07:00</td><td>T-1184</td><td>3</td><td class="r">17:20</td><td class="r">7:55</td><td class="r">12:40</td></tr>
+          <tr><td><span class="badge b-ok"><span class="dot"></span>Bevestigd 15:22</span></td><td><b>Wesley Brouwer</b><span class="sub2" hidden>P-0430</span></td><td>volle week</td><td class="r">05:00</td><td>T-1127</td><td>3 <span class="nieuwhier">eerste keer</span></td><td class="r">15:15</td><td class="r">7:10</td><td class="r">11:45</td></tr>
+          <tr><td><span class="badge b-ok"><span class="dot"></span>Bevestigd 15:20</span></td><td><b>Femke Smit</b><span class="sub2" hidden>P-0384</span></td><td>halve dag</td><td class="r">12:30</td><td>T-1156</td><td>1</td><td class="r">17:10</td><td class="r">3:05</td><td class="r">19:30</td></tr>
+        </tbody>
+      </table>
+      <div class="card-f"><span>12 van 52 diensten</span><span>·</span><span>In de demo gaat er niets de deur uit: het bericht staat als voorbeeld en "verstuurd" komt in het logboek.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Jolanda de Vries</h2><span class="sub">dienst W-214</span><span class="act"><span class="badge b-bad">gewijzigd 16:05</span></span></div>
+      <div class="card-b">
+        <div class="hint">Akkoord om 15:48, daarna veranderd. Alleen dit verschil gaat opnieuw naar haar telefoon en de boordcomputer.</div>
+        <div class="sec-t">Wat er verandert</div>
+        <div class="diff">
+          <div class="p"><b>+</b><span><b>Rit 3 erbij:</b> laden Wognum 14:30, AH Enkhuizen, venster 15:15 tot 16:00</span></div>
+          <div class="w"><b>~</b><span><b>Eind</b> 14:40 wordt 16:55</span></div>
+          <div class="w"><b>~</b><span><b>Rijtijd</b> 3:40 wordt 4:35, deze week 10:15 van 56</span></div>
+          <div class="w"><b>→</b><span><b>Eerste keer</b> bij AH Enkhuizen: de plekkenniskaart gaat mee</span></div>
+          <div class="g"><b>=</b><span>Begin, wagen, ritten 1 en 2 en de pauze gelijk</span></div>
+        </div>
+        <div class="preview"><b>Gaat opnieuw:</b> "Rit 3 erbij, AH Enkhuizen 15:15 tot 16:00. Je bent om 16:55 klaar in plaats van 14:40. De rest blijft gelijk."</div>
+        <div class="note ok" style="margin-top:10px"><i data-ic="okc"></i><span>Past in haar rooster en binnen de rij- en rusttijden.</span></div>
+        <div style="display:flex;gap:8px;margin-top:12px"><span class="btn pri sm"><i data-ic="send"></i>Verschil vrijgeven</span><span class="btn sm">Terugdraaien</span></div>
+      </div>
+    </div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

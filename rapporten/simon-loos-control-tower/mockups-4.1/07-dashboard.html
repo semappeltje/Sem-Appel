@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Dashboard voor de directie</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.page{padding:14px 24px}
+.ctl{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ctl .sp{flex:1}
+.ro{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--surface2);font-size:12.5px;font-weight:600;color:var(--text2)}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px 8px;position:relative}
+.tile .l{font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.tile .l .ic{margin-left:auto;color:var(--faint)}
+.tile .v{font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+.tile .d{font-size:11.5px;font-weight:600}
+.tile .d.up{color:var(--ok)}.tile .d.dn{color:var(--bad)}.tile .d.nt{color:var(--muted)}
+.tile svg.sp{display:block;width:100%;height:30px;margin-top:4px}
+.row2{display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:1.55fr 2fr;gap:12px}
+.card-h{padding:10px 14px 4px;min-height:38px}
+.card-h h3{font-size:14px}
+.card-b{padding:0 14px 12px}
+.ch svg{display:block;width:100%}
+.lg{display:flex;gap:12px;font-size:11.5px;color:var(--text2);margin-top:4px}
+.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.kv3{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:12.5px}
+.kv3 span:nth-child(odd){color:var(--text2)}
+.kv3 b{text-align:right}
+.hs{display:grid;grid-template-columns:96px repeat(14,1fr);gap:2px;font-size:11px;align-items:center}
+.hs .h{color:var(--muted);text-align:center}
+.hs .n{font-weight:600;color:var(--text2)}
+.hs i{display:block;height:22px;border-radius:3px}
+.duur{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.duur .m .l{font-size:12px;color:var(--muted);font-weight:600}
+.duur .m .v{font-size:20px;font-weight:600}
+.duur .m small{display:block;line-height:1.3}
+</style></head>
+<body data-actief="rapporten" data-titel="Rapporten" data-crumb="Dashboard · heel Nederland · laatste 30 dagen · gesimuleerd" data-klok="09:05" data-rol="Directie" data-gebied="Heel Nederland" data-dag="di 27 okt">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="ctl">
+    <div class="tabs" style="border:0"><span class="tab on">Dashboard</span><span class="tab">Per dag</span><span class="tab">Per standplaats</span><span class="tab">Duurzaam</span></div>
+    <span class="sp"></span>
+    <span class="ro"><i data-ic="eye" data-s="14"></i>Alleen-lezen: elk cijfer klikt door naar de lijst</span>
+    <div class="seg"><span>7 dagen</span><span class="on">30 dagen</span><span>Kwartaal</span></div>
+  </div>
+  <div class="tiles" id="tiles"></div>
+  <div class="row2">
+    <div class="card"><div class="card-h"><h3>Op tijd en gemist per dag</h3><span class="act mini mut" style="font-size:12px">lijn: op tijd · staaf: gemiste ritten</span></div><div class="card-b ch" id="optijd"></div></div>
+    <div class="card"><div class="card-h"><h3>Open ritten, ingevuld door</h3></div><div class="card-b" id="invul"></div></div>
+    <div class="card"><div class="card-h"><h3>Rij- en rusttijden</h3></div><div class="card-b">
+      <div class="kv3">
+        <span>Overtredingen in het plan</span><b class="tok">0</b>
+        <span>Door de toets tegengehouden</span><b>312</b>
+        <span>Dicht bij de weekgrens (≤ 4 uur)</span><b class="twarn">23</b>
+        <span>Verkorte dagrust gebruikt</span><b>1,4 per week</b>
+        <span>Pauzes als 15 + 30</span><b>38 %</b>
+      </div>
+      <div class="hint" style="margin-top:8px">Per groep, niet per persoon. Uit de simulatie; in het echt uit de tachograaf.</div></div></div>
+  </div>
+  <div class="row3">
+    <div class="card"><div class="card-h"><h3>Bezetting, komende twee weken</h3><span class="act mini mut" style="font-size:12px">rood tekort, blauw overschot</span></div><div class="card-b"><div class="hs" id="hs"></div></div></div>
+    <div class="card"><div class="card-h"><h3>Duurzaam</h3><span class="act mini mut" style="font-size:12px">schatting; factoren met bron in BRONNEN.md, status zoek tot nagelezen</span></div><div class="card-b">
+      <div class="duur">
+        <div class="m"><div class="l">CO2 per dag</div><div class="v">294 t</div><small class="mut">gemiddeld, schatting</small></div>
+        <div class="m"><div class="l">Aandeel elektrisch</div><div class="v">9 %</div><small class="mut">van de kilometers</small></div>
+        <div class="m"><div class="l">Voorstellen toegepast</div><div class="v">214 <span style="font-size:13px;color:var(--muted)">van 389</span></div><small class="mut">elektrisch, lege km, LZV, wachten</small></div>
+        <div class="m"><div class="l">Bespaard, 30 dagen</div><div class="v">61 t</div><small class="mut">CO2 en € 18.400, schatting</small></div>
+      </div>
+      <div class="ch" id="co2" style="margin-top:8px"></div></div></div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script>
+<script>
+let seed = 7; const R = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const serie = (n, a, b) => Array.from({ length: n }, () => a + R() * (b - a));
+const spark = (v, kleur) => { const mn = Math.min(...v), mx = Math.max(...v); const pts = v.map((y, i) => `${(i / (v.length - 1) * 100).toFixed(2)},${(28 - (y - mn) / (mx - mn || 1) * 24).toFixed(2)}`).join(' ');
+  return `<svg class="sp" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${kleur}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`; };
+const T = [['Op tijd', '96,2 %', '+0,4 punt', 'up', serie(30, 94.5, 97.5)], ['Gemist', '41 ritten', '−9', 'up', serie(30, 0, 4)], ['Open ritten ingevuld', '1.184', '96 % op tijd', 'nt', serie(30, 30, 52)],
+  ['Kosten per km', '€ 1,13', 'schatting, −2 ct', 'up', serie(30, 1.08, 1.18)], ['Lege kilometers', '17,8 %', '+0,6 punt', 'dn', serie(30, 16, 19.5)], ['Wachttijd bij DC', '38 min', 'per bezoek, −3', 'up', serie(30, 33, 46)]];
+document.getElementById('tiles').innerHTML = T.map(([l, v, d, c, s]) => `<div class="tile"><div class="l"><span>${l}</span>${ic('arrowr', 13)}</div><div class="v">${v}</div><div class="d ${c}">${d}</div>${spark(s, '#2A78D6')}</div>`).join('');
+// op tijd en gemist: 30 dagen
+(() => { const n = 30, W = 466, H = 196, op = serie(n, 94.6, 97.6), gm = op.map(v => Math.max(0, Math.round((97.8 - v) * 1.1 + R()))); const x = i => 30 + i * (W - 40) / (n - 1), y = v => 10 + (98 - v) / 5 * (H - 40);
+  let s = `<svg viewBox="0 0 ${W} ${H}">`; [94, 95, 96, 97, 98].forEach(v => { s += `<line x1="30" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" stroke="#E8EAEE"/><text x="24" y="${y(v) + 3.5}" font-size="10" text-anchor="end" fill="#8A919D" font-family="Inter,system-ui">${v}%</text>`; });
+  gm.forEach((g, i) => { s += `<rect x="${x(i) - 4}" y="${H - 18 - g * 6}" width="8" height="${g * 6}" fill="#DC2626" opacity=".75" rx="1.5"/>`; });
+  s += `<polyline points="${op.map((v, i) => `${x(i)},${y(v)}`).join(' ')}" fill="none" stroke="#2A78D6" stroke-width="2"/>`;
+  ['28 sep', '5 okt', '12 okt', '19 okt', '26 okt'].forEach((t, i) => { s += `<text x="${x(i * 7)}" y="${H - 4}" font-size="10" text-anchor="middle" fill="#8A919D" font-family="Inter,system-ui">${t}</text>`; });
+  document.getElementById('optijd').innerHTML = s + '</svg>'; })();
+// invulling per week, gestapeld
+(() => { const wk = [['w40', 58, 18, 9, 15], ['w41', 57, 20, 9, 14], ['w42', 59, 19, 8, 14], ['w43', 61, 19, 9, 11]]; const C = ['#2A78D6', '#1BAF7A', '#EB6834', '#8A919D'];
+  document.getElementById('invul').innerHTML = wk.map(([w, ...p]) => `<div style="display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center;margin:5px 0;font-size:11.5px"><span class="mut">${w}</span><div style="display:flex;height:16px;border-radius:3px;overflow:hidden">${p.map((v, i) => `<i style="width:${v}%;background:${C[i]}"></i>`).join('')}</div></div>`).join('') +
+    `<div class="lg"><span><i style="background:${C[0]}"></i>eigen</span><span><i style="background:${C[1]}"></i>oproep</span><span><i style="background:${C[2]}"></i>zzp</span><span><i style="background:${C[3]}"></i>charter</span></div><div class="hint" style="margin-top:6px">Kosten van de invulling: € 212.000 in 30 dagen (schatting, tarieven uit de demo)</div>`; })();
+// bezetting per standplaats
+(() => { const sp = ['Wognum', 'Zaandam', 'Den Bosch', 'Tiel', 'Zwolle', 'Oss']; const d = ['di', 'wo', 'do', 'vr', 'za', 'zo', 'ma', 'di', 'wo', 'do', 'vr', 'za', 'zo', 'ma'];
+  const w = [-1, 2, -4, -4, 0, 3, -1, -3, 0, -4, -6, 2, 2, 2];
+  let s = '<span></span>' + d.map(x => `<span class="h">${x}</span>`).join('');
+  sp.forEach((n, j) => { s += `<span class="n">${n}</span>` + d.map((_, i) => { const v = j === 0 ? w[i] : Math.round((R() - 0.55) * 7); const c = v < 0 ? `color-mix(in srgb,#DC2626 ${15 + -v * 13}%,white)` : v > 0 ? `color-mix(in srgb,#2563EB ${12 + v * 12}%,white)` : '#F6F7F9'; return `<i style="background:${c}"></i>`; }).join(''); });
+  document.getElementById('hs').innerHTML = s; })();
+// CO2 per dag
+(() => { const v = serie(30, 262, 318); const W = 760, H = 96; const x = i => 4 + i * (W - 8) / 29, y = c => 6 + (330 - c) / 80 * (H - 14);
+  document.getElementById('co2').innerHTML = `<svg viewBox="0 0 ${W} ${H}"><polyline points="${v.map((c, i) => `${x(i)},${y(c)}`).join(' ')}" fill="none" stroke="#1BAF7A" stroke-width="2"/><text x="${W - 4}" y="12" font-size="10" text-anchor="end" fill="#8A919D" font-family="Inter,system-ui">CO2 per dag, ton, 30 dagen</text></svg>`; })();
+</script>
+<script src="mock.js"></script>
+</body></html>

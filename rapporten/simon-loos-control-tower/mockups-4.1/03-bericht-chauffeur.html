@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Het bericht aan de chauffeur</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+body{background:var(--surface2)}
+.stage{display:grid;grid-template-columns:350px 350px minmax(0,1fr);gap:28px;padding:22px 32px;height:100vh;align-items:start}
+.cap{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;margin-bottom:-8px}
+.cap h1{font-size:17px;white-space:nowrap}
+.cap span{font-size:12.5px;color:var(--muted)}
+.phone{width:350px;height:760px;border-radius:44px;background:#16181C;padding:12px;box-shadow:0 18px 50px rgba(16,24,40,.25)}
+.scr{width:100%;height:100%;border-radius:33px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+.sbar{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600}
+.ah{display:flex;align-items:center;gap:8px;padding:6px 14px 10px;border-bottom:1px solid var(--line)}
+.ah img{height:16px}
+.ah span{font-size:11.5px;color:var(--muted);margin-left:auto}
+.body{flex:1;overflow:hidden;padding:12px 14px;font-size:12.5px}
+.body h2{font-size:16px;margin-bottom:2px}
+.rust{display:flex;gap:8px;align-items:flex-start;background:var(--info-soft);border-radius:8px;padding:7px 9px;margin:8px 0;font-size:12px}
+.rust .ic{color:var(--info);margin-top:1px}
+.kv2{display:grid;grid-template-columns:76px 1fr;gap:3px 8px;font-size:12px;margin:6px 0 8px}
+.kv2 dt{color:var(--muted)}
+.rit{border-top:1px solid var(--line);padding:7px 0}
+.rit .rh{font-weight:600;font-size:12.5px;display:flex;gap:6px;align-items:center}
+.rit .rh span{margin-left:auto;font-weight:500;color:var(--muted);font-size:11.5px}
+.stop{display:grid;grid-template-columns:40px 1fr;gap:6px;font-size:12px;padding:2px 0}
+.stop b{font-weight:600}
+.stop .t{color:var(--muted)}
+.eerste{border:1px solid #F3C98B;background:var(--warn-soft);border-radius:8px;padding:7px 9px;margin:4px 0 2px}
+.eerste .et{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--warn);font-size:11.5px}
+.eerste p{font-size:11.5px;color:var(--text);margin-top:2px}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+.acts .btn{height:40px;font-weight:600}
+.acts .done{background:var(--ok-soft);border-color:var(--ok-soft);color:var(--ok)}
+.acts .foot{grid-column:1/-1;text-align:center;font-size:11.5px;color:var(--muted)}
+.foto{height:150px;border-radius:8px;overflow:hidden;background:#C9CCB8;position:relative;margin:8px 0}
+.foto svg{display:block;width:100%;height:100%}
+.pk{display:grid;grid-template-columns:86px 1fr;gap:5px 8px;font-size:12px}
+.pk dt{color:var(--muted)}
+.pk dd b{font-weight:600}
+.tag{display:inline-flex;height:18px;align-items:center;padding:0 6px;border-radius:4px;font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--muted)}
+.side2{display:flex;flex-direction:column;gap:14px}
+.tl{display:flex;flex-direction:column;gap:0;margin-top:4px}
+.tl div{display:grid;grid-template-columns:46px 14px 1fr;gap:8px;font-size:12.5px;align-items:start;padding:5px 0}
+.tl i{width:10px;height:10px;border-radius:50%;margin-top:4px;background:var(--faint)}
+.tl .ok i{background:var(--c-onderweg)}.tl .info i{background:var(--c-klant)}.tl .bad i{background:var(--c-vertraagd)}
+.tl span:first-child{color:var(--muted)}
+</style></head>
+<body>
+<div class="stage">
+  <div class="cap"><h1>Het bericht aan de chauffeur</h1><span>Zo ziet Jolanda de Vries haar gewijzigde dienst van morgen op haar telefoon, met de plekkenniskaart van het adres waar ze voor het eerst komt; rechts wat de planner terugziet. Alles gesimuleerd.</span></div>
+
+  <div class="phone"><div class="scr">
+    <div class="sbar"><span>16:31</span><span>5G</span></div>
+    <div class="ah"><img src="logo.png" alt=""><b style="font-size:12px">Je dienst</b><span>Planning Wognum · 16:24</span></div>
+    <div class="body">
+      <h2>Dinsdag 27 oktober</h2>
+      <div class="mut" style="font-size:12px">Dienst W-214 · 05:30 tot 16:55</div>
+      <div class="eerste" style="margin-top:8px"><div class="et"><i data-ic="refresh" data-s="13"></i>Gewijzigd om 16:24</div><p>Rit 3 erbij. Je bent om 16:55 klaar in plaats van 14:40. De rest blijft gelijk.</p></div>
+      <div class="rust"><i data-ic="snooze"></i><span><b>Je rust:</b> vandaag klaar om 17:40, morgen begin 05:30: 11 uur 50.</span></div>
+      <dl class="kv2"><dt>Melden</dt><dd>05:30 Wognum, dock 7</dd><dt>Trekker</dt><dd>T-1133</dd><dt>Oplegger</dt><dd>O-5080, koel 2 °C</dd><dt>Pauze</dt><dd>45 min rond 12:40 (mag 15 + 30)</dd></dl>
+      <div class="rit"><div class="rh">Rit 1<span>laden 05:45 · 64 km</span></div>
+        <div class="stop"><span class="t">06:50</span><span><b>AH Zwaag</b>, lossen 25 min</span></div>
+        <div class="stop"><span class="t">07:45</span><span><b>AH Hoorn</b>, lossen 30 min</span></div></div>
+      <div class="rit"><div class="rh">Rit 2<span>laden 09:20 · 58 km</span></div>
+        <div class="stop"><span class="t">10:05</span><span><b>AH Medemblik</b>, <b>AH Wervershoof</b> 11:00, <b>AH Andijk</b> 11:50</span></div></div>
+      <div class="rit"><div class="rh">Rit 3 <span class="tag" style="margin-left:0;background:var(--ok-soft);color:var(--ok)">nieuw</span><span>laden 14:30 · 41 km</span></div>
+        <div class="stop"><span class="t">15:15</span><span><b>AH Enkhuizen</b>, venster 15:15 tot 16:00</span></div>
+        <div class="eerste"><div class="et"><i data-ic="pin" data-s="13"></i>Eerste keer hier</div><p>Achteruit insteken aan de achterkant, melden bij de winkel. <u>Zo werkt het hier</u></p></div></div>
+    </div>
+    <div class="acts"><span class="btn done"><i data-ic="check"></i>Gezien</span><span class="btn pri">Akkoord</span><span class="foot">Kan het niet? Geef het door, de planner belt je.</span></div>
+  </div></div>
+
+  <div class="phone"><div class="scr">
+    <div class="sbar"><span>16:32</span><span>5G</span></div>
+    <div class="ah"><b style="font-size:12px">Zo werkt het hier</b><span class="tag">voorbeeldtekst</span></div>
+    <div class="body">
+      <h2>AH Enkhuizen</h2>
+      <div class="mut" style="font-size:12px">Je eerste keer. Ervaren chauffeurs krijgen deze kaart niet.</div>
+      <div class="foto"><svg viewBox="0 0 300 150" aria-hidden="true">
+        <rect width="300" height="150" fill="#C7CBB4"/><rect x="0" y="112" width="300" height="38" fill="#A9ABA3"/>
+        <rect x="0" y="122" width="300" height="2" fill="#E9E7DD" opacity=".7"/>
+        <rect x="70" y="18" width="150" height="70" fill="#D9D4C7" stroke="#B7B09F"/><rect x="88" y="30" width="114" height="46" fill="#E6E1D3"/>
+        <rect x="220" y="40" width="54" height="72" fill="#9D9F97"/><rect x="228" y="70" width="24" height="10" fill="#E3001F" opacity=".85"/>
+        <path d="M300 128 L262 128 L262 96" fill="none" stroke="#2563EB" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 7"/>
+        <path d="M262 96 l-6 10 h12z" fill="#2563EB"/>
+        <rect x="186" y="62" width="34" height="18" fill="#fff" stroke="#15181E"/><text x="203" y="75" font-size="10" font-family="Inter,system-ui" text-anchor="middle" font-weight="700" fill="#15181E">laad</text>
+        <circle cx="262" cy="128" r="6" fill="#fff" stroke="#15181E" stroke-width="2"/><text x="275" y="146" font-size="9" font-family="Inter,system-ui" fill="#15181E">inrit</text>
+        <text x="145" y="58" font-size="10" font-family="Inter,system-ui" text-anchor="middle" fill="#5F6775">winkel</text>
+      </svg></div>
+      <dl class="pk">
+        <dt>Aanrijden</dt><dd>Volg de route in de app tot de inrit aan de achterkant</dd>
+        <dt>Losplek</dt><dd><b>Achteruit insteken</b> bij de laaddeur, oplegger recht</dd>
+        <dt>Melden</dt><dd>Bel aan bij de laaddeur, de winkel opent hem</dd>
+        <dt>Lostijd</dt><dd>Ongeveer 30 min (gemeten, gesimuleerd)</dd>
+        <dt>Contact</dt><dd>De winkel, via de knop hieronder</dd>
+        <dt>Let op</dt><dd>Geen LZV · rolcontainers terug mee</dd>
+      </dl>
+      <div class="note" style="margin-top:10px;font-size:11.5px"><i data-ic="info" data-s="14"></i><span>Aangevuld door planners en chauffeurs, laatst bijgewerkt 12 oktober.</span></div>
+    </div>
+    <div class="acts"><span class="btn">Bel de winkel</span><span class="btn ink">Terug naar rit 3</span></div>
+  </div></div>
+
+  <div class="side2">
+    <div class="card">
+      <div class="card-h"><h2>Wat de planner terugziet</h2><span class="act"><span class="badge b-ok"><span class="dot"></span>Bevestigd</span></span></div>
+      <div class="card-b">
+        <div class="tl">
+          <div><span>15:10</span><i></i><span><b>Vrijgegeven</b> met de planning van Wognum, 52 diensten</span></div>
+          <div class="info"><span>15:44</span><i></i><span><b>Gezien</b> door Jolanda de Vries</span></div>
+          <div class="ok"><span>15:48</span><i></i><span><b>Akkoord</b>; de ritten 1 en 2 gaan als ritopdracht naar T-1133</span></div>
+          <div class="bad"><span>16:05</span><i></i><span><b>Gewijzigd</b> door de planner: rit 3 erbij, eind 16:55</span></div>
+          <div><span>16:24</span><i></i><span><b>Verschil vrijgegeven</b>, alleen rit 3 en de eindtijd</span></div>
+          <div class="info"><span>16:31</span><i></i><span><b>Verschil gezien</b>, met de plekkenniskaart van AH Enkhuizen</span></div>
+          <div class="ok"><span>16:32</span><i></i><span><b>Akkoord</b>; rit 3 gaat als ritopdracht naar T-1133</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Als het stil blijft</h3></div>
+      <div class="card-b">
+        <div class="note warn"><i data-ic="timer"></i><span>Martijn Koning heeft zijn dienst van 15:10 nog niet geopend. Na 60 minuten wordt dat een zaak met een eigenaar: bellen, of de dienst opnieuw sturen.</span></div>
+        <p class="hint" style="margin-top:8px">Het kanaal kiezen we met Simon Loos: de app op de boordcomputer (die ritinstructies en berichten al kent), of mail. In de demo gaat niets de deur uit; "verstuurd" staat in het logboek en de bevestiging is gesimuleerd.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Plekkennis morgen</h3><span class="sub">vier chauffeurs komen ergens voor het eerst</span></div>
+      <div class="card-b" style="font-size:12.5px">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:5px 10px">
+          <span>Jolanda de Vries</span><span class="mut">AH Enkhuizen</span>
+          <span>Kevin Mulder</span><span class="mut">DC Zaandam</span>
+          <span>Jeroen Ruiter</span><span class="mut">AH Volendam</span>
+          <span>Wesley Brouwer</span><span class="mut">AH Edam</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

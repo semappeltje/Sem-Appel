@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Bezetting</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.ctl{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.page{padding:14px 24px}
+.ctl .sp{flex:1}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2)}
+.lg i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:9px 14px}
+.kpi .l{font-size:12px;font-weight:600;color:var(--muted)}
+.kpi .v{font-size:24px;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+.kpi .s{font-size:12px;color:var(--muted)}
+.kpi.t .v{color:var(--tekort-t)}.kpi.o .v{color:var(--over-t)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:14px}
+.chart{position:relative;height:196px;margin:4px 0 6px 34px}
+.chart .ax{position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--line2)}
+.chart .gl{position:absolute;left:0;right:0;border-top:1px dashed var(--line)}
+.chart .yl{position:absolute;left:-34px;width:28px;text-align:right;font-size:11px;color:var(--muted);transform:translateY(-50%)}
+.cols{position:absolute;inset:0;display:grid;grid-template-columns:repeat(14,1fr)}
+.col{position:relative}
+.col.sel{background:var(--sel);border-radius:6px}
+.bar{position:absolute;left:28%;right:28%;border-radius:3px}
+.bar.o{background:var(--over);bottom:50%}
+.bar.t{background:var(--tekort);top:50%}
+.bar span{position:absolute;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;white-space:nowrap}
+.bar.o span{bottom:100%;margin-bottom:2px;color:var(--over-t)}
+.bar.t span{top:100%;margin-top:2px;color:var(--tekort-t)}
+.xl{display:grid;grid-template-columns:repeat(14,1fr);margin-left:34px;font-size:11.5px;color:var(--muted);text-align:center}
+.xl b{color:var(--text)}
+.xl .we{color:var(--faint)}
+table.dd{width:100%;border-collapse:separate;border-spacing:3px;margin-top:10px;table-layout:fixed}
+table.dd th{font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;width:118px;padding-right:6px;white-space:nowrap}
+table.dd th small{display:block;font-size:10.5px;color:var(--faint);font-weight:400}
+table.dd td{height:34px;border-radius:5px;text-align:center;font-size:12.5px;font-weight:600;background:var(--surface)}
+table.dd td.z{color:var(--faint);font-weight:500}
+table.dd td.sel{box-shadow:inset 0 0 0 2px var(--text)}
+.pdag{display:grid;grid-template-columns:1fr auto auto auto;gap:0 14px;font-size:12.5px;align-items:center}
+.pdag div{padding:6px 0;border-top:1px solid var(--line)}
+.pdag .h{border-top:0;font-size:11.5px;color:var(--muted);font-weight:600;padding-top:0}
+.vs{display:flex;flex-direction:column;gap:6px}
+.vp{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.vp .vt{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.vp .vt .ic{color:var(--muted)}
+.vp .vt .badge{margin-left:auto}
+.vp p{font-size:12px;color:var(--text2);margin:2px 0 4px;line-height:1.4}
+.vp .vf{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.vp .vf .btn{margin-left:auto}
+.pdag div{padding:4px 0}
+</style></head>
+<body data-actief="bezetting" data-titel="Bezetting" data-crumb="Wognum · 27 okt tot en met 9 nov · gesimuleerd" data-klok="15:42">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="ctl">
+    <div class="seg"><span class="on">Wognum</span><span>Noord-Holland</span><span>Heel Nederland</span></div>
+    <div class="seg"><span class="on">Twee weken</span><span>Vier weken</span></div>
+    <span class="lg"><i style="background:var(--tekort)"></i>tekort</span>
+    <span class="lg"><i style="background:var(--over)"></i>overschot</span>
+    <span class="sp"></span>
+    <span class="hint">Nodig: ritten uit het plan en de prognose uit de historie. Kan: het rooster na vakantie, ziek, rust en rij- en rusttijden.</span>
+    <span class="btn sm"><i data-ic="download"></i>Exporteer</span>
+  </div>
+  <div class="kpis">
+    <div class="kpi t"><div class="l">Tekort in twee weken</div><div class="v" id="k-t"></div><div class="s">chauffeurs, vooral vroeg op do, vr en di</div></div>
+    <div class="kpi o"><div class="l">Overschot in twee weken</div><div class="v" id="k-o"></div><div class="s">chauffeurs, vooral in de dagdienst</div></div>
+    <div class="kpi"><div class="l">Kosten van het tekort</div><div class="v" id="k-kt"></div><div class="s">schatting: als charter, 9 uur × € 55</div></div>
+    <div class="kpi"><div class="l">Kosten van het overschot</div><div class="v" id="k-ko"></div><div class="s">schatting: betaalde uren zonder rit, 9 × € 33</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-h"><h2>Verschil per dag</h2><span class="sub">boven de lijn overschot, eronder tekort; klik een dag voor de voorstellen</span></div>
+      <div class="card-b">
+        <div class="chart" id="chart"><div class="ax"></div></div>
+        <div class="xl" id="xl"></div>
+        <table class="dd" id="dd"></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Dinsdag 3 november</h2><span class="act"><span class="badge b-bad">tekort 5</span></span></div>
+      <div class="card-b">
+        <div class="pdag" id="pdag"></div>
+        <div class="sec-t">Wat je eraan kunt doen</div>
+        <div class="vs">
+          <div class="vp"><div class="vt"><i data-ic="swap"></i>Dienst verschuiven<span class="badge sm b-ok">€ 0</span></div>
+            <p>Youssef Bakker van dag naar vroeg; zijn rooster laat het toe.</p>
+            <div class="vf">vroeg −5 → −4 · dag +1 → 0<span class="btn xs">Verschuif</span></div></div>
+          <div class="vp"><div class="vt"><i data-ic="depot"></i>Lenen van Zaandam<span class="badge sm b-ok">+ € 80</span></div>
+            <p>Zaandam heeft die ochtend 3 over; 35 min rijden (schatting).</p>
+            <div class="vf">vroeg −4 → −2<span class="btn xs">Vraag aan Zaandam</span></div></div>
+          <div class="vp"><div class="vt"><i data-ic="star"></i>Extra via het voorkeursbod<span class="badge sm b-warn">+ € 890</span></div>
+            <p>Drie gaven "extra: ja" op. Aan de twee met de minste extra diensten dit kwartaal.</p>
+            <div class="vf">vroeg −2 → 0<span class="btn xs pri">Bied aan</span></div></div>
+          <div class="vp"><div class="vt"><i data-ic="contact"></i>Charter vastleggen<span class="badge sm b-grey">vr 6 nov</span></div>
+            <p>Vrijdag blijft 4 tekort na verschuiven en lenen. Nu vastleggen, niet op de dag zelf bellen.</p>
+            <div class="vf">2 × € 495 (schatting)<span class="btn xs">Leg vast</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script><script src="bezetting-data.js"></script>
+<script>
+const B = window.BEZ, eur = n => '€ ' + n.toLocaleString('nl-NL');
+document.getElementById('k-t').textContent = B.tekort;
+document.getElementById('k-o').textContent = B.over;
+document.getElementById('k-kt').textContent = eur(Math.round(B.kostenTekort / 100) * 100);
+document.getElementById('k-ko').textContent = eur(Math.round(B.kostenOver / 100) * 100);
+const SEL = 7, MAX = 7;
+const ch = document.getElementById('chart');
+[-6, -3, 3, 6].forEach(v => { const y = 50 - v / MAX * 50; ch.insertAdjacentHTML('beforeend', `<div class="gl" style="top:${y}%"></div><div class="yl" style="top:${y}%">${v > 0 ? '+' + v : '−' + -v}</div>`); });
+ch.insertAdjacentHTML('beforeend', `<div class="yl" style="top:50%">0</div><div class="cols">${B.perDag.map((d, i) => `<div class="col ${i === SEL ? 'sel' : ''}">${d.over ? `<div class="bar o" style="height:${d.over / MAX * 50}%"><span>+${d.over}</span></div>` : ''}${d.tekort ? `<div class="bar t" style="height:${d.tekort / MAX * 50}%"><span>−${d.tekort}</span></div>` : ''}</div>`).join('')}</div>`);
+document.getElementById('xl').innerHTML = B.dagen.map((d, i) => `<span class="${/^z[ao]/.test(d) ? 'we' : ''}">${i === SEL ? `<b>${d}</b>` : d}</span>`).join('');
+const tint = v => v === 0 ? '' : v < 0 ? `background:color-mix(in srgb,var(--tekort) ${18 + (-v) * 13}%,white);color:${-v >= 3 ? '#fff' : 'var(--tekort-t)'}` : `background:color-mix(in srgb,var(--over) ${14 + v * 12}%,white);color:${v >= 3 ? '#fff' : 'var(--over-t)'}`;
+document.getElementById('dd').innerHTML = B.delen.map((n, j) => `<tr><th>${n}<small>${B.uren[j]}</small></th>${B.verschil.map((r, i) => `<td class="${r[j] === 0 ? 'z' : ''} ${i === SEL ? 'sel' : ''}" style="${tint(r[j])}">${r[j] === 0 ? '0' : r[j] > 0 ? '+' + r[j] : '−' + -r[j]}</td>`).join('')}</tr>`).join('');
+const n = B.nodig[SEL], v = B.verschil[SEL];
+document.getElementById('pdag').innerHTML = `<div class="h">Dagdeel</div><div class="h r">Nodig</div><div class="h r">Kan</div><div class="h r">Verschil</div>` +
+  B.delen.map((d, j) => `<div>${d} <small>${B.uren[j]}</small></div><div class="r">${n[j]}</div><div class="r">${n[j] + v[j]}</div><div class="r" style="font-weight:600;color:${v[j] < 0 ? 'var(--tekort-t)' : v[j] > 0 ? 'var(--over-t)' : 'var(--muted)'}">${v[j] > 0 ? '+' + v[j] : v[j] < 0 ? '−' + -v[j] : '0'}</div>`).join('');
+console.log(JSON.stringify({ tekort: B.tekort, over: B.over, kt: B.kostenTekort, ko: B.kostenOver, perDag: B.perDag }));
+</script>
+<script src="mock.js"></script>
+</body></html>

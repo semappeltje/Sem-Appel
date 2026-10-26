@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Kandidaatkaart</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.page{padding:0;display:grid;grid-template-columns:372px minmax(0,1fr)}
+.lst{border-right:1px solid var(--line);overflow:hidden}
+.lst .seg{margin:14px 16px 8px}
+.lst .gh{font-size:12px;font-weight:600;color:var(--muted);padding:8px 16px}
+.or{padding:10px 16px;border-top:1px solid var(--line);position:relative}
+.or.sel{background:var(--sel)}
+.or.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand)}
+.or .a{display:flex;gap:8px;align-items:baseline}
+.or .a b{font-size:13.5px}
+.or .a .mut{font-size:12.5px}
+.or .a .badge{margin-left:auto}
+.or .m{font-size:12.5px;color:var(--text2)}
+.or .s{font-size:12px;color:var(--muted)}
+.det{padding:16px 24px;overflow:hidden}
+.dh{display:flex;align-items:flex-start;gap:12px}
+.dh h2{font-size:19px}
+.dh .act{margin-left:auto;display:flex;gap:8px}
+.facts{display:flex;gap:18px;font-size:12.5px;color:var(--text2);margin:6px 0 12px;flex-wrap:wrap}
+.facts b{color:var(--text)}
+.kh{display:flex;align-items:center;gap:10px;margin:4px 0 8px}
+.kh h3{font-size:15px}
+.kh .hint{margin-left:4px}
+.cand{display:grid;grid-template-columns:36px minmax(0,1fr) 168px;gap:12px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px}
+.rk{display:grid;grid-template-columns:auto auto;gap:4px 12px;justify-content:end;align-items:start}
+.rk .b{grid-column:1/-1}
+.cand.best{border-color:var(--sel-line);box-shadow:inset 3px 0 0 var(--ok)}
+.cand .nm{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cand .nm b{font-size:14px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
+.cand .nm span{font-size:12px;color:var(--muted)}
+.cand .tl{font-size:13px;font-weight:600;margin-top:3px}
+.cand .tl .ic{color:var(--ok)}
+.cand .sub{font-size:12px;color:var(--muted);margin-top:1px}
+.cand .chips{gap:5px;margin-top:6px}
+.cand .k{font-size:17px;font-weight:600;text-align:right}
+.cand .k small{display:block;font-size:11.5px}
+.cand .e{text-align:right;font-size:15px;font-weight:600}
+.cand .e small{display:block;font-size:11px;line-height:1.3;max-width:96px;margin-left:auto}
+.cand .b{display:flex;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)}.p-info{background:var(--info-soft);color:var(--info)}.p-warn{background:var(--warn-soft);color:var(--warn)}.p-grey{background:var(--surface2);color:var(--text2)}.p-bad{background:var(--bad-soft);color:var(--bad)}
+.af{border:1px dashed var(--line2);border-radius:10px;padding:10px 14px;font-size:12.5px}
+.af .ah{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px}
+.af .ah .hint{font-weight:400;margin-left:auto}
+.af div.rr{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+.af div.rr:first-of-type{border-top:0}
+</style></head>
+<body data-actief="openritten" data-titel="Open ritten" data-crumb="Wognum · 4 open · gesimuleerd" data-klok="15:42">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="lst">
+    <div class="seg"><span>Vandaag 0</span><span class="on">Morgen 4</span><span>Later 2</span></div>
+    <div class="gh">Morgen, dinsdag 27 oktober</div>
+    <div class="or sel"><div class="a"><b>AH</b><span class="mut">Wognum</span><span class="badge sm b-warn">belmoment 14:10</span></div><div class="m">laden 15:30 tot 16:30 · koel · 2 winkels</div><div class="s">Extra rit van de klant · nieuw uit OTM5</div></div>
+    <div class="or"><div class="a"><b>Jumbo</b><span class="mut">Wognum</span></div><div class="m">laden 05:00 tot 06:00 · droog · 3 winkels</div><div class="s">Ziekmelding · gelijktijdig gevraagd, 1 van 3 gezien</div></div>
+    <div class="or"><div class="a"><b>Plus</b><span class="mut">Wognum</span></div><div class="m">laden 09:15 tot 10:15 · koel · 2 winkels</div><div class="s">Extra rit van de klant</div></div>
+    <div class="or"><div class="a"><b>AH</b><span class="mut">Wognum</span></div><div class="m">laden 20:30 tot 21:30 · vries · DC Zaandam</div><div class="s">Retour opleggers · nieuw uit OTM5</div></div>
+  </div>
+  <div class="det">
+    <div class="dh"><div><h2>AH, extra rit · dinsdag 27 oktober</h2><div class="mut" style="font-size:12.5px">laden 15:30 tot 16:30 · AH Zwaag 17:05 · AH Hoorn 17:55 · terug 19:20 · 71 km</div></div>
+      <div class="act"><span class="btn sm"><i data-ic="msg"></i>Vraag tegelijk uit</span><span class="btn sm"><i data-ic="contact"></i>Charter</span></div></div>
+    <div class="facts"><span><b>Dienst</b> ongeveer 4 uur 10, rijden 1 uur 50</span><span><b>Nodig</b> CE, code 95, koel</span><span><b>Belmoment</b> 14:10</span></div>
+    <div class="kh"><h3>Eigen chauffeurs en oproep</h3><span class="hint">alleen wie het haalt: rij- en rusttijd, rooster en bevoegdheid zijn al getoetst</span></div>
+
+    <div class="cand best"><span class="av">IB</span>
+      <div><div class="nm"><b>Ilse Brouwer</b><span>eigen chauffeur · volle week, avond · met T-1166</span><span class="pill p-ok">aanbevolen</span></div>
+        <div class="tl"><i data-ic="timer" data-s="15"></i> Kan morgen 9 uur rijden · weekrust vanaf vrijdag 22:00</div>
+        <div class="sub">Deze week 6:10 van 56, twee weken 49:30 van 90 · rust ervoor 13 uur</div>
+        <div class="chips"><span class="pill p-ok"><i data-ic="okc" data-s="13"></i>past in het rooster</span><span class="pill p-info"><i data-ic="route" data-s="13"></i>voorkeursroute · was hier 14 keer, laatst dinsdag</span><span class="pill p-warn"><i data-ic="star" data-s="13"></i>gaf zich op voor extra op dinsdag</span></div></div>
+      <div class="rk"><div class="k">86 %<small>kans op ja</small></div><div class="e">€ 0<small>binnen haar contracturen, schatting</small></div><div class="b"><span class="btn sm pri">Toewijzen</span></div></div></div>
+
+    <div class="cand"><span class="av">MS</span>
+      <div><div class="nm"><b>Marieke Schouten</b><span>oproep · gaf dinsdagavond op als beschikbaar</span></div>
+        <div class="tl"><i data-ic="timer" data-s="15"></i> Kan morgen 9 uur rijden · weekrust vanaf zaterdag 06:00</div>
+        <div class="sub">Deze week 0:00 van 56, twee weken 22:40 van 90 · rust ervoor 38 uur</div>
+        <div class="chips"><span class="pill p-ok"><i data-ic="okc" data-s="13"></i>past in het rooster</span><span class="pill p-warn"><i data-ic="pin" data-s="13"></i>eerste keer bij AH Hoorn: plekkenniskaart gaat mee</span></div></div>
+      <div class="rk"><div class="k">64 %<small>kans op ja</small></div><div class="e">€ 165<small>4 u 10 × € 40 inleentarief, schatting</small></div><div class="b"><span class="btn sm">Toewijzen</span></div></div></div>
+
+    <div class="cand"><span class="av">MJ</span>
+      <div><div class="nm"><b>Mohamed Jansen</b><span>eigen chauffeur · deeltijd, ma, wo, do</span><span class="pill p-grey">buiten het rooster</span></div>
+        <div class="tl"><i data-ic="timer" data-s="15"></i> Kan morgen 9 uur rijden · dinsdag is geen werkdag</div>
+        <div class="sub">Was hier 31 keer, laatst maandag</div>
+        <div class="chips"><span class="pill p-info"><i data-ic="route" data-s="13"></i>vaste route (ma, wo)</span><span class="pill p-grey">alleen met reden in het logboek</span></div></div>
+      <div class="rk"><div class="k">41 %<small>kans op ja</small></div><div class="e">€ 205<small>extra dienst: 4 u 10 × € 33 × 1,5, schatting</small></div><div class="b"><span class="btn sm">Wijk bewust af</span></div></div></div>
+
+    <div class="af"><div class="ah"><i data-ic="eye"></i>Vallen af (4)<span class="hint">je hoeft niet te rekenen; de reden staat erbij</span></div>
+      <div class="rr"><span>Linda Zeeman</span><span class="mut">dienst morgen tot 15:30; met deze rit 14 uur 05 dienst, de dagrust van 11 uur past dan niet</span></div>
+      <div class="rr"><span>Wesley Brouwer</span><span class="mut">na deze rit 91:10 rijden in twee weken (grens 90, EU 561)</span></div>
+      <div class="rr"><span>Jolanda Smit</span><span class="mut">rustdag in het rooster</span></div>
+      <div class="rr"><span>Gerrit Zwaan</span><span class="mut">code 95 verlopen op 30 september; geen rit tot hij verlengd is</span></div></div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

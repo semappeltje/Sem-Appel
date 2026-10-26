@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Chauffeursprofiel</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.page{padding:16px 24px}
+.ph{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.ph h2{font-size:21px}
+.ph .bd{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.ph .act{margin-left:auto;display:flex;gap:8px}
+.weten{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.weten .wl{display:flex;align-items:center;padding:0 14px;background:var(--text);color:#fff;font-weight:600;font-size:12.5px;line-height:1.25;width:132px}
+.weten>div:not(.wl){display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-left:1px solid var(--line);font-size:12.5px}
+.weten .ic{margin-top:1px}
+.cols{display:grid;grid-template-columns:1.08fr 1fr 1fr;gap:12px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card-h{padding:10px 14px 6px;min-height:38px}
+.card-h h3{font-size:14px}
+.card-b{padding:0 14px 12px}
+.tel{display:flex;flex-direction:column;gap:7px;font-size:12.5px}
+.tel .r1{display:grid;grid-template-columns:96px 1fr 84px;gap:8px;align-items:center}
+.tel .r1 span:last-child{text-align:right;font-weight:600}
+.lines{display:grid;grid-template-columns:96px 1fr;gap:4px 8px;font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.lines dt{color:var(--muted)}
+.wk{display:grid;grid-template-columns:34px repeat(7,1fr);gap:3px;font-size:11px;text-align:center}
+.wk .h{color:var(--muted);font-weight:600}
+.wk .c{height:24px;border-radius:5px;display:grid;place-items:center;font-weight:600}
+.c.vroeg{background:var(--b-onderweg,#E7F6EC);color:#166534}
+.c.dag{background:#E8EFFD;color:#1E40AF}
+.c.vrij{background:var(--surface);color:var(--faint);font-weight:500}
+.c.vak{background:#F1ECFD;color:#5B21B6}
+.c.extra{background:var(--warn-soft);color:var(--warn)}
+.tb{width:100%;border-collapse:collapse;font-size:12px}
+.tb td{padding:5px 0;border-top:1px solid var(--line);vertical-align:top}
+.tb tr:first-child td{border-top:0}
+.tb td:last-child{text-align:right;white-space:nowrap}
+.mini{font-size:11.5px;color:var(--muted)}
+.lock{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:11.5px}
+</style></head>
+<body data-actief="chauffeurs" data-titel="Chauffeurs" data-crumb="Wognum · Linda Zeeman · P-0417 · gesimuleerd" data-klok="15:42">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="ph"><span class="av lg">LZ</span>
+    <div><h2>Linda Zeeman</h2><div class="bd"><span class="badge b-ok"><span class="dot"></span>Rijdt · T-1120</span><span class="badge b-grey">Wognum</span><span class="badge b-grey">Volle week, 40 uur</span><span class="badge b-grey">Eigen chauffeur sinds 2020</span></div></div>
+    <div class="act"><span class="btn sm"><i data-ic="note"></i>Notitie</span><span class="btn sm"><i data-ic="msg"></i>Bericht</span><span class="btn sm pri"><i data-ic="plus"></i>Plan in</span></div></div>
+  <div class="weten">
+    <div class="wl">Wat je als planner moet weten</div>
+    <div><i data-ic="timer" class="tok"></i><span><b>Kan vandaag nog 3 uur 10 rijden</b>, weekrust vanaf vrijdag 18:00</span></div>
+    <div><i data-ic="star" class="twarn"></i><span>Liever vroeg. Krijgt de <b>extra dienst op zaterdag 7 november</b> (voorkeursbod)</span></div>
+    <div><i data-ic="shield" class="tbad"></i><span><b>ADR verloopt over 63 dagen</b> (28 december). Rijdt geen LZV (afspraak)</span></div>
+  </div>
+  <div class="cols">
+    <div class="col">
+      <div class="card"><div class="card-h"><h3>Rij- en rusttijden</h3><span class="act mini">uit de simulatie; straks de tachograaf</span></div>
+        <div class="card-b"><div class="tel">
+          <div class="r1"><span>Vandaag</span><div class="meter big"><i style="width:65%"></i></div><span>5:50 / 9:00</span></div>
+          <div class="r1"><span>Deze week</span><div class="meter big"><i style="width:10%"></i></div><span>5:50 / 56</span></div>
+          <div class="r1"><span>Twee weken</span><div class="meter big warn"><i style="width:59%"></i></div><span>53:25 / 90</span></div>
+        </div>
+        <dl class="lines">
+          <dt>Nog deze week</dt><dd><b>36:35</b>: de grens van 90 uur in twee weken telt eerder dan die van 56</dd>
+          <dt>Pauze</dt><dd>45 min om 10:40, als 15 + 30 (EU 561, art. 7)</dd>
+          <dt>Laatste rust</dt><dd>weekrust, vr 23 okt 17:55 tot ma 06:10</dd>
+          <dt>Verkort</dt><dd>0 van de 3 keer 10 uur dagrust (cao)</dd>
+          <dt>Tien uur rijden</dt><dd>nog 2 keer deze week</dd>
+          <dt>Volgende rust</dt><dd>dagrust vanaf het eind van de dienst; weekrust vrijdag 18:00, 45 uur</dd>
+        </dl></div></div>
+      <div class="card"><div class="card-h"><h3>Rooster</h3><span class="act mini">volle week · vroeg en dag</span></div>
+        <div class="card-b">
+          <div class="wk">
+            <span></span><span class="h">ma</span><span class="h">di</span><span class="h">wo</span><span class="h">do</span><span class="h">vr</span><span class="h">za</span><span class="h">zo</span>
+            <span class="h">w44</span><span class="c dag">dag</span><span class="c vroeg">vroeg</span><span class="c dag">dag</span><span class="c vroeg">vroeg</span><span class="c vroeg">vroeg</span><span class="c vrij">vrij</span><span class="c vrij">vrij</span>
+            <span class="h">w45</span><span class="c vroeg">vroeg</span><span class="c dag">dag</span><span class="c vroeg">vroeg</span><span class="c vroeg">vroeg</span><span class="c vroeg">vroeg</span><span class="c extra">extra</span><span class="c vrij">vrij</span>
+            <span class="h">w46</span><span class="c vak">vak</span><span class="c vak">vak</span><span class="c vak">vak</span><span class="c vroeg">vroeg</span><span class="c vroeg">vroeg</span><span class="c vrij">vrij</span><span class="c vrij">vrij</span>
+          </div>
+          <div class="mini" style="margin-top:8px">Roosters op Wognum: volle week 61 · deeltijd 18 · halve dag 7 · oproep 9 (gesimuleerd). Plannen buiten het rooster kan alleen bewust, met reden in het logboek.</div>
+        </div></div>
+    </div>
+    <div class="col">
+      <div class="card"><div class="card-h"><h3>Bevoegdheden en certificaten</h3></div>
+        <div class="card-b"><table class="tb">
+          <tr><td>Rijbewijs CE</td><td>tot 03-2031</td></tr>
+          <tr><td>Code 95</td><td>tot 09-2027</td></tr>
+          <tr><td>ADR basis</td><td class="tbad"><b>tot 28-12-2026</b></td></tr>
+          <tr><td>Koel en vries (ATP-lading)</td><td>instructie 2025</td></tr>
+          <tr><td>LZV</td><td class="mut">niet bevoegd</td></tr>
+          <tr><td>Heftruck</td><td>tot 06-2028</td></tr>
+          <tr><td>Bestuurderskaart tachograaf</td><td>tot 11-2028</td></tr>
+        </table><div class="mini" style="margin-top:6px">Zonder de juiste bevoegdheid komt niemand op een rit; de toewijzing zegt waarom.</div></div></div>
+      <div class="card"><div class="card-h"><h3>Afspraken die de planning raken</h3></div>
+        <div class="card-b" style="font-size:12.5px">
+          <div>Geen nachtdiensten <span class="mini">(afspraak sinds maart)</span></div>
+          <div>Woensdag uiterlijk 17:00 klaar</div>
+          <div>Spreekt Nederlands en Engels</div>
+          <div class="mini" style="margin-top:6px">Alleen wat de planning raakt; nooit een medische reden.</div></div></div>
+      <div class="card"><div class="card-h"><h3>Bereikbaar</h3></div>
+        <div class="card-b" style="font-size:12.5px">App op de boordcomputer en mail · vanaf 04:00 · <span class="mut">geen nummer in de demo</span></div></div>
+    </div>
+    <div class="col">
+      <div class="card"><div class="card-h"><h3>Ervaring en vaste routes</h3><span class="act mini">acht weken</span></div>
+        <div class="card-b"><table class="tb">
+          <tr><td><b>Vaste route</b> West-Friesland ochtend<br><span class="mini">Zwaag, Hoorn, Medemblik · di tot vr</span></td><td><span class="badge sm b-info">vast</span></td></tr>
+          <tr><td>AH Zwaag</td><td>41 keer, laatst vandaag</td></tr>
+          <tr><td>AH Hoorn</td><td>38 keer, laatst do</td></tr>
+          <tr><td>DC Zaandam</td><td>12 keer, laatst 8 okt</td></tr>
+          <tr><td>AH Enkhuizen</td><td class="twarn">nog nooit</td></tr>
+        </table></div></div>
+      <div class="card"><div class="card-h"><h3>Voorkeursbod week 45</h3><span class="act mini">ingediend zo 25 okt · verdeeld ma 12:00</span></div>
+        <div class="card-b" style="font-size:12.5px">
+          <div class="chips" style="gap:4px"><span class="badge sm b-ok">liever vroeg</span><span class="badge sm b-warn">extra: za 7 nov</span><span class="badge sm b-grey">koel</span><span class="badge sm b-bad">liever niet: nacht, zondag</span></div>
+          <div style="margin-top:7px"><b>Toegekend:</b> de extra dienst op zaterdag. Eerste keus; ze reed dit kwartaal 2 extra diensten, het gemiddelde op Wognum is 4 (rotatie).</div>
+          <div class="mini" style="margin-top:4px">Vrije weekenden sinds 1 juli: 11 van 17; 13 per half jaar (cao) haalt ze.</div></div></div>
+      <div class="card"><div class="card-h"><h3>Betrouwbaarheid</h3><span class="act lock"><i data-ic="lock" data-s="13"></i>per groep</span></div>
+        <div class="card-b" style="font-size:12.5px">Eigen chauffeurs Wognum, 30 dagen: 98,6 % op tijd begonnen, 1,2 % afgezegd. <span class="mini">Geen ranglijst; nooit op een scherm in de hal.</span></div></div>
+      <div class="card"><div class="card-h"><h3>Notitie van de planner</h3></div>
+        <div class="card-b" style="font-size:12.5px">"Wil de route Enkhuizen leren; eerst met de plekkenniskaart." <span class="mini">12 okt · planner Wognum, vroege dienst</span></div></div>
+    </div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup 4.1 · Ritopdracht naar de boordcomputer</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.page{padding:14px 24px}
+.rh{display:flex;align-items:center;gap:12px}
+.rh h2{font-size:19px}
+.rh .bd{display:flex;gap:6px}
+.rh .act{margin-left:auto;display:flex;gap:8px}
+.sub0{font-size:12.5px;color:var(--muted);margin:2px 0 8px}
+.grid2{display:grid;grid-template-columns:470px minmax(0,1fr);gap:14px;margin-top:12px}
+.steps{display:flex;flex-direction:column}
+.step{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:7px 0;position:relative;font-size:12.5px}
+.step::before{content:"";position:absolute;left:10px;top:24px;bottom:-8px;border-left:2px solid var(--line)}
+.step:last-child::before{display:none}
+.step i.s{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--ok-soft);color:var(--ok);position:relative;z-index:1}
+.step.wacht i.s{background:var(--surface2);color:var(--faint)}
+.step b{display:block}
+.step small{display:block}
+.step .t{color:var(--muted);font-size:12px}
+.stops{font-size:12.5px}
+.stops div{display:grid;grid-template-columns:44px 1fr auto;gap:8px;padding:6px 0;border-top:1px solid var(--line);align-items:start}
+.stops div:first-child{border-top:0}
+.code{background:#0F1216;color:#D6DBE3;border-radius:10px;padding:12px 14px;font:11px/1.52 ui-monospace,"SF Mono",Menlo,Consolas,monospace;overflow:hidden;height:582px;white-space:pre}
+.code .k{color:#93C5FD}.code .s{color:#A7E3B6}.code .n{color:#FCD34D}.code .c{color:#7A8392}.code .f{color:#F2A3AF}
+.ch2{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ch2 h3{font-size:15px}
+.ch2 .act{margin-left:auto;display:flex;gap:6px}
+</style></head>
+<body data-actief="ritten" data-titel="Ritten" data-crumb="Wognum · T-1133 · rit 3 · dinsdag 27 oktober · gesimuleerd" data-klok="16:33">
+<div class="app"><aside id="side"></aside><div class="main"><header id="top"></header>
+<div class="page">
+  <div class="rh"><h2>Rit 3 · AH Enkhuizen</h2><div class="bd"><span class="badge b-ok"><span class="dot"></span>Bevestigd 16:32</span><span class="badge b-warn">nieuw voor deze chauffeur</span></div>
+    <div class="act"><span class="btn sm"><i data-ic="copy"></i>Kopieer</span><span class="btn sm"><i data-ic="download"></i>Exporteer OTM5</span><span class="btn sm"><i data-ic="refresh"></i>Opnieuw verzenden</span></div></div>
+  <div class="sub0">Jolanda de Vries · T-1133 met O-5080, koel 2 °C · laden Wognum 14:30 · terug 16:30 · 41 km · dienst W-214</div>
+  <div class="tabs"><span class="tab">Overzicht</span><span class="tab">Stops <span class="n">3</span></span><span class="tab on">Ritopdracht</span><span class="tab">Logboek <span class="n">7</span></span></div>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card"><div class="card-h"><h3>Naar de boordcomputer</h3><span class="act"><span class="badge b-info">gesimuleerd</span></span></div>
+        <div class="card-b"><div class="steps">
+          <div class="step"><i class="s"><i data-ic="check" data-s="13"></i></i><span><b>Vrijgegeven</b><small>verschil van de dienst W-214, door de planner</small></span><span class="t">16:24</span></div>
+          <div class="step"><i class="s"><i data-ic="check" data-s="13"></i></i><span><b>Akkoord van de chauffeur</b><small>in het bericht op haar telefoon</small></span><span class="t">16:32</span></div>
+          <div class="step"><i class="s"><i data-ic="check" data-s="13"></i></i><span><b>Ritopdracht gemaakt</b><small>OTM5 5.9.0, geldig; de plekkenniskaart gaat mee (eerste keer)</small></span><span class="t">16:32</span></div>
+          <div class="step"><i class="s"><i data-ic="check" data-s="13"></i></i><span><b>Verzonden naar T-1133</b><small>de koppeling kiezen we met ICT; in de demo gaat niets weg</small></span><span class="t">16:32</span></div>
+          <div class="step"><i class="s"><i data-ic="check" data-s="13"></i></i><span><b>Ontvangen op de boordcomputer</b><small>bevestiging van het systeem, gesimuleerd</small></span><span class="t">16:33</span></div>
+          <div class="step wacht"><i class="s"><i data-ic="circle" data-s="13"></i></i><span><b>Gestart</b><small>zodra de chauffeur de rit start op de boordcomputer</small></span><span class="t">di 14:30</span></div>
+        </div></div></div>
+      <div class="card"><div class="card-h"><h3>Stops in de opdracht</h3></div>
+        <div class="card-b stops">
+          <div><span class="mut">14:30</span><span><b>Wognum</b>, dock 7 · koppelen O-5080, laden</span><span class="mut">30 min</span></div>
+          <div><span class="mut">15:15</span><span><b>AH Enkhuizen</b> · lossen, rolcontainers retour<br><span class="mut" style="font-size:12px">venster 15:15 tot 16:00 · plekkenniskaart mee</span></span><span class="mut">30 min</span></div>
+          <div><span class="mut">16:30</span><span><b>Wognum</b> · afkoppelen, einde dienst 16:55</span><span class="mut"></span></div>
+        </div></div>
+      <div class="note"><i data-ic="info"></i><span>Een ervaren chauffeur krijgt alleen de stops. Wie hier voor het eerst komt (of langer dan een jaar niet), krijgt de kaart met de aanrijroute, de losplek en de bijzonderheden erbij.</span></div>
+    </div>
+    <div>
+      <div class="ch2"><h3>OTM5-ritopdracht</h3><span class="mut" style="font-size:12.5px">trip · Open Trip Model 5.9.0 · geldig volgens src/otm5.js</span></div>
+<div class="code"><span class="c">// ingekort: koppelen, laden en lossen staan als acties in elke stop</span>
+{
+  <span class="k">"entityType"</span>: <span class="s">"trip"</span>,
+  <span class="k">"id"</span>: <span class="s">"5b1f0c4e-8a2d-5e71-9c3b-2f6d1a7e4b90"</span>,
+  <span class="k">"name"</span>: <span class="s">"T-1133 rit 3"</span>,
+  <span class="k">"status"</span>: <span class="s">"confirmed"</span>,
+  <span class="k">"transportMode"</span>: <span class="s">"road"</span>,
+  <span class="k">"vehicle"</span>: { <span class="k">"associationType"</span>: <span class="s">"reference"</span>, <span class="k">"entityType"</span>: <span class="s">"vehicle"</span>, <span class="k">"uuid"</span>: <span class="s">"0e9a…41d2"</span> },
+  <span class="k">"actors"</span>: [
+    { <span class="k">"entityType"</span>: <span class="s">"actor"</span>, <span class="k">"uuid"</span>: <span class="s">"a71c…09fe"</span>, <span class="k">"roles"</span>: [<span class="s">"driver"</span>] },
+    { <span class="k">"entityType"</span>: <span class="s">"actor"</span>, <span class="k">"uuid"</span>: <span class="s">"3d42…7b10"</span>, <span class="k">"roles"</span>: [<span class="s">"carrier"</span>] }
+  ],
+  <span class="k">"actions"</span>: [
+    { <span class="k">"associationType"</span>: <span class="s">"inline"</span>, <span class="k">"entity"</span>: {
+      <span class="k">"actionType"</span>: <span class="s">"stop"</span>, <span class="k">"sequenceNr"</span>: <span class="n">0</span>, <span class="k">"name"</span>: <span class="s">"Wognum"</span>, <span class="k">"lifecycle"</span>: <span class="s">"planned"</span>,
+      <span class="k">"startTime"</span>: <span class="s">"2026-10-27T14:30:00+01:00"</span>, <span class="k">"endTime"</span>: <span class="s">"2026-10-27T15:00:00+01:00"</span>,
+      <span class="k">"actions"</span>: [ <span class="c">/* attachTransportEquipment O-5080, load */</span> ] } },
+    { <span class="k">"associationType"</span>: <span class="s">"inline"</span>, <span class="k">"entity"</span>: {
+      <span class="k">"actionType"</span>: <span class="s">"move"</span>, <span class="k">"sequenceNr"</span>: <span class="n">1</span>, <span class="k">"transportMode"</span>: <span class="s">"road"</span>,
+      <span class="k">"distance"</span>: { <span class="k">"value"</span>: <span class="n">20.4</span>, <span class="k">"unit"</span>: <span class="s">"km"</span> } } },
+    { <span class="k">"associationType"</span>: <span class="s">"inline"</span>, <span class="k">"entity"</span>: {
+      <span class="k">"actionType"</span>: <span class="s">"stop"</span>, <span class="k">"sequenceNr"</span>: <span class="n">2</span>, <span class="k">"name"</span>: <span class="s">"AH Enkhuizen"</span>, <span class="k">"lifecycle"</span>: <span class="s">"planned"</span>,
+      <span class="k">"startTime"</span>: <span class="s">"2026-10-27T15:15:00+01:00"</span>, <span class="k">"endTime"</span>: <span class="s">"2026-10-27T15:45:00+01:00"</span>,
+      <span class="k">"externalAttributes"</span>: { <span class="k">"simonloos"</span>: {
+        <span class="k">"actie"</span>: <span class="s">"lossen"</span>, <span class="k">"venster"</span>: [<span class="s">"15:15"</span>, <span class="s">"16:00"</span>],
+        <span class="k">"plekkennis"</span>: { <span class="k">"eersteKeer"</span>: <span class="f">true</span>, <span class="k">"losplek"</span>: <span class="s">"achteruit insteken bij de laaddeur"</span>,
+          <span class="k">"letOp"</span>: [<span class="s">"geen LZV"</span>, <span class="s">"rolcontainers retour"</span>] } } } } },
+    <span class="c">/* move 20.6 km, stop 3: Wognum 16:30 tot 16:55, detachTransportEquipment */</span>
+  ],
+  <span class="k">"externalIdentifiers"</span>: [ { <span class="k">"id"</span>: <span class="s">"W-214-3"</span>, <span class="k">"scheme"</span>: <span class="s">"simonloos:rit"</span> } ],
+  <span class="k">"externalAttributes"</span>: { <span class="k">"simonloos"</span>: { <span class="k">"voertuig"</span>: <span class="s">"T-1133"</span>, <span class="k">"nr"</span>: <span class="n">3</span>, <span class="k">"km"</span>: <span class="n">41</span> } }
+}</div>
+    </div>
+  </div>
+</div></div></div>
+<script src="iconen.js"></script><script src="mock.js"></script>
+</body></html>
