@@ -9,6 +9,7 @@ import { esc, ic, fmt, nl1, hhmm, day, on, downloadCsv, swap, SOORT, empty } fro
 import { hbars, dotplot, bindTips, stackcols, vcols } from './charts.js';
 import { tijdreeks } from './tijdreeks.js';
 import { historie, tevredenheidVan, euro } from './invulling.js';
+import { dashHtml, tekenDash, bindDash } from './dashboard.js';
 const SOORTPLEK = { dc: 'DC', fabriek: 'fabriek', groothandel: 'groothandel', winkel: 'winkel', standplaats: 'standplaats' };
 
 const hash = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return ((h >>> 0) % 10000) / 10000; };
@@ -59,8 +60,7 @@ export function renderRapporten(ctx, el) {
   const wlo = Math.max(50, Math.min(90, Math.floor((Math.min(...days.map(w => w.v), target) - 1) / 5) * 5));
   const sig = `${ctx.scopeKey()}|${Math.floor(T / 15)}|${ctx.theme()}|${ctx.narrow()}|${now === null ? '' : Math.round(now * 10)}`;
   const pctA = v => `${v} %`;
-  const h = `<div class="page"><div class="page-in">
-    <div class="vbar" style="border:1px solid var(--line);border-radius:var(--r-md)"><span class="lbl2">Werkgebied</span><b>${esc(ctx.scopeLabel())}</b><span class="hint">· ${esc(ctx.divLabel())} · vandaag tot ${hhmm(T)} · op tijd = aangekomen binnen het tijdvenster van de klant · doel ${target} %</span></div>
+  const h = `<div class="vbar" style="border:1px solid var(--line);border-radius:var(--r-md)"><span class="lbl2">Werkgebied</span><b>${esc(ctx.scopeLabel())}</b><span class="hint">· ${esc(ctx.divLabel())} · vandaag tot ${hhmm(T)} · op tijd = aangekomen binnen het tijdvenster van de klant · doel ${target} %</span></div>
     <div class="rp">
       ${card('klant', 'Op tijd per klant', `vandaag tot ${hhmm(T)} · laagste eerst`, rowsK.length ? dotplot(rowsK.map(r => ({ l: r.l, v: r.v, tip: `${r.l}: ${nl1(r.v)} % op tijd (${fmt(r.n)} stops, ${fmt(r.late)} te laat)` })), { min: lo, max: 100, ref: target, fmtV: v => `${nl1(v)} %`, fmtA: pctA, axis: ax }) : noData, tbl(['Klant', 'Op tijd', 'Stops', 'Te laat'], rowsK.map(r => [r.l, `${nl1(r.v)} %`, fmt(r.n), fmt(r.late)])))}
       ${card('sp', 'Op tijd per standplaats', `vandaag tot ${hhmm(T)} · laagste eerst`, rowsS.length ? dotplot(rowsS.slice(0, 14).map(r => ({ l: r.l, v: r.v, tip: `${r.l}: ${nl1(r.v)} % op tijd (${fmt(r.n)} stops, ${fmt(r.late)} te laat)` })), { min: lo, max: 100, ref: target, fmtV: v => `${nl1(v)} %`, fmtA: pctA, axis: ax }) + (rowsS.length > 14 ? `<p class="hint" style="margin-top:6px">De ${rowsS.length - 14} standplaatsen met de hoogste stiptheid staan in de tabel.</p>` : '') : noData, tbl(['Standplaats', 'Op tijd', 'Stops', 'Te laat'], rowsS.map(r => [r.l, `${nl1(r.v)} %`, fmt(r.n), fmt(r.late)])))}
@@ -72,16 +72,27 @@ export function renderRapporten(ctx, el) {
       ${card('soort', 'Meldingen per soort', `vandaag tot ${hhmm(T)} · in je werkgebied`, zs.length ? hbars(perSoort.map(r => ({ l: r.l, v: r.n, tip: `${r.l}: ${fmt(r.n)} meldingen (${fmt(r.open)} open)` })), { max: Math.ceil(maxN / 5) * 5 || 5, fmtV: v => fmt(v), axis: [0, Math.ceil(maxN / 5) * 5 / 2, Math.ceil(maxN / 5) * 5].map(Math.round) }) : empty('Nog geen meldingen vandaag', 'Uitzonderingen die de control tower vandaag signaleert, worden hier per soort geteld.', '', 'okc'), tbl(['Soort', 'Meldingen', 'Open'], perSoort.map(r => [r.l, fmt(r.n), fmt(r.open)])))}
       ${dc ? `<section class="card" aria-labelledby="rp-dagc"><div class="card-h"><h2 id="rp-dagc">De dag in cijfers</h2><span class="sub">hele vloot · uit het dagplan</span><div class="act"><button class="btn ghost sm" type="button" data-rpcsv="cijfers">${ic('download', 15)}csv</button></div></div><div class="card-b"><div class="dagc"><div><b>${fmt(dc.diensten)}</b><span>diensten</span></div><div><b>${nl1(dc.mediaanUur)} <em>uur</em></b><span>mediaan per dienst</span></div><div><b>${nl1(dc.rijdenProcent)} <em>%</em></b><span>van de dienst rijden</span></div><div><b>${nl1(dc.tweedeDienstProcent)} <em>%</em></b><span>voertuigen met een tweede dienst</span></div><div><b>${fmt(dc.terreinOm10)}</b><span>om 10:00 op het terrein</span></div><div><b>${fmt(dc.wachtPerTruckMin)} <em>min</em></b><span>wachten per voertuig per dag</span></div><div><b>${fmt(dc.poolVandaag)}</b><span>ritten vandaag in de pool</span></div><div><b>${fmt(dc.poolMorgen)}</b><span>ritten van morgen in de pool</span></div></div><p class="hint" style="margin-top:10px">Diensten, rijtijd en wachten komen uit het dagplan van alle voertuigen, los van je werkgebied. De pool zijn ritten zonder voertuig: ziekmeldingen, uitval, extra ritten van klanten en ritten uit OTM5.</p></div></section>` : ''}
       <section class="card" aria-labelledby="rp-sam"><div class="card-h"><h2 id="rp-sam">Samenvatting</h2><span class="sub">vandaag tot ${hhmm(T)}</span></div><div class="card-b"><div class="zk-sum" style="margin-bottom:12px"><div><b>${now === null ? '–' : `${nl1(now)} %`}</b><span>op tijd</span></div><div><b>${fmt(tot.n)}</b><span>stops gedaan</span></div><div><b>${fmt(tot.late)}</b><span>na het tijdvenster</span></div><div><b>${fmt(zs.length)}</b><span>meldingen</span></div></div><p class="hint">${rowsS.length && now !== null ? `${rowsS.filter(r => r.v < target).length} van ${rowsS.length} standplaatsen zitten onder het doel van ${target} %${rowsK.length ? `; bij de klanten is ${esc(rowsK[0].l)} het laagst (${nl1(rowsK[0].v)} %)` : ''}.` : 'Nog te weinig afgeronde stops voor een samenvatting.'} Stops tellen mee zodra de wagen weer vertrokken is; een stop telt als te laat als de aankomst na het einde van het tijdvenster lag.</p></div></section>
-    </div></div></div>`;
+    </div>`;
   ui.rpData = { rowsK, rowsS, days, perSoort, wpp, dc, weken, fitSp };
-  if (swap(el, h)) {
-    el.querySelectorAll('[data-chart]').forEach(c => bindTips(ctx.root, c));
+  // bovenaan het dashboard (dashboard.js, bouwsteen 2d), daaronder de rapporten; elk deel wordt alleen opnieuw getekend als het
+  // zelf veranderde, zodat de grafieken van het ene deel blijven staan als het andere bijwerkt
+  if (!el.querySelector('#dbHost')) { el.innerHTML = '<div class="page"><div class="page-in"><div id="dbHost"></div><div id="rpHost"></div></div></div>'; el.dataset.h = ''; }
+  const dbHost = el.querySelector('#dbHost'), rpHost = el.querySelector('#rpHost');
+  let dh = ''; try { dh = dashHtml(ctx); } catch (err) { console.warn('dashboard', err); dh = empty('Het dashboard kon niet rekenen', 'De rapporten hieronder staan er wel.', '', 'info'); }
+  // opnieuw tekenen als het dashboard veranderde, of als het een andere breedte kreeg terwijl Rapporten verborgen was (de
+  // kleine lijntjes hebben een vaste breedte)
+  const bw = dbHost.clientWidth;
+  if (swap(dbHost, dh) || (bw && dbHost.dataset.w && +dbHost.dataset.w !== bw)) tekenDash(ctx, dbHost);
+  if (bw) dbHost.dataset.w = String(bw);
+  if (swap(rpHost, h)) {
+    rpHost.querySelectorAll('[data-chart]').forEach(c => bindTips(ctx.root, c));
     for (const c of ui.rpCharts || []) c.destroy(); ui.rpCharts = [];
-    const dg = el.querySelector('[data-uplot=dag]');
+    const dg = rpHost.querySelector('[data-uplot=dag]');
     if (dg) ui.rpCharts.push(tijdreeks(dg, { x: days.map(w => w.k), xLabel: 'Dag', fmtX: k => { const w = days.find(x => x.k === Math.round(k)); return w ? w.l.replace(/^\S+\s/, '') : ''; }, xStap: 7, fmtY: v => `${nl1(v)} %`, fmtAs: v => `${fmt(v)} %`, yMin: wlo, yMax: 100, yStap: 5, hoogte: 220, ref: { v: target, label: `doel ${target} %`, links: true }, label: 'Op tijd per dag, laatste dertig dagen', series: [{ label: 'Op tijd', data: days.map(w => w.v), laatste: true }] }));
   }
   if (!el.dataset.bound) {
     el.dataset.bound = '1';
+    bindDash(ctx, el, () => renderRapporten(ctx, el));
     on(el, 'click', '[data-rptbl]', (e, b) => { ui.rpTbl[b.dataset.rptbl] = !ui.rpTbl[b.dataset.rptbl]; renderRapporten(ctx, el); const f = el.querySelector(`[data-rptbl="${b.dataset.rptbl}"]`); if (f) f.focus(); });
     on(el, 'click', '[data-rpcsv]', (e, b) => {
       const { rowsK, rowsS, days, perSoort, wpp, dc, weken, fitSp } = ui.rpData;

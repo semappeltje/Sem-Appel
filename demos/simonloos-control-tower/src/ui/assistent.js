@@ -9,6 +9,7 @@ import { CAPACITY } from '../people.js';
 import { aiUrl, aiHtml, bindAi } from './ai.js';
 import { standTekst } from './stand.js';
 import { verplaatsRit, ritInvoer, toetsVoor } from './planwijzig.js';
+import * as DZ from '../duurzaam.js';
 
 // Het effect van een voorstel in korte regels (onderzoek W3): wat er met tijdvensters, kilometers, rijtijd en accu
 // gebeurt. Gerekend uit het dagplan; afstanden hemelsbreed maal 1,3 en dus "ongeveer".
@@ -261,6 +262,9 @@ export function assistPanel(ctx) {
     body = props.length ? props.map(p => { const z = ctx.Z.get(p.key); return `<section class="prop"><div class="prop-h">${ic(p.sev === 'bad' ? 'alert' : 'clock', 14)}${esc(p.kind)} · ${esc(p.t ? p.t.id : p.tr ? p.tr.id : '')}${z ? ` <button class="lnk quiet" type="button" data-open="melding/${esc(z.id)}" style="margin-left:auto">Open zaak</button>` : ''}</div><b>${esc(p.title)}</b><p>${esc(p.action)}</p>${p.effect && p.effect.length ? `<ul class="eff">${p.effect.map(x => `<li class="${x.cls || ''}">${esc(x.t)}</li>`).join('')}</ul>` : ''}${berichtHtml(p)}<details><summary>Waarom</summary><div>${esc(p.why)}</div></details>${can ? `<div class="prop-a"><button class="btn sm" type="button" data-pastoe="${esc(p.id)}">${ic('check', 14)}Pas toe</button></div>` : ''}</section>`; }).join('')
       : empty('Geen open voorstellen', 'De assistent kijkt elke seconde opnieuw naar tijdvensters, rijtijden, accu\'s, koeling, losse opleggers en storingen. Voorstellen verschijnen hier en bij de melding.', '', 'spark');
     const done = ctx.applied.slice(-5).reverse();
+    // duurzaam (bouwsteen 2d): de voorstellen met berekening voor ritten die nog niet begonnen, de grootste besparing eerst
+    const dz = dzOpen(ctx);
+    if (dz.length) body += `<div class="sec-t">Duurzaam <span class="mut">${dz.length} · schatting</span></div>${dz.slice(0, 8).map(x => dzKaart(x, can)).join('')}${dz.length > 8 ? `<p class="hint">Nog ${dz.length - 8} in Rapporten, onder Duurzame voorstellen.</p>` : ''}`;
     if (done.length) body += `<div class="sec-t">Vandaag toegepast <span class="mut">${ctx.applied.length}</span></div>${done.map(a => `<div class="note ok">${ic('okc', 15)}<div><b>${esc(a.title)}</b><div class="hint">${hhmm(a.T)} · ${esc(a.action)}</div></div></div>`).join('')}`;
   } else if (tab === 'vraag' && ai) {
     body = aiHtml(ctx);
@@ -289,4 +293,170 @@ export function bindAssist(ctx, p) {
   const ab = p.querySelector('#askBtn'); if (ab) { ab.addEventListener('click', ask); p.querySelector('#askIn').addEventListener('keydown', e => { if (e.key === 'Enter') ask(); }); }
   on(p, 'click', '[data-ask]', (e, b) => { const i = p.querySelector('#askIn'); i.value = b.dataset.ask; ask(); });
   const ov = p.querySelector('#overIn'); if (ov) ov.addEventListener('input', () => ctx.store.set('sl-overdracht', ov.value));
+  on(p, 'click', '[data-dzpas]', (e, b) => { const v = dzVind(ctx, b.dataset.dzpas); if (v) dzToepassen(ctx, v); });
+  on(p, 'click', '[data-dzaf]', (e, b) => { const v = dzVind(ctx, b.dataset.dzaf); if (v) dzAfwijzen(ctx, v); });
+}
+
+// ---------- duurzaam: voorstellen met berekening (Control Tower 4.1, bouwsteen 2d) ----------
+// De berekening staat puur in src/duurzaam.js; hier de invoer uit het dagplan, de voorstellen in de vorm van de andere
+// (title, action, kort, acts, msg) en toepassen of afwijzen. Voor alle ritten van de dag in heel Nederland, zodat elke
+// planner en de directie hetzelfde zien; vast zolang het plan niet verandert (R.ver) en los van de klok, zodat de som per
+// dag reproduceerbaar is. Het besluit van de planner staat in sl-acties onder G:<id> (toegepast of afgewezen, met reden);
+// het is geen zaak en telt niet mee bij de meldingen.
+const dzCache = { ver: -1, L: null, benen: new Map() };
+const kg = v => `${fmt(Math.round(v))} kg`; const eur = v => `€ ${fmt(Math.round(v))}`; const n2 = v => String(v).replace('.', ',');
+export const dzKey = id => `G:${id}`;
+export const dzBesluit = (ctx, id) => { const r = ctx.A.acts.handled[dzKey(id)]; return r && r.dz ? r.dz : null; };
+const DC_SOORT = new Set(['dc', 'fabriek', 'groothandel']);
+// is de rit zijn hele dienst? dan gaat de dienst met zijn eigen chauffeur mee naar de andere wagen (ritNaar)
+const heelRit = r => { const P = r.t.plan; const di = P[r.i0] ? P[r.i0].d : null; return di !== null && di !== undefined && !P.some((s, k) => (k < r.i0 || k > r.i1) && s.d === di && s.route); };
+// de stukken van een rit: km per stuk (een pauze kan een stuk in tweeen delen), wat er bij elke stop gebeurt, beladen of leeg
+const dzVers = ctx => { if (dzCache.ver !== ctx.R.ver()) { dzCache.benen.clear(); dzCache.L = null; dzCache.ver = ctx.R.ver(); } };
+export function dzBenen(ctx, r) {
+  dzVers(ctx); const c = dzCache.benen.get(r); if (c) return c;
+  const km = new Map(); const actie = new Map(); let route = null;
+  for (const x of r.segs) { const s = x.s; if (!s.route) continue; if (route && s.route !== route) break; route = s.route; if (s.k === 'drive') km.set(s.idx, (km.get(s.idx) || 0) + Math.max(0, (s.km1 || 0) - (s.km0 || 0))); else if (s.k === 'stop') actie.set(s.idx, s.actie || 'lossen'); }
+  const n = route && route.marks ? route.marks.length - 1 : 0; const kms = []; const acties = [];
+  for (let i = 1; i <= n; i++) { kms.push(km.get(i) || 0); if (i < n) acties.push(actie.get(i) || 'lossen'); }
+  const b = { kms, acties, beladen: DZ.beladen(acties), leeg: DZ.legeKm(kms, acties) };
+  dzCache.benen.set(r, b); return b;
+}
+// alle duurzame voorstellen van de dag, de grootste besparing eerst
+export function duurzaamDag(ctx) {
+  dzVers(ctx); if (dzCache.L) return dzCache.L;
+  const { fleet } = ctx; const ritten = ctx.R.all().filter(r => r.stops.length && r.km > 0); const out = [];
+  const spVan = new Map(SP.map(s => [s.n, s]));
+  // 1. elektrisch: per standplaats de elektrische trucks buiten de werkplaats; elke truck hooguit een voorstel per dag
+  const evPer = new Map();
+  for (const b of fleet.trucks) {
+    if (!b.ev || b.vandaag === 'onderhoud' || b.storing) continue;
+    const span = new Map(); for (const s of b.plan) { if (s.d === null || s.d === undefined) continue; const e = span.get(s.d) || [Infinity, -Infinity]; e[0] = Math.min(e[0], b.dayStart + s.t0); e[1] = Math.max(e[1], b.dayStart + s.t1); span.set(s.d, e); }
+    const L = evPer.get(b.base.n) || []; L.push({ id: b.id, soort: b.kind, capKwh: CAPACITY(b) || Math.round(b.range * DZ.F.kwhKm.w), bezet: [...span.values()], b, rijdt: b.plan.some(x => x.route) }); evPer.set(b.base.n, L);
+  }
+  const kand = ritten.filter(r => !r.t.ev && evPer.has(r.base.n) && heelRit(r)).sort((x, y) => y.km - x.km || (x.id < y.id ? -1 : 1));
+  for (const r of kand) {
+    const start = r.t.dayStart + r.t.plan[r.i0].t0, eind = r.t.dayStart + r.t.plan[r.i1].t1;
+    const L = evPer.get(r.base.n).filter(e => !e.al && e.soort === r.t.kind && (!e.rijdt || (e.b.dayStart <= start - 30 && eind <= e.b.dayStart + 1410)));
+    if (!L.length) continue;
+    for (const e of L) { let soc = 0; try { soc = fleet.stateAt(e.b, start).soc; } catch { soc = 0; } e.socPct = Math.max(0, Math.min(100, soc)); }
+    const k = DZ.kiesEv({ km: r.km, a: start, b: eind, soort: r.t.kind }, L); if (!k) continue;
+    k.t.al = true; out.push(evVoorstel(r, k.t.b, k.u, start));
+  }
+  // 2. lege kilometers: per standplaats de lege terugwegen (A) tegen de lege heenwegen naar een laadadres (B)
+  const perSp = new Map(); for (const r of ritten) { const L = perSp.get(r.base.n) || []; L.push(r); perSp.set(r.base.n, L); }
+  for (const [n, L] of perSp) {
+    const sp = spVan.get(n); if (!sp) continue; const B = [];
+    for (const r of L) { const b = dzBenen(ctx, r); const p0 = r.stops[0].place; if (b.acties[0] === 'laden' && !b.beladen[0] && p0 && p0.lon !== undefined) B.push({ id: r.id, laad: { lon: p0.lon, lat: p0.lat, naam: r.stops[0].name }, heenKm: b.kms[0], laadOm: r.stops[0].arr }); }
+    if (!B.length) continue; const A = [];
+    for (const r of L) { const b = dzBenen(ctx, r); const st = r.stops[r.stops.length - 1]; const p = st.place; if (!b.kms.length || b.beladen[b.beladen.length - 1] || !p || p.lon === undefined) continue; A.push({ id: r.id, laatste: { lon: p.lon, lat: p.lat }, terugKm: b.kms[b.kms.length - 1], terugOm: r.end }); }
+    for (const m of DZ.retourMatches(sp, A, B)) out.push(retourVoorstel(ctx, m, n));
+  }
+  // 3. LZV: de standplaatsen met LZV-trucks in de data; de chauffeur van de eerste rit moet LZV mogen rijden (de vlag per
+  // chauffeur in people.js, gesimuleerd; straks de bevoegdheden van het chauffeursprofiel, bouwsteen 2c)
+  const lzvSp = new Set(fleet.trucks.filter(t => t.lzv).map(t => t.base.n));
+  const lz = ritten.filter(r => lzvSp.has(r.base.n) && !r.t.ev && r.t.kind === 'trekker' && r.dest.length).map(r => ({ id: r.id, sp: r.base.n, doel: r.dest[0], a: r.dep, km: r.km, bevoegd: !!(r.t.lzv && r.person && r.person.licence && r.person.licence.lzv) }));
+  for (const m of DZ.lzvParen(lz, lzvSp)) out.push(lzvVoorstel(ctx, m));
+  // 4. wachten bij een DC: per standplaats en DC de wachtminuten van vandaag (de wachttijd die de app meet)
+  const W = new Map();
+  for (const r of ritten) for (const st of r.stops) { const p = st.place; const w = st.seg ? st.seg.wacht || 0 : 0; if (!p || !w || !DC_SOORT.has(p.soort)) continue; const k = `${r.base.n}|${p.id || st.name}`; const e = W.get(k) || { sp: r.base.n, id: p.id || st.name, naam: st.name, min: 0, n: 0, trucks: new Map(), laatst: 0 }; e.min += w; e.n++; const x = e.trucks.get(r.t.id); e.trucks.set(r.t.id, { t: r.t, arr: Math.max(x ? x.arr : 0, st.arr) }); e.laatst = Math.max(e.laatst, st.arr); W.set(k, e); }
+  // pas vanaf twee uur wachten samen per standplaats en DC: daaronder is het een losse stop, geen afspraak waard
+  for (const e of W.values()) if (e.min >= 120) out.push(wachtVoorstel(e));
+  out.sort((a, b) => b.co2 - a.co2 || (a.id < b.id ? -1 : 1));
+  dzCache.L = out; return out;
+}
+function evVoorstel(r, B, u, start) {
+  const km = Math.round(r.km); const x = DZ.evBesparing(r.km, r.t.kind); const cap = CAPACITY(B) || Math.round(B.range * DZ.F.kwhKm.w);
+  return {
+    id: `ev:${r.id}`, soort: 'ev', kind: 'Duurzaam', sp: r.base.n, div: r.div, rit: r.id, t: r.t, B, dep: r.dep, start, km, co2: x.co2, euro: x.euro,
+    kort: `Rit ${r.id} elektrisch met ${B.id}`, title: `Rijd rit ${r.id} elektrisch met ${B.id}`,
+    action: `Rit ${r.id} (${r.klant}, ${fmt(km)} km, vertrek ${hhmm(r.dep)}) gaat van ${r.t.id} (diesel) naar ${B.id} (${B.model}). ${r.driver || 'De chauffeur'} rijdt hem, alleen met een andere wagen.`,
+    reken: [`CO2: ${fmt(km)} km x ${n2(r.t.kind === 'trekker' ? DZ.F.dieselKm.w : DZ.VERBRUIK.bakwagenDiesel)} liter x ${n2(DZ.F.co2Diesel.w)} kg = ${kg(x.co2Diesel)} met diesel, tegen ${fmt(km)} km x ${n2(DZ.F.kwhKm.w)} kWh x ${n2(DZ.F.co2Stroom.w)} kg = ${kg(x.co2Ev)} met stroom: ${kg(x.co2)} minder.`,
+      `Energie: ${nl1(x.liter)} liter x € ${n2(DZ.F.dieselPrijs.w)} = ${eur(x.euroDiesel)}, tegen ${fmt(x.kwh)} kWh x € ${n2(DZ.F.stroomPrijs.w)} = ${eur(x.euroEv)}: ${eur(x.euro)} minder.`,
+      `Accu van ${B.id}: ${u.vertrekPct} % bij vertrek (${fmt(cap)} kWh). De rit vraagt ${fmt(Math.round(u.nodigKwh))} kWh met 15 % marge; na de rit ${u.naPct} %, de grens is 10 %.`],
+    aannames: [`${B.id} heeft twee uur voor en na de rit geen dienst: tijd om te laden.`, 'Rijbewijs CE geldt ook voor een elektrische truck; wie er nog niet in reed, krijgt een korte instructie.', 'Alleen energie; onderhoud, tol en de vrachtwagenheffing zijn niet meegerekend.'],
+    accu: { ...u, capKwh: cap }, acts: [{ k: 'ritNaar', rit: r.id, naar: B.id, start, wie: null }],
+    msg: [[B, `Planning: rit ${r.id} voor ${r.klant} rijdt vandaag met ${B.id} (elektrisch), vertrek ${hhmm(start)} vanaf ${r.base.n}.`]],
+  };
+}
+function retourVoorstel(ctx, m, sp) {
+  const A = ctx.R.get(m.a); const Bt = ctx.R.get(m.b);
+  return {
+    id: `retour:${m.a}:${m.b}`, soort: 'retour', kind: 'Duurzaam', sp, div: A.div, rit: m.a, rit2: m.b, t: A.t, dep: Bt.dep, km: m.spaarKm, co2: m.co2, euro: m.euro,
+    kort: `Retourlading voor rit ${m.b}`, title: `Rit ${m.a} neemt op de weg terug de lading van rit ${m.b} mee`,
+    action: `${A.t.id} rijdt na rit ${m.a} leeg terug naar ${sp}. Via ${m.laad} (${fmt(m.omKm)} km om) haalt hij de lading van rit ${m.b} op; rit ${m.b} vertrekt dan geladen van ${sp} en rijdt de lege heenweg niet.`,
+    reken: [`Lege kilometers: ${fmt(m.leegKm)} km lege heenweg van rit ${m.b} min ${fmt(m.omKm)} km om voor rit ${m.a} = ${fmt(m.spaarKm)} km minder.`, `CO2: ${fmt(m.spaarKm)} km x ${n2(DZ.F.dieselKm.w)} liter x ${n2(DZ.F.co2Diesel.w)} kg = ${kg(m.co2)} minder.`, `Diesel: ${nl1(m.liter)} liter x € ${n2(DZ.F.dieselPrijs.w)} = ${eur(m.euro)} minder.`],
+    aannames: ['Afstanden hemelsbreed maal 1,3 en rijden met 70 km per uur: ongeveer.', `De lading van rit ${m.b} staat klaar als ${A.t.id} langskomt; dat spreekt de planner af met ${m.laad}.`, 'De app herplant de route niet zelf: toepassen zet het besluit in het logboek en stuurt de chauffeur een bericht.'],
+    acts: [], msg: [[A.t, `Planning: na je laatste stop van rit ${m.a} rij je terug via ${m.laad} en neem je de lading van rit ${m.b} mee.`]],
+  };
+}
+function lzvVoorstel(ctx, m) {
+  const A = ctx.R.get(m.a); const Bt = ctx.R.get(m.b);
+  return {
+    id: `lzv:${m.a}:${m.b}`, soort: 'lzv', kind: 'Duurzaam', sp: m.sp, div: A.div, rit: m.a, rit2: m.b, t: A.t, dep: A.dep, km: m.kmB, co2: m.co2, euro: m.euro,
+    kort: `Ritten ${m.a} en ${m.b} als een LZV-rit`, title: `Rijd ritten ${m.a} en ${m.b} samen als een LZV-rit`,
+    action: `Beide ritten gaan vandaag naar ${m.doel} (vertrek ${hhmm(A.dep)} en ${hhmm(Bt.dep)}). ${A.t.id} rijdt als LZV met ${A.driver} (LZV-bevoegd, gesimuleerd) en neemt beide ladingen mee; rit ${m.b} vervalt.`,
+    reken: [`Diesel: rit ${m.b} ${fmt(m.kmB)} km x ${n2(DZ.F.dieselKm.w)} liter, min een vijfde extra voor de LZV op rit ${m.a} (${fmt(m.kmA)} km) = ${nl1(m.liter)} liter minder.`, `CO2: ${nl1(m.liter)} liter x ${n2(DZ.F.co2Diesel.w)} kg = ${kg(m.co2)} minder.`, `Diesel: ${nl1(m.liter)} liter x € ${n2(DZ.F.dieselPrijs.w)} = ${eur(m.euro)} minder.`],
+    aannames: [`Alleen als de twee ladingen samen in een LZV passen (ongeveer anderhalf keer een gewone oplegger); de app kent de belading niet.`, `${m.sp} heeft LZV-trucks in de data; of de route naar ${m.doel} over het LZV-netwerk mag, is na te lezen.`, 'De app voegt de ritten niet zelf samen: toepassen zet het besluit in het logboek en stuurt de chauffeur een bericht.'],
+    acts: [], msg: [[A.t, `Planning: rit ${m.a} rijd je als LZV; je neemt ook de lading van rit ${m.b} naar ${m.doel} mee.`]],
+  };
+}
+function wachtVoorstel(e) {
+  const x = DZ.wachtBesparing(e.min); const sp = SP.find(s => s.n === e.sp);
+  return {
+    id: `wacht:${e.sp}:${e.id}`, soort: 'wacht', kind: 'Duurzaam', sp: e.sp, div: null, spObj: sp, rit: null, t: null, trucks: [...e.trucks.values()].map(x2 => x2.t), laatst: e.laatst, km: 0, co2: x.co2, euro: x.euro,
+    kort: `Motor uit bij ${stopKort(e.naam)}`, title: `Minder stationair draaien bij ${stopKort(e.naam)}`,
+    action: `${e.n} stops van ${e.sp} wachten vandaag samen ${fmtDrive(e.min)} uur bij ${stopKort(e.naam)} voordat het lossen begint. Vraag de chauffeurs de motor uit te zetten en spreek een tijdslot af.`,
+    reken: [`Stationair: ${nl1(e.min / 60)} uur x ${n2(DZ.F.stationair.w)} liter = ${nl1(x.liter)} liter diesel.`, `CO2: ${nl1(x.liter)} liter x ${n2(DZ.F.co2Diesel.w)} kg = ${kg(x.co2)} minder.`, `Diesel: ${nl1(x.liter)} liter x € ${n2(DZ.F.dieselPrijs.w)} = ${eur(x.euro)} minder.`],
+    aannames: ['Hooguit: als de motor nu de hele wachttijd draait. Hoe lang hij echt draait, meet de boordcomputer.', 'Een tijdslot bij het DC verkort ook het wachten zelf; die uren zijn hier niet meegeteld.'],
+    acts: [], msg: [...e.trucks.values()].map(x2 => [x2.t, `Planning: wacht je vandaag bij ${stopKort(e.naam)}, zet dan de motor uit.`, x2.arr]),
+  };
+}
+// in het werkgebied, nog niet besloten, en voor de planner nog te doen: de rit begon nog niet (een kwartier speling)
+const dzInScope = (ctx, p) => { const sp = p.spObj || SP.find(s => s.n === p.sp); return p.t ? ctx.inScope(p.t) : !!sp && ctx.inScopeBase(sp, p.div || sp.div[0]); };
+export const dzNogTeDoen = (ctx, p, T) => nogTeDoen(ctx, p, T);
+const nogTeDoen = (ctx, p, T) => {
+  if (p.soort === 'wacht') return T < p.laatst;
+  const r = ctx.R.get(p.soort === 'ev' ? p.rit : p.rit2 || p.rit); if (!r) return false;
+  return ctx.R.stateOf(r, T, ctx.S).st === 'gepland' && r.dep >= T + 15;
+};
+const toetsCache = new Map();
+export function dzOpen(ctx) {
+  const T = ctx.state.simTime; const L = duurzaamDag(ctx).filter(p => dzInScope(ctx, p) && !dzBesluit(ctx, p.id) && nogTeDoen(ctx, p, T));
+  // een elektrisch voorstel gaat pas naar de planner als de toets van het planbord het ook goedkeurt
+  return L.filter(p => {
+    if (p.soort !== 'ev') return true;
+    const k = `${p.id}|${ctx.R.ver()}`; if (!toetsCache.has(k)) { let ok = false; try { const r = ctx.R.get(p.rit); ok = !!r && toetsVoor(ctx, p.B, ritInvoer(r), p.start, r).ok; } catch { ok = false; } toetsCache.set(k, ok); if (toetsCache.size > 400) toetsCache.delete(toetsCache.keys().next().value); }
+    return toetsCache.get(k);
+  });
+}
+const dzVind = (ctx, id) => duurzaamDag(ctx).find(p => p.id === id) || null;
+export function dzKaart(p, can) {
+  return `<section class="prop dz" aria-label="${esc(p.title)}"><div class="prop-h">${ic('bolt', 14)}Duurzaam · ${esc(DZ.SOORTEN[p.soort])} · ${esc(p.sp)}</div><b>${esc(p.title)}</b><p>${esc(p.action)}</p><ul class="eff"><li class="ok">${kg(p.co2)} CO2 en ${eur(p.euro)} minder (schatting)</li></ul><details><summary>Berekening</summary><ul class="dz-reken">${p.reken.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details><details><summary>Aannames</summary><div>${p.aannames.map(esc).join(' ')} De factoren en hun bron staan in Rapporten, onder Duurzame voorstellen.</div></details>${can ? `<div class="prop-a"><button class="btn sm" type="button" data-dzpas="${esc(p.id)}">${ic('check', 14)}Pas toe</button><button class="btn ghost sm" type="button" data-dzaf="${esc(p.id)}">Wijs af</button></div>` : ''}</section>`;
+}
+// toepassen: de acties op het plan (een elektrische rit gaat met ritNaar naar de andere wagen; na herladen opnieuw
+// uitgevoerd), de berichten aan de chauffeurs, het besluit en een regel in het logboek
+export function dzToepassen(ctx, p) {
+  if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers passen voorstellen toe.', { icon: 'lock' }); return false; }
+  const T = ctx.state.simTime;
+  for (const a of p.acts) { const r = ctx.runAction({ ...a, T }, true); if (!r || !r.ok) { ctx.L.toast(`Dat lukte niet${r && r.tekst ? `: ${r.tekst}` : ''}.`, { icon: 'info' }); ctx.refreshAll(); return false; } }
+  // een bericht alleen aan wie er nog moet komen (bij wachten: wie vandaag nog bij dat DC stopt)
+  for (const [t, txt, tot] of p.msg || []) if (t && (tot === undefined || tot > T)) ctx.sendMsg(t, txt, true, true);
+  ctx.A.rec(dzKey(p.id)).dz = { st: 'toegepast', T, who: ctx.A.settings.naam(), soort: p.soort, sp: p.sp, co2: p.co2, euro: p.euro, km: p.km, title: p.title };
+  ctx.A.acts.applied.push({ id: p.id, kind: 'Duurzaam', title: p.title, action: p.action, sev: 'ok', T, key: dzKey(p.id), winst: { soort: 'duurzaam', min: 0, co2: p.co2, euro: p.euro } });
+  ctx.A.log(`paste een duurzaam voorstel toe: ${p.kort} (${kg(p.co2)} CO2 en ${eur(p.euro)} minder, schatting)`, { t: p.t ? p.t.id : null, rit: p.rit || null });
+  ctx.A.save(); ctx.frame(true); ctx.refreshAll();
+  ctx.L.toast(`Toegepast: ${p.kort}. ${kg(p.co2)} CO2 minder (schatting).`, { icon: 'check' });
+  return true;
+}
+const REDENEN = ['De chauffeur of de klant wil het niet', 'De accu of het laden is te krap', 'De ladingen passen niet samen', 'De planning loopt anders', 'Anders'];
+export function dzAfwijzen(ctx, p) {
+  if (!ctx.can('act')) { ctx.L.toast('Alleen planners en regiomanagers wijzen voorstellen af.', { icon: 'lock' }); return; }
+  ctx.L.openDialog(`<div class="dlg-h"><h2>Voorstel afwijzen</h2><button class="ib" type="button" data-close aria-label="Sluiten">${ic('x', 18)}</button></div><div class="dlg-b"><p>${esc(p.title)}</p><fieldset class="dz-red"><legend>Waarom niet?</legend>${REDENEN.map((x, i) => `<label><input type="radio" name="dzr" value="${esc(x)}"${i ? '' : ' checked'}> ${esc(x)}</label>`).join('')}</fieldset><label class="flabel" for="dzrTxt">Toelichting (mag leeg)<input class="fld" id="dzrTxt" maxlength="200" autocomplete="off"></label></div><div class="dlg-f"><button class="btn" type="button" data-close>Annuleren</button><button class="btn pri" type="button" id="dzrOk">Wijs af</button></div>`, {
+    label: 'Voorstel afwijzen', onBind: d => d.querySelector('#dzrOk').addEventListener('click', () => {
+      const x = (d.querySelector('input[name=dzr]:checked') || {}).value || 'Anders'; const t2 = d.querySelector('#dzrTxt').value.trim().slice(0, 200); const reden = t2 ? `${x}: ${t2}` : x;
+      ctx.A.rec(dzKey(p.id)).dz = { st: 'afgewezen', reden, T: ctx.state.simTime, who: ctx.A.settings.naam(), soort: p.soort, sp: p.sp, co2: p.co2, euro: p.euro, km: p.km, title: p.title };
+      ctx.A.log(`wees een duurzaam voorstel af: ${p.kort} (reden: ${reden})`, { t: p.t ? p.t.id : null, rit: p.rit || null });
+      ctx.A.save(); ctx.L.closeDialog(); ctx.refreshAll(); ctx.L.toast('Afgewezen; de reden staat in het logboek.', { icon: 'check' });
+    }),
+  });
 }

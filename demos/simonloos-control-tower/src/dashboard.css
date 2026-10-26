@@ -1,0 +1,45 @@
+/* Het dashboard bovenaan Rapporten en de duurzame voorstellen (Control Tower 4.1, bouwsteen 2d). Alleen tokens uit
+   style.css (licht en donker), het raster van 8 punten en tabulaire cijfers; geen cursief (em is hier een eenheid).
+   Elk blok is een rij: links de cijfers, rechts de grafiek van dertig dagen; onder 1100 px onder elkaar. */
+.slct .db{margin-bottom:24px}
+.slct .db-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:12px}
+.slct .db-h h2{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.slct .db-h .hint{flex-basis:100%;min-width:0}
+.slct .db-k{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+.slct .db-k select{max-width:100%;min-width:0}
+.slct .db-grid{display:flex;flex-direction:column;gap:16px;margin-bottom:16px}
+.slct .db-b{min-width:0;margin-bottom:16px}
+.slct .db-grid .db-b{margin-bottom:0}
+.slct .db-b>.card-b{padding:0 16px 16px}
+/* naast elkaar zolang er plaats is (ook met een paneel open), anders onder elkaar: op de breedte van het blok, niet van
+   het scherm */
+.slct .db-grid .db-b>.card-b{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-start}
+.slct .db-grid .db-b .db-ts{flex:3 1 360px;min-width:0}
+.slct .db-grid .db-b .db-g{flex:1 1 320px;min-width:0}
+.slct .db-grid .db-b .db-n{flex:1 1 100%;margin:0}
+.slct .db-ts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));gap:8px}
+.slct .db-t{position:relative;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px 8px;min-width:0;background:var(--bg);display:flex;flex-direction:column}
+.slct .db-t:hover{border-color:var(--muted)}
+.slct .db-a{all:unset;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0;flex:1}
+.slct .db-a::after{content:'';position:absolute;inset:0;border-radius:var(--r-sm)}
+.slct .db-a:focus-visible::after{outline:2px solid var(--focus);outline-offset:1px}
+.slct .db-l{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.slct .db-v{font-size:20px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--text)}
+.slct .db-v em{font-style:normal;font-size:12.5px;font-weight:500;color:var(--muted)}
+.slct .db-s{font-size:12px;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
+.slct .db-sp{height:30px;margin-top:6px;pointer-events:none;overflow:hidden}
+.slct .db-bar{height:6px;margin-top:12px;border-radius:3px;background:var(--surface3);overflow:hidden}
+.slct .db-bar i{display:block;height:100%;background:var(--viz-1);border-radius:3px}
+.slct .db-bt{margin-top:4px}
+.slct .db-g{min-height:160px;min-width:0;overflow:hidden}
+.slct .db-tbl td{font-variant-numeric:tabular-nums}
+.slct .db-tbl td.db-wrap{white-space:normal;min-width:220px}
+.slct .db-tbl td.db-f{min-width:160px}
+.slct .db-bron{margin-top:12px}
+.slct .db-bron summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
+.slct .prop.dz .dz-reken{margin:6px 0 0 18px;list-style:disc}
+.slct .prop.dz .dz-reken li{margin-bottom:2px}
+.slct .dz-red{border:0;display:flex;flex-direction:column;gap:6px;margin:10px 0;padding:0}
+.slct .dz-red legend{font-weight:600;margin-bottom:6px}
+.slct .dz-red label{display:flex;gap:8px;align-items:center}
+@media (max-width:760px){.slct .db-ts{grid-template-columns:repeat(2,minmax(0,1fr))}.slct .db-v{font-size:18px}}

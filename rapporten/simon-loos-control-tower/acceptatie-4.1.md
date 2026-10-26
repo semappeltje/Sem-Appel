@@ -94,4 +94,14 @@ naam naar de API, alle suites groen).
 - Duurzame voorstellen per rit met berekening (elektrisch in plaats van diesel, lege kilometers eruit, LZV, minder
   wachttijd): CO2 in kg en euro's als schatting met de bron van elke factor in BRONNEN.md; de som per dag is
   reproduceerbaar (test); geen voorstel zonder voldoende accu of bevoegdheid (test).
+- Stand 26 oktober 2026 (`tests/dashboard-check.mjs`, vaste klok maandag 10:00, gewone dag en oefendag;
+  `tests/duurzaam.test.mjs`): dashboard met 23 cijfers, 21 lijntjes en 6 grafieken in 229 tot 418 ms (gemeten in de
+  browser; de test neemt de beste van drie, voor als andere agents tegelijk testen); 11 doorkliks naar een bestaande lijst
+  met filter; op tijd, te laat en gemist gelijk aan `metrics.sample`, lege km gelijk aan een eigen telling over de ritten;
+  de som van de voorstellen gelijk bij opnieuw rekenen en na herladen (61 voorstellen, 3.197 kg CO2, 2.285 euro,
+  schatting); elk elektrisch voorstel opnieuw gerekend met genoeg accu, geen truck twee keer; elk LZV-voorstel met een
+  LZV-truck en een bevoegde chauffeur; de directie zonder knop om toe te passen; toepassen met logregel en na herladen
+  bewaard, afwijzen met reden; licht en donker op 1440 en 390 px (en 1280 en 768) zonder overloop. Open: de bevoegdheid komt nog uit de
+  vlag `licence.lzv` in de simulatie (tot het chauffeursprofiel, J), de weigeringen van de toets op het planbord worden
+  nog niet geteld, en de week- en tweeweekgrens komt met de tellers (A).
 

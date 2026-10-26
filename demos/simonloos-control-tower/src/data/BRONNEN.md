@@ -264,6 +264,32 @@ Een planner begint bij de ritten die open staan en de mensen die ze kunnen rijde
 
 Wat er nodig is om dit met echte data te laten draaien: een export van acht tot twaalf weken open ritten met hun afloop uit het TMS en de boordcomputer, de lijsten van oproepkrachten en charters met tarieven en afspraken, de roosters en uren (tachograaf) van de chauffeurs, en voorkeuren die chauffeurs zelf opgeven. `tests/data-check.mjs` controleert de vormen, dat er geen echte namen in de charters en oproepkrachten staan, en dat elke open rit minstens drie kandidaten heeft.
 
+## Duurzaam: factoren voor CO2 en kosten (`src/duurzaam.js`, Control Tower 4.1)
+
+Het dashboard en de duurzame voorstellen rekenen met de factoren hieronder (`F` in `src/duurzaam.js`, met dezelfde tekst
+bij elke factor in de app, onder Rapporten, Duurzame voorstellen). Status: gelezen (de bron zelf geopend), zoek (alleen in
+zoekresultaten gezien, de site was in de sandbox niet bereikbaar), schatting (een waarde die de app al gebruikte, zonder
+openbare bron) of aanname. Alles wat niet gelezen is, moet voor de proef nagelezen worden. Stand: 26 oktober 2026.
+
+| Factor | Waarde | Status | Bron en datum |
+| --- | --- | --- | --- |
+| CO2 per liter diesel | 2,63 kg | zoek | RVO, Nederlandse lijst van energiedragers en standaard CO2-emissiefactoren, januari 2026: gas- en dieselolie 72,5 kg CO2 per GJ en 43,2 MJ per kg; dichtheid 0,840 kg per liter (RVO). 72,5 x 43,2 x 0,840 / 1000 = 2,63. Uitstoot bij verbranding, zonder de keten ervoor. rvo.nl was niet bereikbaar; nalezen, en kiezen of we met well-to-wheel rekenen (CO2emissiefactoren.nl, ook niet bereikbaar) |
+| CO2 per kWh stroom in Nederland | 0,20 kg | gelezen | CBS, Energie- en emissiefactoren elektriciteit, update 2024 (5 december 2025): 0,20 kg CO2 per kWh geproduceerde elektriciteit, integrale methode |
+| Diesel per km, trekker met oplegger | 0,295 liter | schatting | de app zelf (`src/people.js`, 29,5 liter per 100 km); geen openbare bron gevonden. Bakwagen 22 liter per 100 km (ook de app) |
+| Stroom per km, elektrische truck | 1,15 kWh | gelezen | NACFE via het onderzoeksmemo (Slimste, Energie): 1,1 tot 1,15 kWh per km; ook de toets van het planbord (`src/ui/toets.js`). Elektrische bestelbus 0,3 kWh per km (de app) |
+| Dieselprijs | 2,065 euro per liter | gelezen | CBS (bericht van 13 oktober 2026): een liter diesel kostte in september 2026 gemiddeld 2,499 euro aan de pomp, met btw en accijns; zonder 21 procent btw 2,065. Een vlootkorting is niet meegerekend |
+| Stroomprijs | 0,23 euro per kWh | gelezen | onderzoeksmemo (Slimste, Energie): laden op het eigen terrein 0,175 tot 0,23 euro per kWh; de bovenkant, zodat de besparing niet te mooi wordt |
+| Stationair draaien | 3,0 liter per uur | zoek | Argonne National Laboratory (handout over stationair draaien, 2015): een zware truck verbruikt stationair ongeveer 0,8 gallon per uur; de site was niet bereikbaar, nalezen |
+| LZV, extra diesel per km | 20 procent | aanname | geen bron gevonden; nalezen |
+| LZV, lading | 1,5 keer een gewone combinatie | aanname | geen bron gelezen; de app kent de belading niet, dus het voorstel zegt dat de twee ladingen samen moeten passen |
+| Loonkosten eigen chauffeur | 33 euro per uur | schatting | de app zelf (`EIGEN_UUR` in `src/inzet.js`), dezelfde als bij Open ritten |
+| Variabele kosten per km | 0,55 euro diesel, 0,35 euro elektrisch | schatting | de app zelf (`KM_KOST` in `src/inzet.js`) |
+| Marge op het verbruik | 15 procent | aanname | de opdracht voor de elektrische voorstellen; met minstens 10 procent accu bij terugkomst, zoals de toets |
+
+Niet meegerekend en wel van belang: de vrachtwagenheffing (gepland vanaf 1 juli 2026, met een tarief per
+CO2-emissieklasse; niet gelezen in de sandbox, nalezen) en onderhoud. Met echte data komen verbruik, kilometers, beladen of leeg en stationair draaien per rit uit de boordcomputer
+(FMS) en de e-CMR, en de prijzen uit de tankpas en de laadfacturen.
+
 ## Wegnummers en straatnamen (`roads_display.json`, veld `lab`)
 
 Per lijn het wegnummer (`routes.ref` uit Overture: A-, N- en S-nummers, over de grens ook A-, N-, R- en B-wegen; zonder route een A- of N-nummer uit de naam) en de straatnaam (`names.primary`). Alleen lijnen van minstens 300 m, geen afritten; namen bij N-wegen, secundaire wegen en tertiaire wegen in bebouwd gebied (Natural Earth). Een waarde moet minstens de helft van de lijn dekken. Gelabeld: 14.659 kanten van de graaf, 5.592 secundaire en 6.277 tertiaire lijnen; 7.796 verschillende teksten.

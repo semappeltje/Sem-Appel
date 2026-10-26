@@ -1,5 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
+import './dashboard.css';
 import { createFleet } from './fleet.js';
 import { createMap } from './map.js';
 import { createUI } from './ui.js';

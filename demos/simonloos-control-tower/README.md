@@ -97,7 +97,7 @@ https://claude.ai/artifact/GTELKsXiif8zP4SsijvTUN).
 | Laden | menu | Drie getallen (te laden, bespaard, piek), dagprijs en laadvermogen per kwartier, laadsessies in de goedkoopste kwartieren, slim tegenover direct |
 | Lostijden | menu | Gepland (`s.los`) naast gemeten, met de wachttijd ernaast, per dagdeel en adres; overnemen per adres of alles |
 | Pauzeplekken | menu | Plekken op het snelwegennet met voorzieningen en beoordelingen; de assistent stelt er een voor bij rijtijd |
-| Rapporten | menu | Op tijd per dag (dertig dagen, op de kalender geteld, ook over de zomertijd), per klant en per standplaats; de invulling van open ritten per week (eigen, oproep of zzp, charter, niet ingevuld; `fleet.poolHistorie`); de roosterfit per standplaats (het deel van de laatste diensten dat bij de voorkeur paste); de kosten van charters per week (schatting, alleen voor regiomanager en directie); wachttijd per DC, de dag in cijfers en meldingen per soort; bij elke grafiek een tabel en csv |
+| Rapporten | menu | Bovenaan het dashboard (zie "Dashboard en duurzame voorstellen"); daaronder op tijd per dag (dertig dagen, op de kalender geteld, ook over de zomertijd), per klant en per standplaats; de invulling van open ritten per week (eigen, oproep of zzp, charter, niet ingevuld; `fleet.poolHistorie`); de roosterfit per standplaats (het deel van de laatste diensten dat bij de voorkeur paste); de kosten van charters per week (schatting, alleen voor regiomanager en directie); wachttijd per DC, de dag in cijfers en meldingen per soort; bij elke grafiek een tabel en csv |
 | Instellingen | menu | Je naam, rol en thema, werkgebied, normen per soort melding, kaart, sneltoetsen, de Assistent (alleen met `data-ai`) en wat deze browser bewaart (wissen vraagt eerst om bevestiging) |
 | Zoeken | topbalk, toets / of Ctrl K | Voertuigen (kenteken met en zonder streepjes), opleggers, chauffeurs, open ritten, charters en oproepkrachten, standplaatsen met hun klanten, winkels en DC's, plaatsen, ritten, pauzeplekken, weergaven en acties; een tikfout mag ("wognm"), en in een kenteken ook twee omgewisselde tekens ("37QJJ7" vindt 37-JQJ-7); een plaats of standplaats met die naam staat bovenaan. Na een wijziging in het plan wordt alleen bijgewerkt wat veranderde, dus zoeken blijft snel. De lijst staat er bij elke toets meteen (MiniSearch, ruim onder de 100 ms). Een voertuig, oplegger of chauffeur opent als pagina en de kaart in die pagina vliegt erheen (met minder beweging springt hij); een standplaats, winkel, DC of plaats opent op de kaart |
 | Assistent | topbalk of toets a | Voorstellen bij open zaken met uitleg en effect; "Pas toe" past het plan echt aan en stuurt de chauffeur een bericht. Met `data-ai` op de root ook Ochtendbriefing, Overdracht schrijven en een vraag via de Claude API (zie "Assistent met de Claude API"); zonder dat attribuut de vaste antwoorden en geen enkel verzoek |
@@ -138,6 +138,8 @@ node tests/otm5-check.mjs                                     # de vertaling naa
 node tests/vrijgeven-check.mjs http://127.0.0.1:8774/index.html [--schermen map]  # Vrijgeven: elke dienst vrijgegeven met een logregel, het bericht, de bevestiging die soms uitblijft, alleen het verschil na een wijziging, geldige OTM5-ritopdrachten en de export, rollen, herladen, de oefendag
 node tests/week-check.mjs http://127.0.0.1:8774/index.html     # 4.1: rij- en rusttijden over de week en het rooster (maandag en zondag, 05:30 en 10:00, ook de oefendag): geen kandidaat over 56 uur, 90 uur of de weekrust, de teller gelijk aan het planbord, een sleep over de weekrust gaat niet, buiten het rooster alleen met reden en logregel, de directie alleen-lezen; SHOTS=<map> bewaart schermafbeeldingen
 node tests/bezetting.test.mjs                                # 4.1: het model achter Bezetting (de som per dag tegen rooster en plan, prognose, voorstellen, heel Nederland onder 300 ms), zonder browser
+node tests/duurzaam.test.mjs                                  # de berekening van de duurzame voorstellen, zonder browser
+node tests/dashboard-check.mjs http://127.0.0.1:8774/index.html # het dashboard en de duurzame voorstellen (zie "Dashboard en duurzame voorstellen")
 node tests/ochtend-check.mjs http://127.0.0.1:8774/index.html  # de klok en kalender van de planner: een maandag en een zondag om 04:00, 05:30 en 06:30, de nachtdienst van gisteren op het planbord, het belmoment van P-8001 op de oefendag, de maandag na de zomertijd en het rapport erover
 ```
 
@@ -405,6 +407,62 @@ vrijgave), `src/ui/bericht.js` (het bericht en de bevestiging) en `src/ui/ritopd
   adressen en nummers, en hoe lang bewaren we berichten en bevestigingen?
 - Hoe komt de bevestiging terug: een status uit de boordcomputer, een tik in de app of een link in de mail?
 - Een ritopdracht is een wijziging in een systeem van een leverancier: in de proef pas na een test op een voertuig.
+## Dashboard en duurzame voorstellen (4.1, bouwsteen 2d)
+
+**Het dashboard** staat bovenaan Rapporten, voor elke rol (`src/ui/dashboard.js`, `src/dashboard.css`). Met "Bekijk" kies
+je je werkgebied (heel Simon Loos als dat je werkgebied is), een regio of een standplaats; de keuze blijft na herladen
+(`sl-dashboard`). Zes blokken, elk cijfer met de trend over dertig dagen (een klein lijntje op uPlot) en per blok een
+grafiek: op tijd, te laat en gemist (zoals `metrics`: een stop telt bij aankomst); open ritten en hoe ze ingevuld werden
+(eigen, oproep of zzp, charter, met de kosten van charters als schatting); bezetting tegen behoefte (nodig: de diensten van
+vandaag plus de open ritten; beschikbaar: chauffeurs met een dienst of vrij; tekort- en overschotdagen uit de historie van
+de pool; het model van de bezetting per dag en dagdeel haakt hier straks aan, zie het commentaar in `dashData`); kosten per
+km en per rit (schatting, dezelfde regels als Open ritten), lege kilometers en wachten bij DC's; rij- en rusttijden
+(rijtijdzaken, nu bijna op 4,5 uur zoals de filter van Chauffeurs, diensten dicht bij de daggrens); en duurzaamheid (CO2
+vandaag en per rit, het aandeel elektrisch, de CO2 van lege km, wat de duurzame voorstellen opleverden en wat ongebruikt
+bleef). Daaronder de standplaatsen naast elkaar en de duurzame voorstellen van de dag met de factoren en hun bron.
+
+Elk cijfer klikt door naar de lijst erachter, met het filter van de keuze: Ritten (ook alleen buiten het tijdvenster),
+Open ritten, Charters en oproepkrachten, Chauffeurs (ook bijna op de rijtijdlimiet), Meldingen over rijtijd, Lostijden,
+Voertuigen (ook alleen elektrisch) en de lijst met duurzame voorstellen. De directie kijkt en handelt niet: niets op het
+dashboard verandert het plan. Vandaag komt uit het dagplan en de klok; de dagen ervoor zijn gesimuleerde historie: de
+pool uit `fleet.poolHistorie`, op tijd zoals het rapport Op tijd per dag, de rest vast rond vandaag (`reeks` in
+`src/duurzaam.js`, met een eigen niveau op zondag). Lege kilometers zijn stukken zonder lading: de terugweg na de laatste
+stop, en de heenweg naar een DC waar de rit eerst laadt; retouren als lege kratten tellen als leeg.
+
+**Duurzame voorstellen** (`src/duurzaam.js`, puur en zonder DOM; de invoer en de interface in `src/ui/assistent.js`). Voor
+alle ritten van de dag, los van de klok en vast zolang het plan niet verandert, zodat de som per dag reproduceerbaar is:
+- **Elektrisch in plaats van diesel**: een dieselrit die zijn hele dienst is, op een elektrische truck van dezelfde
+  standplaats en soort die twee uur voor en na de rit vrij is (tijd om te laden). De accu bij vertrek komt uit de simulatie
+  (`fleet.stateAt`); de rit moet passen met 1,15 kWh per km plus 15 procent marge en minstens 10 procent over. Elke truck
+  krijgt hooguit een voorstel per dag. Toepassen zet de rit met zijn chauffeur op de elektrische truck (de bestaande actie
+  `ritNaar`, na herladen opnieuw uitgevoerd); de planner ziet het voorstel pas als ook de toets van het planbord het goedkeurt.
+- **Lege kilometers eruit**: een rit die leeg terugrijdt, haalt op de weg terug de lading op voor een rit die anders eerst
+  leeg naar een DC rijdt (zelfde dag en standplaats, de besparing min de omweg, op tijd). In de data laden alleen Heinenoord
+  (Plus DC Oss) en de pendel van Heerenveen (SPAR DC Waalwijk) eerst elders, dus er zijn weinig van deze voorstellen.
+- **Een LZV in plaats van twee ritten**: twee ritten naar dezelfde bestemming die binnen drie uur na elkaar vertrekken, op
+  een standplaats met LZV-trucks in de data (Utrecht, Broek op Langedijk); de eerste rit heeft een LZV-truck en een chauffeur
+  met de LZV-vlag in de simulatie (`licence.lzv` in `src/people.js`, straks de bevoegdheden van het chauffeursprofiel).
+- **Minder wachten bij een DC**: per standplaats en DC de wachtminuten van vandaag als vermeden stationair draaien.
+Elk voorstel heeft de berekening in regels, de aannames en "schatting". De planner past toe of wijst af met een reden, in
+de Assistent onder Voorstellen (sectie Duurzaam, de rit begon nog niet). Het besluit staat in `sl-acties` onder `G:<id>`,
+met een regel in het logboek; het is geen zaak en telt niet mee bij de meldingen. Retour, LZV en wachten veranderen het
+plan niet zelf (de app voegt geen ritten samen): toepassen legt het besluit vast en stuurt de chauffeur een bericht. De
+factoren met bron, datum en status staan in `src/data/BRONNEN.md` en op het dashboard.
+
+Gemeten op maandag 26 oktober 2026, 10:00 (gesimuleerd, heel Nederland): 61 voorstellen, samen ongeveer 3,2 ton CO2 en
+2.300 euro per dag als alles gebruikt werd (schatting): 8 elektrisch (1.463 kg), 3 lege km eruit (140 kg), 3 LZV (322 kg)
+en 47 keer wachten bij een DC (1.273 kg; vanaf twee uur wachten samen per standplaats en DC). Het dashboard staat er met
+alle lijntjes en grafieken in 229 tot 418 ms. Controle: `node tests/duurzaam.test.mjs`
+(de berekening met vaste invoer) en `node tests/dashboard-check.mjs http://127.0.0.1:8833/index.html` (binnen een seconde,
+doorklikken, de cijfers tegen metrics en de ritten, de som twee keer gelijk, de accu van elk elektrisch voorstel, de
+directie zonder knoppen, toepassen en afwijzen, licht en donker op 1440 en 390 px en ook 1280 en 768 px, geen verzoek
+naar buiten). De blokken zetten cijfers en grafiek naast elkaar zolang het blok breed genoeg is (ook met een paneel open),
+anders onder elkaar; na een andere breedte tekent het dashboard zijn lijntjes opnieuw.
+
+Voor echte data: de dagcijfers per rit uit het TMS en de boordcomputer (km beladen en leeg, verbruik, stationair draaien,
+wachttijd; OTM5 en FMS), de accustand en laadpunten uit de telematica en de laadpalen, het rooster en de bevoegdheden uit
+HR, de belading per rit (om LZV en retour echt te kunnen rekenen), de tarieven uit de inkoop, en dertig dagen historie in
+een eigen tabel met dagcijfers.
 
 ## Assistent met de Claude API
 
@@ -810,13 +868,14 @@ ritopdrachten zijn echte OTM5 (getoetst tegen de specificatie in `tests/vrijgeve
 
 - `index.html`, `src/main.js`: opbouw, opties van de app-root, laden en de klok van de simulatie
 - `src/ui.js`: de app-staat, de beurt van de simulatie (`frame`), selectie, kaart en volgen, routes (`#…`), wizard, sneltoetsen, de context voor de weergaven
-- `src/ui/`: de interface 4.0. `nav.js` (linkermenu, topbalk, onderbalk), `overzicht.js`, `kaart.js` (filterbalk, kaartlagen, tijdbalk, panelen, het kaartje bij aanwijzen), `begrippen.js` (één begrippenlijst: onderweg, vertraagd, bij klant, op tijd, te laat en gemist, één zin per begrip; de filterbalk toont de zin, ui-check J11 houdt de getallen overal gelijk), `ritten.js` (ritten en de ritpagina), `zaken.js` (meldingen als zaken: sleutel, eigenaar, deadline, statussen, bord, zaakpagina, logboek), `planbord.js` (svelte-gantt), `planwijzig.js` (het plan aanpassen: een rit verplaatsen of uit de pool inplannen, met dock), `toets.js` (pure toetsregels, met `tests/toets.test.mjs`), `inplannen.js` (toetsen, uitvoeren, berichten en logboek, gedeeld door planbord, zaken en assistent), `assistent.js` en `ai.js` (de Assistent, met de Claude API als `data-ai` op de root staat), `invulling.js` (de vraagkant op de data: prognose, kandidaten, toewijzen, de flexibele schil, voorkeuren), `openritten.js` (Open ritten en de dialoog Rit inplannen), `poule.js` (Charters en oproepkrachten en hun pagina's), `portret.js` (het beeld in de kop van een pagina), `zoek.js` (MiniSearch), `layers.js` (popovers, menu's, het kaartje bij een nummer, dialogen, bevestigen, toasts; Floating UI), `table.js` (de tabel met venster, filters, kolomkeuze, selectie, csv en menu), `tijdreeks.js` (uPlot), `charts.js` (kleine SVG-grafieken), `metrics.js` (kerngetallen door de dag), `rapporten.js`, `instellingen.js`, `acts.js` (wat de planner vandaag deed, `sl-acties`), `base.js` (opmaak, statuswoorden, badges, statusbalk en slimme knoppen) en `taal.js` (een ongeldige taalcode van de browser houdt de app niet tegen)
+- `src/ui/`: de interface 4.0. `nav.js` (linkermenu, topbalk, onderbalk), `overzicht.js`, `kaart.js` (filterbalk, kaartlagen, tijdbalk, panelen, het kaartje bij aanwijzen), `begrippen.js` (één begrippenlijst: onderweg, vertraagd, bij klant, op tijd, te laat en gemist, één zin per begrip; de filterbalk toont de zin, ui-check J11 houdt de getallen overal gelijk), `ritten.js` (ritten en de ritpagina), `zaken.js` (meldingen als zaken: sleutel, eigenaar, deadline, statussen, bord, zaakpagina, logboek), `planbord.js` (svelte-gantt), `planwijzig.js` (het plan aanpassen: een rit verplaatsen of uit de pool inplannen, met dock), `toets.js` (pure toetsregels, met `tests/toets.test.mjs`), `inplannen.js` (toetsen, uitvoeren, berichten en logboek, gedeeld door planbord, zaken en assistent), `assistent.js` en `ai.js` (de Assistent, met de Claude API als `data-ai` op de root staat), `invulling.js` (de vraagkant op de data: prognose, kandidaten, toewijzen, de flexibele schil, voorkeuren), `openritten.js` (Open ritten en de dialoog Rit inplannen), `poule.js` (Charters en oproepkrachten en hun pagina's), `portret.js` (het beeld in de kop van een pagina), `zoek.js` (MiniSearch), `layers.js` (popovers, menu's, het kaartje bij een nummer, dialogen, bevestigen, toasts; Floating UI), `table.js` (de tabel met venster, filters, kolomkeuze, selectie, csv en menu), `tijdreeks.js` (uPlot), `charts.js` (kleine SVG-grafieken), `metrics.js` (kerngetallen door de dag), `rapporten.js`, `dashboard.js` (het dashboard bovenaan Rapporten, met `src/dashboard.css`), `instellingen.js`, `acts.js` (wat de planner vandaag deed, `sl-acties`), `base.js` (opmaak, statuswoorden, badges, statusbalk en slimme knoppen) en `taal.js` (een ongeldige taalcode van de browser houdt de app niet tegen)
 - `src/views.js`: standplaatsen met vertrekbord en dockplanning, hal-scherm, klantweergave
 - `src/sheets.js`: voertuig-, oplegger- en persoonspagina's (statusbalk, slimme knoppen, tabbladen, logboek) met rechten per rol
 - `src/tables.js`: tabellen voertuigen, opleggers en chauffeurs, lostijden, laden (met de grafieken per kwartier), pauzeplekken
 - `src/people.js`: chauffeurs en hun dienst, planners per standplaats (een per 15 tot 25 voertuigen, over vroeg, dag en avond), voertuighistorie zonder vaste wagen, kerngegevens, opleggergegevens (APK, ATP, onderhoud)
 - `src/rest.js`, `src/energy.js`, `src/lostijden.js`: pauzeplekken, laadplanner, lostijden
 - `src/tellers.js` (de teller per chauffeur: rij- en rusttijden over de dag, de week en twee weken, EU 561), `src/rooster.js` (het rooster per chauffeur, in de vorm van een roostersysteem) en `src/bezetting.js` (nodig tegen beschikbaar per standplaats, dag en dagdeel voor veertien dagen, met voorstellen): puur, met `tests/toets.test.mjs`, `tests/bezetting.test.mjs` en `tests/week-check.mjs`
+- `src/duurzaam.js`: de berekening van de duurzame voorstellen en de factoren met bron (puur, zonder imports, met `tests/duurzaam.test.mjs`)
 - `src/inzet.js`, `src/voorkeuren.js`: de flexibele schil (charters, oproepkrachten, kandidaten, toewijzen) en de voorkeuren en tevredenheid van chauffeurs (puur, gesimuleerd); `src/verdeel.js`: één toewijzing over alle open ritten van een dag (Hongaars en gretig; puur, zonder imports, met `tests/verdeel.test.mjs`)
 - `src/map.js`, `src/fleet.js`, `src/roads.js`, `src/places.js`: kaart (iconen met koers, lagen voor voertuigen en losse opleggers, de 3D-stand), simulatie (voertuigen, opleggers, diensten, koppelen en wisselen, docks, wachttijd, gebeurtenissen, pool), wegennet, standplaatsen, rollen en rechten
 - `src/scene3d.js`: de 3D-wereld (three.js in een eigen MapLibre-laag: voertuigen, opleggers, depots, bomen, huizen, klik en aanwijzen)
