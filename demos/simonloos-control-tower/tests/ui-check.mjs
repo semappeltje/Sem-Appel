@@ -646,6 +646,41 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
   const doelen = ovz.L.map(x => x.open).filter(x => /^(melding|openritten)\//.test(x));
   const bar11 = await samenhangKaart(p); const sam11 = samenhangFout(ovz, bar11);
   check(ovz.onderwegBrief !== null && /^De dag in Wognum:/.test(ovz.dag) && new Set(doelen).size === doelen.length && !sam11.length, `Overzicht om 05:30: onderweg ${ovz.onderwegBrief} in de briefing, ${ovz.onderwegKpi} bij Vertraagd en ${bar11.onderweg} op de kaart, vertraagd ${ovz.vertraagdBrief || 0}, ${ovz.vertraagdKpi} en ${bar11.vertraagd}, standplaatspaneel "${bar11.sp}", "${ovz.dag.split(':')[0]}", ${doelen.length} briefingregels naar ${new Set(doelen).size} verschillende zaken of ritten${sam11.length ? `: ${sam11.join('; ')}` : ''}`);
+  // J11b (ronde 3). Eén begrippenlijst (src/ui/begrippen.js): elk getal met zo'n woord betekent overal hetzelfde. Om 15:00
+  // (dan zijn er ook gemiste ritten en voertuigen bij een klant): het Overzicht (briefing en cijfers), de filterbalk, het
+  // standplaatspaneel en Open ritten (ondertitel en de groep Gemist vandaag) geven per begrip hetzelfde getal. En de
+  // filterbalk toont de zin bij aanwijzen en bij focus.
+  const begripGetallen = txt => {
+    const uit = {}; const t = String(txt || '').replace(/\s+/g, ' ');
+    const zet = (k, n) => { (uit[k] = uit[k] || []).push(+String(n).replace(/\./g, '')); };
+    for (const m of t.matchAll(/(\d[\d.]*) (?:voertuigen? |ritten? |stops? )?(onderweg|vertraagd|bij (?:een )?klant|gemist|na het tijdvenster)\b/gi)) zet(m[2].toLowerCase().replace(/bij (een )?klant/, 'klant').replace('na het tijdvenster', 'te laat'), m[1]);
+    for (const m of t.matchAll(/\b(Onderweg|Vertraagd|Bij klant|Gemist vandaag) (\d[\d.]*)\b/g)) zet(m[1].toLowerCase().replace('bij klant', 'klant').replace('gemist vandaag', 'gemist'), m[2]);
+    return uit;
+  };
+  await p.evaluate(() => { const S = window.SLCT; S.state.playing = false; S.state.simTime = 900; S.ui.frame(true); S.ui.ctx.refreshAll(); S.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
+  const b11 = {};
+  const voeg = (bron, txt) => { for (const [k, L] of Object.entries(begripGetallen(txt))) for (const n of L) (b11[k] = b11[k] || []).push({ bron, n }); };
+  const ov15 = await p.evaluate(samenhangOverzicht); voeg('briefing', ov15.speelt); if (ov15.vertraagdKpi !== null) (b11.vertraagd = b11.vertraagd || []).push({ bron: 'cijfer Vertraagd', n: ov15.vertraagdKpi });
+  voeg('cijfers', await p.evaluate(() => [...document.querySelectorAll('#v-overzicht [data-ov="kpi"] .kpi-l')].map(x => x.textContent).join(' · ')));
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:kaart')); await p.waitForTimeout(900);
+  voeg('filterbalk', await p.evaluate(() => document.getElementById('mapbar').innerText));
+  // de uitleg bij aanwijzen en bij focus
+  await p.hover('#mapbar [data-begrip="onderweg"]'); await p.waitForTimeout(250);
+  const hint1 = await p.evaluate(() => { const h = document.querySelector('#v-kaart .mc-hint'); return h && !h.hidden ? h.textContent : ''; });
+  await p.mouse.move(600, 600); await p.waitForTimeout(200);
+  const hint0 = await p.evaluate(() => { const h = document.querySelector('#v-kaart .mc-hint'); return h && !h.hidden ? h.textContent : ''; });
+  await p.focus('#mapbar [data-begrip="vertraagd"]'); await p.waitForTimeout(250);
+  const hint2 = await p.evaluate(() => { const h = document.querySelector('#v-kaart .mc-hint'); const b = document.querySelector('#mapbar [data-begrip="vertraagd"]'); const d = b && document.getElementById(b.getAttribute('aria-describedby')); return { t: h && !h.hidden ? h.textContent : '', sr: d ? d.textContent : '' }; });
+  await p.evaluate(() => document.activeElement && document.activeElement.blur()); await p.waitForTimeout(200);
+  check(/^Onderweg rijdt volgens plan/.test(hint1) && !hint0 && /^Vertraagd rijdt achter op plan/.test(hint2.t) && hint2.sr.startsWith('Rijdt achter op plan'), `filterbalk: de uitleg van een begrip bij aanwijzen ("${hint1.slice(0, 40)}…"), weg als je weggaat, en bij focus ("${hint2.t.slice(0, 40)}…"; aria-describedby "${hint2.sr.slice(0, 30)}…")`);
+  await p.evaluate(() => window.SLCT.ui.ctx.go('kaart:sp:Wognum')); await p.waitForTimeout(900);
+  voeg('standplaatspaneel', await p.evaluate(() => (document.querySelector('#panel .kpis3') || {}).innerText || ''));
+  await p.evaluate(() => { const c = window.SLCT.ui.ctx; c.closePanel(); c.go('view:openritten'); }); await p.waitForTimeout(1000);
+  voeg('Open ritten', await p.evaluate(() => `${(document.getElementById('vsub') || {}).textContent || ''} ${(document.querySelector('#v-openritten .or-gemist h3') || {}).innerText || ''}`));
+  const strijd = Object.entries(b11).filter(([, L]) => new Set(L.map(x => x.n)).size > 1).map(([k, L]) => `${k}: ${L.map(x => `${x.n} (${x.bron})`).join(', ')}`);
+  const gezien11 = Object.entries(b11).map(([k, L]) => `${k} ${L[0].n} (${L.length} keer)`).join(', ');
+  check(!strijd.length && b11.onderweg && b11.onderweg.length >= 3, `om 15:00 betekent elk getal met een begrip overal hetzelfde: ${gezien11}${strijd.length ? `; FOUT: ${strijd.join('; ')}` : ''}`);
+  await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 330; S.ui.frame(true); S.ui.ctx.refreshAll(); });
   // J13. Rit inplannen: het voertuig van de rit heet zo ("met T-1007 (vrij)"), niet "op T-1007"
   await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(1200);
   const kd = await p.evaluate(() => [...document.querySelectorAll('#v-openritten .kd-n small')].map(x => x.textContent));

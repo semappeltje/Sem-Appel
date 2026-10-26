@@ -687,6 +687,9 @@
   .mc.on{background:var(--text);color:var(--bg)}.mc.on b{color:inherit}
   .mc.x{background:var(--sel);color:var(--text)}
   .mapchips .sep{width:1px;height:18px;background:var(--line);margin:0 4px;flex:none}
+  /* de uitleg van een begrip (src/ui/begrippen.js) onder de filterbalk, bij aanwijzen en bij focus */
+  .mc-hint{position:absolute;left:12px;top:54px;z-index:3;max-width:min(460px,calc(100% - 24px));padding:6px 10px;border-radius:var(--r-sm);background:var(--text);color:var(--bg);font-size:12.5px;line-height:1.4;box-shadow:var(--sh-pop);pointer-events:none;animation:slct-pop 160ms var(--ease)}
+  .mc-hint b{color:inherit;font-weight:600}
   .maptools{position:absolute;left:12px;bottom:72px;z-index:3;display:flex;flex-direction:column;gap:8px}
   .maptools .ib{width:36px;height:36px;background:var(--bg);border:1px solid var(--line);box-shadow:var(--sh-pop);color:var(--text2)}
   .maptools .ib:hover{background:var(--surface)}
@@ -1670,6 +1673,7 @@
     .pg-kpis b{font-size:18px}
     .pg-kpis>div{padding:10px 12px}
     .mapbar{left:8px;right:8px;top:8px}
+    .mc-hint{left:8px;top:50px}
     .maptools{left:8px;bottom:64px}
     .timebar{left:8px;right:8px;width:auto;bottom:8px;height:44px}
     .timebar .seg button:not(.on){display:none}

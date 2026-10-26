@@ -2,6 +2,7 @@
 // de tijdbalk van de simulatie, de kaart bij aanwijzen en de panelen rechts bij een selectie (voertuig, oplegger,
 // standplaats, pauzeplek, winkel). De kaart zelf (map.js) is van de kaartbouwer; hier zitten alleen de knoppen en panelen.
 import { esc, ic, fmt, hhmm, day, nl1, fmtDrive, durTxt, plate, kenteken, meter, kv, empty, on, stBadge, trBadge, VST, TST, initials, stars, ritBadge, zBadge, SOORT, clockAt, lateBy, adresTxt } from './base.js';
+import { begrip, hintHtml } from './begrippen.js';
 import { portretHtml, vulPortretten } from './portret.js';
 import { SP, DIV, laadpunten } from '../places.js';
 import { KIND, TRT } from '../fleet.js';
@@ -22,7 +23,9 @@ export function renderMapbar(ctx) {
   // Rust op de kaart: hooguit drie getallen in beeld (onderweg, vertraagd, losse opleggers); de andere tellers staan in de
   // titel van de knop en op het Overzicht
   const getal = s => s === 'onderweg' || s === 'vertraagd';
-  const chips = STKEYS.map(s => `<button class="mc ${all ? '' : F.sts.has(s) ? 'on' : 'off'}" type="button" data-st="${s}" aria-pressed="${!all && F.sts.has(s)}" title="${fmt(c[s] || 0)} ${VST[s].n.toLowerCase()}. ${all ? `Klik om alleen ${VST[s].n.toLowerCase()} te tonen` : F.sts.has(s) ? 'Klik om weg te halen' : 'Klik om erbij te zetten'}"><i class="dot st-${s}"></i>${VST[s].n}${getal(s) ? ` <b>${fmt(c[s] || 0)}</b>` : ''}</button>`).join('');
+  // een begrip uit de lijst (onderweg, vertraagd, bij klant) krijgt zijn zin als uitleg: bij aanwijzen en bij focus in een
+  // regel onder de balk (bindMapbar), voor een schermlezer via aria-describedby
+  const chips = STKEYS.map(s => { const b = begrip(s); return `<button class="mc ${all ? '' : F.sts.has(s) ? 'on' : 'off'}" type="button" data-st="${s}" ${b ? `data-begrip="${s}" aria-describedby="begrip-${s}"` : ''} aria-pressed="${!all && F.sts.has(s)}" title="${fmt(c[s] || 0)} ${VST[s].n.toLowerCase()}. ${all ? `Klik om alleen ${VST[s].n.toLowerCase()} te tonen` : F.sts.has(s) ? 'Klik om weg te halen' : 'Klik om erbij te zetten'}"><i class="dot st-${s}"></i>${VST[s].n}${getal(s) ? ` <b>${fmt(c[s] || 0)}</b>` : ''}</button>${b ? `<span class="sr" id="begrip-${s}">${esc(b.uitleg)}</span>` : ''}`; }).join('');
   const extra = [
     `<span class="sep"></span><button class="mc ${ctx.trailersOnMap() ? 'on' : ''}" type="button" data-trl="1" aria-pressed="${ctx.trailersOnMap()}" title="Losse opleggers op de kaart (o)">${ic('trailer', 15)}Losse opleggers <b>${fmt(k.loose || 0)}</b></button>`,
     F.bussen === false ? `<button class="mc x" type="button" data-clear="bussen" title="Bezorgbussen weer op de kaart (b)">${ic('bus', 15)}Bezorgbussen verborgen ${ic('x', 13)}</button>` : '',
@@ -36,6 +39,12 @@ export function renderMapbar(ctx) {
 }
 export function bindMapbar(ctx) {
   const el = ctx.$('mapbar'); const F = ctx.F;
+  // de uitleg van een begrip onder de balk, bij aanwijzen en bij focus (buiten .mapchips, want die knipt wat erbuiten valt)
+  const hint = document.createElement('div'); hint.className = 'mc-hint'; hint.hidden = true; hint.setAttribute('role', 'note'); el.parentElement.appendChild(hint);
+  const toon = b => { const h = hintHtml(b.dataset.begrip, esc); if (!h) return; if (hint.innerHTML !== h) hint.innerHTML = h; hint.hidden = false; };
+  const weg = e => { const naar = e.relatedTarget instanceof Element ? e.relatedTarget.closest('[data-begrip]') : null; if (!naar) hint.hidden = true; };
+  on(el, 'mouseover', '[data-begrip]', (e, b) => toon(b)); on(el, 'focusin', '[data-begrip]', (e, b) => toon(b));
+  el.addEventListener('mouseout', weg); el.addEventListener('focusout', weg);
   on(el, 'click', '[data-st]', (e, b) => { const k = b.dataset.st; if (F.sts.size === STKEYS.length) F.sts = new Set([k]); else if (F.sts.has(k) && F.sts.size === 1) F.sts = new Set(STKEYS); else if (F.sts.has(k)) F.sts.delete(k); else F.sts.add(k); ctx.frame(true); });
   on(el, 'click', '[data-reset]', () => { F.sts = new Set(STKEYS); ctx.frame(true); });
   on(el, 'click', '[data-trl]', () => ctx.setTrailersOnMap(!ctx.trailersOnMap()));
