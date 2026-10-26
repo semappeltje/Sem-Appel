@@ -110,14 +110,21 @@ export function createMap(container, opts) {
   const inBeeld = id => { try { return !!map.getLayer(id) && !verborgen(id) && map.queryRenderedFeatures({ layers: [id] }).length > 0; } catch { return false; } };
   const bronKlaar = id => !map.getSource(id) || map.isSourceLoaded(id);
   const OFM_ZICHT = ['o-water', 'o-landcover', 'o-landuse', 'o-road', 'o-boundary'];
+  // kijkt er iemand naar de kaart: de kaartweergave heeft een maat en de app is klaar met laden (tijdens het laden staat de
+  // kaartweergave in de opbouw aan, achter het laadscherm)
+  const kijkt = () => { const c = map.getContainer(); if (!c.clientWidth || !c.clientHeight) return false; const ld = document.getElementById('loading'); return !(ld && !ld.hidden); };
+  // het net: lukt het nooit, dan na 30 s toch de kaart (bij een fout in een bron meteen, hierboven). De 30 s tellen alleen
+  // terwijl iemand naar de kaart kijkt: op een zwaar belaste machine duurde het laden van de app en het verwerken van land
+  // en water samen meer dan 12 s, en het oude net van 12 s liep al tijdens het laden mee, zodat toch de zee stond. Liever
+  // een kaart die langer "De kaart wordt getekend" zegt dan een kaart die verkeerd is
+  function net() { wachtTimer = 0; if (!wachtAf && kijkt()) weg(); }
   function wachtOp() {
     if (wachtAf || !map.getLayer('land') || !map.getLayer('water')) return;
-    const c = map.getContainer(); if (!c.clientWidth || !c.clientHeight) return;
-    // lukt het nooit, dan na 30 s toch de kaart (bij een fout in een bron meteen, hierboven). Op een zwaar belaste machine
-    // duurt het verwerken van land en water meer dan 12 s, en met een net van 12 s stond daar dan toch de zee: liever een
-    // kaart die langer "De kaart wordt getekend" zegt dan een kaart die verkeerd is
-    if (!wachtTimer) wachtTimer = setTimeout(weg, 30000);
+    if (!kijkt()) { if (wachtTimer) { clearTimeout(wachtTimer); wachtTimer = 0; } return; }
+    if (!wachtTimer) wachtTimer = setTimeout(net, 30000);
     if (!geladen('land') || !geladen('water')) return;
+    // pas als de camera stilstaat: tijdens de vlucht naar het werkgebied vraagt elk beeld nieuwe tegels
+    if (typeof map.isMoving === 'function' && map.isMoving()) return;
     const online = !!map.getLayer('o-bg') && !verborgen('o-bg');
     const klaar = !verborgen('land') ? inBeeld('land') : online ? bronKlaar('ofm') && OFM_ZICHT.some(inBeeld) : bronKlaar('luchtfoto') && bronKlaar('brt');
     if (klaar) weg();
