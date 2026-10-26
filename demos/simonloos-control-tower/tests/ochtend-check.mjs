@@ -110,7 +110,8 @@ check(gisteren.blokken > 0 && gisteren.leeg < gisteren.rows && /zondag/.test(gis
 await M.ctx.close();
 
 // 04:00: wat een voertuig nog van de nachtdienst van gisteren rijdt, staat op het planbord als een blok van gisteren (vanaf
-// 00:00, gestreept, vast, "van gisteren"). Heel Nederland: elk voertuig op het bord van zijn standplaats, gezocht op nummer.
+// zijn vertrek of 00:00, gestreept, vast, "van gisteren"). Heel Nederland: elk voertuig op het bord van zijn standplaats,
+// gezocht op nummer.
 {
   const N4 = await open(MAANDAG, 240, { sp: null });
   await zet(N4.page, 240);

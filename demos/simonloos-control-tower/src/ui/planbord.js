@@ -189,7 +189,8 @@ function createBoard(ctx, el) {
       classes: `pb-rit st-${rs.st}${late ? ' late' : ''}${ing ? ' ing' : ''}${vast ? ' vast' : ''}${vk ? ' tegen' : ''}${av ? ' aangevraagd' : ''}`, enableDragging: !vast, draggable: !vast, enableResize: false, resizable: false };
   }
   // de nachtdienst van gisteren (R.vanGisteren): wat een voertuig vannacht na middernacht reed of nog rijdt, op zijn eigen
-  // rij van 00:00 tot het eind, gestreept, vast en met 'van gisteren'; alleen op Vandaag (de legenda noemt de arcering)
+  // rij van zijn vertrek (of 00:00) tot het eind, gestreept, vast en met 'van gisteren'; alleen op Vandaag (de legenda
+  // noemt de arcering)
   function gisterenNachtTasks(t, resourceId) {
     if (f.dag !== 'vandaag') return [];
     return R.vanGisteren(t, T(), S).filter(g => g.b > 0).map(g => ({ id: `g-${g.r.id}`, rit: g.r.id, resourceId, from: ms(g.a), to: ms(g.b), html: ritHtml(g.r, { st: g.st, at: g.at }, false, { voor: 'van gisteren · ', streep: true }),
