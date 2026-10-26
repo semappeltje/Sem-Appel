@@ -257,6 +257,47 @@ const settle = async page => { await page.waitForFunction(() => { const m = wind
 }
 
 // ======================================================================================================================
+// 2b. Het eerste beeld (tweede eindcontrole, N4): de zee is de achtergrond en het land ligt er als vlakken over. Tot land en
+// water getegeld zijn, ligt er een vlak in de kleur van het land over de kaart (.kaart-wacht), dus nooit een beeld met
+// alleen zee. Gemeten bij elk getekend beeld vanaf het openen: is de kaart zichtbaar (het vlak weg of aan het wegvagen),
+// dan zijn land en water geladen. Direct op #kaart (licht, donker, 390 px, ingebed) en vanaf het Overzicht naar de kaart;
+// met minder beweging gaat het vlak in een keer weg (geen overgang). Met een map voor schermafbeeldingen ook een beeld kort
+// na het openen en een als het vlak weg is.
+{
+  const URL0 = url.split('#')[0];
+  const gevallen = [['direct, licht', { hash: '#kaart' }], ['direct, donker', { hash: '#kaart', dark: true }], ['direct, 390 px', { hash: '#kaart', w: 390, h: 844 }], ['direct, ingebed', { hash: '#kaart', embedded: true }], ['vanaf het Overzicht', { via: true }], ['vanaf het Overzicht, minder beweging', { via: true, reduced: true }]];
+  const res = [];
+  for (const [lab, o] of gevallen) {
+    const w = o.w || 1440, h = o.h || 900;
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500, reducedMotion: o.reduced ? 'reduce' : 'no-preference' });
+    const page = await ctx.newPage(); const errors = errorsOf(page);
+    await page.route('**/*', route => { const u = new URL(route.request().url()); return u.host === host ? route.continue() : route.abort('blockedbyclient'); });
+    if (o.embedded) await page.route(URL0, async route => { const r0 = await route.fetch(); const body = (await r0.text()).replace('class="app slct"', 'class="app slct" data-tiles="off" data-embedded'); await route.fulfill({ response: r0, body, headers: { ...r0.headers(), 'content-type': 'text/html; charset=utf-8' } }); });
+    await page.addInitScript(([d]) => { try { if (!sessionStorage.getItem('eb')) { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify({ regios: [], divs: ['winkel', 'netwerk', 'bulk', 'dranken', 'bezorg'], role: 'planner', sp: null })); if (d) localStorage.setItem('sl-theme', 'dark'); sessionStorage.setItem('eb', '1'); } } catch { /* geen opslag */ } }, [!!o.dark]);
+    // per getekend beeld: ligt het vlak er nog helemaal over? Zo niet, dan moeten land en water geladen zijn
+    await page.addInitScript(() => {
+      window.__eb = { beelden: 0, zicht: 0, zonderLand: 0, vaagt: false, start: null, weg: null };
+      const hang = () => { const S = window.SLCT; if (!S || !S.map || !S.map.map || !S.map.map.on) { setTimeout(hang, 5); return; } const m = S.map.map;
+        m.on('render', () => { const E = window.__eb; if (E.start === null) return; const c = m.getContainer(); if (!c.clientWidth) return; E.beelden++; const v = c.querySelector('.kaart-wacht'); if (v && v.classList.contains('weg')) E.vaagt = true; if (v && !v.classList.contains('weg') && +getComputedStyle(v).opacity > 0.99) return; E.zicht++; if (E.weg === null) E.weg = Math.round(performance.now() - E.start); const ok = id => !m.getSource(id) || m.getLayoutProperty(id, 'visibility') === 'none' || m.isSourceLoaded(id); if (!ok('land') || !ok('water')) E.zonderLand++; }); };
+      hang();
+    });
+    await page.goto(URL0 + (o.hash || ''), { waitUntil: 'load' });
+    await page.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 120_000, polling: 25 });
+    if (o.via) { await page.waitForTimeout(1200); await page.evaluate(() => { window.__eb.start = performance.now(); window.SLCT.ui.ctx.go('view:kaart'); }); }
+    else await page.evaluate(() => { window.__eb.start = performance.now(); });
+    if (shots && !o.via) { mkdirSync(shots, { recursive: true }); await page.screenshot({ path: `${shots}/kaart-openen-${lab.replace(/[^a-z0-9]+/gi, '-')}-direct.png` }); }
+    await page.waitForFunction(() => !document.querySelector('.kaart-wacht'), null, { timeout: 30000, polling: 100 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const E = await page.evaluate(() => ({ ...window.__eb, vlak: !!document.querySelector('.kaart-wacht') }));
+    if (shots) await page.screenshot({ path: `${shots}/kaart-openen-${lab.replace(/[^a-z0-9]+/gi, '-')}-klaar.png` });
+    res.push({ lab, ...E, errors: errors.length, reduced: !!o.reduced });
+    await ctx.close();
+  }
+  const fout = res.filter(r => r.zonderLand > 0 || r.vlak || r.zicht === 0 || r.errors || (r.reduced && r.vaagt));
+  check(!fout.length, `het eerste beeld: nooit alleen zee (${res.map(r => `${r.lab}: het vlak weg na ${r.weg} ms, daarna ${r.zicht} beelden, ${r.zonderLand} zonder land of water${r.reduced ? `, ${r.vaagt ? 'met' : 'zonder'} overgang` : ''}`).join('; ')})${fout.length ? `; FOUT bij ${fout.map(r => r.lab).join(', ')}` : ''}`);
+}
+
+// ======================================================================================================================
 // 3. Minder beweging: geen tussenstanden, de camera springt
 {
   const { page, ctx, errors } = await open({ reduced: true });

@@ -81,6 +81,31 @@ export function createMap(container, opts) {
     });
   } catch (e) { console.warn('kaart niet gestart', e); return noMap(container, theme); }
   map.getContainer().classList.add('slmap');
+  // Het eerste beeld. De zee is de achtergrond en het land ligt er als vlakken over; tot de bronnen land en water getegeld
+  // zijn (onder belasting een paar seconden) zou Nederland onder water staan. Daarom ligt er tot dan een rustig vlak in de
+  // kleur van het land over de kaart (de knoppen erboven blijven bruikbaar), met na een halve seconde een korte regel, en
+  // zodra land en water in beeld getekend zijn, vaagt het vlak in 200 ms weg; met minder beweging is het meteen weg. Een
+  // eigen kaart van een paar seconden lang leeg is beter dan een kaart die een seconde lang verkeerd is.
+  const wacht = document.createElement('div'); wacht.className = 'kaart-wacht'; wacht.setAttribute('role', 'status');
+  wacht.innerHTML = '<span>De kaart wordt getekend</span>'; wacht.style.background = PAL[theme].land;
+  map.getCanvasContainer().after(wacht);
+  let wachtAf = false, wachtTimer = 0;
+  function weg() {
+    if (wachtAf) return; wachtAf = true; clearTimeout(wachtTimer); map.off('render', wachtOp);
+    if (reducedMotion()) { wacht.remove(); return; }
+    requestAnimationFrame(() => { wacht.classList.add('weg'); setTimeout(() => wacht.remove(), 260); });
+  }
+  // pas meten als de kaart een maat heeft (de kaartweergave in beeld): een kaart zonder maat vraagt geen tegels, dus dan
+  // zegt "geladen" niets; een laag die niet getekend wordt (een online basiskaart dekt hem af) telt als klaar
+  const getekend = id => !map.getLayer(id) || map.getLayoutProperty(id, 'visibility') === 'none' || (!!map.getSource(id) && map.isSourceLoaded(id));
+  function wachtOp() {
+    if (wachtAf || !map.getSource('land')) return;
+    const c = map.getContainer(); if (!c.clientWidth || !c.clientHeight) return;
+    // lukt het nooit (een fout in een bron), dan na 12 s toch de kaart
+    if (!wachtTimer) wachtTimer = setTimeout(weg, 12000);
+    if (getekend('land') && getekend('water')) weg();
+  }
+  map.on('render', wachtOp);
   const clock = opts.clock || null;
   let trailersOn = false; let scene3d = null, three = false; let ready = false; const onReady = [];
   const motion = createMotion();
@@ -360,7 +385,7 @@ export function createMap(container, opts) {
 
   // ---------- thema en 3D-palet ----------
   function setTheme(t) {
-    theme = t; const P = PAL[t]; if (scene3d) scene3d.setTheme(t); if (!ready) return;
+    theme = t; const P = PAL[t]; if (scene3d) scene3d.setTheme(t); if (!wachtAf) wacht.style.background = P.land; if (!ready) return;
     setPhotoStyle(map, base === 'luchtfoto', t, three); addStyleImages(map, P); addTrailerIcons();
     map.setPaintProperty('stops', 'circle-color', ['case', ['get', 'done'], P.done, P.stroke]); map.setPaintProperty('stops', 'circle-stroke-color', ['case', ['get', 'done'], P.stroke, BLUE()]);
     map.setPaintProperty('route-casing', 'line-color', P.stroke); map.setPaintProperty('route-done', 'line-color', P.done);

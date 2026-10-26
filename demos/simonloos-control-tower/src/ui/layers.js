@@ -8,7 +8,11 @@ import { ic, esc } from './base.js';
 
 export function createLayers(root) {
   const pop = root.querySelector('#popover'), dlg = root.querySelector('#dialog'), toasts = root.querySelector('#toasts');
-  let popTrigger = null, popOnClose = null, dlgReturn = null, dlgOnClose = null, stopAuto = null, popAc = null;
+  let popTrigger = null, popOnClose = null, dlgReturn = null, dlgOnClose = null, stopAuto = null, popAc = null, popZoek = null;
+  // De knop die een menu opende, kan intussen opnieuw getekend zijn (een filterkeuze tekent de rij filters opnieuw). Dan
+  // gaat de focus bij het sluiten naar zijn opvolger: hetzelfde id of hetzelfde data-kenmerk, in hetzelfde deel van de app.
+  const sigOf = el => { if (!el) return null; if (el.id) return `#${CSS.escape(el.id)}`; const d = Object.entries(el.dataset || {})[0]; return d ? `[data-${d[0].replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(d[1])}"]` : null; };
+  const opvolger = () => { if (!popZoek || !popZoek.sig) return null; const box = popZoek.box && popZoek.box.isConnected ? popZoek.box : root; return box.querySelector(popZoek.sig); };
   const focusables = el => [...el.querySelectorAll('button:not([disabled]),[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null || x === document.activeElement);
 
   // ---------- plaatsen ----------
@@ -34,13 +38,16 @@ export function createLayers(root) {
     pop.className = `pop ${cls}`; pop.innerHTML = html; pop.hidden = false; pop.setAttribute('role', 'dialog'); if (label) pop.setAttribute('aria-label', label); else pop.removeAttribute('aria-label');
     pop.style.left = '0px'; pop.style.top = '0px'; pop.style.maxHeight = '';
     popTrigger = trigger; popOnClose = onClose || null; if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    popZoek = trigger ? { sig: sigOf(trigger), box: trigger.parentElement && trigger.parentElement.closest('[id]') } : null;
     // de popover blijft hetzelfde element: wat onBind er aan luisteraars bij zet, hoort bij deze ene keer openen en
     // verdwijnt bij sluiten (anders telt elke keer openen een klik-luisteraar op, en doet een keuze het meer keer).
     // Lezen en schrijven gaan naar de popover zelf (een setter als innerHTML mag niet op de proxy draaien).
     if (onBind) { popAc = new AbortController(); const sig = popAc.signal; onBind(new Proxy(pop, { get: (t, k) => k === 'addEventListener' ? (type, fn, o) => t.addEventListener(type, fn, { ...(o && typeof o === 'object' ? o : { capture: !!o }), signal: sig }) : (v => (typeof v === 'function' ? v.bind(t) : v))(Reflect.get(t, k)), set: (t, k, v) => { t[k] = v; return true; } })); }
     const ref = at ? punt(at.x, at.y) : trigger; const placement = at ? 'bottom-start' : align === 'right' ? 'bottom-end' : 'bottom-start';
     if (ref) { const upd = () => place(ref, pop, placement); upd(); if (!at && trigger && trigger.isConnected) stopAuto = autoUpdate(trigger, pop, upd, { animationFrame: false }); }
-    if (focus) { const f = pop.querySelector('[autofocus]') || pop.querySelector('.menu-i.on') || focusables(pop)[0]; if (f) f.focus({ preventScroll: true }); }
+    // de focus in het menu: het veld met autofocus, anders de gekozen keuze, anders het eerste wat je kunt kiezen; een
+    // keuze die uit staat (een vaste kolom) kan geen focus krijgen, dan de volgende
+    if (focus) { for (const f of [pop.querySelector('[autofocus]'), pop.querySelector('.menu-i.on:not([disabled])'), ...focusables(pop)]) { if (!f) continue; f.focus({ preventScroll: true }); if (document.activeElement === f) break; } }
     return pop;
   }
   function closePop(restore = true) {
@@ -48,8 +55,10 @@ export function createLayers(root) {
     if (popAc) { popAc.abort(); popAc = null; }
     if (pop.hidden) return; pop.hidden = true; pop.innerHTML = '';
     const t = popTrigger; popTrigger = null; if (t) t.setAttribute('aria-expanded', 'false');
+    const t2 = t && !t.isConnected ? opvolger() : null; popZoek = null; if (t2) t2.setAttribute('aria-expanded', 'false');
     const cb = popOnClose; popOnClose = null; if (cb) cb();
     if (restore && t && t.isConnected) t.focus({ preventScroll: true });
+    else if (restore && t2) t2.focus({ preventScroll: true });
   }
   const repositionPop = align => { if (!pop.hidden && popTrigger && popTrigger.isConnected) place(popTrigger, pop, align === 'right' ? 'bottom-end' : 'bottom-start'); };
   // contextmenu: een lijst acties op de plek van de klik (of bij het element, met het toetsenbord)
@@ -69,6 +78,8 @@ export function createLayers(root) {
     }
   });
   pop.addEventListener('focusout', e => { if (!pop.hidden && e.relatedTarget && !pop.contains(e.relatedTarget) && !(popTrigger && popTrigger.contains(e.relatedTarget))) closePop(false); });
+  // Esc sluit het menu ook als de focus er niet in staat (nog op de knop die het opende); de app doet dan verder niets
+  root.addEventListener('keydown', e => { if (e.key !== 'Escape' || pop.hidden || pop.contains(e.target)) return; e.preventDefault(); e.stopPropagation(); closePop(); });
 
   // ---------- kaartje bij aanwijzen (voertuig, oplegger) ----------
   // Elementen met data-hc="<id>" krijgen na een korte pauze een kaartje; de inhoud levert de app (setHover). Alleen met

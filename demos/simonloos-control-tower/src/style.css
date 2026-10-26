@@ -268,7 +268,6 @@
   .empty.center{align-items:center;text-align:center;padding:48px 24px}
   .skel{display:block;border-radius:6px;background:var(--surface2);position:relative;overflow:hidden}
   .skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bg) 55%,transparent),transparent);animation:slct-shim 1.3s var(--ease) infinite}
-  @keyframes slct-shim{to{transform:translateX(100%)}}
 
   /* ---------- tabs ---------- */
   .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
@@ -364,6 +363,16 @@
     .top-r .tbtn{min-width:auto}
     .zoek{min-width:160px}
     .top-r .hide-m{display:none}
+  }
+  /* Past de topbalk niet, dan zet nav.js (pasIn) deze stappen een voor een aan tot alles past: wat wegvalt, valt helemaal
+     weg (een knop houdt zijn icoon, de uitleg staat in de tooltip en voor een schermlezer in aria-label) */
+  .top.k-rol #roleBtn .tx,.top.k-snel #clockBtn small,.top.k-wg #wgBtn .tx,.top.k-oef #oefenChip .tx{display:none}
+  .top.k-oef #oefenChip{padding:0 6px}
+  @container slct (min-width:761px){
+    .top.k-zoek .zoek{width:232px}
+    .top.k-zoek2 .zoek{width:150px;min-width:150px}
+    .top.k-zoek2 .zoek .kbd{display:none}
+    .top.k-zoek2 .zoek .fsearch .fld{padding-right:10px}
   }
 
   /* ---------- weergaven ---------- */
@@ -518,6 +527,8 @@
 
   /* ---------- detailpagina's ---------- */
   .sheet{position:absolute;inset:0;z-index:15;background:var(--bg);overflow:auto;display:flex;flex-direction:column}
+  /* een pagina die na het paneel openging, ligt erboven (ui.js, zetLagen); het paneel wacht eronder */
+  .sheet.boven{z-index:21}
   .pg{width:100%;max-width:1360px;margin:0 auto;padding:16px 32px 48px}
   .pg-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:32px}
   .pg-bar .crumbs{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -576,7 +587,6 @@
 
   /* ---------- zwevende lagen: menu, dialoog, meldingen ---------- */
   .pop{position:absolute;z-index:60;min-width:200px;max-width:min(420px,calc(100% - 16px));max-height:min(520px,calc(100% - 16px));overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);padding:4px;animation:slct-pop 160ms var(--ease)}
-  @keyframes slct-pop{from{opacity:0;transform:translateY(-4px)}}
   .menu-h{padding:8px 10px 6px;font-size:12px;font-weight:600;color:var(--muted)}
   .menu-h b{display:block;color:var(--text);font-size:13.5px}
   .menu-i{width:100%;min-height:32px;display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--r-sm);text-align:left;color:var(--text);white-space:nowrap}
@@ -593,9 +603,7 @@
   .menu-f{display:flex;gap:8px;padding:8px 6px 4px;border-top:1px solid var(--line);margin-top:4px}
   .menu-scroll{max-height:280px;overflow:auto}
   .modal{position:absolute;inset:0;z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 16px;background:rgba(15,18,22,.42);overflow:auto;animation:slct-fade 180ms var(--ease)}
-  @keyframes slct-fade{from{opacity:0}}
   .dlg{width:min(560px,100%);background:var(--bg);border-radius:var(--r-md);box-shadow:var(--sh-dlg);display:flex;flex-direction:column;max-height:calc(100% - 8vh);animation:slct-rise 200ms var(--ease)}
-  @keyframes slct-rise{from{opacity:0;transform:translateY(8px)}}
   .dlg.wide{width:min(760px,100%)}
   .dlg-h{display:flex;align-items:center;gap:12px;padding:18px 20px 12px}
   .dlg-h h2{font-size:17px;flex:1}
@@ -608,7 +616,6 @@
   .keys span:last-child{display:flex;gap:4px}
   .toasts{position:absolute;right:16px;bottom:16px;z-index:80;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:calc(100% - 32px)}
   .toast{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:440px;padding:10px 12px 10px 14px;border-radius:8px;background:var(--text);color:var(--bg);box-shadow:var(--sh-pop);font-size:13px;line-height:1.4;animation:slct-toast 200ms var(--ease)}
-  @keyframes slct-toast{from{opacity:0;transform:translateY(8px)}}
   .toast .ic{flex:none;opacity:.85}
   .toast span{flex:1;min-width:0}
   .toast button{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;white-space:nowrap;padding:2px 4px}
@@ -617,6 +624,11 @@
   /* ---------- kaart ---------- */
   #v-kaart{background:var(--surface)}
   #map{position:absolute;inset:0}
+  /* tot land en water getekend zijn (map.js): een vlak in de kleur van het land over de kaart, de regel pas na 600 ms;
+     daarna vaagt het weg (met minder beweging meteen) */
+  .kaart-wacht{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;transition:opacity 200ms var(--ease)}
+  .kaart-wacht.weg{opacity:0}
+  .kaart-wacht span{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--muted);font-size:12.5px;opacity:0;animation:slct-toon 160ms var(--ease) 600ms forwards}
   .nomap{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);background:var(--surface)}
   .nomap div{max-width:420px;padding:20px 24px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);line-height:1.5}
   .nomap b{display:block;color:var(--text);font-size:15px;margin-bottom:6px}
@@ -1130,8 +1142,7 @@
   .ai-out:focus{outline:none}
   .ai-out:empty{display:none}
   .ai-bezig{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:13px}
-  .ai-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;animation:aipuls 1.2s ease-in-out infinite}
-  @keyframes aipuls{50%{opacity:.25}}
+  .ai-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;animation:slct-aipuls 1.2s ease-in-out infinite}
   .ai-kop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
   .ai-kop .hint{font-size:12px}
   .ai-txt{font-size:13.5px;line-height:1.55}
@@ -1227,7 +1238,6 @@
   .ld-msg p{font-size:12.5px;color:var(--muted);line-height:1.5}
   .loadbar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin:4px 0}
   .loadbar i{display:block;height:100%;width:40%;background:var(--brand);border-radius:2px;animation:slct-load 1.4s var(--ease) infinite}
-  @keyframes slct-load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
   @media (prefers-reduced-motion:reduce){.loadbar i{animation:none;width:100%;opacity:.5}.skel::after{display:none}}
 
   /* ---------- onderbalk (telefoon) ---------- */
@@ -1707,3 +1717,15 @@
   }
   &.kiosk .side,&.kiosk .top,&.kiosk .bottombar{display:none}
 }
+
+/* De keyframes staan buiten .slct: binnen een stijlregel (ook na het afvlakken van de nesting door de build) negeert de
+   browser ze, en dan liep geen enkele animatie van de app (menu, dialoog, melding, laadbalk, de regel op de kaart). De
+   namen beginnen met slct-, zodat een pagina eromheen er niets van merkt; bij minder beweging staan ze stil (boven). */
+@keyframes slct-shim{to{transform:translateX(100%)}}
+@keyframes slct-pop{from{opacity:0;transform:translateY(-4px)}}
+@keyframes slct-fade{from{opacity:0}}
+@keyframes slct-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes slct-toast{from{opacity:0;transform:translateY(8px)}}
+@keyframes slct-toon{to{opacity:1}}
+@keyframes slct-aipuls{50%{opacity:.25}}
+@keyframes slct-load{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}

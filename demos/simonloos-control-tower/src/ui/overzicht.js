@@ -48,11 +48,23 @@ export function briefing(ctx) {
   const gebruikt = new Set(); const props = ctx.voorstellen();
   const voorstelBij = z => props.find(p => { const x = ctx.Z.get(p.key); return x && x.id === z.id; }) || null;
   const metVoorstel = z => { const p = voorstelBij(z); return p ? ` Voorstel: ${kl(p.kort)}.` : ''; };
-  // 1. wat er speelt: de grootste vertraging, anders wat er rijdt, anders het eerste vertrek
-  const onderweg = c.onderweg + c.vertraagd;
+  // 1. wat er speelt: de grootste vertraging, anders wat er rijdt, anders het eerste vertrek. De woorden en getallen zijn
+  // die van de filterbalk op de kaart: onderweg (rijdt volgens plan), vertraagd (rijdt achter op plan), bij een klant;
+  // ze tellen niet dubbel. Vertraagd is nog geen zaak: dat wordt het pas als een stop daardoor na zijn venster komt.
+  const rijdt = c.onderweg + c.vertraagd;
+  const stand = `${rij(c.onderweg, 'voertuig', 'voertuigen')} onderweg${c.vertraagd ? `, ${fmt(c.vertraagd)} vertraagd` : ''}`;
   const vz = open.filter(z => z.kind === 'Vertraging').sort((a, b) => ((b.data && b.data.delay) || 0) - ((a.data && a.data.delay) || 0));
-  if (vz.length) { gebruikt.add(vz[0].id); out.push({ k: 'Speelt', icon: 'activity', sev: 'bad', open: `melding/${vz[0].id}`, lead: `${rij(onderweg, 'voertuig', 'voertuigen')} onderweg, ${fmt(c.vertraagd)} vertraagd.`, t: `De grootste: ${vz[0].obj}, ${vz[0].text}.${metVoorstel(vz[0])}` }); }
-  else if (onderweg) out.push({ k: 'Speelt', icon: 'activity', open: 'view:ritten', lead: `${rij(onderweg, 'voertuig', 'voertuigen')} onderweg, ${fmt(c.klant)} bij een klant.`, t: 'Niemand loopt uit.' });
+  // een stop na zijn venster zonder open zaak: de zaak staat op wacht of is al afgehandeld
+  const laat = ctx.exceptions().filter(e => e.kind === 'Vertraging' && ctx.inScope(e.t));
+  if (vz.length) { gebruikt.add(vz[0].id); out.push({ k: 'Speelt', icon: 'activity', sev: 'bad', open: `melding/${vz[0].id}`, lead: `${stand}.`, t: `De grootste: ${vz[0].obj}, ${vz[0].text}.${metVoorstel(vz[0])}` }); }
+  else if (rijdt && laat.length) { const z = ctx.Z.get(laat[0].key); out.push({ k: 'Speelt', icon: 'activity', sev: 'warn', open: z ? `melding/${z.id}` : 'view:meldingen', lead: `${stand}, ${fmt(c.klant)} bij een klant.`, t: `${laat.length === 1 ? 'Eén voertuig komt na zijn venster' : `${fmt(laat.length)} voertuigen komen na hun venster`}; ${laat.length === 1 ? 'die zaak wacht of is afgehandeld' : 'die zaken wachten of zijn afgehandeld'}.` }); }
+  else if (rijdt && c.vertraagd) {
+    // vertraagd, maar binnen het venster: het voertuig dat het meest achter rijdt, met zijn rit
+    let mx = null; for (const t of ctx.fleet.trucks) { if (!ctx.inScope(t)) continue; const s = ctx.S.get(t.id); if (s && s.st === 'vertraagd' && s.next && (!mx || (s.next.delay || 0) > (mx.s.next.delay || 0))) mx = { t, s }; }
+    const r = mx && ctx.R.ritOf(mx.t, T);
+    out.push({ k: 'Speelt', icon: 'activity', open: r ? `rit/${r.id}` : 'view:ritten', lead: `${stand}, ${fmt(c.klant)} bij een klant.`, t: `Niemand komt na zijn venster.${mx && mx.s.next.delay ? ` Het meest achter: ${mx.t.id}, ${mx.s.next.delay} min, op weg naar ${mx.s.next.home ? mx.t.base.n : mx.s.next.name}.` : ''}` });
+  }
+  else if (rijdt) out.push({ k: 'Speelt', icon: 'activity', open: 'view:ritten', lead: `${stand}, ${fmt(c.klant)} bij een klant.`, t: 'Niemand loopt uit.' });
   else {
     const deps = []; for (const sp of ctx.spsInScope()) for (const d of ctx.fleet.departures(sp, T - 2, 60)) if (ctx.inScope(d.t) && d.at >= T - 1) deps.push(d);
     deps.sort((a, b) => a.at - b.at); const d = deps[0]; const r = d && ritVan(ctx, d);
@@ -144,8 +156,9 @@ export function renderOverzicht(ctx, el) {
   const ov = openIn(ctx).filter(p => p.dag !== 'morgen'); const ovSnel = ov.filter(p => urgentie(ctx, p) < 60).length;
   const K = [
     { l: 'Op tijd', v: `${nl1(now.ontime)} %`, d: ago ? now.ontime - ago.ontime : null, unit: 'pt', good: 1, s: ser.map(x => x.ontime), sub: `${fmt(now.stops)} stops vandaag, ${fmt(now.late)} na het tijdvenster`, min: null },
-    // onderweg is hier hetzelfde begrip als in de briefing: rijdend, ook met vertraging; bij een klant telt apart
-    { l: 'Vertraagd', v: fmt(now.vertraagd), d: ago ? now.vertraagd - ago.vertraagd : null, good: -1, s: ser.map(x => x.vertraagd), sub: `van ${fmt(now.onderweg + now.vertraagd)} onderweg · ${fmt(now.klant)} bij een klant`, min: 0 },
+    // dezelfde begrippen als de briefing en de filterbalk van de kaart: onderweg rijdt volgens plan, vertraagd rijdt
+    // achter op plan, bij een klant apart; samen zijn ze alles wat niet op het terrein of in de pauze staat
+    { l: 'Vertraagd', v: fmt(now.vertraagd), d: ago ? now.vertraagd - ago.vertraagd : null, good: -1, s: ser.map(x => x.vertraagd), sub: `${fmt(now.onderweg)} onderweg · ${fmt(now.klant)} bij een klant`, min: 0 },
     { l: 'Open ritten', v: fmt(ov.length), d: null, good: -1, s: [], sub: ov.length ? `${ovSnel ? `${fmt(ovSnel)} laden binnen het uur` : 'niets laadt binnen het uur'}` : 'alles van vandaag is ingevuld', min: 0, open: 'view:openritten' },
   ];
   const first = ser[0];

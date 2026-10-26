@@ -138,7 +138,7 @@ export const SYSTEEMPROMPT = `Je bent de assistent van de planner in de control 
 ## De gegevens
 Tussen <dag> en </dag> staat de samenvatting van de dag uit de app, als JSON. Velden kunnen ontbreken.
 - tijd en datum: het moment in de simulatie. standplaats: het werkgebied. rol: wie het vraagt.
-- cijfers: tellers van nu, zoals voertuigen, onderweg, bijKlant, vertraagd, opTerrein, opleggersLos en wachtendOpDock.
+- cijfers: tellers van nu, zoals voertuigen, onderweg, bijKlant, vertraagd, opTerrein, opleggersLos en wachtendOpDock. Onderweg rijdt volgens plan en vertraagd rijdt achter op plan, zoals op de kaart; ze tellen niet dubbel. Schrijf dus niet "onderweg, waarvan vertraagd".
 - zaken: uitzonderingen met id, soort, ernst, object (het voertuig of de oplegger), tekst, sinds, eigenaar en status (zoals nieuw, in behandeling, wacht op of opgelost).
 - openRitten: ritten zonder voertuig of chauffeur, met klant, standplaats, venster, duur in minuten, oplegger, reden, urgentie en soms een prognose: de kans dat de rit op tijd wordt ingevuld.
 - kandidaten: per open rit (de sleutel is de id van de rit) de beste opties, zoals een eigen chauffeur, de flexpool, een oproepkracht of een charter, met score, redenen en kosten.

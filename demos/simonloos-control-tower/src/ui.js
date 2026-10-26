@@ -59,7 +59,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   let profile = null; try { profile = JSON.parse(store.get('sl-werkgebied') || 'null'); } catch { profile = null; }
   const RM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; const FLY = RM ? 0 : 800;
   let three = store.get('sl-3d') === 'on', prevCam = null, mapApi = null;
-  let view = 'overzicht', page = null, panelMode = null, selTruck = null, selTrailer = null, selSp = null, selRest = null, selWinkel = null;
+  let view = 'overzicht', page = null, panelMode = null, selTruck = null, selTrailer = null, selSp = null, selRest = null, selWinkel = null, pgBoven = false, pgOpener = null;
   let scopeFlown = false, follow = false, lastFollow = 0, hoverId = null, hoverPt = null, tick = 0, trailersOnMap = false, restOnMap = false, halSp = null, klantId = null, pbSp = SP[0], docked = null, dockCam = null, dock3d = false;
   // volgen doet de kaart (mapApi.follow); volgGestart is het voertuig dat deze interface liet volgen
   let volgGestart = null, laatstePlek = { id: null, t: 0 };
@@ -80,6 +80,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   const driverName = t => { const s = S.get(t.id); return (s && s.driver) || t.driver || ''; };
   const trailerState = tr => { let s = TRS.get(tr.id); if (!s) { s = fleet.trailerStateAt(tr, state.simTime); TRS.set(tr.id, s); } return s; };
   const today = new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayKort = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
 
   // ---------- berichten ----------
   function sendMsg(t, text, me = true, quiet = false) {
@@ -254,7 +255,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
     if (force || tick % 4 === 0) { K.renderMapbar(ctx); nav.renderSide(); nav.renderBottom(); nav.renderTop(); }
     if (force || tick % 8 === 0) {
-      if (panelOpen() && !(typing && $('panel').contains(document.activeElement))) renderPanel();
+      if (panelOpen() && !paneelOnder() && !(typing && $('panel').contains(document.activeElement))) renderPanel();
       if (page && !(typing && $('sheet').contains(document.activeElement)) && (force || tick % 16 === 0)) renderPage();
       if (halSp) renderHal(ctx, halSp); if (klantId) renderKlant(ctx, klantId);
     }
@@ -288,7 +289,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       else if (v === 'instellingen') renderInstellingen(ctx, el);
     } catch (err) { console.warn('weergave', v, err); }
   }
-  function refreshAll(views = true) { if (!mapApi) return; K.renderMapbar(ctx); nav.renderSide(); nav.renderBottom(); nav.renderTop(); if (panelOpen()) renderPanel(true); if (page) renderPage(true); if (views) renderView(view); }
+  function refreshAll(views = true) { if (!mapApi) return; K.renderMapbar(ctx); nav.renderSide(); nav.renderBottom(); nav.renderTop(); if (panelOpen() && !paneelOnder()) renderPanel(true); if (page) renderPage(true); if (views) renderView(view); }
   function pushEvent(t, s, p) {
     const e = evOf(t, s, p); if (e) { feed.unshift({ T: state.simTime, t, ...e }); if (feed.length > 240) feed.length = 240; }
   }
@@ -392,7 +393,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function vliegBijDock() { vliegNaar = true; clearTimeout(vliegT); vliegT = setTimeout(() => { vliegNaar = false; }, 3000); }
   function dockMap(slot, o) {
     const m = $('map'); if (!slot || !m || !mapApi) return;
-    if (!docked) { dockCam = mapApi.noWebGL ? null : { center: mapApi.map.getCenter(), zoom: mapApi.map.getZoom(), pitch: mapApi.map.getPitch ? mapApi.map.getPitch() : 0, bearing: mapApi.map.getBearing ? mapApi.map.getBearing() : 0 }; dock3d = three && mapApi.has3d(); if (dock3d) mapApi.set3d(false); }
+    // de camera zoals hij was (ook de ruimte voor het paneel), zodat Terug precies hetzelfde beeld teruggeeft
+    if (!docked) { dockCam = mapApi.noWebGL ? null : { center: mapApi.map.getCenter(), zoom: mapApi.map.getZoom(), pitch: mapApi.map.getPitch ? mapApi.map.getPitch() : 0, bearing: mapApi.map.getBearing ? mapApi.map.getBearing() : 0, padding: mapApi.map.getPadding ? { ...mapApi.map.getPadding() } : null }; dock3d = three && mapApi.has3d(); if (dock3d) mapApi.set3d(false); }
     const fresh = !docked || docked.key !== keyOf(o);
     slot.appendChild(m); docked = { ...o, key: keyOf(o) };
     try { mapApi.map.resize(); } catch { /* geen kaart */ }
@@ -415,7 +417,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function undockMap() {
     if (!docked) return; const m = $('map'); const v = $('v-kaart'); v.insertBefore(m, v.firstChild); docked = null;
     // alleen meten als de kaartweergave zichtbaar is; anders meet setView('kaart') hem zodra hij in beeld komt
-    try { if (m.clientWidth && m.clientHeight) mapApi.map.resize(); if (dockCam) mapApi.map.jumpTo({ ...dockCam, padding: { top: 0, left: 0, right: 0, bottom: 0 } }); } catch { /* geen kaart */ }
+    try { const maat = m.clientWidth && m.clientHeight; if (maat) mapApi.map.resize(); if (dockCam) mapApi.map.jumpTo({ ...dockCam, padding: (maat && dockCam.padding) || { top: 0, left: 0, right: 0, bottom: 0 } }); } catch { /* geen kaart */ }
     if (dock3d) mapApi.set3d(true); dock3d = false; dockCam = null;
     mapApi.setRoute(null, null, []); frame(true);
   }
@@ -534,12 +536,22 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     if (fb) { fb.classList.toggle('on', follow); fb.setAttribute('aria-pressed', String(follow)); fb.title = `${follow ? 'Volgen staat aan' : 'Volg dit voertuig'} (f)`; } else renderPanel(true);
     L.toast(follow ? `Je volgt ${t.id}. Druk op f om te stoppen.` : `Je volgt ${t.id} niet meer.`, { icon: 'nav' });
   }
-  // 3D-wereld aan of uit: aan kantelt de kaart en vliegt naar de standplaats (of het geselecteerde voertuig); uit gaat terug
+  function doel3d() {
+    const s = selTruck && (S.get(selTruck.id) || stAt(selTruck, state.simTime)); if (s) return { ll: [s.pos.lon, s.pos.lat], zoom: 14.2 };
+    if (selTrailer) { const q = trailerState(selTrailer); if (q && q.pos) return { ll: [q.pos.lon, q.pos.lat], zoom: 14.2 }; }
+    if (selWinkel) return { ll: [selWinkel.lon, selWinkel.lat], zoom: 14.6 };
+    const pl = kaartDoel && kaartDoel.soort === 'plaats' ? plaatsVan(kaartDoel.id) : null; if (pl) return { ll: [pl.lon, pl.lat], zoom: 13.2 };
+    const sp = selSp || SP.find(x => x.n === (profile && profile.sp)) || (F.sps.size === 1 && SP.find(x => F.sps.has(x.n))) || SP[0];
+    return { ll: [sp.lon, sp.lat], zoom: 13.6 };
+  }
+  // 3D-wereld aan of uit: aan kantelt de kaart en vliegt naar wat je bekijkt (doel3d); uit gaat terug
   function set3dMode(v) {
     if (!mapApi || !mapApi.has3d()) { if (v) L.toast('De 3D-wereld heeft WebGL nodig; deze browser heeft dat niet.', { icon: 'info' }); return; }
     three = !!v; store.set('sl-3d', three ? 'on' : 'off'); root.classList.toggle('three', three); mapApi.set3d(three);
     if (view !== 'kaart') setView('kaart', true);
-    if (three) { prevCam = { center: mapApi.map.getCenter(), zoom: mapApi.map.getZoom() }; const s = selTruck && S.get(selTruck.id); const sp = selSp || SP.find(x => x.n === (profile && profile.sp)) || (F.sps.size === 1 && SP.find(x => F.sps.has(x.n))) || SP[0]; mapApi.map.easeTo({ center: s ? [s.pos.lon, s.pos.lat] : [sp.lon, sp.lat], zoom: s ? 14.2 : 13.6, pitch: 58, bearing: -18, duration: RM ? 0 : 1400 }); lastFollow = Date.now() + 1500; }
+    // 3D aan: de wereld rond wat je bekijkt (het gekozen voertuig, de oplegger, de winkel, de plaats uit zoeken of het
+    // adres #plaats/Hoorn, de standplaats), anders rond je eigen standplaats
+    if (three) { prevCam = { center: mapApi.map.getCenter(), zoom: mapApi.map.getZoom() }; const doel = doel3d(); mapApi.map.easeTo({ center: doel.ll, zoom: doel.zoom, pitch: 58, bearing: -18, duration: RM ? 0 : 1400 }); lastFollow = Date.now() + 1500; }
     else { mapApi.map.easeTo({ pitch: 0, bearing: 0, zoom: prevCam ? prevCam.zoom : 10, center: prevCam ? prevCam.center : mapApi.map.getCenter(), duration: RM ? 0 : 900 }); lastFollow = Date.now() + 1000; }
     // volgt de kaart een voertuig, dan in 3D draaiend met de koers en plat zonder draaien
     if (follow && selTruck && mapApi.follow) { mapApi.follow(selTruck.id, { rotate: three && !RM }); volgGestart = selTruck.id; }
@@ -548,8 +560,14 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
 
   // ---------- paneel rechts ----------
   const panelOpen = () => $('panel').classList.contains('open');
-  function openPanel(mode, quiet) { panelMode = mode; const p = $('panel'); const was = panelOpen(); p.classList.add('open'); p.classList.remove('big'); renderPanel(true); if (!was && !quiet) { const f = p.querySelector('#closePanel'); if (f) f.focus({ preventScroll: true }); } nav.renderTop(); }
-  function closePanel() { const p = $('panel'); const had = panelOpen(); p.classList.remove('open', 'big'); const m = panelMode; panelMode = null; if (m === 'sp') selSp = null; if (m === 'rest') selRest = null; if (m === 'winkel') selWinkel = null; if (m === 'truck') { selTruck = null; follow = false; } if (m === 'trailer') selTrailer = null; if (had && mapApi) { mapApi.setRoute(null, null, []); if (view === 'kaart' && !mapApi.noWebGL) mapApi.map.easeTo({ padding: { top: 0, left: 0, right: 0, bottom: 0 }, duration: RM ? 0 : 200 }); } nav.renderTop(); }
+  // De bovenste laag. Een pagina die opent terwijl het paneel open is, ligt erboven: het paneel blijft eronder open
+  // (zonder klikken of focus, en zonder opnieuw te tekenen) en is er weer zodra de pagina dichtgaat, met dezelfde inhoud
+  // en scrollpositie. Een paneel dat opent terwijl er een pagina is (de Assistent), ligt boven de pagina; Esc sluit dan
+  // eerst het paneel. Zo ligt nooit een paneel over de knop Terug, de kaart of de cijfers van een pagina die je net opende.
+  const paneelOnder = () => !!page && pgBoven && panelOpen();
+  function zetLagen() { const boven = !!page && pgBoven; $('sheet').classList.toggle('boven', boven); $('panel').inert = boven && panelOpen(); }
+  function openPanel(mode, quiet) { panelMode = mode; const p = $('panel'); const zag = panelOpen() && !paneelOnder(); if (page) pgBoven = false; p.classList.add('open'); p.classList.remove('big'); zetLagen(); renderPanel(true); if (!zag && !quiet) { const f = p.querySelector('#closePanel'); if (f) f.focus({ preventScroll: true }); } nav.renderTop(); }
+  function closePanel() { const p = $('panel'); const had = panelOpen(); p.classList.remove('open', 'big'); zetLagen(); const m = panelMode; panelMode = null; if (m === 'sp') selSp = null; if (m === 'rest') selRest = null; if (m === 'winkel') selWinkel = null; if (m === 'truck') { selTruck = null; follow = false; } if (m === 'trailer') selTrailer = null; if (had && mapApi) { mapApi.setRoute(null, null, []); if (view === 'kaart' && !mapApi.noWebGL) mapApi.map.easeTo({ padding: { top: 0, left: 0, right: 0, bottom: 0 }, duration: RM ? 0 : 200 }); } nav.renderTop(); }
   function renderPanel(force) {
     const p = $('panel'); if (!panelOpen()) return; let h = '', bind = null;
     if (panelMode === 'truck' && selTruck) { h = K.truckPanel(ctx, selTruck); bind = x => K.bindTruckPanel(ctx, x, selTruck); }
@@ -567,7 +585,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   }
   const focusSig = el => el ? { id: el.id, open: el.dataset && el.dataset.open, k: el.dataset ? Object.entries(el.dataset).map(([a, b]) => `[data-${a.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(b)}"]`)[0] : null } : null;
   function refocus(box, sig) { const x = (sig.id && box.querySelector('#' + CSS.escape(sig.id))) || (sig.k && box.querySelector(sig.k)); if (x) x.focus({ preventScroll: true }); }
-  function toggleAssist(onlyOpen) { if (panelOpen() && panelMode === 'assist') { if (!onlyOpen) closePanel(); return; } openPanel('assist'); }
+  // ligt de Assistent onder een pagina, dan komt hij boven (niet dicht)
+  function toggleAssist(onlyOpen) { if (panelOpen() && panelMode === 'assist' && !paneelOnder()) { if (!onlyOpen) closePanel(); return; } openPanel('assist'); }
 
   // ---------- detailpagina's (#sheet) ----------
   function pageContent() {
@@ -600,14 +619,24 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
   function openPage(kind, id, tab) {
     const same = page && page.kind === kind && page.id === id;
     if (!same && docked) undockMap();
+    // de knop in het paneel waarmee je de pagina opende (met zijn kenmerk, voor als het paneel intussen opnieuw getekend is)
+    if (!page) { const a = document.activeElement; pgOpener = a && a !== document.body && $('panel').contains(a) ? { el: a, sig: focusSig(a) } : null; }
     page = { kind, id, tab }; const el = $('sheet'); el.hidden = false;
     if (!same) { el.scrollTop = 0; el.dataset.h = ''; }
-    if (narrow() && panelOpen()) closePanel();
+    // een nieuwe pagina ligt boven het paneel (op elk scherm); een ander tabblad van dezelfde pagina laat de lagen zo
+    if (!same) pgBoven = true;
+    zetLagen();
     renderPage(true); nav.renderSide(); nav.renderBottom(); nav.renderTop();
     if (!same) { const h1 = el.querySelector('h1'); if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); } }
     syncHash();
   }
-  function closePage() { if (!page) return; page = null; undockMap(); const el = $('sheet'); el.hidden = true; el.innerHTML = ''; el.dataset.h = ''; nav.renderSide(); nav.renderBottom(); nav.renderTop(); }
+  // het paneel dat onder de pagina lag, is er weer zoals je het liet (bijgewerkt als er intussen iets veranderde), en de
+  // focus staat weer op de knop waarmee je de pagina opende
+  function closePage() {
+    if (!page) return; page = null; pgBoven = false; zetLagen(); undockMap(); const el = $('sheet'); el.hidden = true; el.innerHTML = ''; el.dataset.h = ''; if (panelOpen()) renderPanel(); nav.renderSide(); nav.renderBottom(); nav.renderTop();
+    const o = pgOpener; pgOpener = null; const a = document.activeElement;
+    if (o && panelOpen() && (!a || a === document.body)) { if (o.el.isConnected) o.el.focus({ preventScroll: true }); else if (o.sig) refocus($('panel'), o.sig); }
+  }
   function back() { if (depth() > 0) history.back(); else { closePage(); syncHash(); } }
 
   // ---------- weergaven ----------
@@ -638,28 +667,33 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     setView(name);
   }
   const navCurrent = () => page ? (ui.pageParent || { rit: 'ritten', melding: 'meldingen', voertuig: 'voertuigen', oplegger: 'opleggers', persoon: 'chauffeurs', charter: 'charters', oproep: 'charters' }[page.kind]) : view;
+  // De kop in de topbalk: titel en ondertitel, elk ook in een korte vorm. De topbalk (nav.js, pasIn) neemt de korte vorm
+  // pas als de lange er niet in past; zo breekt er niets af, ook niet op een telefoon of met de chip van een oefendag.
+  // Alleen de ondertitel van de weergave die open staat wordt berekend.
   function title() {
-    if (page) return { h: ui.pageTitle || '', sub: `<button type="button" data-open="view:${navCurrent()}">${esc(VIEW_NAME[navCurrent()] || '')}</button> · ${esc(scopeLabel())}` };
+    const sc = esc(scopeLabel());
+    if (page) { const terug = `<button type="button" data-open="view:${navCurrent()}">${esc(VIEW_NAME[navCurrent()] || '')}</button>`; return { h: ui.pageTitle || '', sub: `${terug} · ${sc}`, subKort: terug }; }
     const c = Z.counts(); const k = kpi;
-    const sub = {
-      overzicht: `${esc(today)} · ${esc(scopeLabel())}`,
-      kaart: `${esc(scopeLabel())} · ${esc(divLabel())}`,
-      ritten: `${esc(scopeLabel())} · ${fmt(R.all().filter(r => inScope(r.t)).length)} ritten vandaag`,
-      meldingen: `${fmt(c.open)} open · ${fmt(c.verlopen)} over de deadline · ${esc(scopeLabel())}`,
-      openritten: (() => { const L = openIn(ctx); const v = L.filter(p => p.dag !== 'morgen').length; return `${fmt(v)} open vandaag · ${fmt(L.length - v)} voor morgen · ${esc(scopeLabel())}`; })(),
-      charters: `De flexibele schil · ${esc(scopeLabel())}`,
-      planbord: `${esc(pbSp.n)} · ${esc(today)}`,
-      voertuigen: `${fmt(k.inScope || 0)} voertuigen · ${fmt(k.inzet || 0)} ingezet`,
-      opleggers: `${fmt(k.trailers || 0)} opleggers · ${fmt(k.loose || 0)} los`,
-      chauffeurs: `${esc(scopeLabel())} · een voertuig per dienst`,
-      standplaatsen: `${fmt(spsInScope().length)} ${spsInScope().length === 1 ? 'standplaats' : 'standplaatsen'} in ${esc(scopeLabel())}`,
-      laden: `Goedkoopste uren · ${esc(scopeLabel())}`,
-      lostijden: `Gepland naast gemeten · ${esc(scopeLabel())}`,
-      pauze: `${rest.places.length} plekken langs de snelweg`,
-      rapporten: `Stiptheid, invulling en meldingen · ${esc(scopeLabel())}`,
-      instellingen: 'Profiel, werkgebied en normen',
-    }[view] || '';
-    return { h: view === 'charters' ? 'Charters en oproepkrachten' : VIEW_NAME[view], sub };
+    const S2 = {
+      overzicht: () => [`${esc(today)} · ${sc}`, `${esc(todayKort)} · ${sc}`],
+      kaart: () => [`${sc} · ${esc(divLabel())}`, sc],
+      ritten: () => { const n = fmt(R.all().filter(r => inScope(r.t)).length); return [`${sc} · ${n} ritten vandaag`, `${n} ritten · ${sc}`]; },
+      meldingen: () => [`${fmt(c.open)} open · ${fmt(c.verlopen)} over de deadline · ${sc}`, `${fmt(c.open)} open · ${fmt(c.verlopen)} te laat`],
+      openritten: () => { const L = openIn(ctx); const v = L.filter(p => p.dag !== 'morgen').length; return [`${fmt(v)} open vandaag · ${fmt(L.length - v)} morgen · ${sc}`, `${fmt(v)} vandaag · ${fmt(L.length - v)} morgen`]; },
+      charters: () => [`De flexibele schil · ${sc}`, sc],
+      planbord: () => [`${esc(pbSp.n)} · ${esc(today)}`, `${esc(pbSp.n)} · ${esc(todayKort)}`],
+      voertuigen: () => [`${fmt(k.inScope || 0)} voertuigen · ${fmt(k.inzet || 0)} ingezet`, `${fmt(k.inzet || 0)} van ${fmt(k.inScope || 0)} ingezet`],
+      opleggers: () => [`${fmt(k.trailers || 0)} opleggers · ${fmt(k.loose || 0)} los`, `${fmt(k.loose || 0)} van ${fmt(k.trailers || 0)} los`],
+      chauffeurs: () => [`${sc} · een voertuig per dienst`, sc],
+      standplaatsen: () => { const n = spsInScope().length; return [`${fmt(n)} ${n === 1 ? 'standplaats' : 'standplaatsen'} in ${sc}`, sc]; },
+      laden: () => [`Goedkoopste uren · ${sc}`, sc],
+      lostijden: () => [`Gepland naast gemeten · ${sc}`, sc],
+      pauze: () => [`${rest.places.length} plekken langs de snelweg`, `${rest.places.length} plekken`],
+      rapporten: () => [`Stiptheid en invulling · ${sc}`, sc],
+      instellingen: () => ['Profiel, werkgebied en normen', 'Profiel en normen'],
+    }[view];
+    const [sub, subKort] = S2 ? S2() : ['', ''];
+    return view === 'charters' ? { h: 'Charters en oproepkrachten', hKort: 'Charters en oproep', sub, subKort } : { h: VIEW_NAME[view], sub, subKort };
   }
 
   // ---------- routes: de URL volgt de app (weergave, selectie, pagina, hal-scherm, klant-link) ----------
@@ -687,6 +721,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     return VIEW_HASH[view] || 'overzicht';
   }
   function syncHash() { if (applyingHash) return; const h = currentHash(); const cur = readHash(); if (cur === h) return; if (pageKey(h) && pageKey(h) === pageKey(cur)) replaceHash(h); else pushHash(h); }
+  // terug in de geschiedenis (niet een nieuwe stap): dezelfde keuze staat nog op de kaart, met een paneel open (het paneel
+  // van die keuze, of de Assistent ervoor)
+  const zelfdeKeuze = (explicit, ok) => !explicit && !!ok && view === 'kaart' && panelOpen();
   function hashTo(h) {
     if (!h && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     if (!h) { if (depth() > 0) { history.back(); return; } h = '#' + (VIEW_HASH[view] || 'overzicht'); replaceHash(h); onHash(h, true); return; }
@@ -723,11 +760,13 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       else if (k === 'assistent') { toggleAssist(true); }
       else if (k === 'rit' && id) { if (!page && view !== 'ritten' && !explicit) setView('ritten', true); openPage('rit', id); }
       else if (k === 'melding' && id) { if (!page && view !== 'meldingen' && !explicit) setView('meldingen', true); openPage('melding', id); }
-      else if (k === 'voertuig' && fleet.byId.get(id)) { if (sub) { if (!page && !explicit && view !== 'voertuigen') setView('voertuigen', true); openPage('voertuig', id, TRUCK_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || TRUCK_TABS[0]); } else { if (page) closePage(); selectTruck(id); } }
-      else if (k === 'oplegger' && fleet.trailerById.get(id)) { if (sub) { if (!page && !explicit && view !== 'opleggers') setView('opleggers', true); openPage('oplegger', id, TRAILER_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || TRAILER_TABS[0]); } else { if (page) closePage(); selectTrailer(id); } }
+      // terug van een pagina naar de kaart: staat dezelfde keuze nog met het paneel open (het lag onder de pagina), dan
+      // blijft alles zoals het was (paneel, scrollpositie, camera); anders opnieuw kiezen
+      else if (k === 'voertuig' && fleet.byId.get(id)) { if (sub) { if (!page && !explicit && view !== 'voertuigen') setView('voertuigen', true); openPage('voertuig', id, TRUCK_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || TRUCK_TABS[0]); } else { if (page) closePage(); if (zelfdeKeuze(explicit, selTruck && selTruck.id === id)) frame(true); else selectTruck(id); } }
+      else if (k === 'oplegger' && fleet.trailerById.get(id)) { if (sub) { if (!page && !explicit && view !== 'opleggers') setView('opleggers', true); openPage('oplegger', id, TRAILER_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || TRAILER_TABS[0]); } else { if (page) closePage(); if (zelfdeKeuze(explicit, selTrailer && selTrailer.id === id)) frame(true); else selectTrailer(id); } }
       else if ((k === 'persoon' || k === 'chauffeur') && people.byId.get(id)) { if (!page && !explicit && view !== 'chauffeurs') setView('chauffeurs', true); openPage('persoon', id, PERSON_TABS.find(x => x.toLowerCase() === sub.toLowerCase()) || PERSON_TABS[0]); }
-      else if (k === 'standplaats') { const sp = SP.find(s => s.n === id); if (sp) { if (page) closePage(); selectSp(sp); } }
-      else if (k === 'winkel' && id) { if (page) closePage(); selectWinkel(id); }
+      else if (k === 'standplaats') { const sp = SP.find(s => s.n === id); if (sp) { if (page) closePage(); if (zelfdeKeuze(explicit, selSp === sp)) frame(true); else selectSp(sp); } }
+      else if (k === 'winkel' && id) { if (page) closePage(); if (zelfdeKeuze(explicit, selWinkel && (selWinkel.id === id || selWinkel.name === id))) frame(true); else selectWinkel(id); }
       else if (!k && !explicit) { if (page) closePage(); if (selTruck || selTrailer) clearSel(); }
     } catch (err) { console.warn('route', h, err); } finally { applyingHash = false; }
   }
@@ -826,6 +865,8 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
       if (search.isOpen()) { search.close(); return; }
       if (typing) { e.target.blur(); return; }
       if (halSp || klantId) { hashTo(''); return; }
+      // de bovenste laag eerst: ligt een paneel (de Assistent) boven de pagina, dan gaat dat dicht
+      if (page && panelOpen() && !paneelOnder()) { closePanel(); syncHash(); return; }
       if (page) { back(); return; }
       if (selTruck || selTrailer || selWinkel || selRest || kaartDoel) { clearSel(); return; }
       if (panelOpen()) { closePanel(); syncHash(); return; }
@@ -860,7 +901,7 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     role: () => role, can, theme: () => root.dataset.theme || 'light', profile: () => profile, setRole, narrow,
     inScope, inScopeBase, visible: t => visible(t, S.get(t.id) || {}), scopeLabel, divLabel, scopeKey, spsInScope, driverName, trailerState, fmtDrive,
     counts: () => counts, kpi: () => kpi, exceptions: () => exceptions, msgCount: () => msgCount, applied: A.acts.applied, collegas: spns => collegasVoor(spns),
-    view: () => view, navCurrent, navTo, setView, go, back, title, openPage, closePage, rerenderPage: () => renderPage(true), renderPanel, openPanel, closePanel, panelOpen, panelMode: () => panelMode, toggleAssist,
+    view: () => view, navCurrent, navTo, setView, go, back, title, openPage, closePage, rerenderPage: () => renderPage(true), renderPanel, openPanel, closePanel, panelOpen, paneelOnder, panelMode: () => panelMode, toggleAssist,
     selectTruck, selectTrailer, selectSp, selectRest, selectWinkel, selectPlace, toonPoolrit, flyTo, clearSel, selTruck: () => selTruck, selTrailer: () => selTrailer, follow: () => follow, toggleFollow,
     trailersOnMap: () => trailersOnMap, setTrailersOnMap, restOnMap: () => restOnMap, setRestOnMap, bussenOnMap: () => F.bussen, setBussenOnMap, three: () => three, set3dMode, mapApi: () => mapApi, dockMap, vliegBijDock, showTrucksOnMap, showTrailersOnMap,
     sendMsg, bulkMessage, shareLink, runAction, applyProposal, voorstellen, voorstelVoor, voorstelById, assignMenu, statusMenu, refreshAll, frame, hashTo, syncHash, fullscreen,
@@ -902,7 +943,9 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     on($('maptools'), 'click', '#threeBtn', () => set3dMode(!three));
     on($('maptools'), 'click', '#homeBtn', () => flyToScope());
     api.whenReady(() => {
-      K.renderMaptools(ctx); frame(true); if (view === 'kaart') flyToScope();
+      // is de kaart pas klaar na het openen van een adres (#plaats/Hoorn, #voertuig/T-1002), dan blijft de camera op dat
+      // doel; alleen zonder doel naar het werkgebied
+      K.renderMaptools(ctx); frame(true); if (view === 'kaart' && !(kaartDoel || selTruck || selTrailer || selWinkel || selRest || (selSp && panelOpen()))) flyToScope();
       // klik op een DC of winkel: de kaart meldt dat via onSelectPlace als main.js die optie meegeeft (dan is de klik al
       // afgehandeld); anders vangt dit de klik op de laag op. Een voertuig erboven gaat voor.
       if (!api.noWebGL && api.map && api.map.getLayer) for (const lid of ['dc', 'winkel']) if (api.map.getLayer(lid)) api.map.on('click', lid, e => { if (e.defaultPrevented || !e.features || !e.features.length) return; if (api.pick && api.pick(e.point)) return; const id = e.features[0].properties && e.features[0].properties.id; if (id) selectPlace({ id }); });
@@ -924,7 +967,11 @@ export function createUI(fleet, state, store, { people, rest, lostijden, root = 
     // een nieuw adres (terugknop, of een link of adres met een #) geeft popstate en hashchange na elkaar: een keer uitvoeren,
     // anders zet bijvoorbeeld #planbord/<rit> de rit twee keer klaar (twee meldingen)
     let laatsteAdres = { h: null, t: 0 };
-    const opAdres = () => { const h = readHash(); if (h === currentHash()) return; const nu = performance.now(); if (laatsteAdres.h === h && nu - laatsteAdres.t < 250) return; laatsteAdres = { h, t: nu }; onHash(); };
+    // De eerste ingang van de app krijgt volgnummer 0 (Terug blijft dan in de app). Een ingang zonder volgnummer is dus
+    // nieuw: een adres dat iemand intypte of een link met een #; die krijgt er een, zodat Terug op die pagina teruggaat
+    // naar waar je was (zoals de terugknop van de browser) in plaats van naar de lijst.
+    try { if (!history.state) history.replaceState({ n: 0 }, '', location.href); } catch { /* afgeschermd venster */ }
+    const opAdres = () => { if (!history.state) { try { history.replaceState({ n: ++seq }, '', location.href); } catch { /* idem */ } } const h = readHash(); if (h === currentHash()) return; const nu = performance.now(); if (laatsteAdres.h === h && nu - laatsteAdres.t < 250) return; laatsteAdres = { h, t: nu }; onHash(); };
     window.addEventListener('popstate', opAdres);
     window.addEventListener('hashchange', opAdres);
     if (profile) applyProfile(false); else openWizard(1);

@@ -113,7 +113,7 @@ function lokaal(ctx, soort, vraag) {
   if (soort === 'vraag') return { antwoord: answer(ctx, vraag), acties: [], letOp: [] };
   const c = ctx.counts(); const zs = ctx.Z.open().slice(0, 5); const open = openIn(ctx).filter(p => p.dag !== 'morgen');
   const regels = soort === 'briefing'
-    ? [`Wat speelt: ${c.onderweg + c.vertraagd} voertuigen onderweg, ${c.vertraagd} met vertraging, ${c.klant} bij een klant.`, `Wat open staat: ${open.length ? `${open.length} open ${open.length === 1 ? 'rit' : 'ritten'}, de eerste laadt ${hhmm((vensterAbs(open[0]) || [0])[0])}.` : 'geen open ritten.'}`, `Waar het risico zit:\n${zs.length ? zs.map(z => `- ${z.kind} ${z.obj}: ${anoniem(ctx, z.text)}`).join('\n') : '- niets bijzonders'}`]
+    ? [`Wat speelt: ${c.onderweg} voertuigen onderweg, ${c.vertraagd} vertraagd, ${c.klant} bij een klant.`, `Wat open staat: ${open.length ? `${open.length} open ${open.length === 1 ? 'rit' : 'ritten'}, de eerste laadt ${hhmm((vensterAbs(open[0]) || [0])[0])}.` : 'geen open ritten.'}`, `Waar het risico zit:\n${zs.length ? zs.map(z => `- ${z.kind} ${z.obj}: ${anoniem(ctx, z.text)}`).join('\n') : '- niets bijzonders'}`]
     : [`Wat loopt:\n${zs.length ? zs.map(z => `- ${z.kind} ${z.obj}: ${anoniem(ctx, z.text)}`).join('\n') : '- geen open meldingen'}`, `Wat moet: ${open.length ? open.slice(0, 3).map(p => `${p.id} (${p.klant || 'rit'}, laden ${hhmm((vensterAbs(p) || [0])[0])})`).join(', ') : 'geen open ritten'}.`];
   return { antwoord: regels.join('\n\n'), acties: [], letOp: [] };
 }

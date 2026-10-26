@@ -21,6 +21,8 @@ export const ROLDESC = { planner: 'Ritten, planbord, berichten en bevoegdheden',
 export function createNav(ctx) {
   const { $ } = ctx;
   const locked = v => v === 'planbord' && !ctx.can('planbord');
+  // de knop van de Assistent staat aan als je hem ziet (niet als hij onder een pagina ligt)
+  const assistZicht = () => ctx.panelMode() === 'assist' && ctx.panelOpen() && !ctx.paneelOnder();
   // open ritten van vandaag in het werkgebied (de teller bij Open ritten; geen alarmkleur, het is werkvoorraad)
   const openNu = () => { try { return openIn(ctx).filter(p => p.dag !== 'morgen').length; } catch { return 0; } };
   function renderSide() {
@@ -36,28 +38,109 @@ export function createNav(ctx) {
     const h = `${BOTTOM.map(k => { const v = VIEWS.find(x => x[0] === k); return `<button class="bb-i ${cur === k ? 'on' : ''}" type="button" data-nav="${k}" ${cur === k ? 'aria-current="page"' : ''}>${ic(v[2], 20)}<span>${esc(v[1])}</span>${k === 'meldingen' && c.open ? `<span class="cnt">${fmt(c.open)}</span>` : k === 'openritten' && no ? `<span class="cnt n2">${fmt(no)}</span>` : ''}</button>`; }).join('')}<button class="bb-i ${!BOTTOM.includes(cur) ? 'on' : ''}" type="button" id="bbMore" aria-haspopup="true">${ic('menu', 20)}<span>Meer</span></button>`;
     const el = $('bottombar'); if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; }
   }
+  // ---------- de topbalk past altijd ----------
+  // Wat er niet in past, valt weg in een vaste volgorde en nooit half. Eerst rechts, tegen een vaste ruimte voor de titel
+  // die alleen van de breedte afhangt, zodat de knoppen rechts niet verspringen als je van weergave wisselt: een smaller
+  // zoekveld (met een kortere tekst erin), het label van de rol, de snelheid bij de klok, het label van het werkgebied (dat
+  // staat meestal ook in de ondertitel), het woord bij de chip van de oefendag (de chip blijft, met het icoon en de uitleg
+  // bij aanwijzen) en het kleinste zoekveld; daarna gaat een eerdere stap terug als een latere hem overbodig maakte. Dan
+  // de titel zelf: de ondertitel en de titel elk in hun korte vorm als de lange afbreekt. Breekt er dan nog iets af, dan
+  // de overige stappen rechts; pas daarna breekt een lange titel af met een ellips. De tekst in het zoekveld past zich aan
+  // zijn breedte aan.
+  // Gemeten na elke wijziging van de kop of de labels, en bij elke andere maat van de topbalk (ook ingebed).
+  const RECHTS = ['k-zoek', 'k-rol', 'k-snel', 'k-wg', 'k-oef', 'k-zoek2'];
+  const LINKS = ['k-sub', 'k-titel'];
+  const STAPPEN = [...RECHTS, ...LINKS];
+  // de ruimte die de titel minstens houdt als rechts zich aanpast: ongeveer een vijfde van de topbalk, 110 tot 240 px
+  const titelRuimte = w => Math.max(110, Math.min(240, Math.round(w * 0.185)));
+  const ZOEK = ['Zoek voertuig, oplegger, chauffeur, plaats', 'Zoek voertuig, chauffeur, plaats', 'Zoek voertuig of plaats', 'Zoeken'];
+  let pasSig = '', kort = false, ro = null, meet = null;
+  const kapt = x => !!x && x.getClientRects().length > 0 && x.scrollWidth > x.clientWidth + 0.5;
+  // rechts: geen label dat afbreekt en niets dat rechts uit de balk valt
+  function rechtsPast(tb) {
+    for (const x of tb.querySelectorAll('.tbtn .tx, #oefenChip, .clock')) if (kapt(x)) return false;
+    const R = tb.getBoundingClientRect(); let rechts = 0;
+    for (const x of tb.querySelectorAll('.top-r > *')) { const r = x.getBoundingClientRect(); if (r.width) rechts = Math.max(rechts, r.right); }
+    return rechts <= R.right + 0.5;
+  }
+  function past(tb) {
+    const tt = tb.querySelector('.top-t');
+    return !kapt(tt.querySelector('#vtitle')) && !kapt(tt.querySelector('#vsub')) && rechtsPast(tb);
+  }
+  // een stap aan of uit; de korte ondertitel en de korte titel wisselen de tekst (zonder korte vorm: geen stap)
+  function stap(tb, tt, s, aan) {
+    if (s === 'k-sub' || s === 'k-titel') {
+      const k = s === 'k-sub' ? tt.dataset.sk : tt.dataset.hk; if (!k) return false;
+      if (tb.classList.contains(s) === aan) return true;
+      if (s === 'k-sub') tt.querySelector('#vsub').innerHTML = aan ? k : tt.dataset.sl; else tt.querySelector('#vtitle').textContent = aan ? k : tt.dataset.hl;
+    }
+    tb.classList.toggle(s, aan); return true;
+  }
+  // een ronde: stappen uit L een voor een aan tot ok(), dan elke eerdere terug als ok() zonder hem ook geldt
+  function ronde(tb, tt, L, ok) {
+    const aan = [];
+    for (const s of L) { if (ok()) break; if (stap(tb, tt, s, true)) aan.push(s); }
+    for (const s of aan.slice(0, -1)) { stap(tb, tt, s, false); if (!ok()) stap(tb, tt, s, true); }
+  }
+  // de titel zelf: de ondertitel en de titel elk in hun korte vorm als de lange afbreekt (de ruimte van de titel hangt niet
+  // af van zijn tekst, dus ze zijn los te kiezen)
+  function kortWaarNodig(tb, tt) {
+    for (const [s, sel] of [['k-sub', '#vsub'], ['k-titel', '#vtitle']]) { stap(tb, tt, s, false); if (kapt(tt.querySelector(sel))) stap(tb, tt, s, true); }
+  }
+  function pasIn() {
+    const tb = $('topbar'); const tt = tb && tb.querySelector('.top-t'); if (!tt) return;
+    tb.classList.remove(...STAPPEN); if (kort) { tt.innerHTML = tt.dataset.h; kort = false; }
+    // 1. rechts, met de titel op precies zijn vaste ruimte; 2. de titel zelf, die vanaf die ruimte groeit; 3. breekt er
+    // dan nog iets af, de overige stappen rechts
+    const b = titelRuimte(tb.clientWidth);
+    tt.style.flex = `0 0 ${b}px`;
+    try { ronde(tb, tt, RECHTS, () => rechtsPast(tb)); } finally { tt.style.flex = `1 1 ${b}px`; }
+    ronde(tb, tt, RECHTS.filter(s => !tb.classList.contains(s)), () => { kortWaarNodig(tb, tt); return past(tb); });
+    kortWaarNodig(tb, tt);
+    kort = tb.classList.contains('k-sub') || tb.classList.contains('k-titel');
+    zoektekst();
+  }
+  function zoektekst() {
+    const i = $('zoekIn'); if (!i || !i.getClientRects().length) return;
+    if (!meet) meet = document.createElement('canvas').getContext('2d'); if (!meet) return;
+    const cs = getComputedStyle(i); const ruimte = i.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    meet.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const t = ZOEK.find(x => meet.measureText(x).width <= ruimte - 2) || ZOEK[ZOEK.length - 1];
+    if (i.placeholder !== t) i.placeholder = t;
+  }
+  function volgMaat(el) {
+    if (ro || typeof ResizeObserver !== 'function') return;
+    ro = new ResizeObserver(() => pasIn()); ro.observe(el);
+    // op een telefoon is het zoekveld verborgen tot je het opent; dan krijgt het de tekst die past
+    const i = $('zoekIn'); if (i) i.addEventListener('focus', zoektekst);
+  }
   function renderTop() {
-    const t = ctx.title(); const c = ctx.Z.counts(); const st = ctx.state; const rn = ROLES[ctx.role()].n;
+    const t = ctx.title(); const c = ctx.Z.counts(); const st = ctx.state; const rn = ROLES[ctx.role()].n; const sc = ctx.scopeLabel(); const oef = ctx.fleet.scenario;
     const h = `<div class="top-t"><h1 id="vtitle">${esc(t.h)}</h1><div class="crumb" id="vsub">${t.sub}</div></div>
       <div class="top-r"><div class="zoek" id="zoek" role="search"></div><span class="vsep"></span>
-        <button class="tbtn" type="button" id="wgBtn" aria-haspopup="true" aria-expanded="false" title="Werkgebied en opgeslagen weergaven">${ic('pin', 16)}<span class="tx">${esc(ctx.scopeLabel())}</span>${ic('chevd', 14, 'chev')}</button>
-        <button class="tbtn" type="button" id="roleBtn" aria-haspopup="true" aria-expanded="false" title="Bekijk als">${ic('idcard', 16)}<span class="tx opt">${esc(rn)}</span>${ic('chevd', 14, 'chev')}</button>
-        ${ctx.fleet.scenario ? `<button class="badge b-info" type="button" id="oefenChip" data-open="view:instellingen" title="${esc(ctx.fleet.scenario.naam)}: alles is gesimuleerd. Uitzetten onder Instellingen.">${ic('activity', 13)}${esc(ctx.fleet.scenario.kort)}</button>` : ''}
+        <button class="tbtn" type="button" id="wgBtn" aria-haspopup="true" aria-expanded="false" title="Werkgebied en opgeslagen weergaven" aria-label="Werkgebied: ${esc(sc)}">${ic('pin', 16)}<span class="tx">${esc(sc)}</span>${ic('chevd', 14, 'chev')}</button>
+        <button class="tbtn" type="button" id="roleBtn" aria-haspopup="true" aria-expanded="false" title="Bekijk als" aria-label="Bekijk als: ${esc(rn)}">${ic('idcard', 16)}<span class="tx opt">${esc(rn)}</span>${ic('chevd', 14, 'chev')}</button>
+        ${oef ? `<button class="badge b-info" type="button" id="oefenChip" data-open="view:instellingen" title="${esc(oef.naam)}: alles is gesimuleerd. Uitzetten onder Instellingen." aria-label="${esc(oef.naam)}, gesimuleerd. Uitzetten onder Instellingen.">${ic('activity', 13)}<span class="tx">${esc(oef.kort)}</span></button>` : ''}
         <button class="clock ${st.playing ? '' : 'paused'}" type="button" id="clockBtn" aria-haspopup="true" aria-expanded="false" title="Simulatie: tijd en snelheid"><i aria-hidden="true"></i><b id="clock">${hhmm(st.simTime)}</b><small class="tx opt">${st.playing ? `${st.speed}×` : 'pauze'}</small></button>
         <span class="vsep"></span>
-        <button class="ib ${ctx.panelMode() === 'assist' && ctx.panelOpen() ? 'on' : ''}" type="button" id="assistBtn" title="Assistent (a)" aria-label="Assistent">${ic('spark', 18)}</button>
+        <button class="ib ${assistZicht() ? 'on' : ''}" type="button" id="assistBtn" title="Assistent (a)" aria-label="Assistent">${ic('spark', 18)}</button>
         <button class="ib" type="button" id="bellBtn" aria-haspopup="true" aria-expanded="false" title="Meldingen (m)" aria-label="Meldingen, ${c.open} open">${ic('bell', 18)}<span class="cnt" id="bellCnt" ${c.open ? '' : 'hidden'}>${fmt(c.open)}</span></button>
         <button class="ib hide-m" type="button" id="themeBtn" title="${ctx.theme() === 'dark' ? 'Licht thema' : 'Donker thema'}" aria-label="${ctx.theme() === 'dark' ? 'Licht thema' : 'Donker thema'}">${ic(ctx.theme() === 'dark' ? 'sun2' : 'moon', 18)}</button>
         <button class="ib" type="button" id="userBtn" aria-haspopup="true" aria-expanded="false" title="${esc(ctx.A.settings.naam())}" aria-label="Gebruikersmenu">${`<span class="av sm ink">${esc(initials(ctx.A.settings.naam()))}</span>`}</button></div>`;
     const el = $('topbar');
-    if (!el.querySelector('.top-t')) { el.innerHTML = h; ctx.mountSearch($('zoek')); el.dataset.sig = ''; }
+    if (!el.querySelector('.top-t')) { el.innerHTML = h; ctx.mountSearch($('zoek')); el.dataset.sig = ''; volgMaat(el); }
     // alleen wat verandert bijwerken (het zoekveld blijft staan, ook als je typt)
-    const tt = el.querySelector('.top-t'); const th = `<h1 id="vtitle">${esc(t.h)}</h1><div class="crumb" id="vsub">${t.sub}</div>`; if (tt.dataset.h !== th) { tt.innerHTML = th; tt.dataset.h = th; }
-    const wg = $('wgBtn').querySelector('.tx'); if (wg.textContent !== ctx.scopeLabel()) wg.textContent = ctx.scopeLabel();
-    const rl = $('roleBtn').querySelector('.tx'); if (rl.textContent !== rn) rl.textContent = rn;
+    const tt = el.querySelector('.top-t'); const th = `<h1 id="vtitle">${esc(t.h)}</h1><div class="crumb" id="vsub">${t.sub}</div>`;
+    if (tt.dataset.h !== th) { tt.innerHTML = th; tt.dataset.h = th; kort = false; }
+    tt.dataset.hl = t.h; tt.dataset.sl = t.sub; tt.dataset.hk = t.hKort || ''; tt.dataset.sk = t.subKort || '';
+    const wg = $('wgBtn').querySelector('.tx'); if (wg.textContent !== sc) { wg.textContent = sc; $('wgBtn').setAttribute('aria-label', `Werkgebied: ${sc}`); }
+    const rl = $('roleBtn').querySelector('.tx'); if (rl.textContent !== rn) { rl.textContent = rn; $('roleBtn').setAttribute('aria-label', `Bekijk als: ${rn}`); }
     updateClock();
+    // opnieuw passen als de kop, een label, de snelheid of het aantal knoppen veranderde (de maat volgt volgMaat)
+    const sig = [th, t.hKort || '', t.subKort || '', sc, rn, st.playing ? st.speed : 'p', el.querySelectorAll('.top-r > *').length].join('|');
+    if (sig !== pasSig) { pasSig = sig; pasIn(); }
     const bc = $('bellCnt'); bc.hidden = !c.open; bc.textContent = fmt(c.open); $('bellBtn').setAttribute('aria-label', `Meldingen, ${c.open} open`);
-    const ab = $('assistBtn'); ab.classList.toggle('on', ctx.panelMode() === 'assist' && ctx.panelOpen());
+    const ab = $('assistBtn'); ab.classList.toggle('on', assistZicht());
     const tb = $('themeBtn'); const dark = ctx.theme() === 'dark'; const want = dark ? 'Licht thema' : 'Donker thema'; if (tb.title !== want) { tb.title = want; tb.setAttribute('aria-label', want); tb.innerHTML = ic(dark ? 'sun2' : 'moon', 18); }
     const ub = $('userBtn'); const ini = initials(ctx.A.settings.naam()); if (ub.textContent !== ini) ub.innerHTML = `<span class="av sm ink">${esc(ini)}</span>`;
   }

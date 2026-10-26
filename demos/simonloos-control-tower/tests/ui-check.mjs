@@ -524,6 +524,33 @@ async function titelToets(p, w) {
   check(!fout.length && (w < 1000 || gewoon.kort === 0) && krap.smalst >= min && donker.smalst >= min,
     `${w} px: de paginatitel valt nooit onder het zoekveld en rechts valt niets van de topbalk af (${gewoon.n} titels gewoon, ${gewoon.kort} afgekapt; krap met een chip en de rol regiomanager ${krap.kort} afgekapt met een ellips, de titel minstens ${krap.smalst} px; donker ${donker.kort} afgekapt)${fout.length ? `: ${fout.slice(0, 3).join('; ')}` : ''}`);
 }
+// J11 (samenhang, N5): de getallen bij onderweg en vertraagd op het Overzicht (briefing en het cijfer Vertraagd), op de
+// kaart (de filterbalk) en in het standplaatspaneel
+const samenhangOverzicht = () => {
+  const L = [...document.querySelectorAll('#v-overzicht .brief-i')].map(b => ({ k: b.querySelector('.brief-k').textContent.trim(), open: b.dataset.open || '', t: b.textContent }));
+  const sp = L.find(x => x.k === 'Speelt'); const g = (s, re) => { const m = s && s.match(re); return m ? +m[1].replace(/\./g, '') : null; };
+  const kv = document.querySelectorAll('#v-overzicht [data-ov="kpi"] .kpi')[1]; const sub = kv ? [...kv.querySelectorAll('.kpi-l')].pop().textContent : ''; const vk = kv ? kv.querySelector('.kpi-v').firstChild.textContent.trim() : '';
+  return { L, speelt: sp ? sp.t.replace(/\s+/g, ' ').trim() : '', onderwegBrief: g(sp && sp.t, /(\d[\d.]*) voertuig(?:en)? onderweg/), vertraagdBrief: g(sp && sp.t, /(\d[\d.]*) vertraagd/), onderwegKpi: g(sub, /(\d[\d.]*) onderweg/), vertraagdKpi: g(vk, /^(\d[\d.]*)/), dag: (document.querySelector('#v-overzicht [data-ov="dag"]') || {}).textContent || '' };
+};
+async function samenhangKaart(p) {
+  await p.evaluate(() => window.SLCT.ui.ctx.go('view:kaart')); await p.waitForTimeout(900);
+  const bar = await p.evaluate(() => document.getElementById('mapbar').innerText.replace(/\s+/g, ' '));
+  await p.evaluate(() => window.SLCT.ui.ctx.go('kaart:sp:Wognum')); await p.waitForTimeout(900);
+  const sp = await p.evaluate(() => ((document.querySelector('#panel .kpis3 > div') || {}).innerText || '').replace(/\s+/g, ' ').trim());
+  await p.evaluate(() => { const c = window.SLCT.ui.ctx; c.closePanel(); c.go('view:overzicht'); }); await p.waitForTimeout(300);
+  const g = (s, re) => { const m = s && s.match(re); return m ? +m[1].replace(/\./g, '') : null; };
+  return { onderweg: g(bar, /Onderweg (\d[\d.]*)/), vertraagd: g(bar, /Vertraagd (\d[\d.]*)/), sp };
+}
+const samenhangFout = (o, b) => {
+  const f = [];
+  if (o.onderwegBrief !== null && o.onderwegBrief !== b.onderweg) f.push(`briefing ${o.onderwegBrief} onderweg, kaart ${b.onderweg}`);
+  if (o.onderwegKpi !== b.onderweg) f.push(`bij Vertraagd ${o.onderwegKpi} onderweg, kaart ${b.onderweg}`);
+  if (o.vertraagdKpi !== b.vertraagd) f.push(`Vertraagd ${o.vertraagdKpi}, kaart ${b.vertraagd}`);
+  if (o.onderwegBrief !== null && (o.vertraagdBrief || 0) !== b.vertraagd) f.push(`briefing ${o.vertraagdBrief || 0} vertraagd, kaart ${b.vertraagd}`);
+  if (/Niemand loopt uit/.test(o.speelt) && b.vertraagd) f.push(`"Niemand loopt uit" bij ${b.vertraagd} vertraagd`);
+  if (/onderweg/.test(b.sp)) f.push(`standplaatspaneel "${b.sp}"`);
+  return f;
+};
 // een PNG van Playwright uitpakken (8 bits, RGB of RGBA, zonder interlace), voor de pixeltoets van de arcering
 function pngPixels(buf) {
   let o = 8, w = 0, h = 0, ct = 0; const idat = [];
@@ -609,11 +636,16 @@ const wissels = img => { let n = 0; for (const y of [Math.round(img.h * 0.3), Ma
   await p.keyboard.press('Enter'); await p.waitForTimeout(200); const sk2 = await p.evaluate(() => document.activeElement.id);
   await p.keyboard.press('Tab'); const sk3 = await p.evaluate(() => document.activeElement.className);
   check(sk1.cls === 'skip' && sk1.txt === 'Naar de inhoud' && sk1.top >= 0 && sk2 === 'ovBrief' && /brief-i/.test(sk3), `"Naar de inhoud" is de eerste tab-stop (zichtbaar op ${sk1.top} px), Enter gaat naar de briefing (${sk2}), de volgende Tab is de eerste regel (${sk3})`);
-  // J11. het Overzicht: een begrip voor onderweg, de dag van het werkgebied, en geen twee briefingregels naar dezelfde zaak
+  // J11. het Overzicht: een begrip voor onderweg, de dag van het werkgebied, en geen twee briefingregels naar dezelfde zaak.
+  // Sinds de tweede eindcontrole (N5): onderweg en vertraagd betekenen overal wat de filterbalk van de kaart zegt (onderweg
+  // rijdt volgens plan, vertraagd rijdt achter op plan; ze tellen niet dubbel), dus briefing, het cijfer Vertraagd en de
+  // filterbalk geven dezelfde getallen; "Niemand loopt uit" alleen als niets vertraagd is; het standplaatspaneel noemt
+  // geen "onderweg" in een andere betekenis
   await klokLoopt(p); await p.evaluate(() => { window.SLCT.state.playing = false; window.SLCT.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
-  const ovz = await p.evaluate(() => { const L = [...document.querySelectorAll('#v-overzicht .brief-i')].map(b => ({ k: b.querySelector('.brief-k').textContent.trim(), open: b.dataset.open || '', t: b.textContent })); const sp = L.find(x => x.k === 'Speelt'); const kpi = [...document.querySelectorAll('#v-overzicht .kpi')].map(k => k.textContent).join(' | '); return { L, onderwegBrief: sp ? (sp.t.match(/(\d[\d.]*) voertuig(?:en)? onderweg/) || [])[1] : null, onderwegKpi: (kpi.match(/van (\d[\d.]*) onderweg/) || [])[1], dag: (document.querySelector('#v-overzicht [data-ov="dag"]') || {}).textContent || '' }; });
+  const ovz = await p.evaluate(samenhangOverzicht);
   const doelen = ovz.L.map(x => x.open).filter(x => /^(melding|openritten)\//.test(x));
-  check(ovz.onderwegBrief && ovz.onderwegBrief === ovz.onderwegKpi && /^De dag in Wognum:/.test(ovz.dag) && new Set(doelen).size === doelen.length, `Overzicht om 05:30: onderweg ${ovz.onderwegBrief} in de briefing en ${ovz.onderwegKpi} bij Vandaag, "${ovz.dag.split(':')[0]}", ${doelen.length} briefingregels naar ${new Set(doelen).size} verschillende zaken of ritten`);
+  const bar11 = await samenhangKaart(p); const sam11 = samenhangFout(ovz, bar11);
+  check(ovz.onderwegBrief !== null && /^De dag in Wognum:/.test(ovz.dag) && new Set(doelen).size === doelen.length && !sam11.length, `Overzicht om 05:30: onderweg ${ovz.onderwegBrief} in de briefing, ${ovz.onderwegKpi} bij Vertraagd en ${bar11.onderweg} op de kaart, vertraagd ${ovz.vertraagdBrief || 0}, ${ovz.vertraagdKpi} en ${bar11.vertraagd}, standplaatspaneel "${bar11.sp}", "${ovz.dag.split(':')[0]}", ${doelen.length} briefingregels naar ${new Set(doelen).size} verschillende zaken of ritten${sam11.length ? `: ${sam11.join('; ')}` : ''}`);
   // J13. Rit inplannen: het voertuig van de rit heet zo ("met T-1007 (vrij)"), niet "op T-1007"
   await p.evaluate(() => window.SLCT.ui.ctx.go('view:openritten')); await p.waitForTimeout(1200);
   const kd = await p.evaluate(() => [...document.querySelectorAll('#v-openritten .kd-n small')].map(x => x.textContent));
@@ -691,6 +723,116 @@ if (mode === 'gl') {
   const { ctx: c4, p } = await paginaWognum({ width: 390, height: 844 });
   await titelToets(p, 390);
   await c4.close();
+}
+
+// J16. Een pagina ligt boven het paneel (tweede eindcontrole, N2). Vanuit het paneel van een voertuig (Open voertuig, Open
+// rit, de chauffeur), een oplegger (Open oplegger) en een winkel (een levering), en met het paneel open via zoeken naar een
+// ander voertuig, de bel, de Assistent (Open zaak) en het adres: op de pagina liggen Terug, het derde cijfer en de kaart in
+// de pagina vrij (het middelpunt is van de pagina, niet van het paneel), het paneel eronder doet niet mee (inert). Terug
+// brengt je terug waar je was: hetzelfde adres en hetzelfde paneel, en dat paneel doet weer mee. Daarna: Op kaart op de
+// voertuigpagina landt op de kaart met het paneel, Esc sluit eerst een Assistent die boven een pagina ligt, en met het
+// toetsenbord staat de focus na Esc weer op de knop in het paneel waarmee je de pagina opende.
+{
+  const { ctx: c5, p } = await paginaWognum();
+  await p.evaluate(() => { const S = window.SLCT; S.state.playing = false; S.state.simTime = 600; S.ui.frame(true); S.ui.ctx.refreshAll(); });
+  await p.waitForTimeout(600);
+  const doelen16 = await p.evaluate(() => {
+    const c = window.SLCT.ui.ctx; let winkel = null; for (const r of c.R.all()) { if (winkel || !c.inScope(r.t)) continue; for (const x of r.stops) if (x.place && x.place.id && x.place.formule) { winkel = x.place.id; break; } }
+    const opl = window.SLCT.fleet.trailers.find(tr => tr.base.n === 'Wognum'); return { winkel, opl: opl ? opl.id : null };
+  });
+  const stand = () => p.evaluate(() => { const pn = document.getElementById('panel'); return { h: decodeURIComponent(location.hash), paneel: pn.classList.contains('open') ? pn.dataset.mode : null, inert: !!pn.inert, pagina: !document.getElementById('sheet').hidden }; });
+  const vrij = () => p.evaluate(() => {
+    const sh = document.getElementById('sheet'); const vr = sel => { const el = sh.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) return null; const hit = document.elementFromPoint(r.left + r.width / 2, Math.min(r.top + r.height / 2, innerHeight - 4)); return !!hit && el.contains(hit); };
+    return { terug: vr('[data-back]'), cijfer: vr('.pg-kpis > div:last-child'), kaart: vr('[data-mapslot]') };
+  });
+  const T = 'kaart:truck:T-1000';
+  const ingangen = [
+    { n: 'voertuigpaneel > Open voertuig', start: T, doe: () => p.click('#openSheet') },
+    { n: 'voertuigpaneel > Open rit', start: T, doe: () => p.click('#panel .pnl-f [data-open^="rit/"]') },
+    { n: 'voertuigpaneel > de chauffeur', start: T, doe: () => p.click('#panel [data-open^="persoon/"]') },
+    doelen16.opl && { n: 'opleggerpaneel > Open oplegger', start: `kaart:trailer:${doelen16.opl}`, doe: () => p.click('#panel .pnl-f [data-open^="oplegger/"]') },
+    doelen16.winkel && { n: 'winkelpaneel > een levering', start: `kaart:winkel:${doelen16.winkel}`, doe: () => p.click('#panel [data-open^="rit/"]') },
+    { n: 'zoeken naar een ander voertuig', start: T, doe: async () => { await p.click('#zoekIn'); await p.keyboard.type('T-1031', { delay: 12 }); await p.waitForTimeout(300); await p.keyboard.press('Enter'); } },
+    { n: 'de bel > een melding', start: T, als: () => p.evaluate(() => window.SLCT.ui.ctx.Z.open().length > 0), doe: async () => { await p.click('#bellBtn'); await p.waitForTimeout(300); await p.click('#popover [data-open^="melding/"]'); } },
+    { n: 'de Assistent > Open zaak', start: T, prep: async () => { await p.click('#assistBtn'); await p.waitForTimeout(500); }, als: () => p.evaluate(() => !!document.querySelector('#panel [data-open^="melding/"]')), doe: () => p.click('#panel [data-open^="melding/"]') },
+    { n: 'het adres #melding/...', start: T, als: () => p.evaluate(() => window.SLCT.ui.ctx.Z.list().length > 0), doe: () => p.evaluate(() => { location.hash = '#melding/' + window.SLCT.ui.ctx.Z.list()[0].id; }) },
+  ].filter(Boolean);
+  const fout16 = []; const goed16 = [];
+  for (const g of ingangen) {
+    await p.evaluate(s => window.SLCT.ui.ctx.go(s), g.start); await p.waitForTimeout(900);
+    if (g.prep) await g.prep();
+    if (g.als && !(await g.als())) { note(`J16 ${g.n}: niets om te openen`); continue; }
+    const voor = await stand();
+    await g.doe(); await p.waitForTimeout(1300);
+    const op = await stand(); const v = await vrij();
+    const bedekt = Object.entries(v).filter(([, x]) => x === false).map(([k]) => k);
+    if (!op.pagina) fout16.push(`${g.n}: geen pagina (${op.h})`);
+    else if (bedekt.length) fout16.push(`${g.n}: ${bedekt.join(', ')} bedekt`);
+    else if (op.paneel && !op.inert) fout16.push(`${g.n}: het paneel eronder doet nog mee`);
+    await p.click('#sheet [data-back]'); await p.waitForTimeout(1300);
+    const na = await stand();
+    if (na.pagina || na.h !== voor.h || na.paneel !== voor.paneel || na.inert) fout16.push(`${g.n}: Terug gaf ${na.h} met ${na.paneel || 'geen paneel'}${na.inert ? ' (inert)' : ''}, was ${voor.h} met ${voor.paneel || 'geen paneel'}`);
+    else goed16.push(g.n);
+  }
+  check(!fout16.length && goed16.length >= 7, `1440 px: een pagina vanuit een paneel ligt bovenop (Terug, het derde cijfer en de kaart in de pagina vrij) en Terug brengt je terug met hetzelfde paneel: ${goed16.length} van ${ingangen.length} ingangen (${goed16.join(', ')})${fout16.length ? `; FOUT: ${fout16.join('; ')}` : ''}`);
+  // Op kaart vanaf de voertuigpagina: de kaart met het paneel van dat voertuig
+  await p.evaluate(s => window.SLCT.ui.ctx.go(s), T); await p.waitForTimeout(900); await p.click('#openSheet'); await p.waitForTimeout(1300);
+  await p.click('#sheet [data-open="kaart:truck:T-1000"]'); await p.waitForTimeout(1300);
+  const ok16 = await stand();
+  check(!ok16.pagina && ok16.h === '#voertuig/T-1000' && ok16.paneel === 'truck' && !ok16.inert, `Op kaart op de voertuigpagina: de kaart met het paneel van T-1000 (${ok16.h}, paneel ${ok16.paneel})`);
+  // de Assistent boven een pagina: Esc sluit eerst de Assistent, de volgende Esc gaat terug
+  await p.click('#openSheet'); await p.waitForTimeout(1200); await p.click('#assistBtn'); await p.waitForTimeout(500);
+  const e0 = await stand(); await p.keyboard.press('Escape'); await p.waitForTimeout(400); const e1 = await stand(); await p.keyboard.press('Escape'); await p.waitForTimeout(1200); const e2 = await stand();
+  check(e0.pagina && e0.paneel === 'assist' && !e0.inert && e1.pagina && !e1.paneel && !e2.pagina, `de Assistent boven een pagina: Esc sluit eerst de Assistent (${e1.pagina ? 'pagina blijft' : 'pagina weg'}), dan Esc terug (${e2.h})`);
+  // met het toetsenbord: Enter op Open voertuig, Esc terug, en de focus staat weer op Open voertuig in het paneel
+  await p.evaluate(s => window.SLCT.ui.ctx.go(s), T); await p.waitForTimeout(900);
+  await p.focus('#openSheet'); await p.keyboard.press('Enter'); await p.waitForTimeout(1200);
+  const k1 = await stand(); await p.keyboard.press('Escape'); await p.waitForTimeout(1200);
+  const k2 = await stand(); const kf = await p.evaluate(() => (document.activeElement && document.activeElement.id) || '');
+  check(k1.pagina && !k2.pagina && k2.paneel === 'truck' && !k2.inert && kf === 'openSheet', `met het toetsenbord: Enter op Open voertuig opent de pagina, Esc gaat terug en de focus staat weer op Open voertuig (${kf || 'nergens'})`);
+  await c5.close();
+}
+
+// J15b. De topbalk breekt nergens af (tweede eindcontrole, N6): op de oefendag (?scenario=druk) en op een gewone dag, op
+// 1440, 1280 en 390 px, voor elke weergave en een paar pagina's: geen titel of ondertitel met een ellips, geen label van
+// werkgebied, rol of oefendag dat afbreekt, de klok heel, de tekst in het zoekveld past, en rechts valt niets af. Op de
+// oefendag staat de chip er altijd (met zijn naam voor een schermlezer, ook als alleen het icoon past). Vanaf 1280 px
+// verspringt rechts niets als je van weergave of pagina wisselt: de stappen rechts zijn overal dezelfde.
+const topbalkMeet = () => {
+  const tb = document.getElementById('topbar'); const T = tb.getBoundingClientRect(); const kapt = x => !!x && x.getClientRects().length > 0 && x.scrollWidth > x.clientWidth + 0.5;
+  const uit = [];
+  for (const [sel, n] of [['#vtitle', 'titel'], ['#vsub', 'ondertitel'], ['#wgBtn .tx', 'werkgebied'], ['#roleBtn .tx', 'rol'], ['#oefenChip', 'oefendag'], ['#oefenChip .tx', 'oefendag'], ['#clockBtn', 'klok']]) { const x = tb.querySelector(sel); if (kapt(x)) uit.push(`${n} "${x.textContent.trim().slice(0, 30)}"`); }
+  const i = document.getElementById('zoekIn');
+  if (i && i.getClientRects().length) { const cs = getComputedStyle(i); const g = document.createElement('canvas').getContext('2d'); g.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; const tw = g.measureText(i.placeholder).width; const ruimte = i.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); if (tw > ruimte + 0.5) uit.push(`zoektekst "${i.placeholder}"`); }
+  let rechts = 0; for (const k of tb.querySelectorAll('.top-r *')) { const r = k.getBoundingClientRect(); if (r.width) rechts = Math.max(rechts, r.right); }
+  if (rechts > T.right + 0.5) uit.push(`${Math.round(rechts - T.right)} px rechts eraf`);
+  const oc = document.getElementById('oefenChip');
+  return { uit, chip: oc ? { zicht: oc.getClientRects().length > 0, naam: oc.getAttribute('aria-label') || oc.textContent.trim(), tekst: oc.querySelector('.tx') && oc.querySelector('.tx').getClientRects().length > 0 } : null, stappen: [...tb.classList].filter(c => /^k-/.test(c)).join(' '), rechts: [...tb.classList].filter(c => /^k-(zoek2?|rol|snel|wg|oef)$/.test(c)).sort().join(' ') };
+};
+for (const oef of [true, false]) for (const w of [1440, 1280, 390]) {
+  const vp = { width: w, height: w > 500 ? 900 : 844 };
+  const r = await nieuwePagina(vp); const p = r.page;
+  await p.goto(url, { waitUntil: 'load' });
+  await p.evaluate(wg => { try { localStorage.clear(); localStorage.setItem('sl-werkgebied', JSON.stringify(wg)); } catch { /* geen opslag */ } }, WOGNUM);
+  await p.goto(url + (oef ? '?scenario=druk' : ''), { waitUntil: 'load' }); await p.waitForFunction(() => window.SLCT && document.getElementById('loading').hidden, null, { timeout: 300_000, polling: 500 }); await p.waitForTimeout(1000);
+  await p.evaluate(() => { const S = window.SLCT; S.state.playing = false; S.state.simTime = 450; S.ui.frame(true); S.ui.ctx.refreshAll(); });
+  const adressen = await p.evaluate(() => { const c = window.SLCT.ui.ctx; return [...document.querySelectorAll('#views > .view')].map(v => 'view:' + v.id.replace(/^v-/, '')).concat(c.Z.list().slice(0, 4).map(z => 'melding/' + z.id), [`rit/${c.R.all()[0].id}`, 'voertuig/T-1068/vandaag', 'persoon/P-0001']); });
+  const fout = []; const stappen = new Set(); const rechts = new Set(); let chip = null;
+  for (const a of adressen) {
+    await p.evaluate(a => window.SLCT.ui.ctx.go(a), a); await p.waitForTimeout(200);
+    const m = await p.evaluate(topbalkMeet); if (m.stappen) stappen.add(m.stappen); rechts.add(m.rechts); chip = chip || m.chip;
+    if (m.uit.length) fout.push(`${a}: ${m.uit.join(', ')}`);
+    if (oef && (!m.chip || !m.chip.zicht || !/Oefendag/.test(m.chip.naam))) fout.push(`${a}: geen chip van de oefendag`);
+  }
+  check(!fout.length && (!oef || chip), `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: in de topbalk breekt niets af bij ${adressen.length} weergaven en pagina's${oef && chip ? ` (de chip ${chip.tekst ? 'met het woord Oefendag' : 'als icoon'}, naam "${chip.naam}")` : ''}; wat ruimte maakte: ${[...stappen].join(' | ') || 'niets nodig'}${fout.length ? `; FOUT: ${fout.slice(0, 4).join('; ')}` : ''}`);
+  if (w >= 1280) check(rechts.size === 1, `${w} px, ${oef ? 'oefendag' : 'gewone dag'}: rechts in de topbalk verspringt niet tussen weergaven en pagina's (${[...rechts].map(x => x || 'niets').join(' | ')})`);
+  if (oef && w === 1440) {
+    // de oefendag om 15:00: vertraagd zonder zaak (N5); de briefing zegt dat niemand na zijn venster komt
+    await p.evaluate(() => { const S = window.SLCT; S.state.simTime = 900; S.ui.frame(true); S.ui.ctx.refreshAll(); S.ui.ctx.go('view:overzicht'); }); await p.waitForTimeout(900);
+    const o = await p.evaluate(samenhangOverzicht); const b = await samenhangKaart(p); const sf = samenhangFout(o, b);
+    check(!sf.length && (!b.vertraagd || /Niemand komt na zijn venster|na (zijn|hun) venster|De grootste/.test(o.speelt)), `oefendag 15:00: "${o.speelt.replace(/^Speelt/, '')}"; op de kaart Vertraagd ${b.vertraagd}, Onderweg ${b.onderweg}${sf.length ? `: ${sf.join('; ')}` : ''}`);
+  }
+  await r.ctx.close();
 }
 
 const realErrors = errors.filter(e => !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED/.test(e));
