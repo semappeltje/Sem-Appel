@@ -24,7 +24,7 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
   const st = await page.evaluate(() => ({ theme: document.getElementById('app').dataset.theme, sw: document.documentElement.scrollWidth, iw: innerWidth, font: getComputedStyle(document.getElementById('app')).fontSize, trans: getComputedStyle(document.querySelector('.btn')).transitionDuration, claims: window.BSP.D.claims.length, ms: Math.round(window.BSP.D.bouwMs) }));
   check(st.theme === 'light', `${tag} thema op de app-root (${st.theme})`);
   check(st.sw <= st.iw, `${tag} geen horizontale overloop (${st.sw} <= ${st.iw})`);
-  check(st.font === '13.5px', `${tag} lettergrootte ${st.font}`);
+  check(st.font === '14px', `${tag} lettergrootte ${st.font}`);
   check(st.ms < 3000, `${tag} wereld gebouwd in ${st.ms} ms (${st.claims} claims)`);
   if (vp.rm) check(/^0s/.test(st.trans), `${tag} minder beweging: overgangen uit (${st.trans})`);
   const over = [];

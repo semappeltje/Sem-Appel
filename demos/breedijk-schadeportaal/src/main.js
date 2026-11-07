@@ -1,3 +1,4 @@
+import './fonts.css';
 import './style.css';
 import { maakWereld } from './data.js';
 import { laadInstellingen } from './instellingen.js';

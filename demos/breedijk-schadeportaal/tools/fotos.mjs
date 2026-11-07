@@ -53,7 +53,7 @@ export const ZOEK = {
     ['polestar-2', 'Polestar', '2', ['Polestar 2']],
     ['renault-kangoo', 'Renault', 'Kangoo', ['Renault Kangoo III', 'Renault Kangoo 2021']],
     ['citroen-c3', 'Citroën', 'C3', ['Citroën C3 III', 'Citroen C3 2017']],
-  ].map(([slug, merk, model, q]) => ({ id: slug, merk, model, q })),
+  ].map(([slug, merk, model, q]) => ({ id: slug, merk, model, q: [...q, `${merk} ${model} 2021`, `${merk} ${model} 2019`] })),
   schade: [
     ['kras', ['car scratch', 'scratched car paint', 'scratch car door']],
     ['bumper', ['bumper damage', 'scratched bumper', 'scuffed bumper', 'cracked bumper', 'damaged car bumper']],
@@ -122,7 +122,7 @@ function thumbUrl(ii) {
   return u.replace('https://thumb.wikimedia.org/', 'https://upload.wikimedia.org/');
 }
 // titels die zelden een bruikbare overzichtsfoto zijn
-const AUTO_WEG = /interior|innenraum|interieur|cockpit|dashboard|engine|motor(raum)?\b|badge|logo|emblem|wheel|felge|detail|steering|seat|boot|trunk|kofferraum|heck|rear|back|tail|model ?car|toy|diecast|police|polizei|taxi|rally|race|racing|tuning|crash|wreck|unfall|sketch|drawing|IAA|salon|motor ?show|autosalon|geneva|genf|paris|frankfurt|messe|expo|ambulance|feuerwehr|camper/i;
+const AUTO_WEG = /interior|innenraum|interieur|cockpit|dashboard|engine|motor(raum)?\b|badge|logo|emblem|wheel|felge|detail|steering|seat|boot|trunk|kofferraum|heck|rear|back|tail|model ?car|\btoys?\b|diecast|police|polizei|taxi|rally|race|racing|tuning|crash|wreck|unfall|sketch|drawing|IAA|salon|motor ?show|autosalon|geneva|genf|paris|frankfurt|messe|expo|ambulance|feuerwehr|camper/i;
 const bruikbaar = f => f && LICENTIES.includes(f.licentie) && /jpeg|png|webp/.test(f.mime) && f.breedte >= 700 && f.thumb;
 
 // ---------- Python/Pillow ----------
@@ -164,7 +164,7 @@ async function zoek(groepNaam, cache) {
   const alle = existsSync(kpad) ? JSON.parse(readFileSync(kpad, 'utf8')) : {};
   for (const g of groepen) for (const item of ZOEK[g]) {
     const sleutel = `${g}/${item.id}`;
-    if (alle[sleutel]) { console.log('al gezocht', sleutel); continue; }
+    if (alle[sleutel]?.length) { console.log('al gezocht', sleutel); continue; }
     const gezien = new Map();
     for (const q of item.q) {
       const r = await haal(params({ action: 'query', generator: 'search', gsrnamespace: '6', gsrsearch: `${q} filetype:bitmap`, gsrlimit: g === 'auto' ? '14' : '16', ...II }));
@@ -184,7 +184,7 @@ async function zoek(groepNaam, cache) {
     alle[sleutel] = lijst;
     writeFileSync(kpad, JSON.stringify(alle, null, 1));
     const vj = join(cache, 'vel.json'); writeFileSync(vj, JSON.stringify(vel));
-    py(PY_VEL, vj, join(cache, `vel-${g}-${item.id}.jpg`));
+    if (vel.length) { try { py(PY_VEL, vj, join(cache, `vel-${g}-${item.id}.jpg`)); } catch (e) { console.warn('  contactvel mislukt', item.id); } }
     console.log(sleutel, lijst.length, 'kandidaten');
   }
 }

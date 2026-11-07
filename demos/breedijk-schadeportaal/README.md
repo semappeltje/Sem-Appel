@@ -20,6 +20,15 @@ keten ophalen, overslagterrein (intake-controle), uitleveren met twee chauffeurs
 (mail plakken en uitlezen, een rittenexport inlezen, de RDW live); de huisstijl; een rustiger interface; de
 reparaties uit de Fable-review van ronde 1 (`rapporten/breedijk-schadeportaal/review.md`).
 
+**Ronde 3 (dezelfde dag): rust.** Sem: "te druk, AI-achtig; subtieler, mooier, meer inklappen". Structuur uit
+ruimte en toon in plaats van kaders (witte kaarten zonder rand op een grijze pagina, geen groepslabels in kapitalen,
+status als tekst met een stip), een eigen letter (Source Sans 3, SIL Open Font License, gebundeld uit
+`@fontsource/source-sans-3`, latijn 400 en 600), de iconen van Lucide (ISC, statisch gebundeld), een dunne
+voortgangslijn, de beoordeling als een lijst waarvan alleen de punten die aandacht vragen openstaan, de foto's, de
+calculatie, de notities en het logboek achter een kopje (de map met een treffer staat open), de mail ingekort met
+"Lees de hele mail". Open-sourcebouwstenen die klaarstaan voor de foto's: `img-comparison-slider` (MIT) voor
+ophalen naast de claim.
+
 ## Wat erin zit
 
 | Weergave | Adres | Wat het doet |
