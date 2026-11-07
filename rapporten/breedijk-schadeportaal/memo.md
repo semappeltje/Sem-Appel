@@ -241,3 +241,26 @@ zonder hun akkoord.
 
 De ronde is nagekeken door een Fable-agent op de werkafspraak (verder denken), de schrijfstijl en de
 kwaliteitslat; de bevindingen en wat ermee gedaan is staan in `review.md`.
+
+## Ronde 3 (dezelfde dag): rust, en de open-sourcebouwstenen
+
+Je zei: te druk, AI-achtig, subtieler en mooier, meer inklappen. De ontwerpskill in de repo (`.claude/skills/
+design-taste-frontend`, de lijst met kenmerken van gegenereerde pagina's) wees dezelfde dingen aan: overal
+1px-kaders, kleine kapitalen als groepslabels, pillen, iconen in rondjes, overal dezelfde ronding. Wat er veranderde:
+witte kaarten zonder rand op een grijze pagina (structuur uit ruimte en toon), status als tekst met een stip, een
+dunne voortgangslijn, de beoordeling als een lijst van acht regels waarvan alleen de punten die aandacht vragen
+openstaan, de foto's per moment, de calculatie, de notities en het logboek achter een kopje (de map met een treffer
+staat open), de mail ingekort met "Lees de hele mail", en een eigen letter.
+
+**Bouwstenen die ik gebruikte**, allemaal met een vrije licentie en gebundeld in de pagina (de demo laadt niets van
+buiten): Source Sans 3 (Adobe, SIL Open Font License; een humanistische letter dicht bij de Aller van hun eigen
+site, die een Adobe-licentie heeft), de iconen van Lucide (ISC), `img-comparison-slider` (MIT) om de ophaalfoto
+naast de foto van de tegenpartij te schuiven, en Wikimedia Commons als fotobron (CC BY-SA, met naamsvermelding
+onder Instellingen en in `src/assets/fotos/BRONNEN.md`). Bekeken en niet gebruikt: MonkJS (een React-pakket voor
+schade-inspectie met een autowireframe; onze demo is geen React en het diagram is al van onszelf), Tabler en
+shadcn (UI-kits die het "sjabloon"-gevoel juist versterken), PhotoSwipe (zwaarder dan onze eigen dialoog nodig heeft).
+
+**De foto's.** Commons remde het ophalen af vanaf ons netwerk (hoogstens een verzoek per tien seconden), dus de
+eerste ronde leverde zes automodellen op; de schadefoto's lopen nog. Een foto met een dealersticker ging eruit
+(een bedrijfsnaam naast het merk). Elke foto staat met maker en licentie in het manifest; de kleur van de
+gesimuleerde auto volgt de foto van het model, zodat de kop van het dossier klopt met de data.

@@ -6,6 +6,8 @@ import { createActies } from './acties.js';
 import { createImporten } from './importen.js';
 import { createUI } from './ui.js';
 import { kleurVoor } from './fotos.js';
+import 'img-comparison-slider';
+import 'img-comparison-slider/dist/styles.css';
 
 // De app-root (#app.bsp) draagt het thema en de opties, zodat dezelfde code als losse pagina en ingebed in een site
 // draait (data-embedded: sneltoetsen alleen met de focus in de app).
