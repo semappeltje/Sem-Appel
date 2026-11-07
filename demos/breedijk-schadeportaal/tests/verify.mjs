@@ -40,8 +40,9 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
   if (vp.w >= 1200 && !vp.rm && !vp.embedded) {
     // besluit vastleggen, herladen, en het staat er nog; dan de handelingen wissen
     await page.click('[data-act="besluit"]'); await page.waitForTimeout(300);
-    const na = await page.evaluate(id => { const c = window.BSP.D.claims.find(x => x.id === id); return { status: c.status, log: c.log.length, toast: !!document.querySelector('.toast') }; }, id);
-    check(na.status !== 'nieuw' && na.toast, `${tag} besluit vastgelegd: status ${na.status}, melding getoond`);
+    const na = await page.evaluate(id => { const c = window.BSP.D.claims.find(x => x.id === id); return { status: c.status, log: c.log.length, toast: !!document.querySelector('.toast'), dialoog: !document.getElementById('dialog').hidden }; }, id);
+    check(na.status !== 'nieuw' && (na.toast || na.dialoog), `${tag} besluit vastgelegd: status ${na.status}, ${na.dialoog ? 'de vraag aan de chauffeur open' : 'melding getoond'}`);
+    if (na.dialoog) { await page.keyboard.press('Escape'); await page.waitForTimeout(150); }
     await page.reload({ waitUntil: 'load' }); await page.waitForFunction(() => window.BSP && document.getElementById('loading').hidden);
     const herladen = await page.evaluate(id => { const c = window.BSP.D.claims.find(x => x.id === id); return { status: c.status, log: c.log.length, hash: location.hash, acties: window.BSP.acties.aantal() }; }, id);
     check(herladen.status === na.status && herladen.log === na.log && herladen.hash === `#schade/${id}`, `${tag} na herladen dezelfde toestand (${herladen.status}, ${herladen.log} logregels, ${herladen.acties} handelingen)`);

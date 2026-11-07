@@ -5,12 +5,13 @@
 const urls = import.meta.glob('./assets/fotos/**/*.webp', { eager: true, query: '?url', import: 'default' });
 const manifesten = import.meta.glob('./assets/fotos/manifest.json', { eager: true, import: 'default' });
 const M = Object.values(manifesten)[0] || { auto: [], schade: [], overzicht: [] };
-const url = (map, bestand) => urls[`./assets/fotos/${map}/${bestand}`] || null;
+const naam = b => String(b || '').replace(/^.*\//, '');
+const url = (map, bestand) => urls[`./assets/fotos/${map}/${naam(bestand)}`] || null;
 const slug = (merk, model) => `${merk}-${model}`.toLowerCase().replace(/&/g, 'en').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-export const AUTO = (M.auto || []).map(a => ({ ...a, url: url('auto', a.bestand) })).filter(a => a.url);
-export const SCHADE = (M.schade || []).map(s => ({ ...s, url: url('schade', s.bestand) })).filter(s => s.url);
-export const OVERZICHT = (M.overzicht || []).map(o => ({ ...o, url: url('overzicht', o.bestand) })).filter(o => o.url);
+export const AUTO = (M.auto || []).map(a => ({ ...a, bestand: naam(a.bestand), url: url('auto', a.bestand) })).filter(a => a.url);
+export const SCHADE = (M.schade || []).map(s => ({ ...s, bestand: naam(s.bestand), url: url('schade', s.bestand) })).filter(s => s.url);
+export const OVERZICHT = (M.overzicht || []).map(o => ({ ...o, bestand: naam(o.bestand), url: url('overzicht', o.bestand) })).filter(o => o.url);
 export const heeftFotos = AUTO.length > 0 || SCHADE.length > 0;
 
 const autoIndex = new Map(AUTO.map(a => [a.slug || slug(a.merk, a.model), a]));

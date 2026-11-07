@@ -55,14 +55,13 @@ export const ZOEK = {
     ['citroen-c3', 'Citroën', 'C3', ['Citroën C3 III', 'Citroen C3 2017']],
   ].map(([slug, merk, model, q]) => ({ id: slug, merk, model, q: [...q, `${merk} ${model} 2021`, `${merk} ${model} 2019`] })),
   schade: [
-    ['kras', ['car scratch', 'scratched car paint', 'scratch car door']],
-    ['bumper', ['bumper damage', 'scratched bumper', 'scuffed bumper', 'cracked bumper', 'damaged car bumper']],
-    ['deuk', ['dented car door', 'car dent', 'dent car fender', 'car door dent']],
-    ['velg', ['curb rash wheel', 'alloy wheel damage', 'scratched alloy wheel', 'damaged rim car']],
-    ['ruit', ['windshield chip', 'windscreen crack', 'cracked windshield', 'stone chip windscreen']],
-    ['spiegel', ['broken side mirror', 'broken wing mirror', 'damaged car mirror']],
-    ['lak', ['paint damage car', 'peeling car paint', 'car rust paint', 'car body damage']],
-    ['overig', ['damaged car tailgate', 'car hood scratch', 'damaged car sill', 'car collision damage close up']],
+    ['bumper', ['scratched bumper', 'bumper damage']],
+    ['deuk', ['dented car door', 'car dent']],
+    ['velg', ['curb rash wheel', 'alloy wheel damage']],
+    ['ruit', ['windshield chip', 'cracked windshield']],
+    ['spiegel', ['broken side mirror']],
+    ['lak', ['peeling car paint', 'car scratch']],
+    ['overig', ['cracked bumper', 'damaged car tailgate']],
   ].map(([id, q]) => ({ id, q })),
   overzicht: [
     ['hoek', ['car front corner', 'car headlight close up', 'car rear corner taillight', 'car side profile parked']],
@@ -73,14 +72,27 @@ export const ZOEK = {
 // auto: [slug, merk, model, kleur, Commons-bestand, kentekenLeesbaar]
 // schade: [Commons-bestand, gebied, soort, ernst, omschrijving]
 // overzicht: [Commons-bestand, zijde]
-export const SELECTIE = { auto: [], schade: [], overzicht: [] };
+export const SELECTIE = {
+  auto: [
+    ['volkswagen-polo', 'Volkswagen', 'Polo', 'rood', 'File:2018 Volkswagen Polo SE 1.0 Front.jpg', false],
+    ['volkswagen-golf', 'Volkswagen', 'Golf', 'zilver', 'File:2020 Volkswagen Golf Style 1.5 Front.jpg', true],
+    ['volkswagen-id3', 'Volkswagen', 'ID.3', 'wit', 'File:2020 Volkswagen ID.3 1st Front.jpg', false],
+    ['toyota-yaris', 'Toyota', 'Yaris', 'wit', 'File:Toyota Yaris Hybrid (XP210) 1X7A0354.jpg', false],
+    ['toyota-corolla', 'Toyota', 'Corolla', 'zilver', 'File:Toyota Corolla Hybrid no lago das Pontes de García Rodríguez eue-001.jpg', false],
+    ['kia-niro', 'Kia', 'Niro', 'groen', 'File:Kia Niro (SG2) PHEV Leonberg 2022 1X7A0474.jpg', false],
+    ['kia-picanto', 'Kia', 'Picanto', 'grijs', 'File:2017 Kia Picanto GT-Line S 1.2 Front.jpg', false],
+  ],
+  // nog te zoeken (zie BRONNEN.md): geen schadefoto's en geen overzichten in deze ronde
+  schade: [],
+  overzicht: [],
+};
 
 // ---------- netwerk ----------
 const slaap = ms => new Promise(r => setTimeout(r, ms));
 const laatste = {};
 const TMP = join(tmpdir(), `bs-fotos-${process.pid}.tmp`);
 async function haal(url, soort = 'json') {
-  const host = new URL(url).host; const tussen = host.startsWith('commons') ? 6000 : 4000;
+  const host = new URL(url).host; const tussen = Number(process.env.FOTOS_TUSSEN_MS) || 10000; // hoogstens een verzoek per 10 s per host
   for (let poging = 0; poging < 20; poging++) {
     const wacht = tussen - (Date.now() - (laatste[host] || 0)); if (wacht > 0) await slaap(wacht);
     laatste[host] = Date.now();
@@ -173,7 +185,7 @@ async function zoek(groepNaam, cache) {
     }
     let lijst = [...gezien.values()];
     if (g === 'auto') lijst = lijst.filter(f => !AUTO_WEG.test(f.titel) && f.breedte > f.hoogte).slice(0, 4);
-    else lijst = lijst.filter(f => !/diagram|drawing|logo|icon|map/i.test(f.titel)).slice(0, 10);
+    else lijst = lijst.filter(f => !/diagram|drawing|logo|icon|map|crash test|accident scene|wreck|truck|bus|tram|train|bicycle|motorcycle/i.test(f.titel)).slice(0, 6);
     const vel = [];
     for (const [i, f] of lijst.entries()) {
       const pad = join(cache, 'img', veilig(f.titel));
@@ -230,6 +242,16 @@ async function bouw(cache) {
   console.log(`auto ${manifest.auto.length}, schade ${manifest.schade.length}, overzicht ${manifest.overzicht.length}, samen ${(totaal / 1024).toFixed(0)} kB`);
 }
 
+function nogTeZoeken(m) {
+  const er = new Set(m.auto.map(a => a.slug));
+  const auto = ZOEK.auto.filter(a => !er.has(a.id)).map(a => `${a.merk} ${a.model}`);
+  const regels = [];
+  if (auto.length) regels.push(`- Voertuigen (${auto.length}): ${auto.join(', ')}.`);
+  if (m.schade.length < 14) regels.push(`- Schades: ${m.schade.length} van minstens 14 (kras, schaafplek, deuk, stoeprand op een velg, steenslag of barst in een ruit, spiegel, lakschade, achterklep, dorpel, motorkap).`);
+  if (m.overzicht.length < 4) regels.push(`- Overzichten bij ophalen: ${m.overzicht.length} van 4 tot 8 (voorhoek, achterhoek, zijkant, zonder schade).`);
+  regels.push('', 'Zoeken: \`node tools/fotos.mjs zoek <auto|schade|overzicht> <cachemap>\`, de contactvellen bekijken, de keuze in \`SELECTIE\` zetten en \`node tools/fotos.mjs bouw <cachemap>\` draaien. Commons laat vanaf een gedeeld adres weinig verzoeken per minuut toe; het script wacht en volgt Retry-After.');
+  return regels.join('\n');
+}
 const cel = s => String(s).replace(/\|/g, '\\|');
 function bronnen(m) {
   const regel = r => `| \`${r.bestand}\` | ${cel(r.titel)} | ${cel(r.maker)} | [${r.licentie}](${r.licentieUrl}) | [Commons](${r.bron}) |`;
@@ -242,18 +264,19 @@ Verkleind naar WebP (voertuigen en overzichten 640 px, schades 560 px breed) doo
 
 ## Voertuigen (\`auto/\`)
 
-${kop}
-${m.auto.map(regel).join('\n')}
+${m.auto.length ? kop + '\n' + m.auto.map(regel).join('\n') : 'Nog geen; zie "Nog te zoeken".'}
 
 ## Schades (\`schade/\`)
 
-${kop}
-${m.schade.map(regel).join('\n')}
+${m.schade.length ? kop + '\n' + m.schade.map(regel).join('\n') : 'Nog geen; zie "Nog te zoeken".'}
 
 ## Overzichten bij ophalen (\`overzicht/\`)
 
-${kop}
-${m.overzicht.map(regel).join('\n')}
+${m.overzicht.length ? kop + '\n' + m.overzicht.map(regel).join('\n') : 'Nog geen; zie "Nog te zoeken".'}
+
+## Nog te zoeken
+
+${nogTeZoeken(m)}
 `;
 }
 

@@ -1,0 +1,97 @@
+{
+ "auto": [
+  {
+   "slug": "volkswagen-polo",
+   "merk": "Volkswagen",
+   "model": "Polo",
+   "kleur": "rood",
+   "bestand": "auto/volkswagen-polo.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:2018_Volkswagen_Polo_SE_1.0_Front.jpg",
+   "titel": "2018 Volkswagen Polo SE 1.0 Front.jpg",
+   "maker": "Vauxford",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  },
+  {
+   "slug": "volkswagen-golf",
+   "merk": "Volkswagen",
+   "model": "Golf",
+   "kleur": "zilver",
+   "bestand": "auto/volkswagen-golf.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:2020_Volkswagen_Golf_Style_1.5_Front.jpg",
+   "titel": "2020 Volkswagen Golf Style 1.5 Front.jpg",
+   "maker": "Vauxford",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": true
+  },
+  {
+   "slug": "volkswagen-id3",
+   "merk": "Volkswagen",
+   "model": "ID.3",
+   "kleur": "wit",
+   "bestand": "auto/volkswagen-id3.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:2020_Volkswagen_ID.3_1st_Front.jpg",
+   "titel": "2020 Volkswagen ID.3 1st Front.jpg",
+   "maker": "Vauxford",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  },
+  {
+   "slug": "toyota-yaris",
+   "merk": "Toyota",
+   "model": "Yaris",
+   "kleur": "wit",
+   "bestand": "auto/toyota-yaris.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:Toyota_Yaris_Hybrid_(XP210)_1X7A0354.jpg",
+   "titel": "Toyota Yaris Hybrid (XP210) 1X7A0354.jpg",
+   "maker": "Alexander Migl",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  },
+  {
+   "slug": "toyota-corolla",
+   "merk": "Toyota",
+   "model": "Corolla",
+   "kleur": "zilver",
+   "bestand": "auto/toyota-corolla.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Hybrid_no_lago_das_Pontes_de_Garc%C3%ADa_Rodr%C3%ADguez_eue-001.jpg",
+   "titel": "Toyota Corolla Hybrid no lago das Pontes de García Rodríguez eue-001.jpg",
+   "maker": "Lmbuga (Luis Miguel Bugallo Sánchez)",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  },
+  {
+   "slug": "kia-niro",
+   "merk": "Kia",
+   "model": "Niro",
+   "kleur": "groen",
+   "bestand": "auto/kia-niro.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:Kia_Niro_(SG2)_PHEV_Leonberg_2022_1X7A0474.jpg",
+   "titel": "Kia Niro (SG2) PHEV Leonberg 2022 1X7A0474.jpg",
+   "maker": "Alexander Migl",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  },
+  {
+   "slug": "kia-picanto",
+   "merk": "Kia",
+   "model": "Picanto",
+   "kleur": "grijs",
+   "bestand": "auto/kia-picanto.webp",
+   "bron": "https://commons.wikimedia.org/wiki/File:2017_Kia_Picanto_GT-Line_S_1.2_Front.jpg",
+   "titel": "2017 Kia Picanto GT-Line S 1.2 Front.jpg",
+   "maker": "Vauxford",
+   "licentie": "CC BY-SA 4.0",
+   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+   "kentekenLeesbaar": false
+  }
+ ],
+ "schade": [],
+ "overzicht": []
+}
