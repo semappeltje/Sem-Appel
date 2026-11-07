@@ -10,7 +10,7 @@ const [, , port = '8791', shots = ''] = process.argv;
 const url = /^\d+$/.test(port) ? `http://127.0.0.1:${port}/index.html` : port;
 const browser = await chromium.launch();
 let fail = 0; const check = (ok, msg) => { console.log(`${ok ? 'OK ' : 'FOUT'} ${msg}`); if (!ok) fail++; };
-const VIEWS = ['overzicht', 'schades', 'schades?status=alle', 'chauffeurs', 'chauffeur/C-08', 'opdrachtgevers', 'opdrachtgever/K-01', 'dashboard', 'dashboard?p=365', 'rapporten', 'rapporten?periode=jaar', 'instellingen'];
+const VIEWS = ['overzicht', 'schades', 'schades?status=alle', 'schades?status=alle&cat=eigen', 'chauffeurs', 'chauffeur/C-08', 'opdrachtgevers', 'opdrachtgever/K-01', 'wagenpark', 'voertuig/BT-23', 'dashboard', 'dashboard?p=365', 'dashboard?cat=derde', 'rapporten', 'rapporten?periode=jaar', 'instellingen'];
 for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm: true }, { w: 1024, h: 768, embedded: true }]) {
   const tag = `${vp.w}${vp.rm ? '-rm' : ''}${vp.embedded ? '-embedded' : ''}`;
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, isMobile: vp.w < 500, hasTouch: vp.w < 500, reducedMotion: vp.rm ? 'reduce' : 'no-preference' });
@@ -59,7 +59,7 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     check(gevonden === 'tok', `${tag} nieuwe melding: rit gevonden op kenteken ${kent}`);
     await page.click('#nf ~ .dlg-f button[type=submit], button[form=nf]'); await page.waitForTimeout(400);
     const nieuw = await page.evaluate(() => ({ hash: location.hash, rit: (window.BSP.D.claims[window.BSP.D.claims.length - 1] || {}).rit }));
-    check(/#schade\/S-2026-07/.test(nieuw.hash) && !!nieuw.rit, `${tag} eigen dossier aangemaakt en geopend (${nieuw.hash}, rit ${nieuw.rit})`);
+    check(/#schade\/S-2026-9/.test(nieuw.hash) && !!nieuw.rit, `${tag} eigen dossier aangemaakt en geopend (${nieuw.hash}, rit ${nieuw.rit})`);
     // een mail plakken: de lezer vult de velden
     await page.keyboard.press('Escape'); await page.evaluate(() => window.BSP.ui.ctx.nieuweMelding({ tab: 'mail' })); await page.waitForTimeout(250);
     await page.fill('#mailTekst', 'Hoi,\n\nJullie hebben 14 okt 2026 een Volkswagen Polo bij ons opgehaald, kenteken RV-743-J. Er zit een stoeprandschade op de velg rechtsvoor. Offerte: € 215.\n\nGroet,\nvestigingsmanager, Verhuur Kustlijn');
@@ -73,6 +73,21 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     const imp = await page.evaluate(() => ({ n: window.BSP.importen.aantal, rit: window.BSP.D.ritMap.has('R-IMP-9'), uit: (document.getElementById('importUit') || {}).textContent || '' }));
     check(imp.n >= 1 && imp.rit && /ingelezen/.test(imp.uit), `${tag} rittenexport ingelezen (${imp.n})`);
     await page.evaluate(() => window.BSP.importen.wis());
+    // per soort: een dossier van elke soort opent zonder fouten, met zijn eigen middenkolom
+    for (const cat of ['eigen', 'derde', 'divers']) {
+      const cid = await page.evaluate(k => (window.BSP.D.claims.filter(c => c.categorie === k && c.status !== 'gesloten' && (k !== 'derde' || c.gps.gevonden))[0] || window.BSP.D.claims.find(c => c.categorie === k)).id, cat);
+      await page.evaluate(h => { location.hash = '#' + h; }, `schade/${cid}`); await page.waitForTimeout(300);
+      const dd = await page.evaluate(() => ({ h1: (document.querySelector('#v-dossier h1') || {}).textContent || '', cat: (document.querySelector('.catlbl') || {}).textContent || '', truck: !!document.querySelector('#v-dossier .truckw svg'), gps: !!document.querySelector('#v-dossier .gpsz'), pakket: document.querySelectorAll('#v-dossier .pakket li').length, signs: document.querySelectorAll('#v-dossier .sign').length }));
+      check(dd.signs >= 3 && dd.cat && (cat !== 'eigen' || dd.truck) && (cat !== 'derde' || (dd.gps && dd.pakket >= 5)), `${tag} dossier ${cid} (${cat}): ${dd.cat}, ${dd.signs} signalen${dd.truck ? ', zijaanzicht' : ''}${dd.gps ? ', telematica' : ''}${dd.pakket ? `, pakket ${dd.pakket}` : ''}`);
+    }
+    // een mail met het kenteken van ons eigen voertuig wordt een aanrijschade derde
+    const eigenK = await page.evaluate(() => window.BSP.D.vloot.find(v => v.id === 'BT-23').kenteken);
+    await page.evaluate(() => window.BSP.ui.ctx.nieuweMelding({ tab: 'mail' })); await page.waitForTimeout(250);
+    await page.fill('#mailTekst', `Goedemiddag,\n\nOp 3 november rond 14:10 heeft een vrachtwagen van Breedijk bij het achteruitrijden mijn geparkeerde auto geraakt. Op de beelden zie ik het kenteken ${eigenK.slice(0, 2)}-${eigenK.slice(2, 5)}-${eigenK.slice(5)}. Deuk in de voorbumper, offerte € 1.240.\n\nGroet,\nde eigenaar`);
+    await page.click('#leesMail'); await page.waitForTimeout(200);
+    const derde = await page.evaluate(() => ({ cat: (document.querySelector('#catSeg .on') || {}).dataset?.cat, voertuig: document.querySelector('#nf').elements.eigenVoertuig.value, bedrag: document.querySelector('#nf').elements.bedrag.value }));
+    check(derde.cat === 'derde' && derde.voertuig === 'BT-23' && derde.bedrag === '1240', `${tag} mail met ons kenteken: soort ${derde.cat}, voertuig ${derde.voertuig}, ${derde.bedrag}`);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
     // zoeken met / en pijltjes
     await page.keyboard.press('Escape'); await page.keyboard.press('/'); await page.keyboard.type('polder'); await page.waitForTimeout(250);
     const pop = await page.evaluate(() => ({ open: !document.getElementById('popover').hidden, n: document.querySelectorAll('#popover .pi').length }));
@@ -80,8 +95,9 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     await page.keyboard.press('Enter'); await page.waitForTimeout(250);
     check(/#opdrachtgever\/K-05/.test(await page.evaluate(() => location.hash)), `${tag} Enter opent de opdrachtgever`);
     // sneltoetsen 1 en 5
-    await page.keyboard.press('6'); await page.waitForTimeout(200); check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} toets 6 opent Rapporten`);
-    await page.keyboard.press('5'); await page.waitForTimeout(200); check(/#dashboard/.test(await page.evaluate(() => location.hash)) && await page.evaluate(() => document.querySelectorAll('.dk').length === 5 && !!document.querySelector('.diag.heat svg')), `${tag} toets 5 opent het dashboard met vijf tegels en de warmtekaart`);
+    await page.keyboard.press('7'); await page.waitForTimeout(200); check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} toets 7 opent Rapporten`);
+    await page.keyboard.press('5'); await page.waitForTimeout(200); check(/#wagenpark/.test(await page.evaluate(() => location.hash)) && await page.evaluate(() => document.querySelectorAll('#v-wagenpark tbody tr').length >= 36), `${tag} toets 5 opent het wagenpark`);
+    await page.keyboard.press('6'); await page.waitForTimeout(200); check(/#dashboard/.test(await page.evaluate(() => location.hash)) && await page.evaluate(() => document.querySelectorAll('.dk').length === 5 && !!document.querySelector('.diag.heat svg')), `${tag} toets 6 opent het dashboard met vijf tegels en de warmtekaart`);
     // thema
     await page.click('#themeBtn'); await page.waitForTimeout(200);
     const th = await page.evaluate(() => ({ root: document.getElementById('app').dataset.theme, html: document.documentElement.dataset.theme, bg: getComputedStyle(document.getElementById('app')).backgroundColor }));
@@ -103,9 +119,9 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     // ingebed: sneltoetsen alleen met de focus in de app
     await page.evaluate(() => { location.hash = '#overzicht'; }); await page.waitForTimeout(200);
     await page.evaluate(() => { document.activeElement && document.activeElement.blur(); }); // de focus ligt buiten de app
-    await page.keyboard.press('6'); await page.waitForTimeout(150);
+    await page.keyboard.press('7'); await page.waitForTimeout(150);
     check(/#overzicht/.test(await page.evaluate(() => location.hash)), `${tag} ingebed: toets zonder focus doet niets`);
-    await page.evaluate(() => document.querySelector('#v-overzicht .ph').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))); await page.waitForTimeout(100); await page.keyboard.press('6'); await page.waitForTimeout(150);
+    await page.evaluate(() => document.querySelector('#v-overzicht .ph').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))); await page.waitForTimeout(100); await page.keyboard.press('7'); await page.waitForTimeout(150);
     check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} ingebed: toets met focus werkt`);
   }
   if (vp.w < 500) {

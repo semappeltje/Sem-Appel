@@ -1,4 +1,4 @@
-# Schadeportaal (demo voor Breedijk Transport, versie 1.1)
+# Schadeportaal (demo voor Breedijk Transport, versie 1.2)
 
 Werkende demo van een schadeportaal voor een autotransporteur: de schade-mailbox, de rit uit het TMS met de
 inspecties en foto's van de chauffeur, een vaste beoordeling met signalen, het conceptantwoord aan de
@@ -20,6 +20,19 @@ keten ophalen, overslagterrein (intake-controle), uitleveren met twee chauffeurs
 (mail plakken en uitlezen, een rittenexport inlezen, de RDW live); de huisstijl; een rustiger interface; de
 reparaties uit de Fable-review van ronde 1 (`rapporten/breedijk-schadeportaal/review.md`).
 
+**Ronde 4 (dezelfde dag): de soorten schade.** Breedijk legde uit dat er meer is dan ladingsschade: aanrijschade
+aan de eigen vrachtwagen (een paal, een stoeprand, bij het inparkeren langs de combinatie ernaast; negen van de tien
+herstelt de eigen werkplaats, een geschuurde zijkant van richting 10.000 euro gaat naar de verzekering), aanrijschade
+aan een derde (achteruit tegen een geparkeerde auto; soms merkt de chauffeur het niet en komt het via camerabeelden van
+de tegenpartij) en diverse schade (booster, sleutel). Elk dossier heeft nu een soort, met een eigen afhandeling: bij
+eigen schade ons voertuig op een zijaanzicht van de autotransporter, de werkorder met de dagen uit de roulatie, en de
+keuze werkplaats, herstelbedrijf of cascoverzekeraar; bij schade aan een derde de telematica (was ons voertuig er, hoe
+hard, achteruit), de tegenpartij, het Europees of eenzijdige schadeformulier van de chauffeur, en de WA-verzekeraar
+(zelf geen aansprakelijkheid erkennen); bij elke soort het pakket voor de juiste verzekeraar met wat er al is en wat
+ontbreekt. Nieuw: het wagenpark (toets 5, 42 trekkers met hun oplegger, gesimuleerd), de soort als filter in de lijst
+en op het dashboard, een nieuwe melding per soort, en een geplakte mail met het kenteken van een van onze eigen
+vrachtwagens wordt vanzelf een aanrijschade derde.
+
 **Ronde 3 (dezelfde dag): rust.** Sem: "te druk, AI-achtig; subtieler, mooier, meer inklappen". Structuur uit
 ruimte en toon in plaats van kaders (witte kaarten zonder rand op een grijze pagina, geen groepslabels in kapitalen,
 status als tekst met een stip), een eigen letter (Source Sans 3, SIL Open Font License, gebundeld uit
@@ -38,18 +51,22 @@ ophalen naast de claim.
 | Dossier | `#schade/S-2026-0585` | Drie kolommen (op een telefoon drie tabbladen). Links de melding: de mail, de bijlagen, de uitgelezen velden met hun zekerheid, de calculatie met de punten om te bespreken en de herrekening. In het midden onze rit uit Transplan: rit, van en naar, chauffeur, truck en positie, kilometerstand, het voertuig met de RDW-velden; de inspectie bij ophalen op een autodiagram met de claim ernaast (dezelfde plek rood omlijnd), de foto's bij ophalen met tijd en plek (de treffers gemarkeerd), de aflevering met de handtekening met of zonder voorbehoud. Rechts de beoordeling: zeven signalen (vervoerd door ons, stond al op de ophaalinspectie, getekend zonder voorbehoud, op tijd gemeld, limiet per kilogram, boven of onder de grens naar de verzekeraar, de calculatie), het advies met de reden, het besluit (zeven keuzes, bedrag waar dat hoort), "Besluit vastleggen", "Conceptantwoord", de vraag aan de chauffeur, toewijzen, sluiten; notities en het logboek |
 | Chauffeurs | `#chauffeurs`, `#chauffeur/C-08`, toets 3 | Per chauffeur ritten, schades (afgewezen claims tellen niet), schades per duizend ritten, onze kosten, het signaal van de regel (drie in zeven dagen is een gesprek; het tweede signaal is een instelling) en de laatste schade; per chauffeur de dossiers, per maand, de fase en de plek die het vaakst voorkomen. Alleen voor de schadebehandeling en de directie; met de noot over AVG en OR |
 | Opdrachtgevers | `#opdrachtgevers`, `#opdrachtgever/K-01`, toets 4 | Claims per opdrachtgever, aandeel afgewezen, aandeel "schade bestond al", doorlooptijd, gemiddeld gevraagd; per opdrachtgever de dossiers en, als het patroon er is, de aanbeveling voor een gesprek over hun uitgiftecontrole |
-| Dashboard | `#dashboard`, toets 5 | Het beeld voor de directie: vijf tegels met de richting en een vonklijn (claims, onze kosten, aandeel afgewezen, claims per duizend ritten, doorlooptijd), de kosten per maand, de uitkomst als een balk, waar de schade zit als warmtekaart op de auto, per vestiging, wanneer het gebeurt, de opdrachtgevers en de spreiding van de chauffeurs; per 30 of 90 dagen of een jaar, per vestiging |
-| Rapporten | `#rapporten`, toets 6 | Het maandoverzicht voor het management: per maand, kwartaal of jaar de aantallen en bedragen, per vestiging, fase, plek, opdrachtgever en chauffeur, de uitkomst; csv en afdrukken |
-| Instellingen | `#instellingen`, toets 7 | De getallen van Breedijk (grens naar de verzekeraar 1.750 euro, eigen risico 750 euro), de limiet per kilogram (AVC 3,40), de termijnen, het gangbare uurtarief (schatting), de regel voor het gesprek, naam, rol (behandelaar, planner, directie), thema, de koppelingen (mail plakken, een rittenexport inlezen met het voorbeeldbestand als datacontract, RDW live aan of uit) en wat de browser bewaart |
+| Wagenpark | `#wagenpark`, `#voertuig/BT-23`, toets 5 | Per trekker met zijn oplegger de aanrijschades van een jaar, onze kosten, de dagen uit de roulatie en of hij nu in herstel is; per voertuig de schades op het zijaanzicht en de dossiers |
+| Dashboard | `#dashboard`, toets 6 | Het beeld voor de directie: vijf tegels met de richting en een vonklijn (claims, onze kosten, aandeel afgewezen, claims per duizend ritten, doorlooptijd), de kosten per maand, de uitkomst als een balk, waar de schade zit als warmtekaart op de auto, per vestiging, wanneer het gebeurt, de opdrachtgevers en de spreiding van de chauffeurs; per 30 of 90 dagen of een jaar, per vestiging |
+| Rapporten | `#rapporten`, toets 7 | Het maandoverzicht voor het management: per maand, kwartaal of jaar de aantallen en bedragen, per vestiging, fase, plek, opdrachtgever en chauffeur, de uitkomst; csv en afdrukken |
+| Instellingen | `#instellingen`, toets 8 | De getallen van Breedijk (grens naar de verzekeraar 1.750 euro, eigen risico 750 euro), de limiet per kilogram (AVC 3,40), de termijnen, het gangbare uurtarief (schatting), de regel voor het gesprek, naam, rol (behandelaar, planner, directie), thema, de koppelingen (mail plakken, een rittenexport inlezen met het voorbeeldbestand als datacontract, RDW live aan of uit) en wat de browser bewaart |
 | Nieuwe melding | toets n | Velden invullen, of een mail plakken die het portaal uitleest (`src/intake.js`: kenteken, datum, bedrag, plek, soort, afzender, met zekerheid); het kenteken zoekt meteen de rit; zonder rit en met "RDW live" haalt een knop merk, kleur, gewicht en cataloguswaarde bij de RDW; het dossier opent |
 | Zoeken | toets / | Kenteken (met of zonder streepjes), dossiernummer, chauffeur, opdrachtgever; een rit zonder claim opent een nieuwe melding |
 
-Toetsen: 1 tot 7, /, n, [ (menu), Esc (sluiten of terug naar de lijst), ? (de lijst).
+Toetsen: 1 tot 8, /, n, [ (menu), Esc (sluiten of terug naar de lijst), ? (de lijst).
 
 ## Hoe de beoordeling werkt (`src/regels.js`)
 
 Per claim legt het portaal zeven dingen naast elkaar (acht als de auto over het overslagterrein ging) en zegt wat het
-ziet; de mens beslist.
+ziet; de mens beslist. Hieronder de ladingsschade; voor aanrijschade en diverse schade staat de beoordeling in
+`beoordeelVoertuig` (melding, schadeformulier, plaats, raming tegen de grens naar de casco, dagen uit de roulatie;
+bij een derde de telematica, de melding van de chauffeur, het formulier, het bewijs, geen aansprakelijkheid erkennen,
+het bedrag tegen het WA-eigen risico).
 
 1. **Vervoerd door ons?** De rit op kenteken en datum. Geen rit is ook een antwoord.
 2. **Stond de schade al op de ophaalinspectie?** Dezelfde of een aangrenzende plek (bumper en spatbord
@@ -120,8 +137,12 @@ de demosite (repo `controltower-demo`, `public/schadeportaal/`).
 - `src/views/`: de weergaven (overzicht, schades, dossier, chauffeurs, opdrachtgevers, dashboard, rapporten,
   instellingen, nieuw).
 - `src/style.css`: het ontwerpsysteem (tokens licht en donker, 13,5 px, 8-puntsraster) en de onderdelen.
+- `src/views/wagenpark.js`: het wagenpark en de pagina per voertuig. `src/diagram.js` tekent ook het zijaanzicht van de
+  autotransporter. `src/antwoord.js` heeft ook het pakket per soort, de mail aan de verzekeraar en de werkorder.
 - `tests/`: `regels.test.mjs`, `data.test.mjs`, `intake.test.mjs` (node --test) en `verify.mjs` (Playwright).
 - `tools/artifact.mjs`: maakt `dist/artifact.html` voor een Claude-artifact.
+- `tools/schermen.mjs`: neemt de schermafbeeldingen voor het rapport opnieuw op (`rapporten/breedijk-schadeportaal/schermen`),
+  met de dossiers gekozen op hun soort. Bouw eerst, serveer `dist` en geef de poort mee.
 
 ## Wat echt is en wat niet
 

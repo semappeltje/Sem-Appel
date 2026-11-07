@@ -5,8 +5,12 @@
 // binnen zeven dagen; AVC en CMR, laten toetsen), onze eigen antwoordtermijn en het uurtarief dat als norm geldt bij
 // het toetsen van een calculatie (schatting; een echte norm komt van de verzekeraar of een expertisebureau).
 export const STANDAARD = {
-  drempelVerzekeraar: 1750, eigenRisico: 750, tariefPerKg: 3.40, meldtermijnDagen: 7, antwoordWerkdagen: 10,
-  gesprekAantal: 3, gesprekDagen: 7, signaalAantal: 5, signaalDagen: 90, normUurtarief: 90,
+  drempelVerzekeraar: 1750, eigenRisico: 750, tariefPerKg: 3.40,
+  // aanrijschade: de grens naar de cascoverzekeraar en de eigen risico's zijn schattingen tot Breedijk de polis noemt
+  // (in het gesprek: een geschuurde zijkant van "richting de 10.000" ging naar de verzekering, negen van de tien
+  // aanrijschades herstelt de eigen werkplaats)
+  cascoGrens: 5000, cascoEigenRisico: 2500, waEigenRisico: 500, werkplaatsUurtarief: 75, meldtermijnDagen: 7, antwoordWerkdagen: 10,
+  gesprekAantal: 3, gesprekDagen: 7, signaalAantal: 6, signaalDagen: 90, normUurtarief: 90,
   naam: 'Ilse', rol: 'behandelaar', thema: 'licht', rdwLive: false,
 };
 export const ROLLEN = {

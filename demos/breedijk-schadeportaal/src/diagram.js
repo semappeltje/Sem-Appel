@@ -70,3 +70,36 @@ export function warmteDiagram(tellingen, opt = {}) {
   const vlakken = Object.entries(VLAK).map(([g, d]) => { const n = tellingen[g] || 0; const a = n ? 0.12 + 0.78 * (n / max) : 0; return `<path d="${d}" fill="var(--heat)" fill-opacity="${a.toFixed(2)}" stroke="var(--dg-line)" stroke-width=".8"><title>${GEBIEDEN[g]}: ${n}</title></path>`; }).join('');
   return `<svg viewBox="0 0 200 424" width="${opt.width || 150}" role="img" aria-label="${opt.label || 'Waar de schade zit'}">${STYLE}${DELEN}${vlakken}</svg>`;
 }
+
+// Een autotransporter van opzij (trekker links, oplegger met twee dekken rechts), met de plekken van een aanrijschade.
+// Links en rechts vallen op hetzelfde zijaanzicht; de lijst ernaast zegt welke kant. Breedte 440, hoogte 150.
+const TPUNT = {
+  bumper_voor: [16, 112], cabine_voor: [14, 72], cabine_l: [50, 66], cabine_r: [50, 66], spiegel_l: [6, 50], spiegel_r: [6, 50],
+  zijscherm_l: [62, 112], zijscherm_r: [62, 112], oplegger_l: [250, 88], oplegger_r: [250, 88], bovendek: [250, 40], oprijplaten: [426, 96],
+  achterlicht: [428, 118], band: [330, 126], velg_lv: [40, 126], velg_rv: [40, 126],
+};
+const TSTYLE = `<style>.t-body{fill:var(--dg-body);stroke:var(--dg-line);stroke-width:1.4}.t-glas{fill:var(--dg-glass);stroke:var(--dg-line);stroke-width:1}.t-lijn{fill:none;stroke:var(--dg-line);stroke-width:1.2}.t-wiel{fill:var(--dg-line);opacity:.7}.t-naaf{fill:var(--dg-body)}.m text{font:700 10px 'Source Sans 3',system-ui,sans-serif;fill:#fff;text-anchor:middle;dominant-baseline:central}</style>`;
+const TDELEN = `
+<path class="t-body" d="M8 42 Q8 30 20 28 L66 26 Q76 26 78 36 L80 112 L8 112 Z"/>
+<path class="t-glas" d="M12 40 Q13 33 20 32 L40 31 L40 62 L12 62 Z"/>
+<rect class="t-body" x="2" y="44" width="5" height="14" rx="2"/>
+<path class="t-lijn" d="M44 32 L44 108 M14 96 L76 96"/>
+<rect class="t-body" x="8" y="106" width="20" height="10" rx="2"/>
+<rect class="t-body" x="80" y="100" width="352" height="10" rx="2"/>
+<path class="t-lijn" d="M96 100 L96 54 L432 54 M96 70 L432 70 M150 54 L150 100 M210 54 L210 100 M270 54 L270 100 M330 54 L330 100 M390 54 L390 100"/>
+<path class="t-body" d="M100 54 L430 54 L430 50 L100 50 Z"/>
+<path class="t-lijn" d="M432 100 L438 116 M432 54 L438 70"/>
+<rect class="t-body" x="424" y="112" width="12" height="6" rx="1.5"/>
+<circle class="t-wiel" cx="40" cy="126" r="12"/><circle class="t-naaf" cx="40" cy="126" r="4"/>
+<circle class="t-wiel" cx="104" cy="126" r="12"/><circle class="t-naaf" cx="104" cy="126" r="4"/>
+<circle class="t-wiel" cx="306" cy="126" r="12"/><circle class="t-naaf" cx="306" cy="126" r="4"/>
+<circle class="t-wiel" cx="334" cy="126" r="12"/><circle class="t-naaf" cx="334" cy="126" r="4"/>
+<circle class="t-wiel" cx="362" cy="126" r="12"/><circle class="t-naaf" cx="362" cy="126" r="4"/>`;
+export function truckDiagram(markeringen, opt = {}) {
+  const M = markeringen.map((m, i) => {
+    const [x, y] = TPUNT[m.gebied] || [250, 88]; const dx = markeringen.slice(0, i).filter(o => (TPUNT[o.gebied] || [])[0] === x && (TPUNT[o.gebied] || [])[1] === y).length * 16;
+    const kleur = m.bron === 'claim' ? 'var(--dg-claim)' : 'var(--dg-eerder)';
+    return `<g class="m"><circle cx="${x + dx}" cy="${y}" r="10" fill="${kleur}" stroke="var(--bg)" stroke-width="1.5"/><text x="${x + dx}" y="${y}">${m.nr}</text><title>${GEBIEDEN[m.gebied] || m.gebied}</title></g>`;
+  }).join('');
+  return `<svg viewBox="0 0 440 142" width="${opt.width || '100%'}" role="img" aria-label="${opt.label || 'Autotransporter van opzij met de schadeplekken'}" style="max-width:100%;height:auto">${TSTYLE}${TDELEN}${M}</svg>`;
+}

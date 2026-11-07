@@ -613,3 +613,29 @@
   .kv dt{color:var(--faint)}
   @container bsp (max-width:760px){ .tv-scroll{margin:0 12px} .list-i{padding:10px 14px} .stepbar span{font-size:0} .stepbar span.cur{font-size:12px;flex:2} }
 }
+/* ---------- ronde 4: soorten schade, ons wagenpark, telematica, het pakket ---------- */
+.bsp{
+  --c-werkplaats:#0D9488;--b-werkplaats:#E6F6F4;--t-werkplaats:#115E59;
+  &[data-theme=dark]{--b-werkplaats:rgba(13,148,136,.22);--t-werkplaats:#5EEAD4}
+  .pill.s-werkplaats{background:var(--b-werkplaats);color:var(--t-werkplaats)}
+  .pill.s-werkplaats:not(.plain){background:transparent;color:var(--text2)}
+  .pill.s-werkplaats:not(.plain)::before{background:var(--c-werkplaats)}
+  .dot.s-werkplaats{background:var(--c-werkplaats)}
+  .catlbl{font-size:12.5px;color:var(--muted);white-space:nowrap}
+  .catk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);white-space:nowrap}
+  .catk .ic{width:14px;height:14px;color:var(--faint)}
+  .truckw{background:var(--surface);border-radius:8px;padding:12px 12px 8px}
+  .gpsz{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:8px;background:var(--surface);border-left:3px solid var(--faint)}
+  .gpsz.raak{border-left-color:var(--warn)}.gpsz.mis{border-left-color:var(--ok)}
+  .gpsz b{font-size:14px}.gpsz span{font-size:12.5px;color:var(--muted)}
+  .tbl.plain tr.hl td{background:var(--surface);font-weight:600}
+  .pakket{display:flex;flex-direction:column;gap:2px}
+  .pakket li{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:3px 0}
+  .pakket li .ic{width:15px;height:15px;color:var(--faint)}
+  .pakket li.ok{color:var(--text)}.pakket li.ok .ic{color:var(--ok)}
+  .vl-kop{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .vl-kop .truckw{flex:1;min-width:280px;max-width:560px}
+  .soortbar{display:flex;flex-direction:column;gap:10px}
+  .soortbar .r1{display:flex;justify-content:space-between;font-size:13px;gap:10px}
+  .soortbar .r1 b{font-weight:600}
+}

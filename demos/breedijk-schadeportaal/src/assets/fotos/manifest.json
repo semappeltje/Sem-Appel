@@ -66,19 +66,6 @@
    "kentekenLeesbaar": false
   },
   {
-   "slug": "kia-niro",
-   "merk": "Kia",
-   "model": "Niro",
-   "kleur": "groen",
-   "bestand": "auto/kia-niro.webp",
-   "bron": "https://commons.wikimedia.org/wiki/File:Kia_Niro_(SG2)_PHEV_Leonberg_2022_1X7A0474.jpg",
-   "titel": "Kia Niro (SG2) PHEV Leonberg 2022 1X7A0474.jpg",
-   "maker": "Alexander Migl",
-   "licentie": "CC BY-SA 4.0",
-   "licentieUrl": "https://creativecommons.org/licenses/by-sa/4.0",
-   "kentekenLeesbaar": false
-  },
-  {
    "slug": "kia-picanto",
    "merk": "Kia",
    "model": "Picanto",
@@ -92,6 +79,19 @@
    "kentekenLeesbaar": false
   }
  ],
- "schade": [],
+ "schade": [
+  {
+   "bestand": "schade/01-bumper_voor-barst.webp",
+   "gebied": "bumper_voor",
+   "soort": "barst",
+   "ernst": 3,
+   "omschrijving": "De voorbumper is bij de hoek losgeduwd en gescheurd langs het spatbord, en met tape vastgezet.",
+   "bron": "https://commons.wikimedia.org/wiki/File:Jetta_Mk._IV_Bumper_Damage.jpg",
+   "titel": "Jetta Mk. IV Bumper Damage.jpg",
+   "maker": "TWikisto",
+   "licentie": "Public domain",
+   "licentieUrl": "https://commons.wikimedia.org/wiki/Commons:Public_domain"
+  }
+ ],
  "overzicht": []
 }

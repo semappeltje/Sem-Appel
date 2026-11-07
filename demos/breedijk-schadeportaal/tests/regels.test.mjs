@@ -74,11 +74,35 @@ test('gesprekSignaal: drie in zeven dagen is een gesprek, afgewezen telt niet, o
   assert.equal(gesprekSignaal([s(1), s(3), { status: 'afgewezen', datumClaim: dag(2026, 11, 5) }], inst, nu), null);
   const oud = [1, 2, 3].map(d => ({ status: 'erkend', datumClaim: dag(2026, 3, d) }));
   assert.equal(gesprekSignaal(oud, inst, nu), null);
-  const vijf = [1, 15, 30, 45, 60].map(d => ({ status: 'erkend', datumClaim: nu - d * 86400000 }));
-  assert.equal(gesprekSignaal(vijf, inst, nu).niveau, 'signaal');
+  const zes = [1, 12, 24, 36, 48, 60].map(d => ({ status: 'erkend', datumClaim: nu - d * 86400000 }));
+  assert.equal(gesprekSignaal(zes, inst, nu).niveau, 'signaal');
+  assert.equal(gesprekSignaal(zes.slice(1), inst, nu), null);
 });
 test('antwoordTermijn en csv', () => {
   const t = antwoordTermijn({ ontvangen: dag(2026, 10, 20) }, inst, dag(2026, 11, 6));
   assert.equal(t.wacht, 13); assert.ok(t.over);
   assert.equal(csv([{ a: 'x;y', b: 2 }], [{ n: 'A', k: 'a' }, { n: 'B', k: r => r.b * 2 }]), 'A;B\n"x;y";4');
+});
+
+import { beoordeelVoertuig, besluitenVoor, CATEGORIEN, teltVoorChauffeur } from '../src/regels.js';
+test('aanrijschade eigen voertuig: werkplaats onder de grens, casco erboven, eerst het formulier', () => {
+  const c = { categorie: 'eigen', gebied: 'oplegger_r', soort: 'schaafplek', fase: 'terrein', bedragGevraagd: 900, melding: { door: 'chauffeur', uurNa: 1 }, formulier: { status: 'ontvangen', op: dag(2026, 11, 2) } };
+  assert.equal(beoordeelVoertuig(c, null, inst, dag(2026, 11, 6)).advies.besluit, 'werkplaats');
+  assert.equal(beoordeelVoertuig({ ...c, bedragGevraagd: 9800 }, null, inst, dag(2026, 11, 6)).advies.besluit, 'casco');
+  assert.equal(beoordeelVoertuig({ ...c, formulier: { status: 'niet' } }, null, inst, dag(2026, 11, 6)).advies.besluit, 'formulier');
+  const B = beoordeelVoertuig({ ...c, formulier: { status: 'niet' } }, null, inst, dag(2026, 11, 6)); assert.equal(B.signalen.find(s => s.id === 'formulier').actie.act, 'formulierVragen');
+});
+test('aanrijschade derde: de telematica beslist of het ons voertuig was; zelf geen aansprakelijkheid erkennen', () => {
+  const c = { categorie: 'derde', gebied: 'bumper_voor', soort: 'deuk', fase: 'rijden', bedragGevraagd: 1240, melding: { door: 'tegenpartij' }, formulier: { status: 'ontvangen', op: dag(2026, 11, 3) }, gps: { gevonden: true, voertuig: 'BT-23', tijd: dag(2026, 11, 3, 14), afstand: 18, snelheid: 4, richting: 'achteruit' }, tegenpartij: { wat: 'geparkeerd', aanwezig: false }, bewijsTegenpartij: 'camera' };
+  const B = beoordeelVoertuig(c, null, inst, dag(2026, 11, 6)); assert.equal(B.advies.besluit, 'wa'); assert.ok(B.signalen.some(s => s.id === 'aansprakelijkheid'));
+  assert.equal(beoordeelVoertuig({ ...c, gps: { ...c.gps, gevonden: false, afstand: 23000 } }, null, inst, dag(2026, 11, 6)).advies.besluit, 'afwijzen');
+  assert.equal(beoordeelVoertuig({ ...c, bedragGevraagd: 300 }, null, inst, dag(2026, 11, 6)).advies.besluit, 'erkennen');
+  assert.equal(beoordeelVoertuig({ ...c, formulier: { status: 'gevraagd', op: dag(2026, 11, 4) } }, null, inst, dag(2026, 11, 6)).advies.besluit, 'formulier');
+});
+test('besluiten per soort, eigen kosten per polis, diverse schade telt niet voor de chauffeur', () => {
+  assert.deepEqual(besluitenVoor('eigen').map(x => x[0]), ['werkplaats', 'extern', 'casco', 'formulier', 'expert']);
+  assert.ok(besluitenVoor('derde').some(x => x[0] === 'wa') && !besluitenVoor('derde').some(x => x[0] === 'casco'));
+  assert.equal(Object.keys(CATEGORIEN).length, 4);
+  assert.equal(eigenKosten('verzekeraar', 9800, inst, 'eigen'), inst.cascoEigenRisico); assert.equal(eigenKosten('verzekeraar', 2400, inst, 'derde'), inst.waEigenRisico); assert.equal(eigenKosten('werkplaats', 640, inst, 'eigen'), 640);
+  assert.ok(!teltVoorChauffeur({ categorie: 'divers', status: 'erkend' })); assert.ok(teltVoorChauffeur({ categorie: 'eigen', status: 'werkplaats' }));
 });

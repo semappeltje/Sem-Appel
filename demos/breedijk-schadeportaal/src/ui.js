@@ -12,6 +12,7 @@ import * as chauffeurs from './views/chauffeurs.js';
 import * as opdrachtgevers from './views/opdrachtgevers.js';
 import * as rapporten from './views/rapporten.js';
 import * as dashboard from './views/dashboard.js';
+import * as wagenpark from './views/wagenpark.js';
 import * as instellingen from './views/instellingen.js';
 import { nieuweMelding } from './views/nieuw.js';
 
@@ -23,9 +24,11 @@ const VIEWS = {
   chauffeur: { n: 'Chauffeur', el: 'v-chauffeurs', mod: chauffeurs, hidden: true, parent: 'chauffeurs' },
   opdrachtgevers: { n: 'Opdrachtgevers', ic: 'building', el: 'v-opdrachtgevers', mod: opdrachtgevers, grp: 'Mensen en klanten', key: '4' },
   opdrachtgever: { n: 'Opdrachtgever', el: 'v-opdrachtgevers', mod: opdrachtgevers, hidden: true, parent: 'opdrachtgevers' },
-  dashboard: { n: 'Dashboard', ic: 'grid', el: 'v-dashboard', mod: dashboard, grp: 'Cijfers', key: '5' },
-  rapporten: { n: 'Rapporten', ic: 'chart', el: 'v-rapporten', mod: rapporten, grp: 'Cijfers', key: '6' },
-  instellingen: { n: 'Instellingen', ic: 'settings', el: 'v-instellingen', mod: instellingen, grp: 'Cijfers', key: '7' },
+  wagenpark: { n: 'Wagenpark', ic: 'truck', el: 'v-wagenpark', mod: wagenpark, grp: 'Mensen en klanten', key: '5' },
+  voertuig: { n: 'Voertuig', el: 'v-wagenpark', mod: wagenpark, hidden: true, parent: 'wagenpark' },
+  dashboard: { n: 'Dashboard', ic: 'grid', el: 'v-dashboard', mod: dashboard, grp: 'Cijfers', key: '6' },
+  rapporten: { n: 'Rapporten', ic: 'chart', el: 'v-rapporten', mod: rapporten, grp: 'Cijfers', key: '7' },
+  instellingen: { n: 'Instellingen', ic: 'settings', el: 'v-instellingen', mod: instellingen, grp: 'Cijfers', key: '8' },
 };
 const BOTTOM = ['overzicht', 'schades', 'chauffeurs', 'dashboard', 'instellingen'];
 
@@ -82,10 +85,10 @@ export function createUI(app, D, inst, store, acties, cfg, importen) {
     if (!q || q.trim().length < 2) { sluitPop(); return; }
     const tb = document.getElementById('topbar'); const r = z.getBoundingClientRect(); const rr = root.getBoundingClientRect();
     pop.style.left = `${r.left - rr.left}px`; pop.style.top = `${r.bottom - rr.top + 6}px`; pop.style.width = `${Math.max(300, r.width)}px`;
-    pop.innerHTML = R.length ? `<div class="ph2">${R.length} ${R.length === 1 ? 'treffer' : 'treffers'}; pijltjes en Enter</div>${R.map((x, i) => `<button type="button" class="pi ${i === 0 ? 'on' : ''}" data-soort="${x.soort}" data-id="${esc(x.id)}">${ico(x.soort === 'schade' ? 'file' : x.soort === 'chauffeur' ? 'user' : x.soort === 'opdrachtgever' ? 'building' : 'car')}<span class="t">${esc(x.titel)}</span><span class="k">${x.soort === 'rit' ? 'rit' : x.soort}</span><span class="s">${esc(x.sub)}</span></button>`).join('')}` : `<div class="empty"><b>Niets gevonden</b>Zoek op kenteken (met of zonder streepjes), dossiernummer, chauffeur of opdrachtgever.</div>`;
+    pop.innerHTML = R.length ? `<div class="ph2">${R.length} ${R.length === 1 ? 'treffer' : 'treffers'}; pijltjes en Enter</div>${R.map((x, i) => `<button type="button" class="pi ${i === 0 ? 'on' : ''}" data-soort="${x.soort}" data-id="${esc(x.id)}">${ico(x.soort === 'schade' ? 'file' : x.soort === 'chauffeur' ? 'user' : x.soort === 'opdrachtgever' ? 'building' : x.soort === 'voertuig' ? 'truck' : 'car')}<span class="t">${esc(x.titel)}</span><span class="k">${x.soort === 'rit' ? 'rit' : x.soort}</span><span class="s">${esc(x.sub)}</span></button>`).join('')}` : `<div class="empty"><b>Niets gevonden</b>Zoek op kenteken (met of zonder streepjes), dossiernummer, chauffeur of opdrachtgever.</div>`;
     pop.hidden = false; z.setAttribute('aria-expanded', 'true'); void tb;
-    pop.querySelectorAll('.pi').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); const { soort, id } = b.dataset; sluitPop(); z.value = ''; if (soort === 'schade') ctx.go(`schade/${id}`); else if (soort === 'chauffeur') ctx.go(`chauffeur/${id}`); else if (soort === 'opdrachtgever') ctx.go(`opdrachtgever/${id}`); else if (soort === 'rit') ctx.nieuweMelding({ rit: id }); }));
-    pop.querySelectorAll('.pi').forEach(b => b.addEventListener('click', () => { const { soort, id } = b.dataset; sluitPop(); z.value = ''; if (soort === 'schade') ctx.go(`schade/${id}`); else if (soort === 'chauffeur') ctx.go(`chauffeur/${id}`); else if (soort === 'opdrachtgever') ctx.go(`opdrachtgever/${id}`); else if (soort === 'rit') ctx.nieuweMelding({ rit: id }); }));
+    pop.querySelectorAll('.pi').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); const { soort, id } = b.dataset; sluitPop(); z.value = ''; if (soort === 'schade') ctx.go(`schade/${id}`); else if (soort === 'chauffeur') ctx.go(`chauffeur/${id}`); else if (soort === 'opdrachtgever') ctx.go(`opdrachtgever/${id}`); else if (soort === 'voertuig') ctx.go(`voertuig/${id}`); else if (soort === 'rit') ctx.nieuweMelding({ rit: id }); }));
+    pop.querySelectorAll('.pi').forEach(b => b.addEventListener('click', () => { const { soort, id } = b.dataset; sluitPop(); z.value = ''; if (soort === 'schade') ctx.go(`schade/${id}`); else if (soort === 'chauffeur') ctx.go(`chauffeur/${id}`); else if (soort === 'opdrachtgever') ctx.go(`opdrachtgever/${id}`); else if (soort === 'voertuig') ctx.go(`voertuig/${id}`); else if (soort === 'rit') ctx.nieuweMelding({ rit: id }); }));
   }
   function sluitPop() { const pop = document.getElementById('popover'); pop.hidden = true; pop.innerHTML = ''; const z = document.getElementById('zoek'); if (z) z.setAttribute('aria-expanded', 'false'); }
 

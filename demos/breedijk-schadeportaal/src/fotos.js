@@ -24,8 +24,10 @@ const kant = g => g.replace(/_(lv|la|rv|ra|l|r)$/, '');
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 export function schadeFoto(gebied, soort, sleutel = '') {
   if (!SCHADE.length) return null;
-  const k = [SCHADE.filter(s => s.gebied === gebied && s.soort === soort), SCHADE.filter(s => kant(s.gebied) === kant(gebied) && s.soort === soort), SCHADE.filter(s => kant(s.gebied) === kant(gebied)), SCHADE.filter(s => s.soort === soort), SCHADE].find(L => L.length);
-  return k[hash(sleutel + gebied + soort) % k.length];
+  // alleen een foto van dezelfde plek (links of rechts maakt voor een close-up weinig uit); anders geen foto, zodat niet
+  // elk dossier dezelfde schade laat zien
+  const k = [SCHADE.filter(s => s.gebied === gebied && s.soort === soort), SCHADE.filter(s => kant(s.gebied) === kant(gebied))].find(L => L.length);
+  return k ? k[hash(sleutel + gebied + soort) % k.length] : null;
 }
 export function overzichtFoto(zijde, sleutel = '') {
   if (!OVERZICHT.length) return null;

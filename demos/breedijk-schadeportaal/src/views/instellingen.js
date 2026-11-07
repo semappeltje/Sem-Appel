@@ -20,6 +20,12 @@ export function render(el, ctx) {
         ${veld('antwoordWerkdagen', 'Ons antwoord binnen (werkdagen)', 'Daarna kleurt het dossier rood op het overzicht.', 'min="1" step="1"')}
         ${veld('normUurtarief', 'Gangbaar uurtarief (euro)', 'De norm bij het toetsen van een calculatie. Schatting; vraag het tarief van de verzekeraar of een expertisebureau.', 'min="0" step="1"')}
       </div></div>
+      <div class="card"><div class="card-h"><h2>Aanrijschade</h2><span class="mut">schattingen tot de polis er is</span></div><div class="card-b grid g2">
+        ${veld('cascoGrens', 'Grens naar de cascoverzekeraar (euro)', 'Daaronder herstelt onze werkplaats het. Breedijk: negen van de tien in de eigen werkplaats; een zijkant van richting 10.000 naar de verzekering.', 'min="0" step="100"')}
+        ${veld('cascoEigenRisico', 'Eigen risico casco (euro)', 'Per gebeurtenis, voor ons eigen voertuig. Schatting; staat in de polis.', 'min="0" step="50"')}
+        ${veld('waEigenRisico', 'Eigen risico WA (euro)', 'Bij schade aan een derde. Schatting; staat in de polis.', 'min="0" step="50"')}
+        ${veld('werkplaatsUurtarief', 'Uurtarief werkplaats (euro)', 'Voor de raming van een herstel in onze eigen werkplaats. Schatting.', 'min="0" step="1"')}
+      </div></div>
       <div class="stack" style="gap:16px">
         <div class="card"><div class="card-h"><h2>De regel voor het gesprek</h2></div><div class="card-b stack">
           <div class="grid g2">${veld('gesprekAantal', 'Schades', 'Uit het gesprek: drie.', 'min="1" step="1"')}${veld('gesprekDagen', 'Binnen (dagen)', 'Uit het gesprek: een week.', 'min="1" step="1"')}${veld('signaalAantal', 'Tweede signaal: schades', 'Een zachter signaal over een langere periode.', 'min="1" step="1"')}${veld('signaalDagen', 'Binnen (dagen)', '', 'min="1" step="1"')}</div>

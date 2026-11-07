@@ -6,7 +6,7 @@
 // De vorm van elk record is die waarin echte data past: een voertuig heeft de velden van de RDW open data, een rit
 // die van een TMS-order met inspecties in de opbouw van de AIAG/ECG-schadecodes, een claim die van een mail met
 // uitgelezen velden en een calculatie. Zie ONTWERP.md, "Datamodel".
-import { GEBIEDEN, SOORTEN, DAG, kentekenToon, fmtEur, fmtDatumJ, zelfdePlek } from './regels.js';
+import { GEBIEDEN, SOORTEN, DAG, TEGENPARTIJ, kentekenToon, fmtEur, fmtDatumJ, fmtDatumTijd, zelfdePlek } from './regels.js';
 
 // ---------- toeval met een vaste seed ----------
 function mulberry(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -213,7 +213,8 @@ function maakClaims(ritten, chauffeurs) {
   // 4) meldingen van chauffeurs zelf, zonder claim van de opdrachtgever (de voorkant van het proces)
   for (const dg of [0, 1, 4]) { const r = R.k(ritten.filter(x => Math.abs(x.aflever - d(dg)) < DAG && !gebruikt.has(x.kenteken))); if (!r) continue; gebruikt.add(r.kenteken); L.push(maakClaim(R, r, kMap.get(r.k), 0, false, null, null, 'chauffeur')); }
   // twee dossiers die te lang liggen (het verhaal van "over de termijn" op het overzicht)
-  const laat = L.filter(c => c.rit && c.bron === 'mail' && c.ontvangen < NU - 15 * DAG && c.ontvangen > NU - 24 * DAG && c.verhaal !== 'geen_rit').slice(0, 2);
+  for (const c of maakVoertuigschades(ritten, chauffeurs)) L.push(c);
+  const laat = L.filter(c => c.categorie === 'lading' && c.rit && c.bron === 'mail' && c.ontvangen < NU - 15 * DAG && c.ontvangen > NU - 24 * DAG && c.verhaal !== 'geen_rit').slice(0, 2);
   for (const c of laat) { c.status = 'onderzoek'; c.behandelaar = 'Ruben'; c.besluit = null; c.bedragVoorstel = null; c.beslotenOp = null; c.bedragUitkomst = null; c.log = c.log.slice(0, 3); }
   // nummeren op datum van ontvangst
   L.sort((a, b) => a.ontvangen - b.ontvangen); L.forEach((c, n) => { const jaar = new Date(c.ontvangen).getFullYear(); c.id = `S-${jaar}-${String(n + (jaar === 2026 ? 118 : 0)).padStart(4, '0')}`; });
@@ -243,7 +244,7 @@ function maakClaim(R, r, k, seq, oud, datumOntvangen, losVoertuig, bron, forceer
   const heeftCalc = bron === 'chauffeur' ? false : R.p(0.78);
   const cal = heeftCalc ? calculatie(R, gebied, soort, ernst, v) : null;
   const bijlagen = []; const nFoto = bron === 'chauffeur' ? R.i(2, 4) : R.i(1, 4); for (let i = 1; i <= nFoto; i++) bijlagen.push({ soort: 'foto', naam: `IMG_${R.i(1000, 9999)}.jpg`, kb: R.i(900, 4200) }); if (cal) bijlagen.push({ soort: 'calculatie', naam: `calculatie-${kentekenToon(v.kenteken).replace(/-/g, '')}.pdf`, kb: R.i(80, 420) });
-  const c = { seq, bron: bron || 'mail', verhaal, kenteken: v.kenteken, voertuig: v, opdrachtgever: k, rit: r ? r.id : null, chauffeur: dader ? dader.id : null, chauffeurNaam: dader ? dader.naam : (r && fase === 'terrein' ? 'terrein Barneveld' : null), vestiging: r ? (fase === 'terrein' ? 'Barneveld' : r.vestiging) : null, gebied, soort, ernst, fase, datumRit, datumOphaal: r ? r.ophaal : null, datumClaim: ontvangen, ontvangen, calculatie: cal, bedragGevraagd: cal ? cal.totaal : null, bijlagen, extern: `${k.id.replace('K-', 'CL')}-${R.i(2400, 9800)}`, fotosClaimTonenSchade: verhaal === 'eerder' ? R.p(0.6) : true };
+  const c = { seq, categorie: 'lading', bron: bron || 'mail', verhaal, kenteken: v.kenteken, voertuig: v, opdrachtgever: k, rit: r ? r.id : null, chauffeur: dader ? dader.id : null, chauffeurNaam: dader ? dader.naam : (r && fase === 'terrein' ? 'terrein Barneveld' : null), vestiging: r ? (fase === 'terrein' ? 'Barneveld' : r.vestiging) : null, gebied, soort, ernst, fase, datumRit, datumOphaal: r ? r.ophaal : null, datumClaim: ontvangen, ontvangen, calculatie: cal, bedragGevraagd: cal ? cal.totaal : null, bijlagen, extern: `${k.id.replace('K-', 'CL')}-${R.i(2400, 9800)}`, fotosClaimTonenSchade: verhaal === 'eerder' ? R.p(0.6) : true };
   if (oudeRit) c._oudeRit = oudeRit;
   c.onderwerp = bron === 'chauffeur' ? `Schademelding chauffeur ${r.chauffeurNaam}: ${kentekenToon(v.kenteken)}` : k.stijl === 'portaal' ? `[${k.naam}] Claim ${c.extern} ${kentekenToon(v.kenteken)}` : k.stijl === 'formeel' ? `Aansprakelijkstelling transportschade ${kentekenToon(v.kenteken)}, dossier ${c.extern}` : `Schade ${v.merk} ${v.model} ${kentekenToon(v.kenteken)}`;
   c.mail = bron === 'chauffeur' ? `Melding uit de chauffeursapp.\n\nBij het ${fase === 'laden' ? 'laden' : fase === 'terrein' ? 'rangeren op het terrein' : 'lossen'} ${GEBIEDEN[gebied].toLowerCase()} geraakt: ${SOORTEN[soort].toLowerCase()}. Direct foto's gemaakt en de ontvanger laten tekenen met voorbehoud. Positie ${r.positie}, ${r.truck}.` : mailTekst(R, k, c, v);
@@ -269,11 +270,153 @@ function maakClaim(R, r, k, seq, oud, datumOntvangen, losVoertuig, bron, forceer
   return c;
 }
 
+// ---------- ons wagenpark ----------
+// Ruim veertig autotransporters (trekker met een oplegger met twee dekken; Breedijk noemt "ruim 40 transporters" en
+// opleggers met een Kässbohrer Supertrans-opbouw, zoek). Nummers, kentekens, bouwjaren en kilometerstanden zijn
+// gesimuleerd. Een vrachtwagen heeft een kenteken met een B in de lettergroep, een oplegger een kenteken dat met O begint.
+const TREKKERS = [['Volvo', 'FM 460', 30], ['DAF', 'XF 480', 30], ['Scania', 'R 450', 25], ['Mercedes-Benz', 'Actros 1848', 15]];
+// De werkplaats en de planning melden overdag, op een werkdag (07:00 tot 17:00).
+function binnenWerktijd(t, R) {
+  const d = new Date(t); const u = d.getHours();
+  if (u < 7) d.setHours(7, R.i(0, 59)); else if (u >= 17) { d.setDate(d.getDate() + 1); d.setHours(7, R.i(10, 59)); }
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+function maakVloot(chauffeurs) {
+  const R = rng('vloot'); const L = []; const L2 = LETTERS; const ltr = () => L2[R.i(0, L2.length - 1)]; const cijfer = () => String(R.i(0, 9));
+  const vest = Object.keys(VESTIGINGEN);
+  for (let n = 11; n <= 52; n++) {
+    const m = R.w(TREKKERS.map(x => [x, x[2]])); const v = R.w(vest.map(k => [k, VESTIGINGEN[k].aandeel]));
+    const trekker = { id: `BT-${n}`, soort: 'trekker', merk: m[0], model: m[1], kenteken: `${cijfer()}${cijfer()}B${ltr()}${ltr()}${cijfer()}`, bouwjaar: 0, km: 0, massa: R.i(7400, 8200), vestiging: VESTIGINGEN[v].n, oplegger: `BO-${n}`, reserve: n > 46 };
+    trekker.bouwjaar = R.i(2017, 2025); trekker.km = Math.round((2026.85 - trekker.bouwjaar) * R.i(95, 125)) * 1000; // 95.000 tot 125.000 km per jaar (schatting)
+    const oplegger = { id: `BO-${n}`, soort: 'oplegger', merk: R.p(0.7) ? 'Kässbohrer' : 'Lohr', model: '', kenteken: `O${ltr()}${cijfer()}${cijfer()}${ltr()}${ltr()}`, bouwjaar: R.i(2015, 2025), km: null, massa: R.i(8600, 9800), vestiging: trekker.vestiging, trekker: trekker.id };
+    oplegger.model = oplegger.merk === 'Kässbohrer' ? 'Supertrans' : 'Eurolohr';
+    L.push(trekker, oplegger);
+  }
+  return L;
+}
+export const EIGEN = { id: 'K-00', naam: 'Breedijk, eigen materieel', soort: 'eigen', plaats: '', btwAftrek: true, stijl: 'kort', rol: 'chauffeur', gewicht: 0, eerder: 0 };
+
+// ---------- aanrijschade en diverse schade ----------
+// Wat Breedijk vertelde (7 november): aanrijschade aan de eigen vrachtwagen (een paal, een stoeprand, bij het inparkeren
+// in de vakken langs de combinatie ernaast; negen van de tien herstelt de eigen werkplaats, een geschuurde zijkant van
+// "richting de 10.000" gaat naar de verzekering), aanrijschade aan een derde (achteruit tegen een geparkeerde auto; soms
+// merkt de chauffeur het niet en komt het via camerabeelden van de tegenpartij) en diverse schade (booster, sleutel;
+// "bijna nooit"). Aantallen en bedragen zijn een schatting.
+const OPL_GEBIEDEN = ['oplegger_l', 'oplegger_r', 'bovendek', 'oprijplaten', 'achterlicht'];
+const EIGEN_KANS = [['oplegger_r', 14], ['oplegger_l', 12], ['zijscherm_r', 8], ['zijscherm_l', 7], ['bumper_voor', 8], ['cabine_voor', 6], ['spiegel_r', 8], ['spiegel_l', 6], ['oprijplaten', 9], ['achterlicht', 7], ['band', 8], ['cabine_r', 4], ['cabine_l', 3], ['bovendek', 2]];
+function eigenZin(R, fase, gebied, plaats, klant) {
+  const g = GEBIEDEN[gebied].toLowerCase();
+  if (fase === 'terrein') return R.k([`Bij het inparkeren in de vakken op het terrein in ${plaats} te vroeg ingestuurd en met de ${g} langs de combinatie ernaast geschuurd.`, `Bij het rangeren op het terrein in ${plaats} achteruit tegen een lichtmast; ${g} beschadigd.`, `Op het terrein in ${plaats} bij het keren de ${g} tegen de paal van de slagboom.`]);
+  if (fase === 'rijden') return gebied === 'band' ? R.k([`Bij het afslaan in ${plaats} de stoeprand geraakt; band en velg beschadigd.`, `Op een rotonde bij ${plaats} over de rand gereden; band rechtsachter kapot.`]) : R.k([`In ${plaats} in een smalle straat langs een paaltje; ${g} beschadigd.`, `Bij ${plaats} een overhangende tak geraakt; ${g} beschadigd.`, `Bij het keren in ${plaats} tegen een verkeersbord; ${g} beschadigd.`]);
+  return R.k([`Bij het ${fase === 'laden' ? 'laden' : 'lossen'} bij ${klant} met de ${g} tegen het hek van het terrein.`, `Bij het ${fase === 'laden' ? 'laden' : 'lossen'} bij ${klant} achteruit gestoken en de ${g} tegen een betonnen paal.`]);
+}
+function maakVoertuigschades(ritten, chauffeurs) {
+  const R = rng('voertuigschades'); const L = []; const vloot = maakVloot(chauffeurs); const trekkers = vloot.filter(v => v.soort === 'trekker' && !v.reserve); const vMap = new Map(vloot.map(v => [v.id, v]));
+  const chW = chauffeurs.map(ch => [ch, ch.risico]); let wo = 2400, tp = 1;
+  const dagMet = dg => { let t = d(dg, R.i(6, 18), R.i(0, 59)); while (isWeekend(t)) t -= DAG; return t; };
+  const ritBij = (truck, t) => ritten.find(r => r.truck === truck.id && Math.abs(r.ophaal - t) < 0.8 * DAG) || ritten.find(r => r.truck === truck.id && r.ophaal <= t && r.aflever >= t - 3600000) || null;
+  const logboek = (c, regels) => { c.log = regels.map(([t, tekst, wie]) => ({ t, tekst, wie: wie || 'systeem' })); };
+  const statusNaarLeeftijd = (c, moment, opties) => {
+    const dagen = (NU - c.ontvangen) / DAG; const beh = R.k(['Ilse', 'Ruben']); c.behandelaar = null; c.besluit = null; c.bedragVoorstel = null; c.beslotenOp = null; c.bedragUitkomst = null;
+    const log = [[c.ontvangen, c.melding.door === 'chauffeur' ? 'Melding van de chauffeur uit de app' : c.melding.door === 'tegenpartij' ? `Mail ontvangen in schade@ van ${c.opdrachtgever.naam}` : 'Schade gevonden in de werkplaats en gemeld']];
+    if (c.rit) log.push([c.ontvangen + 90000, `Rit ${c.rit} gekoppeld op voertuig en moment (automatisch)`]);
+    if (c.gps) log.push([c.ontvangen + 120000, c.gps.gevonden ? `Telematica: ${c.gps.voertuig} was op ${c.gps.afstand} m van de plek (automatisch)` : 'Telematica: geen voertuig van ons in de buurt (automatisch)']);
+    if (dagen < opties.nieuwTot) { c.status = 'nieuw'; c.formulier.status = c.melding.door === 'chauffeur' && R.p(0.5) ? 'ontvangen' : 'niet'; if (c.formulier.status === 'ontvangen') c.formulier.op = c.ontvangen + R.i(1, 6) * 3600000; }
+    else if (dagen < opties.openTot) { c.behandelaar = beh; log.push([c.ontvangen + R.i(2, 20) * 3600000, `In onderzoek genomen door ${beh}`, beh]); const k = opties.open(); c.status = k.status; c.besluit = k.besluit || null; c.formulier.status = k.formulier; if (k.formulier !== 'niet') { c.formulier.op = c.ontvangen + R.i(4, 30) * 3600000; log.push([c.formulier.op, k.formulier === 'gevraagd' ? `Schadeformulier gevraagd aan ${c.chauffeurNaam || 'de chauffeur'}` : `Schadeformulier ontvangen van ${c.chauffeurNaam || 'de chauffeur'}`, k.formulier === 'gevraagd' ? beh : 'systeem']); } if (k.log) { c.beslotenOp = c.ontvangen + R.i(1, 4) * DAG; log.push([c.beslotenOp, k.log, beh]); c.bedragUitkomst = k.besluit === 'afgewezen' ? 0 : c.bedragGevraagd; } }
+    else { c.behandelaar = beh; const k = opties.oud(); c.status = k.status; c.besluit = k.besluit; c.beslotenOp = c.ontvangen + R.i(1, 6) * DAG; c.bedragUitkomst = k.besluit === 'afgewezen' ? 0 : c.bedragGevraagd; log.push([c.ontvangen + R.i(2, 20) * 3600000, `In onderzoek genomen door ${beh}`, beh], [c.beslotenOp, k.log, beh]); if (c.chauffeur && c.categorie !== 'divers') { c.formulier.status = 'ontvangen'; c.formulier.op = c.ontvangen + R.i(4, 40) * 3600000; log.push([c.formulier.op, `Schadeformulier ontvangen van ${c.chauffeurNaam}`]); } if (k.slot) log.push([c.beslotenOp + R.i(4, 25) * DAG, k.slot]); }
+    if (c.werkorder && (c.status === 'werkplaats' || c.status === 'gesloten') && c.besluit === 'werkplaats') { c.werkorder.status = c.status === 'gesloten' ? 'klaar' : R.k(['gepland', 'in reparatie']); c.werkorder.start = (c.beslotenOp || c.ontvangen) + DAG; }
+    else if (c.werkorder && c.besluit !== 'werkplaats') { if (c.besluit === 'verzekeraar') c.werkorder.status = c.status === 'gesloten' ? 'klaar, via de verzekeraar' : 'wacht op de expert'; else c.werkorder = null; }
+    logboek(c, log.sort((a, b) => a[0] - b[0]));
+  };
+  // ---- aanrijschade eigen voertuig: ongeveer zes per maand
+  for (let i = 0; i < 78; i++) {
+    const dg = R.p(0.09) ? R.i(0, 20) : R.i(21, 364); const t = dagMet(dg); const truck = R.k(trekkers); const r = ritBij(truck, t);
+    const ch = r ? chauffeurs.find(x => x.id === r.ch) : R.w(chW);
+    const fase = R.w([['terrein', 40], ['rijden', 30], ['laden', 15], ['lossen', 15]]);
+    const gebied = R.w(EIGEN_KANS); const soort = gebied === 'band' ? 'stoeprand' : gebied.startsWith('spiegel') ? R.k(['gebroken', 'kras']) : R.w([['deuk', 35], ['schaafplek', 30], ['kras', 25], ['gebroken', 10]]);
+    const groot = R.p(0.13); const bedrag = groot ? Math.round(R.i(5200, 14500) / 50) * 50 : Math.round((R.p(0.65) ? R.i(250, 1500) : R.i(1500, 4800)) / 10) * 10;
+    const opDeOpl = OPL_GEBIEDEN.includes(gebied); const v = opDeOpl ? vMap.get(truck.oplegger) : truck;
+    const klant = r ? (OPDRACHTGEVERS.find(k => k.id === r.k) || {}).naam || 'een klant' : 'een klant';
+    const plaats = fase === 'terrein' ? (truck.vestiging === 'Opmeer' ? 'Opmeer' : 'Barneveld') : (r ? (fase === 'lossen' ? r.naar.plaats : r.van.plaats) : R.k(PLAATSEN));
+    const door = R.w([['chauffeur', 80], ['werkplaats', 15], ['planner', 5]]); const uurNa = door === 'chauffeur' ? R.w([[0.3, 50], [2, 25], [8, 12], [30, 8], [72, 5]]) : R.i(24, 96);
+    let ontvangen = t + uurNa * 3600000; if (door !== 'chauffeur') ontvangen = binnenWerktijd(ontvangen, R); if (ontvangen > NU) ontvangen = NU - R.i(20, 300) * 60000;
+    const uurtarief = 75; const uren = Math.max(1, Math.round(bedrag * 0.45 / uurtarief)); const onderdelen = Math.round(bedrag * 0.4 / 5) * 5; const lak = Math.max(0, bedrag - uren * uurtarief - onderdelen);
+    const c = { categorie: 'eigen', seq: 0, bron: door === 'chauffeur' ? 'chauffeur' : 'handmatig', verhaal: groot ? 'eigen_groot' : 'eigen_klein', kenteken: v.kenteken, voertuig: { kenteken: v.kenteken, merk: v.merk, model: v.model, kleur: 'wit', bouwjaar: v.bouwjaar, toelating: null, massa: v.massa, catalogusprijs: null, soort: v.soort, km: v.km },
+      eigenVoertuig: truck.id, oplegger: truck.oplegger, opdrachtgever: EIGEN, rit: r ? r.id : null, chauffeur: ch.id, chauffeurNaam: ch.naam, vestiging: truck.vestiging, gebied, soort, ernst: groot ? 5 : R.i(2, 4), fase, plaats, moment: t, datumRit: t, datumClaim: ontvangen, ontvangen,
+      calculatie: { uren, uurtarief, onderdelen, lak, vervangen: groot, dubbel: false, btw: false, totaal: bedrag, bedrijf: groot ? 'offerte van een herstelbedrijf voor bedrijfswagens' : 'raming van onze werkplaats' }, bedragGevraagd: bedrag, extern: '',
+      melding: { door, uurNa }, formulier: { soort: 'eenzijdig', status: 'niet', op: null }, werkorder: { nummer: `WO-${wo++}`, status: 'gepland', uren, onderdelen, stilstand: groot ? R.i(5, 14) : R.w([[0, 30], [1, 40], [2, 20], [4, 10]]), start: null },
+      bijlagen: Array.from({ length: R.i(2, 4) }, () => ({ soort: 'foto', naam: `IMG_${R.i(1000, 9999)}.jpg`, kb: R.i(900, 4200) })), fotosClaimTonenSchade: true };
+    const zin = eigenZin(R, fase, gebied, plaats, klant);
+    c.onderwerp = door === 'chauffeur' ? `Aanrijschade ${truck.id}: ${GEBIEDEN[gebied].toLowerCase()}` : `Schade gevonden aan ${opDeOpl ? truck.oplegger : truck.id}: ${GEBIEDEN[gebied].toLowerCase()}`;
+    c.mail = door === 'chauffeur' ? `Melding uit de chauffeursapp, ${truck.id} met ${truck.oplegger}.\n\n${zin} Foto's gemaakt. Geen andere partij betrokken.\n\n${ch.naam}` : `Melding van de ${door === 'werkplaats' ? 'werkplaats' : 'planning'}.\n\nBij ${door === 'werkplaats' ? 'het onderhoud' : 'de controle na de rit'} van ${opDeOpl ? truck.oplegger : truck.id} schade gevonden: ${GEBIEDEN[gebied].toLowerCase()}, ${SOORTEN[soort].toLowerCase()}. Niet gemeld door een chauffeur. Laatste rit volgens de planning: ${ch.naam.replace(/\.$/, '')}.`;
+    c.uitgelezen = { kenteken: { w: truck.kenteken, z: 0.99 }, datum: { w: t, z: 0.95 }, gebied: { w: gebied, z: 0.9 }, bedrag: { w: bedrag, z: 0.95 }, bijlagen: c.bijlagen.length };
+    statusNaarLeeftijd(c, t, { nieuwTot: 1.5, openTot: groot ? 30 : 12,
+      open: () => groot ? (R.p(0.6) ? { status: 'verzekeraar', besluit: 'verzekeraar', formulier: 'ontvangen', log: `Gemeld bij de cascoverzekeraar (${fmtEur(bedrag)})` } : { status: 'wacht_chauffeur', formulier: 'gevraagd' }) : R.w([[{ status: 'werkplaats', besluit: 'werkplaats', formulier: 'ontvangen', log: `Werkorder ${c.werkorder.nummer} voor onze werkplaats` }, 60], [{ status: 'wacht_chauffeur', formulier: 'gevraagd' }, 30], [{ status: 'onderzoek', formulier: 'niet' }, 10]]),
+      oud: () => groot ? { status: 'gesloten', besluit: 'verzekeraar', log: `Gemeld bij de cascoverzekeraar (${fmtEur(bedrag)})`, slot: 'Uitkering van de cascoverzekeraar ontvangen; eigen risico verrekend' } : { status: 'gesloten', besluit: 'werkplaats', log: `Werkorder ${c.werkorder.nummer} voor onze werkplaats`, slot: `Werkorder ${c.werkorder.nummer} gereed; voertuig terug in de planning` } });
+    L.push(c);
+  }
+  // ---- aanrijschade derde: ongeveer twee per maand
+  for (let i = 0; i < 26; i++) {
+    const dg = i < 3 ? R.i(0, 24) : R.i(25, 364); const t = dagMet(dg); const truck = R.k(trekkers); const r = ritBij(truck, t);
+    const ch = r ? chauffeurs.find(x => x.id === r.ch) : R.w(chW);
+    const wat = R.w([['geparkeerd', 40], ['rijdend', 15], ['hek', 15], ['gebouw', 15], ['paal', 15]]); const auto = wat === 'geparkeerd' || wat === 'rijdend';
+    const fase = wat === 'gebouw' || wat === 'hek' ? R.k(['laden', 'lossen']) : R.w([['rijden', 70], ['laden', 15], ['lossen', 15]]);
+    const klantK = r ? OPDRACHTGEVERS.find(k => k.id === r.k) : R.k(OPDRACHTGEVERS);
+    const bijKlant = fase === 'laden' || fase === 'lossen'; const plaats = r ? (fase === 'lossen' ? r.naar.plaats : r.van.plaats) : R.k(PLAATSEN);
+    const particulier = auto && R.p(0.75); const naam = particulier ? `Particulier in ${plaats}` : bijKlant ? klantK.naam : `Bedrijf in ${plaats}`;
+    const gevonden = R.p(0.85); const doorChauffeur = R.p(0.45) && gevonden; const bw = doorChauffeur ? R.w([['fotos', 70], ['geen', 30]]) : R.w([['camera', 45], ['fotos', 45], ['geen', 10]]);
+    const ander = R.k(trekkers.filter(x => x.id !== truck.id));
+    const gps = gevonden ? { gevonden: true, voertuig: truck.id, tijd: t, afstand: R.i(4, 45), snelheid: R.i(2, 9), richting: wat === 'rijdend' ? 'vooruit' : R.w([['achteruit', 65], ['vooruit', 35]]) } : { gevonden: false, voertuig: ander.id, tijd: t, afstand: R.i(4, 60) * 1000, snelheid: R.i(40, 85), richting: 'vooruit' };
+    gps.punten = [-4, -2, -1, 0, 1, 3].map(min => ({ t: t + min * 60000, afstand: gevonden ? Math.max(3, Math.round(gps.afstand + Math.abs(min) * R.i(60, 220))) : gps.afstand + min * 900, snelheid: gevonden ? (min === 0 ? gps.snelheid : R.i(0, 30)) : R.i(60, 85) }));
+    const tv = auto ? voertuig(R) : { kenteken: '', merk: TEGENPARTIJ[wat], model: '', kleur: '', bouwjaar: null, toelating: null, massa: null, catalogusprijs: null, soort: 'object', km: null };
+    const gebied = auto ? R.w([['bumper_voor', 25], ['bumper_achter', 20], ['portier_lv', 12], ['portier_rv', 12], ['spatbord_lv', 10], ['spatbord_rv', 10], ['spiegel_l', 6], ['spiegel_r', 5]]) : 'object';
+    const soort = R.w([['deuk', 40], ['kras', 30], ['schaafplek', 15], ['gebroken', 15]]); const bedrag = auto ? Math.round(R.i(350, 4200) / 5) * 5 : Math.round(R.i(250, 3200) / 10) * 10;
+    let ontvangen = t + (doorChauffeur ? R.i(10, 120) * 60000 : R.w([[1, 40], [2, 30], [4, 20], [8, 10]]) * DAG + R.i(1, 8) * 3600000); while (isWeekend(ontvangen)) ontvangen += DAG; if (ontvangen > NU) ontvangen = NU - R.i(20, 600) * 60000;
+    const tpObj = { id: `T-${String(tp++).padStart(3, '0')}`, naam, soort: 'derde', plaats, btwAftrek: !particulier, stijl: particulier ? 'kort' : 'formeel', rol: particulier ? 'eigenaar' : wat === 'gebouw' || wat === 'hek' ? 'facilitair medewerker' : 'wagenparkbeheerder', gewicht: 0, eerder: 0 };
+    const cal = bedrag ? { uren: Math.max(1, Math.round(bedrag * 0.4 / 90 * 2) / 2), uurtarief: R.w([[88, 3], [95, 4], [112, 2]]), onderdelen: Math.round(bedrag * 0.3 / 5) * 5, lak: Math.round(bedrag * 0.2 / 5) * 5, vervangen: R.p(0.3), dubbel: false, btw: particulier, totaal: bedrag, bedrijf: auto ? 'een schadeherstelbedrijf' : 'een aannemer' } : null;
+    const c = { categorie: 'derde', seq: 0, bron: doorChauffeur ? 'chauffeur' : 'mail', verhaal: gevonden ? 'derde_raak' : 'derde_niet', kenteken: tv.kenteken, voertuig: tv, eigenVoertuig: gevonden ? truck.id : null, oplegger: gevonden ? truck.oplegger : null, opdrachtgever: tpObj,
+      tegenpartij: { wat, partij: particulier ? 'particulier' : 'bedrijf', naam, aanwezig: wat === 'rijdend' }, rit: gevonden && r ? r.id : null, chauffeur: gevonden ? ch.id : null, chauffeurNaam: gevonden ? ch.naam : null, vestiging: truck.vestiging,
+      gebied, soort, ernst: R.i(2, 4), fase, plaats, moment: t, datumRit: t, datumClaim: ontvangen, ontvangen, calculatie: cal, bedragGevraagd: bedrag, extern: '',
+      melding: { door: doorChauffeur ? 'chauffeur' : 'tegenpartij', uurNa: (ontvangen - t) / 3600000 }, formulier: { soort: wat === 'rijdend' ? 'europees' : 'eenzijdig', status: 'niet', op: null }, gps, bewijsTegenpartij: bw,
+      bijlagen: bw === 'geen' ? [] : [...Array.from({ length: R.i(1, 3) }, () => ({ soort: 'foto', naam: `IMG_${R.i(1000, 9999)}.jpg`, kb: R.i(900, 4200) })), ...(bw === 'camera' ? [{ soort: 'video', naam: `beelden-${R.i(100, 999)}.mp4`, kb: R.i(8000, 42000) }] : []), ...(cal ? [{ soort: 'calculatie', naam: 'offerte.pdf', kb: R.i(80, 400) }] : [])], fotosClaimTonenSchade: true };
+    const wanneer = `${fmtDatumJ(t)} rond ${new Date(t).getHours()}:${String(new Date(t).getMinutes()).padStart(2, '0')}`;
+    const watZin = auto ? (wat === 'geparkeerd' ? 'mijn geparkeerde auto' : 'mijn auto') : wat === 'hek' ? 'ons hek' : wat === 'gebouw' ? 'ons laadperron' : 'een paal bij ons pand';
+    c.onderwerp = doorChauffeur ? `Aanrijschade derde: ${TEGENPARTIJ[wat].toLowerCase()}, ${plaats}` : auto ? 'Schade aan mijn auto door uw vrachtwagen' : `Schade aan ${watZin} door een vrachtwagen van Breedijk`;
+    c.mail = doorChauffeur ? `Melding uit de chauffeursapp, ${truck.id}.\n\nBij het ${gps.richting === 'achteruit' ? 'achteruitrijden' : 'manoeuvreren'} in ${plaats} ${auto ? `een ${wat === 'geparkeerd' ? 'geparkeerde ' : ''}${tv.merk} ${tv.model} geraakt` : TEGENPARTIJ[wat].toLowerCase() + ' geraakt'}; ${GEBIEDEN[gebied].toLowerCase()}, ${SOORTEN[soort].toLowerCase()}. ${wat === 'rijdend' ? 'Europees schadeformulier samen ingevuld.' : auto ? 'Briefje met onze gegevens achtergelaten.' : 'Gemeld bij de receptie.'}\n\n${ch.naam}` :
+      `${particulier ? 'Goedemiddag,' : 'Geachte heer, mevrouw,'}\n\nOp ${wanneer} heeft een vrachtwagen van Breedijk Transport ${gps.richting === 'achteruit' ? 'bij het achteruitrijden ' : ''}${watZin} geraakt, in ${plaats}. ${bw === 'camera' ? `Ik heb het teruggezien op ${particulier ? 'de beelden van de deurbelcamera' : 'onze camerabeelden'}: het logo en het kenteken ${kentekenToon(gevonden ? truck.kenteken : ander.kenteken)} zijn goed te zien.` : 'Een buurman zag het gebeuren en noteerde de naam op de oplegger.'} ${auto ? `Het gaat om de ${GEBIEDEN[gebied].toLowerCase()}.` : ''}${bw !== 'geen' ? ' Foto\'s in de bijlage' : ''}${cal ? `, met een offerte van ${fmtEur(bedrag)}` : ''}.\n\n${particulier ? 'Ik hoor graag hoe u dit oplost.' : 'Wij verzoeken u de schade te vergoeden.'}\n\nMet vriendelijke groet,\n${particulier ? 'de eigenaar van de auto' : `${tpObj.rol}, ${naam}`}`;
+    c.uitgelezen = { kenteken: { w: gevonden ? truck.kenteken : ander.kenteken, z: bw === 'camera' || doorChauffeur ? 0.97 : 0.7, noot: bw === 'camera' || doorChauffeur ? null : 'Het kenteken komt van een buurman die de naam op de oplegger zag; geen kenteken in de mail. De telematica geeft uitsluitsel.' }, datum: { w: t, z: 0.9 }, gebied: { w: gebied, z: 0.8 }, bedrag: { w: bedrag, z: cal ? 0.95 : 0 }, bijlagen: c.bijlagen.length };
+    statusNaarLeeftijd(c, t, { nieuwTot: 2.5, openTot: 28,
+      open: () => !gevonden ? { status: 'afgewezen', besluit: 'afgewezen', formulier: 'niet', log: 'Afgewezen: geen voertuig van ons op die plek en tijd (telematica)' } : R.w([[{ status: 'verzekeraar', besluit: 'verzekeraar', formulier: 'ontvangen', log: 'Gemeld bij de WA-verzekeraar, met het pakket' }, 50], [{ status: 'wacht_chauffeur', formulier: 'gevraagd' }, 40], [{ status: 'onderzoek', formulier: 'niet' }, 10]]),
+      oud: () => !gevonden ? { status: 'afgewezen', besluit: 'afgewezen', log: 'Afgewezen: geen voertuig van ons op die plek en tijd (telematica)' } : bedrag < 500 && R.p(0.4) ? { status: 'gesloten', besluit: 'erkend', log: `Zelf betaald onder het WA-eigen risico (${fmtEur(bedrag)})`, slot: 'Betaald aan de tegenpartij' } : { status: 'gesloten', besluit: 'verzekeraar', log: 'Gemeld bij de WA-verzekeraar, met het pakket', slot: 'De verzekeraar heeft het met de tegenpartij afgehandeld; eigen risico verrekend' } });
+    L.push(c);
+  }
+  // ---- diverse schade: ongeveer een per maand
+  for (let i = 0; i < 12; i++) {
+    const dg = i < 2 ? R.i(0, 9) : R.i(10, 364); const t = dagMet(dg); const truck = R.k(trekkers); const r = ritBij(truck, t); const ch = r ? chauffeurs.find(x => x.id === r.ch) : R.w(chW);
+    const gebied = R.w([['sleutel', 50], ['booster', 30], ['laadmateriaal', 20]]); const soort = gebied === 'laadmateriaal' ? 'gebroken' : 'ontbreekt';
+    const bedrag = gebied === 'sleutel' ? Math.round(R.i(180, 650) / 5) * 5 : gebied === 'booster' ? Math.round(R.i(250, 600) / 5) * 5 : Math.round(R.i(60, 300) / 5) * 5;
+    const k = r ? OPDRACHTGEVERS.find(x => x.id === r.k) : R.k(OPDRACHTGEVERS); const opAuto = gebied === 'sleutel' && r;
+    let ontvangen = t + R.i(1, 20) * 3600000; while (isWeekend(ontvangen)) ontvangen += DAG; if (ontvangen > NU) ontvangen = NU - R.i(20, 600) * 60000;
+    const vv = opAuto ? { kenteken: r.kenteken, merk: r.merk, model: r.model, kleur: r.kleur, bouwjaar: r.bouwjaar, toelating: r.toelating, massa: r.massa, catalogusprijs: r.catalogusprijs, soort: r.soort, km: r.km } : { kenteken: truck.kenteken, merk: truck.merk, model: truck.model, kleur: 'wit', bouwjaar: truck.bouwjaar, massa: truck.massa, soort: 'trekker' };
+    const c = { categorie: 'divers', seq: 0, bron: 'chauffeur', verhaal: 'divers', kenteken: vv.kenteken, voertuig: vv, eigenVoertuig: truck.id, oplegger: truck.oplegger, opdrachtgever: opAuto ? k : EIGEN, rit: r ? r.id : null, chauffeur: ch.id, chauffeurNaam: ch.naam, vestiging: truck.vestiging,
+      gebied, soort, ernst: 1, fase: null, plaats: r ? r.naar.plaats : truck.vestiging, moment: t, datumRit: t, datumClaim: ontvangen, ontvangen, calculatie: null, bedragGevraagd: bedrag, extern: '', melding: { door: 'chauffeur', uurNa: (ontvangen - t) / 3600000 }, formulier: { soort: 'eenzijdig', status: 'niet', op: null }, bijlagen: [], fotosClaimTonenSchade: true };
+    c.onderwerp = gebied === 'sleutel' ? (opAuto ? `Sleutel kwijt: ${vv.merk} ${vv.model} ${kentekenToon(vv.kenteken)}` : `Sleutel kwijt van ${truck.id}`) : gebied === 'booster' ? `Booster kwijt, ${truck.id}` : `Laadmateriaal kapot, ${truck.id}`;
+    c.mail = `Melding uit de chauffeursapp, ${truck.id}.\n\n${gebied === 'sleutel' ? (opAuto ? `Na het lossen in ${c.plaats} de sleutel van de ${vv.merk} ${vv.model} niet meer gevonden; niet in de cabine en niet in de auto.` : `Reservesleutel van ${truck.id} kwijt. Niet in de cabine, niet in het kastje op de vestiging. Er is nog een sleutel.`) : gebied === 'booster' ? 'Booster niet teruggevonden na het starten van een auto met een lege accu.' : 'Twee spanbanden gescheurd bij het vastzetten; vervangen uit de voorraad.'}\n\n${ch.naam}`;
+    c.uitgelezen = { kenteken: { w: vv.kenteken, z: 0.99 }, datum: { w: t, z: 0.95 }, gebied: { w: gebied, z: 0.95 }, bedrag: { w: bedrag, z: 0.6 }, bijlagen: 0 };
+    statusNaarLeeftijd(c, t, { nieuwTot: 3, openTot: 10, open: () => ({ status: 'onderzoek', formulier: 'niet' }), oud: () => ({ status: 'gesloten', besluit: 'erkend', log: `Voor eigen rekening (${fmtEur(bedrag)})`, slot: 'Vervangen en betaald' }) });
+    L.push(c);
+  }
+  maakVoertuigschades.vloot = vloot;
+  return L;
+}
+
 // ---------- de wereld ----------
 export function maakWereld(opt = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
   KLEUR_VOOR = opt.kleurVoor || null;
-  const chauffeurs = maakChauffeurs(); const ritten = maakRitten(chauffeurs); const claims = maakClaims(ritten, chauffeurs);
+  const chauffeurs = maakChauffeurs(); const ritten = maakRitten(chauffeurs); for (const r of ritten) r.oplegger = r.truck.replace('BT-', 'BO-'); const claims = maakClaims(ritten, chauffeurs);
+  const vloot = maakVoertuigschades.vloot || []; const vlootMap = new Map(vloot.map(v => [v.id, v]));
   const ritMap = new Map(ritten.map(r => [r.id, r])); const chMap = new Map(chauffeurs.map(c => [c.id, c])); const kMap = new Map(OPDRACHTGEVERS.map(k => [k.id, k]));
   for (const c of claims) if (c.rit && !ritMap.has(c.rit)) { /* oude rit: alleen via de claim bereikbaar */ }
   // ritten per chauffeur per maand (de laatste twaalf maanden): de echte telling uit de lijst voor de laatste drie,
@@ -283,6 +426,6 @@ export function maakWereld(opt = {}) {
     ch.rittenPerMaand = maanden.map(mm => { const telling = ritten.filter(r => r.ch === ch.id && new Date(r.ophaal).getFullYear() === mm.jaar && new Date(r.ophaal).getMonth() === mm.maand).length; if (telling > 0 && mm.t > NU - 80 * DAG) return telling; const werk = 21; return Math.round(ch.tempo * werk * (0.85 + rng(ch.id + mm.t).f() * 0.3)); });
     ch.ritten90 = ritten.filter(r => r.ch === ch.id).length; ch.ritten365 = ch.rittenPerMaand.reduce((a, b) => a + b, 0);
   }
-  return { NU, chauffeurs, ritten, claims, opdrachtgevers: OPDRACHTGEVERS, ritMap, chMap, kMap, maanden, bouwMs: (typeof performance !== 'undefined' ? performance.now() : 0) - t0 };
+  return { NU, chauffeurs, ritten, claims, opdrachtgevers: OPDRACHTGEVERS, ritMap, chMap, kMap, maanden, vloot, vlootMap, bouwMs: (typeof performance !== 'undefined' ? performance.now() : 0) - t0 };
 }
 export function ritVan(D, c) { if (!c.rit) return null; const r = D.ritMap.get(c.rit); if (r) return ritDetail(r); return c._oudeRit || null; }

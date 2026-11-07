@@ -62,6 +62,15 @@ mooie interface. Geen echte kentekens of voertuigen, wel realistisch.
 Zoeken in de topbalk: kenteken (met of zonder streepjes), dossiernummer, chauffeur, opdrachtgever.
 Toetsen: 1 tot 6 voor de weergaven, / zoeken, n nieuwe melding, Esc sluit.
 
+## Soorten schade (ronde 4, het gesprek van 7 november)
+
+| Soort | Wat | Wie meldt | Afhandeling | Polis |
+| --- | --- | --- | --- | --- |
+| Ladingsschade | een auto die wij vervoeren raakt beschadigd | de opdrachtgever (mail), soms de chauffeur | ophaal- en afleverinspectie, termijn, limiet per kilogram, calculatie | vervoerdersaansprakelijkheid, eigen risico 750 |
+| Aanrijschade eigen voertuig | onze trekker of oplegger raakt beschadigd | de chauffeur (app), de werkplaats | schadeformulier, foto's, raming; negen van de tien in de eigen werkplaats, groot naar de casco | casco (schatting) |
+| Aanrijschade derde | ons voertuig raakt iets of iemand anders | de tegenpartij (mail, camerabeelden), de chauffeur | telematica: was ons voertuig er; schadeformulier (Europees als beide aanwezig); melden bij de WA, zelf niets erkennen | WA (schatting) |
+| Diverse schade | sleutel, booster, laadmateriaal | de chauffeur | klein bedrag voor eigen rekening; een sleutel eerst bij de opdrachtgever navragen | geen |
+
 ## Datamodel (de vorm waarin echte data past)
 
 - **Voertuig**: kenteken, merk, handelsbenaming, kleur, datum eerste toelating, massa ledig voertuig,
@@ -80,12 +89,17 @@ Toetsen: 1 tot 6 voor de weergaven, / zoeken, n nieuwe melding, Esc sluit.
   calculatie (regels: arbeid in uren maal tarief, onderdelen, lak en materiaal, btw), gevraagd bedrag,
   gekoppelde rit, beoordeling (checklist), besluit, voorstelbedrag, status, behandelaar, termijn,
   logboek.
+- **Ons wagenpark**: trekker (nummer, kenteken met een B in de lettergroep, merk, type, bouwjaar, kilometerstand,
+  vestiging) en oplegger (nummer, kenteken dat met O begint, merk, opbouw). Een aanrijschade heeft het voertuig, de plek
+  op het zijaanzicht, de plaats (terrein, onderweg, bij een klant), het moment, wie meldde, het schadeformulier, de
+  werkorder (raming, uren, onderdelen, dagen uit de roulatie) en bij een derde de tegenpartij (soort, partij, bewijs) en
+  de telematica (posities rond het moment).
 - **Chauffeur**: nummer, roepnaam met eerste letter van de achternaam (gesimuleerd), vestiging, in dienst
   sinds, ritten per maand (gesimuleerd), de schades via de dossiers.
 - **Opdrachtgever**: nummer, naam (verzonnen), soort (lease, dealer, veiling, importeur), plaats.
 - **Instellingen**: drempel verzekeraar (1.750), eigen risico (750), limiet per kilogram (3,40),
   antwoordtermijn (10 werkdagen), meldtermijn tegenpartij (7 dagen na aflevering voor niet zichtbare
-  schade; zichtbare schade bij aflevering), regel voor het gesprek (3 schades in 7 dagen, of 5 in 90
+  schade; zichtbare schade bij aflevering), regel voor het gesprek (3 schades in 7 dagen, of 6 in 90
   dagen als tweede signaal), uurtarief dat als norm geldt (schatting), rollen.
 
 Elke gesimuleerde waarde draagt zijn status ("gesimuleerd", "schatting") in de interface of in de

@@ -264,3 +264,56 @@ shadcn (UI-kits die het "sjabloon"-gevoel juist versterken), PhotoSwipe (zwaarde
 eerste ronde leverde zes automodellen op; de schadefoto's lopen nog. Een foto met een dealersticker ging eruit
 (een bedrijfsnaam naast het merk). Elke foto staat met maker en licentie in het manifest; de kleur van de
 gesimuleerde auto volgt de foto van het model, zodat de kop van het dossier klopt met de data.
+
+## Ronde 4 (dezelfde dag): ladingsschade, aanrijschade en diverse schade
+
+**Wat je vroeg, en hoe ik het las.** Breedijk legde uit welke soorten schade er zijn: ladingsschade (een auto van
+een opdrachtgever die bij het laden of afzetten tegen onze vrachtwagen of een paal komt), aanrijschade aan de eigen
+vrachtwagen (een paal, een stoeprand, bij het inparkeren in de vakken langs de combinatie ernaast), aanrijschade aan
+een derde (achteruit tegen een geparkeerde auto, soms zonder dat de chauffeur het merkt) en diverse schade (booster,
+sleutel). Het proces is altijd hetzelfde: het schadeformulier van de chauffeur, het pakket naar de verzekering, het
+eigen risico. Ik las je zin "het gaat niet om autootjes maar om vrachtwagens" als: het portaal moet over al onze
+schades gaan, niet alleen over de auto's die we vervoeren. Ladingsschade blijft dus, de rest komt erbij.
+
+**Wat ik deed.** Elk dossier heeft een soort, met een eigen afhandeling en de eigen polis:
+- **Eigen voertuig**: ons voertuig op een zijaanzicht van de autotransporter, de werkorder (raming, uren,
+  onderdelen, dagen uit de roulatie, "Start herstel", "Klaar"), de keuze werkplaats, herstelbedrijf of
+  cascoverzekeraar met een grens die een instelling is (5.000 euro, schatting: jij noemde "richting de 10.000" voor de
+  verzekering en negen van de tien in de eigen werkplaats).
+- **Derde**: de telematica (posities van de boordcomputer rond het moment: was ons voertuig er, hoe hard, achteruit),
+  de tegenpartij (particulier of bedrijf, met de AVG-noot), het eenzijdige of het Europees schadeformulier, de
+  WA-verzekeraar, en het signaal "erken zelf geen aansprakelijkheid" (polisvoorwaarden, laten toetsen). Was ons
+  voertuig er niet, dan is het advies afwijzen, met een brief die de afstand noemt.
+- **Divers**: een klein bedrag voor eigen rekening; een sleutel van een vervoerde auto eerst bij de opdrachtgever
+  navragen.
+- **Overal**: het pakket voor de juiste verzekeraar met wat er al is en wat ontbreekt, "Vraag het schadeformulier"
+  met de tekst voor de chauffeursapp, de soort als filter in de lijst en op het dashboard (een kaart per soort met de
+  kosten, een kaart voor ons wagenpark), het wagenpark als eigen weergave met een pagina per voertuig, een nieuwe
+  melding per soort, en een geplakte mail met het kenteken van een van onze eigen vrachtwagens wordt vanzelf een
+  aanrijschade derde. Gesimuleerd: 42 trekkers met hun oplegger, 78 aanrijschades eigen voertuig, 26 aan een derde en
+  12 diverse schades over een jaar (schatting). Gecontroleerd: 29 tests zonder browser en de browsercontrole op 1440,
+  1024 en 390 px, met een dossier van elke soort.
+
+**Waar ik van je vraag afweek.** Geen echte namen van tegenpartijen ("Particulier in Hoorn", "Bedrijf in Apeldoorn");
+de grens naar de casco en de eigen risico's voor casco en WA zijn schattingen tot Breedijk de polis noemt.
+
+**Wat je niet vroeg, maar waar je iets aan hebt.**
+1. **De telematica als eerste toets bij een derde.** Jouw voorbeeld van de chauffeur die het niet doorhad, is precies
+   waar posities het verschil maken: binnen een minuut weet je of het ons voertuig was en wie reed. De boordcomputers
+   die Transplan noemt registreren posities (gelezen). Proef: tien afgesloten derde-claims naast de ritregistratie.
+2. **Het schadeformulier als vragenpad in de chauffeursapp.** Rietvelds Efficio heeft activiteiten met een vragenpad
+   (gelezen): het formulier op de boordcomputer, met foto's en positie, direct in het dossier. Dat scheelt de dagen dat
+   de verzekeraar wacht.
+3. **Stilstand per voertuig.** Een schade kost ook dagen dat een autotransporter niet rijdt. Het wagenpark laat per
+   voertuig zien hoeveel; dat is het argument voor preventie zoals een camera achter of sensoren bij inparkeren.
+
+**Wat we moeten doorvragen.** Welke polissen (casco, WA, vervoerdersaansprakelijkheid) en welke eigen risico's;
+vanaf welk bedrag gaat een aanrijschade naar de verzekeraar; vult de chauffeur nu een papieren formulier in; houdt de
+werkplaats werkorders bij in Transplan (wagenparkbeheer) of los; kunnen we de posities van de boordcomputer
+opvragen (Rietveld of een andere leverancier); wie beslist of een chauffeur na een aanrijschade een gesprek krijgt.
+
+**Wat er nodig is om dit echt te laten draaien.** Naast de mailbox en Transplan uit de vorige ronden: de posities
+van de boordcomputer (een export of de API van de leverancier), de werkorders van de werkplaats, en de polisnummers en
+eigen risico's per polis. **Risico's en signalen:** posities en een schadebeeld per chauffeur zijn gevoelig (AVG,
+instemming van de OR, laten toetsen); de naam en het adres van een particuliere tegenpartij alleen in het dossier en
+naar de verzekeraar.

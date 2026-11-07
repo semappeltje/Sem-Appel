@@ -13,12 +13,13 @@ Verkleind naar WebP (voertuigen en overzichten 640 px, schades 560 px breed) doo
 | `auto/volkswagen-id3.webp` | 2020 Volkswagen ID.3 1st Front.jpg | Vauxford | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Commons](https://commons.wikimedia.org/wiki/File:2020_Volkswagen_ID.3_1st_Front.jpg) |
 | `auto/toyota-yaris.webp` | Toyota Yaris Hybrid (XP210) 1X7A0354.jpg | Alexander Migl | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Commons](https://commons.wikimedia.org/wiki/File:Toyota_Yaris_Hybrid_(XP210)_1X7A0354.jpg) |
 | `auto/toyota-corolla.webp` | Toyota Corolla Hybrid no lago das Pontes de García Rodríguez eue-001.jpg | Lmbuga (Luis Miguel Bugallo Sánchez) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Commons](https://commons.wikimedia.org/wiki/File:Toyota_Corolla_Hybrid_no_lago_das_Pontes_de_Garc%C3%ADa_Rodr%C3%ADguez_eue-001.jpg) |
-| `auto/kia-niro.webp` | Kia Niro (SG2) PHEV Leonberg 2022 1X7A0474.jpg | Alexander Migl | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Commons](https://commons.wikimedia.org/wiki/File:Kia_Niro_(SG2)_PHEV_Leonberg_2022_1X7A0474.jpg) |
 | `auto/kia-picanto.webp` | 2017 Kia Picanto GT-Line S 1.2 Front.jpg | Vauxford | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Commons](https://commons.wikimedia.org/wiki/File:2017_Kia_Picanto_GT-Line_S_1.2_Front.jpg) |
 
 ## Schades (`schade/`)
 
-Nog geen; zie "Nog te zoeken".
+| Bestand | Titel op Commons | Maker | Licentie | Link |
+| --- | --- | --- | --- | --- |
+| `schade/01-bumper_voor-barst.webp` | Jetta Mk. IV Bumper Damage.jpg | TWikisto | [Public domain](https://commons.wikimedia.org/wiki/Commons:Public_domain) | [Commons](https://commons.wikimedia.org/wiki/File:Jetta_Mk._IV_Bumper_Damage.jpg) |
 
 ## Overzichten bij ophalen (`overzicht/`)
 
@@ -27,7 +28,7 @@ Nog geen; zie "Nog te zoeken".
 ## Nog te zoeken
 
 - Voertuigen (23): Peugeot 208, Peugeot 2008, Renault Clio, Opel Corsa, Ford Focus, Ford Transit Custom, Volkswagen Transporter, Mercedes-Benz Vito, Tesla Model 3, Tesla Model Y, Hyundai Kona, Skoda Octavia, BMW 3-serie, Audi A3, Volvo XC40, Mercedes-Benz A-klasse, Fiat 500, Mini Cooper, Nissan Qashqai, Lynk & Co 01, Polestar 2, Renault Kangoo, Citroën C3.
-- Schades: 0 van minstens 14 (kras, schaafplek, deuk, stoeprand op een velg, steenslag of barst in een ruit, spiegel, lakschade, achterklep, dorpel, motorkap).
+- Schades: 1 van minstens 14 (kras, schaafplek, deuk, stoeprand op een velg, steenslag of barst in een ruit, spiegel, lakschade, achterklep, dorpel, motorkap).
 - Overzichten bij ophalen: 0 van 4 tot 8 (voorhoek, achterhoek, zijkant, zonder schade).
 
 Zoeken: `node tools/fotos.mjs zoek <auto|schade|overzicht> <cachemap>`, de contactvellen bekijken, de keuze in `SELECTIE` zetten en `node tools/fotos.mjs bouw <cachemap>` draaien. Commons laat vanaf een gedeeld adres weinig verzoeken per minuut toe; het script wacht en volgt Retry-After.

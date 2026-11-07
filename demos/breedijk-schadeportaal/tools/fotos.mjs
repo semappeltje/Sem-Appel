@@ -28,7 +28,6 @@ export const ZOEK = {
     ['volkswagen-id3', 'Volkswagen', 'ID.3', ['Volkswagen ID.3']],
     ['toyota-yaris', 'Toyota', 'Yaris', ['Toyota Yaris XP210', 'Toyota Yaris 2020 hybrid']],
     ['toyota-corolla', 'Toyota', 'Corolla', ['Toyota Corolla E210 hatchback', 'Toyota Corolla Touring Sports E210']],
-    ['kia-niro', 'Kia', 'Niro', ['Kia Niro', 'Kia e-Niro']],
     ['kia-picanto', 'Kia', 'Picanto', ['Kia Picanto JA']],
     ['peugeot-208', 'Peugeot', '208', ['Peugeot 208 II', 'Peugeot e-208']],
     ['peugeot-2008', 'Peugeot', '2008', ['Peugeot 2008 II', 'Peugeot e-2008']],
@@ -54,14 +53,15 @@ export const ZOEK = {
     ['renault-kangoo', 'Renault', 'Kangoo', ['Renault Kangoo III', 'Renault Kangoo 2021']],
     ['citroen-c3', 'Citroën', 'C3', ['Citroën C3 III', 'Citroen C3 2017']],
   ].map(([slug, merk, model, q]) => ({ id: slug, merk, model, q: [...q, `${merk} ${model} 2021`, `${merk} ${model} 2019`] })),
+  // intitle: zoekt in de bestandsnaam; de volle tekst van Commons levert hier vooral gewone autofoto's op
   schade: [
-    ['bumper', ['scratched bumper', 'bumper damage']],
-    ['deuk', ['dented car door', 'car dent']],
-    ['velg', ['curb rash wheel', 'alloy wheel damage']],
-    ['ruit', ['windshield chip', 'cracked windshield']],
-    ['spiegel', ['broken side mirror']],
-    ['lak', ['peeling car paint', 'car scratch']],
-    ['overig', ['cracked bumper', 'damaged car tailgate']],
+    ['bumper', ['intitle:bumper intitle:damage', 'intitle:bumper intitle:scratch']],
+    ['deuk', ['intitle:dent intitle:car', 'intitle:dented']],
+    ['velg', ['intitle:curb intitle:rash', 'intitle:damaged intitle:rim']],
+    ['ruit', ['intitle:windshield intitle:crack', 'intitle:windscreen intitle:chip']],
+    ['spiegel', ['intitle:broken intitle:mirror car']],
+    ['lak', ['intitle:car intitle:scratch', 'intitle:peeling intitle:paint car']],
+    ['overig', ['intitle:car intitle:damage close', 'intitle:cracked intitle:bumper']],
   ].map(([id, q]) => ({ id, q })),
   overzicht: [
     ['hoek', ['car front corner', 'car headlight close up', 'car rear corner taillight', 'car side profile parked']],
@@ -79,11 +79,11 @@ export const SELECTIE = {
     ['volkswagen-id3', 'Volkswagen', 'ID.3', 'wit', 'File:2020 Volkswagen ID.3 1st Front.jpg', false],
     ['toyota-yaris', 'Toyota', 'Yaris', 'wit', 'File:Toyota Yaris Hybrid (XP210) 1X7A0354.jpg', false],
     ['toyota-corolla', 'Toyota', 'Corolla', 'zilver', 'File:Toyota Corolla Hybrid no lago das Pontes de García Rodríguez eue-001.jpg', false],
-    ['kia-niro', 'Kia', 'Niro', 'groen', 'File:Kia Niro (SG2) PHEV Leonberg 2022 1X7A0474.jpg', false],
     ['kia-picanto', 'Kia', 'Picanto', 'grijs', 'File:2017 Kia Picanto GT-Line S 1.2 Front.jpg', false],
   ],
-  // nog te zoeken (zie BRONNEN.md): geen schadefoto's en geen overzichten in deze ronde
-  schade: [],
+  schade: [
+    ['File:Jetta Mk. IV Bumper Damage.jpg', 'bumper_voor', 'barst', 3, 'De voorbumper is bij de hoek losgeduwd en gescheurd langs het spatbord, en met tape vastgezet.'],
+  ],
   overzicht: [],
 };
 
@@ -124,7 +124,7 @@ function info(pagina) {
   const licentie = zonderHtml(m.LicenseShortName?.value);
   return {
     titel: pagina.title, bron: ii.descriptionurl, thumb: thumbUrl(ii), breedte: ii.width, hoogte: ii.height, mime: ii.mime,
-    licentie, licentieUrl: zonderHtml(m.LicenseUrl?.value) || (licentie.startsWith('Public') || licentie === 'CC0' ? 'https://creativecommons.org/publicdomain/zero/1.0/' : ''),
+    licentie, licentieUrl: zonderHtml(m.LicenseUrl?.value) || (licentie === 'CC0' ? 'https://creativecommons.org/publicdomain/zero/1.0/' : licentie.startsWith('Public') ? 'https://commons.wikimedia.org/wiki/Commons:Public_domain' : ''),
     maker: zonderHtml(m.Artist?.value) || 'onbekend', omschrijving: zonderHtml(m.ImageDescription?.value).slice(0, 160),
   };
 }

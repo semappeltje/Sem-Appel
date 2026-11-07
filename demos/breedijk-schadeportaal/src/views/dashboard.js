@@ -1,6 +1,6 @@
 // Dashboard: het beeld voor de directie in een oogopslag. Weinig tekst, elke tegel een getal met zijn richting en een
 // vonklijn; daaronder de kosten per maand, de uitkomst, waar de schade zit, de vestigingen, de fase en de opdrachtgevers.
-import { OPEN_STATUS, eigenKosten, gesprekSignaal, teltVoorChauffeur, fmtEur, fmtMaandKort, DAG, GEBIEDEN, FASEN } from '../regels.js';
+import { CATEGORIEN, PLAATS, OPEN_STATUS, eigenKosten, gesprekSignaal, teltVoorChauffeur, fmtEur, fmtMaandKort, DAG, GEBIEDEN, FASEN } from '../regels.js';
 import { VESTIGINGEN } from '../data.js';
 import { warmteDiagram } from '../diagram.js';
 import { esc, ico, bind, staafdiagram, vonk, verdeling } from '../h.js';
@@ -8,11 +8,11 @@ import { esc, ico, bind, staafdiagram, vonk, verdeling } from '../h.js';
 const PER = { 30: { n: '30 dagen', d: 30 }, 90: { n: '90 dagen', d: 90 }, 365: { n: '12 maanden', d: 365 } };
 export function render(el, ctx, { q }) {
   const { D, inst, NU } = ctx;
-  const per = PER[q.get('p')] ? Number(q.get('p')) : 90; const vest = q.get('vest') || '';
+  const per = PER[q.get('p')] ? Number(q.get('p')) : 90; const vest = q.get('vest') || ''; const catF = CATEGORIEN[q.get('cat')] ? q.get('cat') : '';
   const van = NU - per * DAG, vanVorig = NU - 2 * per * DAG;
-  const in_ = (c, a, b) => c.ontvangen >= a && c.ontvangen < b && (!vest || c.vestiging === vest);
+  const in_ = (c, a, b) => c.ontvangen >= a && c.ontvangen < b && (!vest || c.vestiging === vest) && (!catF || (c.categorie || 'lading') === catF);
   const L = D.claims.filter(c => in_(c, van, NU + 1)); const V = D.claims.filter(c => in_(c, vanVorig, van));
-  const kosten = c => c.besluit ? eigenKosten(c.besluit, c.bedragUitkomst || 0, inst) : 0;
+  const kosten = c => c.besluit ? eigenKosten(c.besluit, c.bedragUitkomst || 0, inst, c.categorie) : 0;
   const som = (A, f) => A.reduce((s, c) => s + (f(c) || 0), 0);
   const ritten = (a, b) => D.ritten.filter(r => r.ophaal >= a && r.ophaal < b && (!vest || r.vestiging === vest)).length;
   const rittenNu = ritten(van, NU + 1) || Math.round(830 / 7 * per), rittenVorig = ritten(vanVorig, van) || rittenNu;
@@ -28,24 +28,28 @@ export function render(el, ctx, { q }) {
   // kosten per maand (twaalf maanden), uitkomst, plekken, vestigingen, fase, opdrachtgevers
   const maanden = D.maanden.map(m => { const A = D.claims.filter(c => { const d = new Date(c.ontvangen); return d.getFullYear() === m.jaar && d.getMonth() === m.maand && (!vest || c.vestiging === vest); }); return { l: fmtMaandKort(m.t), kosten: som(A, kosten), n: A.length, afg: A.filter(c => c.besluit === 'afgewezen').length }; });
   const afg = L.filter(c => c.besluit === 'afgewezen'), erk = L.filter(c => c.besluit === 'erkend'), verz = L.filter(c => c.besluit === 'verzekeraar'), open = L.filter(c => !c.besluit);
-  const plek = {}; for (const c of L) plek[c.gebied] = (plek[c.gebied] || 0) + 1; const topPlek = Object.entries(plek).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const plek = {}; for (const c of L.filter(x => (x.categorie || 'lading') === 'lading')) plek[c.gebied] = (plek[c.gebied] || 0) + 1; const topPlek = Object.entries(plek).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const vesten = Object.values(VESTIGINGEN).map(v => { const A = D.claims.filter(c => c.ontvangen >= van && c.vestiging === v.n); const r = D.ritten.filter(x => x.ophaal >= van && x.vestiging === v.n).length || 1; return { v, n: A.length, kosten: som(A, kosten), per: A.length / r * 1000, afg: afgPct(A) }; });
   const fase = {}; for (const c of L.filter(x => x.besluit && x.besluit !== 'afgewezen')) fase[c.fase || 'onbekend'] = (fase[c.fase || 'onbekend'] || 0) + 1;
   const faseTot = Object.values(fase).reduce((s, n) => s + n, 0) || 1;
-  const opdr = {}; for (const c of L) { const k = c.opdrachtgever; opdr[k.id] = opdr[k.id] || { k, n: 0, afg: 0, bes: 0 }; opdr[k.id].n++; if (c.besluit) { opdr[k.id].bes++; if (c.besluit === 'afgewezen') opdr[k.id].afg++; } }
+  const opdr = {}; for (const c of L.filter(x => D.kMap.has(x.opdrachtgever.id))) { const k = c.opdrachtgever; opdr[k.id] = opdr[k.id] || { k, n: 0, afg: 0, bes: 0 }; opdr[k.id].n++; if (c.besluit) { opdr[k.id].bes++; if (c.besluit === 'afgewezen') opdr[k.id].afg++; } }
   const topOpdr = Object.values(opdr).sort((a, b) => b.n - a.n).slice(0, 5);
+  const perCat = Object.entries(CATEGORIEN).map(([k, x]) => { const A = L.filter(c => (c.categorie || 'lading') === k); return { k, x, n: A.length, kosten: som(A, kosten), open: A.filter(c => !c.besluit).length }; });
+  const maxCat = Math.max(1, ...perCat.map(p => p.kosten));
+  const aanrij = L.filter(c => c.categorie === 'eigen'); const plaatsen = Object.entries(PLAATS).map(([k, n]) => ({ n, aantal: aanrij.filter(c => c.fase === k).length })); const maxPl = Math.max(1, ...plaatsen.map(p => p.aantal));
+  const stil = aanrij.reduce((s, c) => s + (c.werkorder ? c.werkorder.stilstand || 0 : 0), 0); const inHerstel = D.claims.filter(c => c.status === 'werkplaats').length;
   const sig = D.chauffeurs.map(ch => gesprekSignaal(D.claims.filter(c => c.chauffeur === ch.id), inst, NU)).filter(Boolean);
   const maxPlek = topPlek.length ? topPlek[0][1] : 1;
   const setQ = o => { const n = new URLSearchParams(q); for (const [k, v] of Object.entries(o)) { if (v == null || v === '') n.delete(k); else n.set(k, v); } ctx.go(`dashboard${n.toString() ? '?' + n : ''}`); };
   el.innerHTML = `
     <div class="ph"><div><h1>Dashboard</h1><div class="sub">${esc(PER[per].n)}${vest ? `, ${esc(vest)}` : ', alle vestigingen'} · ${L.length} claims op ${rittenNu.toLocaleString('nl-NL')} ritten</div></div>
-      <div class="acts"><div class="seg" role="tablist" aria-label="Periode">${Object.entries(PER).map(([k, p]) => `<button type="button" role="tab" class="${Number(k) === per ? 'on' : ''}" aria-selected="${Number(k) === per}" data-act="p" data-v="${k}">${p.n}</button>`).join('')}</div><select class="fld" style="width:auto" data-chg="vest" aria-label="Vestiging"><option value="">Alle vestigingen</option>${Object.values(VESTIGINGEN).map(v => `<option ${vest === v.n ? 'selected' : ''}>${v.n}</option>`).join('')}</select></div></div>
+      <div class="acts"><div class="seg" role="tablist" aria-label="Periode">${Object.entries(PER).map(([k, p]) => `<button type="button" role="tab" class="${Number(k) === per ? 'on' : ''}" aria-selected="${Number(k) === per}" data-act="p" data-v="${k}">${p.n}</button>`).join('')}</div><select class="fld" style="width:auto" data-chg="cat" aria-label="Soort schade"><option value="">Alle soorten</option>${Object.entries(CATEGORIEN).map(([k, x]) => `<option value="${k}" ${catF === k ? 'selected' : ''}>${x.n}</option>`).join('')}</select><select class="fld" style="width:auto" data-chg="vest" aria-label="Vestiging"><option value="">Alle vestigingen</option>${Object.values(VESTIGINGEN).map(v => `<option ${vest === v.n ? 'selected' : ''}>${v.n}</option>`).join('')}</select></div></div>
     <div class="pad stack" style="gap:16px">
       <div class="dks">
         ${kpi('Claims', L.length, `${open.length} nog open`, rel(L.length, V.length), true, reeks(A => A.length))}
         ${kpi('Onze kosten', fmtEur(kNu), 'erkend plus eigen risico', rel(kNu, kVorig), true, reeks(A => som(A, kosten)))}
         ${kpi('Afgewezen', `${Math.round(afgPct(L) * 100)}<small>%</small>`, `${fmtEur(som(afg, c => c.bedragGevraagd))} afgewend`, rel(afgPct(L), afgPct(V)), false, reeks(A => Math.round(afgPct(A) * 100)))}
-        ${kpi('Per 1.000 ritten', perDuizend.toFixed(1).replace('.', ','), 'claims per duizend vervoerde auto\'s', rel(perDuizend, perDuizendV), true, reeks(A => A.length))}
+        ${kpi('Per 1.000 ritten', perDuizend.toFixed(1).replace('.', ','), 'schades per duizend ritten', rel(perDuizend, perDuizendV), true, reeks(A => A.length))}
         ${kpi('Doorlooptijd', medNu != null ? `${Math.round(medNu)}<small>dagen</small>` : '<small>nog geen</small>', 'mediaan tot het besluit', medNu != null && medV != null ? rel(medNu, medV) : null, true, reeks(A => med(A) || 0))}
       </div>
       <div class="grid g32">
@@ -56,18 +60,22 @@ export function render(el, ctx, { q }) {
         </div></div>
       </div>
       <div class="grid g3">
-        <div class="card"><div class="card-h"><h2>Waar de schade zit</h2></div><div class="card-b"><div class="diag heat">${warmteDiagram(plek, { width: 130 })}<ol class="lst">${topPlek.map(([g, n]) => `<li><span class="barw"><span class="trk"><i style="width:${Math.round(n / maxPlek * 100)}%"></i></span></span><span><b>${n}</b> ${esc(GEBIEDEN[g].toLowerCase())}</span></li>`).join('') || '<li class="mut">Geen claims in deze periode.</li>'}</ol></div></div></div>
-        <div class="card"><div class="card-h"><h2>Per vestiging</h2></div><div class="card-b tight"><table class="tbl plain compact" style="padding:0 16px"><thead><tr><th style="padding-left:16px">Vestiging</th><th class="r">Claims</th><th class="r" style="padding-right:16px">Kosten</th></tr></thead><tbody>${vesten.map(x => `<tr><td style="padding-left:16px;white-space:normal"><b>${esc(x.v.n)}</b><div class="mut" style="font-size:11.5px">${esc(x.v.sub)} · ${x.per.toFixed(1).replace('.', ',')} per 1.000 · ${Math.round(x.afg * 100)}% afgewezen</div></td><td class="r num" style="vertical-align:top;padding-top:8px">${x.n}</td><td class="r num" style="padding-right:16px;vertical-align:top;padding-top:8px">${fmtEur(x.kosten)}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card"><div class="card-h"><h2>Wanneer het gebeurt</h2><span class="mut">erkende schades</span></div><div class="card-b stack" style="gap:10px">${Object.entries(FASEN).filter(([k]) => fase[k]).sort((a, b) => fase[b[0]] - fase[a[0]]).map(([k, n]) => `<div class="fr"><span>${esc(n)}</span><span class="barw"><span class="trk" style="width:120px"><i style="width:${Math.round(fase[k] / faseTot * 100)}%"></i></span><span class="num">${fase[k]}</span></span></div>`).join('') || '<span class="mut">Nog geen erkende schades in deze periode.</span>'}</div></div>
+        <div class="card"><div class="card-h"><h2>Per soort schade</h2><span class="mut">onze kosten</span></div><div class="card-b soortbar">${perCat.map(p => `<a class="lnk quiet" style="text-decoration:none" href="#schades?status=alle&cat=${p.k}"><div class="r1"><span><b>${esc(p.x.n)}</b> <span class="mut">${p.n}${p.open ? `, ${p.open} open` : ''}</span></span><span class="num">${fmtEur(p.kosten)}</span></div><span class="barw" style="width:100%"><span class="trk" style="width:100%"><i style="width:${Math.round(p.kosten / maxCat * 100)}%"></i></span></span></a>`).join('')}<div class="mut" style="font-size:12px">Elke soort heeft een eigen polis en een eigen risico.</div></div></div>
+        <div class="card"><div class="card-h"><h2>Waar de schade zit</h2><span class="mut">ladingsschade</span></div><div class="card-b"><div class="diag heat">${warmteDiagram(plek, { width: 130 })}<ol class="lst">${topPlek.map(([g, n]) => `<li><span class="barw"><span class="trk"><i style="width:${Math.round(n / maxPlek * 100)}%"></i></span></span><span><b>${n}</b> ${esc(GEBIEDEN[g].toLowerCase())}</span></li>`).join('') || '<li class="mut">Geen claims in deze periode.</li>'}</ol></div></div></div>
+        <div class="card"><div class="card-h"><h2>Ons wagenpark</h2><a class="lnk quiet" href="#wagenpark">Alle</a></div><div class="card-b stack" style="gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px"><div><span class="v2">${aanrij.length}</span><div class="mut" style="font-size:12px">aanrijschades eigen voertuig</div></div><div><span class="v2">${stil}</span><div class="mut" style="font-size:12px">dagen uit de roulatie</div></div><div><span class="v2">${inHerstel}</span><div class="mut" style="font-size:12px">nu in herstel</div></div></div>
+          ${plaatsen.map(p => `<div class="fr"><span>${esc(p.n)}</span><span class="barw"><span class="trk" style="width:120px"><i style="width:${Math.round(p.aantal / maxPl * 100)}%"></i></span><span class="num">${p.aantal}</span></span></div>`).join('')}
+        </div></div>
       </div>
-      <div class="grid g32">
+      <div class="grid g3">
         <div class="card"><div class="card-h"><h2>Opdrachtgevers</h2><a class="lnk quiet" href="#opdrachtgevers">Alle</a></div><div class="card-b tight"><table class="tbl plain compact" style="padding:0 16px"><thead><tr><th style="padding-left:16px">Opdrachtgever</th><th class="r">Claims</th><th class="r" style="padding-right:16px">Afgewezen</th></tr></thead><tbody>${topOpdr.map(x => `<tr class="click" tabindex="0" data-act="opdr" data-id="${x.k.id}"><td style="padding-left:16px">${esc(x.k.naam)}</td><td class="r num">${x.n}</td><td class="r" style="padding-right:16px"><span class="barw"><span class="trk"><i style="width:${x.bes ? Math.round(x.afg / x.bes * 100) : 0}%" class="${x.bes && x.afg / x.bes >= 0.6 ? 'bad' : ''}"></i></span><span class="num">${x.bes ? Math.round(x.afg / x.bes * 100) : 0}%</span></span></td></tr>`).join('')}</tbody></table></div></div>
         <div class="card"><div class="card-h"><h2>Chauffeurs</h2>${ctx.kan('chauffeur') ? '<a class="lnk quiet" href="#chauffeurs">Alle</a>' : ''}</div><div class="card-b stack" style="gap:10px">
           <div class="row" style="gap:20px"><div><span class="v2">${sig.filter(s => s.niveau === 'gesprek').length}</span><div class="mut" style="font-size:12px">boven de regel (${inst.gesprekAantal} in ${inst.gesprekDagen} dagen)</div></div><div><span class="v2">${sig.filter(s => s.niveau === 'signaal').length}</span><div class="mut" style="font-size:12px">tweede signaal</div></div><div><span class="v2">${D.chauffeurs.length}</span><div class="mut" style="font-size:12px">chauffeurs</div></div></div>
           ${ctx.kan('chauffeur') ? `<div class="strip" role="img" aria-label="Verdeling van de chauffeurs naar claims per duizend ritten">${D.chauffeurs.map(ch => { const n = D.claims.filter(c => c.chauffeur === ch.id && c.ontvangen >= van && teltVoorChauffeur(c)).length; const r = (per === 30 ? ch.ritten90 / 3 : per === 90 ? ch.ritten90 : ch.ritten365) || 1; const x = Math.min(100, n / r * 1000 / 40 * 100); return `<i style="left:${x}%" title="${esc(ch.naam)}: ${(n / r * 1000).toFixed(1).replace('.', ',')} per 1.000"></i>`; }).join('')}<b style="left:${Math.min(100, perDuizend / 40 * 100)}%" title="gemiddeld"></b></div><div class="row mut" style="font-size:11.5px;justify-content:space-between"><span>0 per 1.000 ritten</span><span>gemiddeld ${perDuizend.toFixed(1).replace('.', ',')}</span><span>40</span></div>` : `<div class="note">${ico('lock')}<span>Het beeld per chauffeur is er voor de schadebehandeling en de directie.</span></div>`}
         </div></div>
+        <div class="card"><div class="card-h"><h2>Per vestiging</h2></div><div class="card-b tight"><table class="tbl plain compact" style="padding:0 16px"><thead><tr><th style="padding-left:16px">Vestiging</th><th class="r">Claims</th><th class="r" style="padding-right:16px">Kosten</th></tr></thead><tbody>${vesten.map(x => `<tr><td style="padding-left:16px;white-space:normal"><b>${esc(x.v.n)}</b><div class="mut" style="font-size:11.5px">${esc(x.v.sub)} · ${x.per.toFixed(1).replace('.', ',')} per 1.000 · ${Math.round(x.afg * 100)}% afgewezen</div></td><td class="r num" style="vertical-align:top;padding-top:8px">${x.n}</td><td class="r num" style="padding-right:16px;vertical-align:top;padding-top:8px">${fmtEur(x.kosten)}</td></tr>`).join('')}</tbody></table></div></div>
       </div>
       <div class="row mut" style="font-size:12px;justify-content:space-between"><span>Gesimuleerde data op een vaste dag. Bedragen zonder btw.</span><a class="lnk quiet" href="#rapporten">Tabellen, csv en afdrukken</a></div>
     </div>`;
-  bind(el, { p: t => setQ({ p: t.dataset.v }), vest: t => setQ({ vest: t.value }), opdr: t => ctx.go(`opdrachtgever/${t.dataset.id}`) });
+  bind(el, { p: t => setQ({ p: t.dataset.v }), vest: t => setQ({ vest: t.value }), cat: t => setQ({ cat: t.value }), opdr: t => ctx.go(`opdrachtgever/${t.dataset.id}`) });
 }
