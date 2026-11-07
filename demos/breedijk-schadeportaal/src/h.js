@@ -7,7 +7,7 @@ export const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '
 export const plaat = (k, lg) => `<span class="plaat${lg ? ' lg' : ''}" aria-label="kenteken ${esc(kentekenToon(k))}">${esc(kentekenToon(k))}</span>`;
 export const pill = (status, tekst) => { const s = STATUS[status] || STATUS.nieuw; return `<span class="pill s-${s.k}">${esc(tekst || s.n)}</span>`; };
 export const dot = status => `<span class="dot s-${(STATUS[status] || STATUS.nieuw).k}"></span>`;
-export const sim = (t = 'gesimuleerd') => `<span class="tag sim">${esc(t)}</span>`;
+export const sim = (t = 'gesimuleerd') => `<span class="tag sim" title="${esc(t)}">gesimuleerd</span>`;
 export const eur = n => `<span class="num">${fmtEur(n)}</span>`;
 export const wd = (van, nu) => { const n = werkdagen(van, nu); return `${n} ${n === 1 ? 'werkdag' : 'werkdagen'}`; };
 export const leeg = (kop, tekst) => `<div class="empty"><b>${esc(kop)}</b>${esc(tekst)}</div>`;
@@ -57,4 +57,17 @@ export function staafdiagram(reeksen, labels, opt = {}) {
   for (let i = 0; i < n; i++) { let acc = 0; for (const r of reeksen) { const v = r.v[i] || 0; if (!v) continue; bars += `<rect class="${r.k}" x="${x(i)}" y="${y(acc + v)}" width="${bw}" height="${Math.max(1, y(acc) - y(acc + v))}" rx="1.5"><title>${esc(labels[i])}: ${esc(r.n || r.k)} ${opt.fmt ? opt.fmt(v) : v}</title></rect>`; acc += v; } }
   const lab = labels.map((l, i) => (n > 14 && i % 2) ? '' : `<text x="${x(i) + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label || 'Staafdiagram')}">${g}<line class="ax" x1="${padL}" x2="${W}" y1="${y(0)}" y2="${y(0)}"/>${bars}${lab}</svg>`;
+}
+
+// een vonklijn (sparkline) van n waarden, zonder assen; de laatste waarde een stip
+export function vonk(v, opt = {}) {
+  const W = opt.w || 120, H = opt.h || 32, max = Math.max(1, ...v), min = opt.nul ? 0 : Math.min(...v);
+  const x = i => (i / Math.max(1, v.length - 1)) * (W - 4) + 2, y = n => H - 3 - ((n - min) / Math.max(1, max - min)) * (H - 6);
+  const pts = v.map((n, i) => `${x(i).toFixed(1)},${y(n).toFixed(1)}`).join(' ');
+  return `<svg class="vonk" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(v.length - 1).toFixed(1)}" cy="${y(v[v.length - 1]).toFixed(1)}" r="2.6" fill="currentColor"/></svg>`;
+}
+// een horizontale verdeling: [{k, n, kleur}] als één balk, met de delen in verhouding
+export function verdeling(delen, opt = {}) {
+  const tot = delen.reduce((s, d) => s + d.n, 0) || 1;
+  return `<div class="verd" role="img" aria-label="${esc(opt.label || 'Verdeling')}">${delen.map(d => d.n ? `<i style="flex:${d.n};background:${d.kleur}" title="${esc(d.k)}: ${d.n}"></i>` : '').join('')}</div>`;
 }

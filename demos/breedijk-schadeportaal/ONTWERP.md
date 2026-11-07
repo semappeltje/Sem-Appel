@@ -1,9 +1,8 @@
 # Schadeportaal voor Breedijk Transport: ontwerpbrief (demo 1.0)
 
-Aanleiding: een gesprek van Sem met Breedijk Transport (autotransporteur, Opmeer; vestigingen Nijkerk en
-Barneveld; gebruikte auto's en lichte bestelwagens voor leasemaatschappijen, dealers, veilingen en
+Aanleiding: een gesprek van Sem met Breedijk Transport (autotransporteur, Opmeer; overslagterrein in Barneveld, derde adres Nijkerk; gebruikte auto's en lichte bestelwagens voor leasemaatschappijen, dealers, veilingen en
 importeurs; circa 800 auto's per week over het eigen overslagterrein). Schadeclaims komen binnen in een
-schade-mailbox in Outlook. De behandelaar zoekt het kenteken op in Transpas (het TMS), ziet wanneer en door
+schade-mailbox in Outlook. De behandelaar zoekt het kenteken op in Transplan (het TMS), ziet wanneer en door
 wie de auto is gereden en welke foto's de chauffeur maakte, en beslist: zat de schade er al, of hebben wij
 hem gereden. Daarna gaat alles in een Excel voor het management (wie rijdt schade; drie keer in een week is
 een gesprek), met de vragen boven of onder 1.750 euro (daarboven wordt het verzekeringswerk, eigen risico
@@ -12,7 +11,7 @@ mooie interface. Geen echte kentekens of voertuigen, wel realistisch.
 
 ## Drie lezingen van de vraag
 
-1. **Letterlijk.** Een demo van een schadeportaal: de mailbox, Transpas en de Excel in een scherm, met
+1. **Letterlijk.** Een demo van een schadeportaal: de mailbox, Transplan en de Excel in een scherm, met
    testdata en een interface die eruitziet als een echt product.
 2. **Het doel.** Breedijk wil minder handwerk per claim, een vaste manier van beoordelen, en een
    overzicht voor het management dat vanzelf ontstaat in plaats van uit een Excel. Sem wil laten zien dat
@@ -30,7 +29,7 @@ mooie interface. Geen echte kentekens of voertuigen, wel realistisch.
 1. **Binnenkomst.** Een mail in de schade-mailbox (of een melding van een chauffeur, of een handmatige
    invoer). De demo "leest" de mail: kenteken, datum, schadeplek, gevraagd bedrag, bijlagen. In het echt
    doet een taalmodel dat via de Claude API; in de demo is het gesimuleerd en staat dat erbij.
-2. **Koppelen aan de rit.** Op kenteken en datum zoekt het portaal de rit in Transpas: chauffeur, truck,
+2. **Koppelen aan de rit.** Op kenteken en datum zoekt het portaal de rit in Transplan: chauffeur, truck,
    van en naar, positie op de oplegger, de inspectie bij ophalen en bij afleveren (schadecodes en foto's),
    de handtekening met of zonder voorbehoud. Niet gevonden is ook een antwoord: niet door ons vervoerd.
 3. **Beoordelen.** Een vaste checklist met signalen die het portaal zelf invult: hebben wij hem vervoerd;
@@ -53,25 +52,28 @@ mooie interface. Geen echte kentekens of voertuigen, wel realistisch.
 | --- | --- | --- |
 | Overzicht | `#overzicht` | Vijf cijfers (nieuw, antwoord over de termijn, open bedrag, erkend dit kwartaal, afgewezen deel), "Wat nu" (deadlines en nieuwe mails), schades per week over twaalf weken, signalen (chauffeur boven de regel, opdrachtgever met veel afgewezen claims) |
 | Schades | `#schades`, filters in de URL | De werkvoorraad: kenteken, voertuig, opdrachtgever, ontvangen, bedrag, status, termijn, behandelaar; zoeken op kenteken; filters als chips; csv |
-| Dossier | `#schade/S-2026-0412` | Drie kolommen: de melding (mail, uitgelezen velden, bijlagen, calculatie), onze rit (Transpas: rit, chauffeur, inspecties op een autodiagram, foto's, handtekening), de beoordeling (checklist met signalen, besluit, conceptantwoord, logboek). Op een telefoon drie tabbladen |
+| Dossier | `#schade/S-2026-0412` | Drie kolommen: de melding (mail, uitgelezen velden, bijlagen, calculatie), onze rit (Transplan: rit, chauffeur, inspecties op een autodiagram, foto's, handtekening), de beoordeling (checklist met signalen, besluit, conceptantwoord, logboek). Op een telefoon drie tabbladen |
 | Chauffeurs | `#chauffeurs`, `#chauffeur/C-17` | Schades per chauffeur over 30, 90 en 365 dagen, ritten, schades per duizend ritten, het signaal van de regel, de AVG- en OR-noot; per chauffeur een tijdlijn |
 | Opdrachtgevers | `#opdrachtgevers`, `#opdrachtgever/K-03` | Claims per opdrachtgever, aandeel afgewezen, gemiddeld bedrag, doorlooptijd, het patroon "claimt schade die al bestond" |
+| Dashboard | `#dashboard` | Het beeld voor de directie: vijf tegels met richting en vonklijn, kosten per maand, de uitkomst, waar de schade zit (warmtekaart), per vestiging, wanneer het gebeurt, opdrachtgevers, chauffeurs; in de huisstijl van Breedijk (ronde 2) |
 | Rapporten | `#rapporten` | Het maandoverzicht dat de Excel vervangt: aantal, bedragen, uitkomst, per vestiging, per schadeplek, per fase; csv en afdrukken |
-| Instellingen | `#instellingen` | Drempel verzekeraar, eigen risico, limiet per kilogram, termijnen, de regel voor het gesprek, koppelingen (mailbox, Transpas, verzekeraar), rol, thema, wat de browser bewaart |
+| Instellingen | `#instellingen` | Drempel verzekeraar, eigen risico, limiet per kilogram, termijnen, de regel voor het gesprek, koppelingen (mailbox, Transplan, verzekeraar), rol, thema, wat de browser bewaart |
 
 Zoeken in de topbalk: kenteken (met of zonder streepjes), dossiernummer, chauffeur, opdrachtgever.
-Toetsen: 1 tot 7 voor de weergaven, / zoeken, n nieuwe melding, Esc sluit.
+Toetsen: 1 tot 6 voor de weergaven, / zoeken, n nieuwe melding, Esc sluit.
 
 ## Datamodel (de vorm waarin echte data past)
 
 - **Voertuig**: kenteken, merk, handelsbenaming, kleur, datum eerste toelating, massa ledig voertuig,
   catalogusprijs, soort (personenauto, bedrijfsauto). Dezelfde velden als de RDW open data, zodat een echt
   kenteken straks met een verzoek is aangevuld.
-- **Rit (Transpas)**: ritnummer, ordernummer, opdrachtgever, ophaaladres en afleveradres (plaats),
+- **Rit (Transplan)**: ritnummer, ordernummer, opdrachtgever, ophaaladres en afleveradres (plaats),
   ophaaldatum en -tijd, afleverdatum en -tijd, chauffeur, truck, positie op de oplegger, kilometerstand,
   inspectie bij ophalen en bij afleveren (lijst van schades met gebied, soort, ernst in de opbouw van de
   AIAG/ECG-schadecodes, en foto's met tijdstip), ontvangst getekend (naam van een rol, met of zonder
-  voorbehoud en de tekst ervan), vestiging.
+  voorbehoud en de tekst ervan), vestiging; ging de auto over het overslagterrein, dan ook de intake daar (aankomst,
+  vertrek, de controle met foto's) en de tweede chauffeur van de uitlevering (ronde 2: de aflevering is altijd bij
+  de tegenpartij, onze eigen handtekening telt nooit als bewijs).
 - **Schade (claim)**: dossiernummer, bron (mail, chauffeur, handmatig), ontvangen op, afzender
   (opdrachtgever, rol van de contactpersoon, geen persoonsnaam), onderwerp en tekst van de mail,
   bijlagen (foto's, calculatie), uitgelezen velden met zekerheid (kenteken, datum, gebied, bedrag),
@@ -83,7 +85,7 @@ Toetsen: 1 tot 7 voor de weergaven, / zoeken, n nieuwe melding, Esc sluit.
 - **Opdrachtgever**: nummer, naam (verzonnen), soort (lease, dealer, veiling, importeur), plaats.
 - **Instellingen**: drempel verzekeraar (1.750), eigen risico (750), limiet per kilogram (3,40),
   antwoordtermijn (10 werkdagen), meldtermijn tegenpartij (7 dagen na aflevering voor niet zichtbare
-  schade; zichtbare schade bij aflevering), regel voor het gesprek (3 schades in 7 dagen, of 3 in 90
+  schade; zichtbare schade bij aflevering), regel voor het gesprek (3 schades in 7 dagen, of 5 in 90
   dagen als tweede signaal), uurtarief dat als norm geldt (schatting), rollen.
 
 Elke gesimuleerde waarde draagt zijn status ("gesimuleerd", "schatting") in de interface of in de

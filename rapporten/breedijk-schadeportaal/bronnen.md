@@ -14,6 +14,11 @@ netwerkinstellingen van de sessie worden toegestaan.
 
 Afkortingen: (zoek, URL) en (schatting). Alle juridische punten zijn signalen: laten toetsen.
 
+**Correctie (7 november, later op de dag):** onderwerp 2 hieronder gaat over Transpas van Art Systems. Het TMS van
+Breedijk heet volgens Sem **Transplan** (RGB+, transplan.nl, autotransportsoftware). Het onderzoek naar Transplan,
+RGB+ en de boordcomputers van Rietveld staat in `bronnen-transplan.md`; onderwerp 2 blijft staan als
+achtergrond over hoe TMS-koppelingen in de sector lopen, maar is niet Breedijks systeem.
+
 ---
 
 ## 1. Breedijk Transport

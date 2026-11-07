@@ -21,11 +21,12 @@ const isWeekend = t => { const w = new Date(t).getDay(); return w === 0 || w ===
 const werkdagTerug = (t, n) => { let x = t; while (n > 0) { x -= DAG; if (!isWeekend(x)) n--; } while (isWeekend(x)) x -= DAG; return x; };
 
 // ---------- vaste gegevens ----------
-export const VESTIGINGEN = { opmeer: { n: 'Opmeer', sub: 'hoofdkantoor en overslagterrein', aandeel: 0.55 }, nijkerk: { n: 'Nijkerk', sub: 'vestiging', aandeel: 0.25 }, barneveld: { n: 'Barneveld', sub: 'vestiging', aandeel: 0.20 } };
+// volgens breedijktransport.nl (gelezen, 7 november 2026): hoofdkantoor De Veken 208 in Opmeer, het overslagterrein in Barneveld; Nijkerk als derde adres
+export const VESTIGINGEN = { opmeer: { n: 'Opmeer', sub: 'hoofdkantoor', aandeel: 0.45 }, barneveld: { n: 'Barneveld', sub: 'overslagterrein', aandeel: 0.35 }, nijkerk: { n: 'Nijkerk', sub: 'vestiging', aandeel: 0.20 } };
 export const OPDRACHTGEVERS = [
   { id: 'K-01', naam: 'Westfries Lease', soort: 'lease', plaats: 'Hoorn', btwAftrek: true, gewicht: 14, eerder: 0.55, stijl: 'formeel', rol: 'schadecoördinator' },
   { id: 'K-02', naam: 'FleetDirect Lease', soort: 'lease', plaats: 'Amersfoort', btwAftrek: true, gewicht: 12, eerder: 0.35, stijl: 'portaal', rol: 'fleetmanager' },
-  { id: 'K-03', naam: 'Noordlease', soort: 'lease', plaats: 'Groningen', btwAftrek: true, gewicht: 6, eerder: 0.40, stijl: 'formeel', rol: 'schadecoördinator' },
+  { id: 'K-03', naam: 'Reitdiep Lease', soort: 'lease', plaats: 'Groningen', btwAftrek: true, gewicht: 6, eerder: 0.40, stijl: 'formeel', rol: 'schadecoördinator' },
   { id: 'K-04', naam: 'Autolease Midden', soort: 'lease', plaats: 'Utrecht', btwAftrek: true, gewicht: 8, eerder: 0.45, stijl: 'kort', rol: 'medewerker wagenpark' },
   { id: 'K-05', naam: 'Dealergroep Polder', soort: 'dealer', plaats: 'Lelystad', btwAftrek: true, gewicht: 10, eerder: 0.60, stijl: 'kort', rol: 'aftersales' },
   { id: 'K-06', naam: 'Autobedrijf De Kolk', soort: 'dealer', plaats: 'Alkmaar', btwAftrek: true, gewicht: 6, eerder: 0.70, stijl: 'kort', rol: 'verkoopleider' },
@@ -106,10 +107,16 @@ function maakRitten(chauffeurs) {
       if (ophaal > NU - 45 * 60000) continue; // vandaag na dit uur: nog niet opgehaald
       let aflever = ophaal + dagenOnderweg * DAG + R.i(1, 6) * 3600000; while (isWeekend(aflever)) aflever += DAG;
       if (aflever > NU) aflever = Math.max(ophaal + 30 * 60000, NU - R.i(1, 90) * 60000);
-      const viaTerrein = R.p(0.45);
+      // de keten: ongeveer de helft van de auto's gaat eerst naar het overslagterrein in Barneveld (intake-controle) en
+      // wordt daarna door een tweede chauffeur uitgeleverd; de aflevering is altijd bij de tegenpartij, nooit op eigen terrein
+      let via = null, ch2 = null;
+      if (R.p(0.45)) {
+        const aankomst = ophaal + R.i(2, 9) * 3600000; let uit = aankomst + R.w([[1, 40], [2, 35], [3, 15], [4, 10]]) * DAG + R.i(1, 8) * 3600000; while (isWeekend(uit)) uit += DAG;
+        if (uit < NU) { via = { plaats: 'Barneveld', naam: 'overslagterrein Breedijk', aankomst, vertrek: uit - R.i(2, 6) * 3600000 }; aflever = uit; ch2 = R.w(gewichtCh); if (ch2.id === ch.id) ch2 = null; }
+      }
       const van = { plaats: k.soort === 'dealer' || k.soort === 'verhuur' ? k.plaats : R.k(PLAATSEN), naam: k.soort === 'lease' ? 'inleveradres berijder' : k.naam };
-      const naar = viaTerrein ? { plaats: 'Opmeer', naam: 'overslagterrein Breedijk' } : { plaats: R.k(PLAATSEN), naam: R.w([['dealer', 5], ['veiling', 3], ['schadeherstelbedrijf', 1], ['nieuwe berijder', 2], ['havenbedrijf', 1]]) };
-      L.push({ id: `R-${seq++}`, order: `${k.id.replace('K-', 'O')}${R.i(10000, 99999)}`, k: k.id, kenteken: v.kenteken, merk: v.merk, model: v.model, kleur: v.kleur, bouwjaar: v.bouwjaar, toelating: v.toelating, massa: v.massa, catalogusprijs: v.catalogusprijs, soort: v.soort, km: v.km, ophaal, aflever, ch: ch.id, chauffeurNaam: ch.naam, vestiging: ch.vestiging, truck: `BT-${R.i(11, 46)}`, positie: R.i(1, 8), van, naar });
+      const naar = { plaats: R.k(PLAATSEN.filter(x => x !== van.plaats)), naam: R.w([['dealer', 5], ['veiling', 3], ['schadeherstelbedrijf', 1], ['nieuwe berijder', 2], ['havenbedrijf', 1]]) };
+      L.push({ id: `R-${seq++}`, order: `${k.id.replace('K-', 'O')}${R.i(10000, 99999)}`, k: k.id, kenteken: v.kenteken, merk: v.merk, model: v.model, kleur: v.kleur, bouwjaar: v.bouwjaar, toelating: v.toelating, massa: v.massa, catalogusprijs: v.catalogusprijs, soort: v.soort, km: v.km, ophaal, aflever, ch: ch.id, chauffeurNaam: ch.naam, vestiging: ch.vestiging, ch2: ch2 ? ch2.id : null, chauffeur2Naam: ch2 ? ch2.naam : null, truck: `BT-${R.i(11, 46)}`, positie: R.i(1, 8), van, via, naar });
     }
   }
   return L;
@@ -118,7 +125,8 @@ function maakRitten(chauffeurs) {
 function oudeRit(seed, chauffeurs, k, datumClaim) {
   const R = rng(seed); const ch = R.k(chauffeurs); const v = voertuig(R);
   const aflever = werkdagTerug(datumClaim - R.i(0, 9) * DAG, 0) - R.i(0, 8) * 3600000; const ophaal = aflever - R.w([[0, 45], [1, 35], [2, 14], [3, 6]]) * DAG - R.i(1, 6) * 3600000;
-  return { id: `R-${R.i(200000, 239999)}`, order: `${k.id.replace('K-', 'O')}${R.i(10000, 99999)}`, k: k.id, kenteken: v.kenteken, merk: v.merk, model: v.model, kleur: v.kleur, bouwjaar: v.bouwjaar, toelating: v.toelating, massa: v.massa, catalogusprijs: v.catalogusprijs, soort: v.soort, km: v.km, ophaal, aflever, ch: ch.id, chauffeurNaam: ch.naam, vestiging: ch.vestiging, truck: `BT-${R.i(11, 46)}`, positie: R.i(1, 8), van: { plaats: R.k(PLAATSEN), naam: k.naam }, naar: { plaats: R.p(0.5) ? 'Opmeer' : R.k(PLAATSEN), naam: R.p(0.5) ? 'overslagterrein Breedijk' : 'dealer' }, oud: true };
+  const viaT = R.p(0.45); const ch2 = viaT ? R.k(chauffeurs.filter(x => x.id !== ch.id)) : null; const via = viaT ? { plaats: 'Barneveld', naam: 'overslagterrein Breedijk', aankomst: ophaal + R.i(2, 9) * 3600000, vertrek: aflever - R.i(2, 6) * 3600000 } : null;
+  return { id: `R-${R.i(200000, 239999)}`, ch2: ch2 ? ch2.id : null, chauffeur2Naam: ch2 ? ch2.naam : null, via, order: `${k.id.replace('K-', 'O')}${R.i(10000, 99999)}`, k: k.id, kenteken: v.kenteken, merk: v.merk, model: v.model, kleur: v.kleur, bouwjaar: v.bouwjaar, toelating: v.toelating, massa: v.massa, catalogusprijs: v.catalogusprijs, soort: v.soort, km: v.km, ophaal, aflever, ch: ch.id, chauffeurNaam: ch.naam, vestiging: ch.vestiging, truck: `BT-${R.i(11, 46)}`, positie: R.i(1, 8), van: { plaats: R.k(PLAATSEN), naam: k.naam }, naar: { plaats: R.k(PLAATSEN), naam: 'dealer' }, oud: true };
 }
 
 // De details van een rit: de inspectie bij ophalen (gebruikte auto's hebben vaak al schade), de foto's met tijdstip,
@@ -129,6 +137,7 @@ const SOORT_BIJ = { velg: ['stoeprand', 'kras'], ruit: ['steenslag', 'barst'], s
 function soortVoor(R, gebied) { if (gebied.startsWith('velg')) return R.k(SOORT_BIJ.velg); if (gebied.endsWith('ruit')) return R.k(SOORT_BIJ.ruit); if (gebied.startsWith('spiegel')) return R.k(SOORT_BIJ.spiegel); return R.w([['kras', 40], ['deuk', 25], ['lakschade', 15], ['schaafplek', 12], ['steenslag', 8]]); }
 export function ritDetail(r, forceer) {
   if (r._detail && !forceer) return r._detail;
+  if (r.bron === 'import') { r._detail = { ...r, inspectieOphaal: [], inspectieAflever: [], fotos: [], aflevering: { rol: 'onbekend', voorbehoud: false, tekst: '' }, kmAflever: null, geenInspectie: true }; return r._detail; }
   const R = rng('detail' + r.id); const f = forceer || {};
   const leeftijd = 2026 - r.bouwjaar; const nOphaal = Math.min(5, Math.max(0, Math.round(R.f() * (1 + leeftijd * 0.4) + (r.km > 100000 ? 1 : 0))));
   const inspectieOphaal = [];
@@ -141,13 +150,21 @@ export function ritDetail(r, forceer) {
   FOTOGEBIEDEN_OVERZICHT.forEach((g, i) => voeg('ophaal', g, i)); voeg('ophaal', 'dashboard', 4); if (R.p(0.7)) voeg('ophaal', 'vrachtbrief', 5);
   inspectieOphaal.forEach((s, i) => { if (f.geenFoto === s.gebied) return; if (R.p(0.85)) voeg('ophaal', s.gebied, 6 + i); });
   if (f.fotoVan && !fotos.some(x => x.moment === 'ophaal' && x.gebied === f.fotoVan)) voeg('ophaal', f.fotoVan, 9);
+  // het overslagterrein: bij de intake dezelfde controle; schade van de aanvoerrit staat er dan al op
+  let inspectieTerrein = null;
+  if (r.via) {
+    inspectieTerrein = inspectieOphaal.map(s => ({ ...s }));
+    if (f.nieuw && f.waar === 'aanvoer') inspectieTerrein.push({ ...f.nieuw });
+    const voegT = (gebied, minuut) => fotos.push({ id: `F-${r.id.slice(2)}-${n++}`, moment: 'terrein', gebied, tijd: r.via.aankomst + minuut * 60000, label: FOTOLABEL[gebied] || gebied });
+    FOTOGEBIEDEN_OVERZICHT.forEach((g, i) => voegT(g, 3 + i)); if (f.nieuw && f.waar === 'aanvoer') voegT(f.nieuw.gebied, 8);
+  }
   // afleveren: twee tot vier overzichten, en wat de ontvanger aanwijst
   const inspectieAflever = inspectieOphaal.map(s => ({ ...s }));
   let aflevering = { rol: R.k(ROLLEN_ONTVANGER), voorbehoud: false, tekst: '' };
   if (f.nieuw) { inspectieAflever.push(f.nieuw); if (f.voorbehoud) aflevering = { rol: R.k(ROLLEN_ONTVANGER), voorbehoud: true, tekst: `${GEBIEDEN[f.nieuw.gebied]}: ${SOORTEN[f.nieuw.soort].toLowerCase()}, niet op de ophaalbon` }; }
   else if (R.p(0.06)) { const g = R.w(GEBIED_KANS); const s = { gebied: g, soort: soortVoor(R, g), ernst: 1 }; inspectieAflever.push(s); aflevering = { rol: aflevering.rol, voorbehoud: true, tekst: `${GEBIEDEN[g]}: kleine ${SOORTEN[s.soort].toLowerCase()}` }; }
   R.k(FOTOGEBIEDEN_OVERZICHT); FOTOGEBIEDEN_OVERZICHT.slice(0, R.i(2, 4)).forEach((g, i) => voeg('aflever', g, i)); if (aflevering.voorbehoud) voeg('aflever', inspectieAflever[inspectieAflever.length - 1].gebied, 5);
-  const det = { ...r, inspectieOphaal, inspectieAflever, fotos, aflevering, kmAflever: r.km + R.i(0, 4) };
+  const det = { ...r, inspectieOphaal, inspectieTerrein, inspectieAflever, fotos, aflevering: { ...aflevering, eigen: false }, kmAflever: r.km + R.i(0, 4) };
   r._detail = det; return det;
 }
 
@@ -167,7 +184,8 @@ function mailTekst(R, k, c, v) {
   const auto = `${v.merk} ${v.model} (${v.kleur})`; const bedrag = c.calculatie ? fmtEur(c.calculatie.totaal) : null;
   if (k.stijl === 'formeel') return `Geachte heer, mevrouw,\n\nOp ${datum} heeft Breedijk Transport in onze opdracht het voertuig ${auto} met kenteken ${kt} vervoerd (ons dossier ${c.extern}). Bij ontvangst is een ${s} op de ${g} vastgesteld die bij uitgifte niet aanwezig was. Wij stellen u hierbij aansprakelijk voor deze schade.\n\nBijgevoegd vindt u de foto's van de schade${bedrag ? ` en de calculatie van ${c.calculatie.bedrijf} ter hoogte van ${bedrag}` : ''}. Wij verzoeken u binnen tien werkdagen te reageren.\n\nMet vriendelijke groet,\n${k.rol}, ${k.naam}`;
   if (k.stijl === 'portaal') return `Automatisch bericht uit het schadeportaal van ${k.naam}.\n\nClaimnummer: ${c.extern}\nKenteken: ${kt}\nVoertuig: ${auto}\nTransportdatum: ${datum}\nSchade: ${g}, ${s}\nGeclaimd bedrag: ${bedrag || 'volgt'}\nBijlagen: ${c.bijlagen.length}\n\nReageer via het portaal of per e-mail onder vermelding van het claimnummer.`;
-  return `Hoi,\n\nJullie hebben ${datum} een ${auto} bij ons ${c.datumRit ? 'opgehaald' : 'afgeleverd'}, kenteken ${kt}. Er zit een ${s} op de ${g} en die zat er bij ons niet op. Foto's in de bijlage${bedrag ? `, offerte van ${c.calculatie.bedrijf} erbij: ${bedrag}` : ''}. Hoor graag hoe jullie dit oplossen.\n\nGroet,\n${k.rol}, ${k.naam}`;
+  const opgehaald = c.datumOphaal ? fmtDatumJ(c.datumOphaal) : datum;
+  return `Hoi,\n\nJullie hebben ${opgehaald} een ${auto} bij ons opgehaald, kenteken ${kt}. Er zit een ${s} op de ${g} en die zat er bij ons niet op. Foto's in de bijlage${bedrag ? `, offerte van ${c.calculatie.bedrijf} erbij: ${bedrag}` : ''}. Hoor graag hoe jullie dit oplossen.\n\nGroet,\n${k.rol}, ${k.naam}`;
 }
 function maakClaims(ritten, chauffeurs) {
   const R = rng('claims'); const L = []; const kMap = new Map(OPDRACHTGEVERS.map(k => [k.id, k])); const chMap = new Map(chauffeurs.map(c => [c.id, c]));
@@ -193,6 +211,9 @@ function maakClaims(ritten, chauffeurs) {
   for (let j = 0; j < 7; j++) { const k = R.w(OPDRACHTGEVERS.map(x => [x, x.gewicht])); const v = voertuig(R); const dagen = R.i(1, 80); L.push(maakClaim(R, null, k, 0, dagen > 60, d(dagen, R.i(8, 17), R.i(0, 59)), v)); }
   // 4) meldingen van chauffeurs zelf, zonder claim van de opdrachtgever (de voorkant van het proces)
   for (const dg of [0, 1, 4]) { const r = R.k(ritten.filter(x => Math.abs(x.aflever - d(dg)) < DAG && !gebruikt.has(x.kenteken))); if (!r) continue; gebruikt.add(r.kenteken); L.push(maakClaim(R, r, kMap.get(r.k), 0, false, null, null, 'chauffeur')); }
+  // twee dossiers die te lang liggen (het verhaal van "over de termijn" op het overzicht)
+  const laat = L.filter(c => c.rit && c.bron === 'mail' && c.ontvangen < NU - 15 * DAG && c.ontvangen > NU - 24 * DAG && c.verhaal !== 'geen_rit').slice(0, 2);
+  for (const c of laat) { c.status = 'onderzoek'; c.behandelaar = 'Ruben'; c.besluit = null; c.bedragVoorstel = null; c.beslotenOp = null; c.bedragUitkomst = null; c.log = c.log.slice(0, 3); }
   // nummeren op datum van ontvangst
   L.sort((a, b) => a.ontvangen - b.ontvangen); L.forEach((c, n) => { const jaar = new Date(c.ontvangen).getFullYear(); c.id = `S-${jaar}-${String(n + (jaar === 2026 ? 118 : 0)).padStart(4, '0')}`; });
   return L;
@@ -203,24 +224,28 @@ function maakClaim(R, r, k, seq, oud, datumOntvangen, losVoertuig, bron, forceer
   const verhaal = !r ? 'geen_rit' : bron === 'chauffeur' ? 'chauffeur' : forceerVerhaal || R.w([['eerder', k.eerder * 100], ['nieuw_voorbehoud', 22], ['nieuw_stil', 14], ['onduidelijk', 14]]);
   const gebied = R.w(GEBIED_KANS); const soort = soortVoor(R, gebied); const ernst = R.w([[1, 25], [2, 35], [3, 25], [4, 10], [5, 4], [6, 1]]);
   const schade = { gebied, soort, ernst };
-  const forceer = verhaal === 'eerder' ? { eerder: { ...schade, ernst: Math.max(1, ernst - R.i(0, 1)) } } : verhaal === 'nieuw_voorbehoud' ? { zonder: gebied, nieuw: schade, voorbehoud: true } : verhaal === 'nieuw_stil' ? { zonder: gebied, nieuw: schade, voorbehoud: false, fotoVan: R.p(0.5) ? gebied : null } : verhaal === 'onduidelijk' ? { zonder: gebied, geenFoto: gebied } : verhaal === 'chauffeur' ? { zonder: gebied, nieuw: schade, voorbehoud: true } : null;
+  const fase = verhaal === 'eerder' || verhaal === 'geen_rit' ? null : forceerVerhaal ? R.k(['laden', 'rijden']) : R.w([['laden', 35], ['lossen', 35], ['rijden', soort === 'steenslag' ? 60 : 10], ['terrein', r && r.via ? 15 : 0], ['onbekend', 10]]);
+  const waar = fase === 'laden' || fase === 'rijden' ? 'aanvoer' : 'na-terrein';
+  const forceer = verhaal === 'eerder' ? { eerder: { ...schade, ernst: Math.max(1, ernst - R.i(0, 1)) } } : verhaal === 'nieuw_voorbehoud' ? { zonder: gebied, nieuw: schade, voorbehoud: true, waar } : verhaal === 'nieuw_stil' ? { zonder: gebied, nieuw: schade, voorbehoud: false, fotoVan: R.p(0.5) ? gebied : null, waar } : verhaal === 'onduidelijk' ? { zonder: gebied, geenFoto: gebied, waar } : verhaal === 'chauffeur' ? { zonder: gebied, nieuw: schade, voorbehoud: true, waar } : null;
   const det = r ? ritDetail(r, forceer) : null;
+  // wie reed toen het gebeurde: bij het laden of onderweg de aanvoerchauffeur, bij het lossen de uitleverchauffeur (als er
+  // een tweede rit was), op het terrein niemand in het bijzonder
+  const dader = !r ? null : fase === 'terrein' ? null : fase === 'lossen' && r.ch2 ? { id: r.ch2, naam: r.chauffeur2Naam } : { id: r.ch, naam: r.chauffeurNaam };
   // een rit van voor de lijst van negentig dagen is alleen via de claim bereikbaar (ritVan)
   const oudeRit = r && r.oud ? det : undefined;
-  const fase = verhaal === 'eerder' || verhaal === 'geen_rit' ? null : R.w([['laden', 35], ['lossen', 35], ['rijden', soort === 'steenslag' ? 60 : 10], ['terrein', 15], ['onbekend', 10]]);
   const datumRit = r ? r.aflever : null;
   let ontvangen = datumOntvangen || (bron === 'chauffeur' ? r.aflever + R.i(5, 40) * 60000 : r.aflever + (forceerVerhaal ? R.i(0, 1) : R.w([[0, 20], [1, 30], [2, 18], [3, 10], [5, 8], [8, 7], [14, 5], [25, 2]])) * DAG + R.i(2, 9) * 3600000);
   // nooit in de toekomst: een mail van na de demo-dag bestaat nog niet
   if (ontvangen > NU) ontvangen = NU - R.i(15, 700) * 60000;
-  while (isWeekend(ontvangen) && !datumOntvangen) ontvangen += DAG;
-  if (ontvangen > NU) ontvangen = NU - R.i(15, 700) * 60000;
+  while (isWeekend(ontvangen)) ontvangen += DAG;
+  if (ontvangen > NU) ontvangen = werkdagTerug(NU, 0) - R.i(15, 700) * 60000;
   const heeftCalc = bron === 'chauffeur' ? false : R.p(0.78);
   const cal = heeftCalc ? calculatie(R, gebied, soort, ernst, v) : null;
   const bijlagen = []; const nFoto = bron === 'chauffeur' ? R.i(2, 4) : R.i(1, 4); for (let i = 1; i <= nFoto; i++) bijlagen.push({ soort: 'foto', naam: `IMG_${R.i(1000, 9999)}.jpg`, kb: R.i(900, 4200) }); if (cal) bijlagen.push({ soort: 'calculatie', naam: `calculatie-${kentekenToon(v.kenteken).replace(/-/g, '')}.pdf`, kb: R.i(80, 420) });
-  const c = { seq, bron: bron || 'mail', verhaal, kenteken: v.kenteken, voertuig: v, opdrachtgever: k, rit: r ? r.id : null, chauffeur: r ? r.ch : null, chauffeurNaam: r ? r.chauffeurNaam : null, vestiging: r ? r.vestiging : null, gebied, soort, ernst, fase, datumRit, datumClaim: ontvangen, ontvangen, calculatie: cal, bedragGevraagd: cal ? cal.totaal : null, bijlagen, extern: `${k.id.replace('K-', 'CL')}-${R.i(2400, 9800)}`, fotosClaimTonenSchade: verhaal === 'eerder' ? R.p(0.6) : true };
+  const c = { seq, bron: bron || 'mail', verhaal, kenteken: v.kenteken, voertuig: v, opdrachtgever: k, rit: r ? r.id : null, chauffeur: dader ? dader.id : null, chauffeurNaam: dader ? dader.naam : (r && fase === 'terrein' ? 'terrein Barneveld' : null), vestiging: r ? (fase === 'terrein' ? 'Barneveld' : r.vestiging) : null, gebied, soort, ernst, fase, datumRit, datumOphaal: r ? r.ophaal : null, datumClaim: ontvangen, ontvangen, calculatie: cal, bedragGevraagd: cal ? cal.totaal : null, bijlagen, extern: `${k.id.replace('K-', 'CL')}-${R.i(2400, 9800)}`, fotosClaimTonenSchade: verhaal === 'eerder' ? R.p(0.6) : true };
   if (oudeRit) c._oudeRit = oudeRit;
   c.onderwerp = bron === 'chauffeur' ? `Schademelding chauffeur ${r.chauffeurNaam}: ${kentekenToon(v.kenteken)}` : k.stijl === 'portaal' ? `[${k.naam}] Claim ${c.extern} ${kentekenToon(v.kenteken)}` : k.stijl === 'formeel' ? `Aansprakelijkstelling transportschade ${kentekenToon(v.kenteken)}, dossier ${c.extern}` : `Schade ${v.merk} ${v.model} ${kentekenToon(v.kenteken)}`;
-  c.mail = bron === 'chauffeur' ? `Melding uit de chauffeursapp.\n\nBij het ${fase === 'laden' ? 'laden' : 'lossen'} ${GEBIEDEN[gebied].toLowerCase()} geraakt: ${SOORTEN[soort].toLowerCase()}. Direct foto's gemaakt en de ontvanger laten tekenen met voorbehoud. Positie ${r.positie}, ${r.truck}.` : mailTekst(R, k, c, v);
+  c.mail = bron === 'chauffeur' ? `Melding uit de chauffeursapp.\n\nBij het ${fase === 'laden' ? 'laden' : fase === 'terrein' ? 'rangeren op het terrein' : 'lossen'} ${GEBIEDEN[gebied].toLowerCase()} geraakt: ${SOORTEN[soort].toLowerCase()}. Direct foto's gemaakt en de ontvanger laten tekenen met voorbehoud. Positie ${r.positie}, ${r.truck}.` : mailTekst(R, k, c, v);
   // de uitgelezen velden, met zekerheid; soms iets om te controleren
   const twijfel = R.p(0.12);
   c.uitgelezen = { kenteken: { w: v.kenteken, z: twijfel ? 0.72 : 0.99, noot: twijfel ? 'Het kenteken staat twee keer in de mail, een keer zonder streepjes en met een 0 in plaats van een O.' : null }, datum: { w: datumRit || ontvangen, z: r ? 0.95 : 0.6 }, gebied: { w: gebied, z: 0.9 }, bedrag: { w: cal ? cal.totaal : null, z: cal ? 0.97 : 0 }, bijlagen: bijlagen.length };
@@ -233,7 +258,7 @@ function maakClaim(R, r, k, seq, oud, datumOntvangen, losVoertuig, bron, forceer
   const tussen = verhaal === 'onduidelijk' ? 'wacht_chauffeur' : (cal && (cal.uurtarief > 109 || cal.dubbel) ? 'wacht_tegenpartij' : 'onderzoek');
   let status, behandelaar = null, besluit = null, bedragVoorstel = null, beslotenOp = null;
   if (bron === 'chauffeur') { status = 'onderzoek'; behandelaar = 'Ilse'; L(ontvangen + 30 * 60000, 'Dossier aangemaakt voor als de claim komt', 'Ilse'); }
-  else if (leeftijdDagen < 1.2 || (leeftijdDagen < 4 && R.p(0.55))) status = 'nieuw';
+  else if (!forceerVerhaal && (leeftijdDagen < 1.2 || (leeftijdDagen < 4 && R.p(0.55)))) status = 'nieuw';
   else if (leeftijdDagen < 26 && R.p(leeftijdDagen < 12 ? 0.6 : 0.14)) { status = tussen; behandelaar = R.k(['Ilse', 'Ruben']); L(ontvangen + R.i(1, 40) * 3600000, `In onderzoek genomen door ${behandelaar}`, behandelaar); if (tussen === 'wacht_chauffeur') L(ontvangen + R.i(41, 70) * 3600000, `${r.chauffeurNaam} gevraagd wat hij zich herinnert van deze auto`, behandelaar); if (tussen === 'wacht_tegenpartij') L(ontvangen + R.i(41, 70) * 3600000, `Tegenvoorstel gestuurd aan ${k.naam}`, behandelaar); }
   else if (leeftijdDagen < 30 && R.p(0.5)) { status = eind === 'erkend' && R.p(0.4) ? 'wacht_tegenpartij' : eind; behandelaar = R.k(['Ilse', 'Ruben']); besluit = eind; beslotenOp = ontvangen + R.i(1, 6) * DAG; L(ontvangen + R.i(1, 30) * 3600000, `In onderzoek genomen door ${behandelaar}`, behandelaar); L(beslotenOp, eind === 'afgewezen' ? `Afgewezen met bewijs: ${r ? 'de ophaalinspectie en de foto\'s' : 'niet door ons vervoerd'}` : eind === 'verzekeraar' ? `Erkend en ingediend bij de verzekeraar (${fmtEur(cal.totaal)}, eigen risico 750 euro)` : `Erkend voor ${fmtEur(cal ? cal.totaal : 0)}`, behandelaar); }
   else { status = eind === 'verzekeraar' && leeftijdDagen < 75 ? 'verzekeraar' : (eind === 'afgewezen' ? 'afgewezen' : 'gesloten'); behandelaar = R.k(['Ilse', 'Ruben']); besluit = eind; beslotenOp = ontvangen + R.i(1, 8) * DAG; L(ontvangen + R.i(1, 30) * 3600000, `In onderzoek genomen door ${behandelaar}`, behandelaar); L(beslotenOp, eind === 'afgewezen' ? `Afgewezen met bewijs: ${r ? 'de ophaalinspectie en de foto\'s' : 'niet door ons vervoerd'}` : eind === 'verzekeraar' ? `Erkend en ingediend bij de verzekeraar (${fmtEur(cal.totaal)}, eigen risico 750 euro)` : `Erkend voor ${fmtEur(cal ? cal.totaal : 0)}`, behandelaar); if (status === 'gesloten') L(beslotenOp + R.i(3, 20) * DAG, eind === 'verzekeraar' ? 'Verzekeraar heeft uitgekeerd; eigen risico verrekend' : 'Betaald en verrekend', 'systeem'); if (status === 'afgewezen' && R.p(0.5)) L(beslotenOp + R.i(2, 12) * DAG, `${k.naam} laat weten de afwijzing te accepteren`, 'systeem'); }

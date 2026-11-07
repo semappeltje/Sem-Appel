@@ -3,23 +3,25 @@
    van die pagina te raken. Het thema staat als data-theme op die root. Hetzelfde systeem als Control Tower 4.0
    (demos/simonloos-control-tower/ONTWERP-4.md): koel grijs, 13,5 px met tabulaire cijfers, 8-puntsraster, radius 6
    en 10, dunne lijnen, schaduw alleen op zwevende lagen, beweging 160 tot 220 ms en niets bij minder beweging.
-   Het accent is een diep blauw (geen huisstijl van Breedijk zonder hun akkoord; een token, in een regel te wisselen). */
+   Het accent is het rood van Breedijk (#E30613 uit het child-theme van breedijktransport.nl, gelezen 7 november 2026;
+   Sem vroeg om de Breedijk-stijl). Omdat rood het merk is, zijn "slecht" en "over de termijn" diep oranje en is
+   "afgewezen" inkt: een afgewezen claim is voor Breedijk geen slecht nieuws. Alles blijft een token. */
 .bsp{
   --bg:#FFFFFF;--surface:#F6F7F9;--surface2:#EEF0F3;--surface3:#E5E8EC;--line:#E3E6EA;--line2:#CDD2D9;
   --text:#15181E;--text2:#3A414D;--muted:#5F6775;--faint:#8A919D;
-  --brand:#1E4FD8;--brand-h:#1840B3;--brand-soft:#E9EFFC;--on-brand:#FFFFFF;
+  --brand:#E30613;--brand-h:#C1050F;--brand-soft:#FDE9EA;--on-brand:#FFFFFF;--ink:#121212;
   --focus:#2563EB;--sel:#EEF4FF;--sel-line:#BFD3FB;
-  --ok:#15803D;--ok-soft:#E7F5EC;--warn:#B45309;--warn-soft:#FDF3E2;--bad:#B91C1C;--bad-soft:#FDEBEB;--info:#1D4ED8;--info-soft:#EAF0FD;
+  --ok:#15803D;--ok-soft:#E7F5EC;--warn:#B45309;--warn-soft:#FDF3E2;--bad:#C2410C;--bad-soft:#FDEBE3;--info:#1D4ED8;--info-soft:#EAF0FD;
   /* statuskleuren van een dossier: vast, overal gelijk (stip, pil, staaf) */
-  --c-nieuw:#2563EB;--c-onderzoek:#D97706;--c-wacht:#6B7280;--c-verzekeraar:#7C3AED;--c-erkend:#16A34A;--c-afgewezen:#DC2626;--c-gesloten:#9CA3AF;
-  --b-nieuw:#E8EFFD;--b-onderzoek:#FDF2E2;--b-wacht:#EFF0F2;--b-verzekeraar:#F1ECFD;--b-erkend:#E7F6EC;--b-afgewezen:#FDEBEB;--b-gesloten:#F3F4F6;
-  --t-nieuw:#1E40AF;--t-onderzoek:#92400E;--t-wacht:#374151;--t-verzekeraar:#5B21B6;--t-erkend:#166534;--t-afgewezen:#991B1B;--t-gesloten:#4B5563;
+  --c-nieuw:#2563EB;--c-onderzoek:#D97706;--c-wacht:#6B7280;--c-verzekeraar:#7C3AED;--c-erkend:#16A34A;--c-afgewezen:#374151;--c-gesloten:#9CA3AF;
+  --b-nieuw:#E8EFFD;--b-onderzoek:#FDF2E2;--b-wacht:#EFF0F2;--b-verzekeraar:#F1ECFD;--b-erkend:#E7F6EC;--b-afgewezen:#E5E7EB;--b-gesloten:#F3F4F6;
+  --t-nieuw:#1E40AF;--t-onderzoek:#92400E;--t-wacht:#374151;--t-verzekeraar:#5B21B6;--t-erkend:#166534;--t-afgewezen:#111827;--t-gesloten:#4B5563;
   /* het autodiagram: ophaalinspectie in inkt, de claim in het accent, een treffer omlijnd */
-  --dg-body:#F3F4F6;--dg-line:#9AA3B2;--dg-glass:#DCE3EC;--dg-eerder:#3A414D;--dg-claim:#1E4FD8;--dg-match:#DC2626;
-  --viz-1:#2A78D6;--viz-2:#9CA3AF;--viz-3:#1BAF7A;--viz-grid:#E8EAEE;--viz-axis:#C9CED6;--viz-mut:#B8BEC8;
+  --dg-body:#F3F4F6;--dg-line:#9AA3B2;--dg-glass:#DCE3EC;--dg-eerder:#3A414D;--dg-claim:#2563EB;--dg-match:#E30613;
+  --viz-1:#E30613;--viz-2:#C9CED6;--viz-3:#374151;--viz-grid:#E8EAEE;--viz-axis:#C9CED6;--viz-mut:#B8BEC8;
   --sh-pop:0 8px 24px rgba(16,24,40,.12),0 2px 6px rgba(16,24,40,.07);--sh-dlg:0 24px 64px rgba(16,24,40,.26),0 4px 12px rgba(16,24,40,.08);
   --r-sm:6px;--r-md:10px;--ease:cubic-bezier(.2,.7,.2,1);--dur:180ms;
-  --sidew:232px;--top:56px;--bbar:0px;
+  --sidew:232px;--top:56px;
   --font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   box-sizing:border-box;position:relative;contain:layout;container:bsp/inline-size;height:100%;display:flex;overflow:hidden;
@@ -29,12 +31,12 @@
   &[data-theme=dark]{
     --bg:#0F1216;--surface:#171B21;--surface2:#1E232B;--surface3:#272D36;--line:#272D35;--line2:#3A414D;
     --text:#EEF1F5;--text2:#C9CFD9;--muted:#9AA3B2;--faint:#7A8392;
-    --brand:#4F7BF0;--brand-h:#6B91F4;--brand-soft:#17223F;--on-brand:#FFFFFF;--focus:#60A5FA;--sel:#16243A;--sel-line:#2D4A78;
-    --ok:#4ADE80;--ok-soft:#12261A;--warn:#FBBF24;--warn-soft:#2E220C;--bad:#F87171;--bad-soft:#331617;--info:#93C5FD;--info-soft:#152238;
-    --b-nieuw:rgba(37,99,235,.22);--b-onderzoek:rgba(217,119,6,.2);--b-wacht:rgba(107,114,128,.24);--b-verzekeraar:rgba(124,58,237,.24);--b-erkend:rgba(22,163,74,.18);--b-afgewezen:rgba(220,38,38,.22);--b-gesloten:rgba(156,163,175,.18);
-    --t-nieuw:#A9C8FD;--t-onderzoek:#FCD34D;--t-wacht:#D1D5DB;--t-verzekeraar:#C9BCFD;--t-erkend:#86EFAC;--t-afgewezen:#FCA5A5;--t-gesloten:#D1D5DB;
-    --dg-body:#1E232B;--dg-line:#5F6775;--dg-glass:#2A3340;--dg-eerder:#C9CFD9;--dg-claim:#6B91F4;--dg-match:#F87171;
-    --viz-1:#3987E5;--viz-2:#4A525F;--viz-3:#199E70;--viz-grid:#252B33;--viz-axis:#3A414D;--viz-mut:#4A525F;
+    --brand:#F2273A;--brand-h:#FF4D5E;--brand-soft:#3A1216;--on-brand:#FFFFFF;--ink:#EEF1F5;--focus:#60A5FA;--sel:#16243A;--sel-line:#2D4A78;
+    --ok:#4ADE80;--ok-soft:#12261A;--warn:#FBBF24;--warn-soft:#2E220C;--bad:#FB923C;--bad-soft:#33200F;--info:#93C5FD;--info-soft:#152238;
+    --b-nieuw:rgba(37,99,235,.22);--b-onderzoek:rgba(217,119,6,.2);--b-wacht:rgba(107,114,128,.24);--b-verzekeraar:rgba(124,58,237,.24);--b-erkend:rgba(22,163,74,.18);--b-afgewezen:rgba(156,163,175,.22);--b-gesloten:rgba(156,163,175,.18);
+    --t-nieuw:#A9C8FD;--t-onderzoek:#FCD34D;--t-wacht:#D1D5DB;--t-verzekeraar:#C9BCFD;--t-erkend:#86EFAC;--t-afgewezen:#E5E7EB;--t-gesloten:#D1D5DB;
+    --dg-body:#1E232B;--dg-line:#5F6775;--dg-glass:#2A3340;--dg-eerder:#C9CFD9;--dg-claim:#6B91F4;--dg-match:#F2273A;
+    --viz-1:#F2273A;--viz-2:#3A414D;--viz-3:#C9CFD9;--viz-grid:#252B33;--viz-axis:#3A414D;--viz-mut:#4A525F;
     --sh-pop:0 8px 24px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--sh-dlg:0 24px 64px rgba(0,0,0,.6);
     color-scheme:dark;
   }
@@ -136,7 +138,7 @@
   .tag.sim{background:transparent;border:1px dashed var(--line2);color:var(--muted);font-weight:500}
   /* een kenteken als Nederlandse plaat: geel met zwarte letters, blauw bandje links */
   .plaat{display:inline-flex;align-items:center;height:22px;padding:0 7px 0 5px;border-radius:4px;background:#F7D117;color:#111;font:700 12.5px/1 var(--mono);letter-spacing:.04em;white-space:nowrap;border:1px solid #D9B40F;position:relative}
-  .plaat::before{content:"";width:5px;height:14px;border-radius:2px;background:#1E4FD8;margin-right:6px}
+  .plaat::before{content:"";width:5px;height:14px;border-radius:2px;background:#1D4ED8;margin-right:6px}
   .plaat.lg{height:30px;font-size:17px;padding:0 10px 0 7px}
   .plaat.lg::before{width:7px;height:20px;margin-right:8px}
 
@@ -265,7 +267,7 @@
   .barw{display:inline-flex;align-items:center;gap:8px;min-width:0}
   .barw .trk{width:80px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;flex:none}
   .barw .trk i{display:block;height:100%;background:var(--viz-1);border-radius:3px}
-  .barw .trk i.bad{background:var(--c-afgewezen)}
+  .barw .trk i.bad{background:var(--viz-3)}
 
   /* lijst op een telefoon in plaats van de tabel (Schades) */
   .ml{display:none;flex-direction:column;list-style:none}
@@ -275,6 +277,16 @@
   .ml-i .t .sub{color:var(--muted);font-weight:400}
   .ml-i .m{grid-column:1/-1;color:var(--muted);font-size:12.5px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .ml-i .rt{justify-self:end;white-space:nowrap;font-weight:600}
+  .tbl.kop td{white-space:normal;vertical-align:top;padding-top:10px;padding-bottom:10px;height:auto}
+  .tbl.kop td:first-child{padding-left:16px;min-width:180px}
+  .tbl.kop td:last-child{padding-right:16px;white-space:nowrap}
+  .tbl.kop td.wrap{max-width:none}
+  .keten{display:flex;flex-direction:column;gap:0;font-size:13px}
+  .keten li{display:grid;grid-template-columns:14px 1fr;gap:0 10px;padding:0 0 10px;position:relative}
+  .keten li i{width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--text2);margin:4px 0 0 2px}
+  .keten li::after{content:"";position:absolute;left:6.5px;top:16px;bottom:0;width:1px;background:var(--line2)}
+  .keten li:last-child::after{display:none}
+  .keten li:last-child i{background:var(--text2)}
   /* ---------- dossier ---------- */
   .dos-h{padding:16px 24px 0;display:flex;flex-direction:column;gap:12px}
   .dos-h .ttl{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -329,9 +341,8 @@
   .besluit .opt b{font-size:13px;display:block}
   .besluit .opt small{display:block}
   .logb{display:flex;flex-direction:column}
-  .logb li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:0 10px;padding:0 0 12px;position:relative;font-size:12.5px}
-  .logb li>span:last-child{min-width:0;overflow-wrap:anywhere}
-  .logb li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--line2);margin:5px 0 0 3px}
+  .logb li{display:block;padding:0 0 12px 24px;position:relative;font-size:12.5px;min-width:0;overflow-wrap:anywhere}
+  .logb li::before{content:"";position:absolute;left:3px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--line2)}
   .logb li::after{content:"";position:absolute;left:6.5px;top:16px;bottom:0;width:1px;background:var(--line)}
   .logb li:last-child::after{display:none}
   .logb li.me::before{background:var(--brand)}
@@ -367,7 +378,7 @@
   .chart text{font-family:var(--font);font-size:11px;fill:var(--muted)}
   .chart .grid line{stroke:var(--viz-grid)}
   .chart .ax{stroke:var(--viz-axis)}
-  .chart rect.a{fill:var(--viz-1)}.chart rect.b{fill:var(--viz-2)}.chart rect.c{fill:var(--c-afgewezen);opacity:.55}
+  .chart rect.a{fill:var(--viz-1)}.chart rect.b{fill:var(--viz-2)}.chart rect.c{fill:var(--viz-3)}
   .chart rect:hover{opacity:.8}
 
   /* ---------- zwevende lagen ---------- */
@@ -388,7 +399,7 @@
   .dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
   .dlg-f .l{margin-right:auto;font-size:12.5px;color:var(--muted);align-self:center}
   @keyframes dlg-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .toasts{position:absolute;right:16px;bottom:calc(16px + var(--bbar));z-index:90;display:flex;flex-direction:column;gap:8px;max-width:min(400px,calc(100% - 32px));pointer-events:none}
+  .toasts{position:absolute;right:16px;bottom:16px;z-index:90;display:flex;flex-direction:column;gap:8px;max-width:min(400px,calc(100% - 32px));pointer-events:none}
   .toast{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-md);background:var(--text);color:var(--bg);font-size:13px;box-shadow:var(--sh-pop);animation:dlg-in 200ms var(--ease)}
   .toast .ic{color:inherit}
   .toast button{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
@@ -409,16 +420,16 @@
     .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
     .g32{grid-template-columns:minmax(0,1fr)}
   }
-  @container bsp (max-width:1100px) and (min-width:761px){ &:not(.nav-x){--sidew:64px} &:not(.nav-x) .side .n,&:not(.nav-x) .side .grp,&:not(.nav-x) .brand b,&:not(.nav-x) .brand small,&:not(.nav-x) .side-f .lbl{display:none} &:not(.nav-x) .side .nav a{justify-content:center;padding:0} &:not(.nav-x) .side .nav a .cnt{position:absolute;top:2px;right:2px;min-width:8px;height:8px;padding:0;font-size:0;border-radius:50%} &:not(.nav-x) .side-f .btn{justify-content:center} &:not(.nav-x) .brand{justify-content:center;padding:0} }
+  @container bsp (max-width:1100px) and (min-width:761px){ &:not(.nav-x) .side{width:64px} &:not(.nav-x) .side .n,&:not(.nav-x) .side .grp,&:not(.nav-x) .brand b,&:not(.nav-x) .brand small,&:not(.nav-x) .side-f .lbl{display:none} &:not(.nav-x) .side .nav a{justify-content:center;padding:0} &:not(.nav-x) .side .nav a .cnt{position:absolute;top:2px;right:2px;min-width:8px;height:8px;padding:0;font-size:0;border-radius:50%} &:not(.nav-x) .side-f .btn{justify-content:center} &:not(.nav-x) .brand{justify-content:center;padding:0} }
   @container bsp (max-width:760px){
-    --sidew:0px;--bbar:58px;
-    .side{display:none}
-    .bottombar{display:flex;position:absolute;left:0;right:0;bottom:0;height:var(--bbar);z-index:50;background:var(--bg);border-top:1px solid var(--line);padding:0 4px env(safe-area-inset-bottom)}
+    .side{display:none;width:0}
+    .bottombar{display:flex;position:absolute;left:0;right:0;bottom:0;height:58px;z-index:50;background:var(--bg);border-top:1px solid var(--line);padding:0 4px env(safe-area-inset-bottom)}
     .bottombar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:500;color:var(--muted);text-decoration:none;position:relative}
     .bottombar a .ic{width:20px;height:20px}
     .bottombar a[aria-current=page]{color:var(--brand)}
     .bottombar a .cnt{right:auto;left:50%;margin-left:4px;top:4px}
-    .views{padding-bottom:var(--bbar)}
+    .views{padding-bottom:58px}
+    .toasts{bottom:calc(16px + 58px)}
     .top{padding:0 8px}
     .top .dag,.top .who small,.top .hide-m{display:none}
     .top .fsearch{max-width:none}
@@ -451,4 +462,33 @@
   .bsp .print-area,.bsp .print-area *{visibility:visible}
   .bsp .print-area{position:absolute;left:0;top:0;width:100%;padding:0}
   .bsp .print-only{display:block}
+}
+/* ---------- dashboard ---------- */
+.bsp{
+  --heat:var(--brand);
+  .dks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+  .dk{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(56px,96px);grid-template-areas:"l l" "v vonk" "d d" "s s";gap:2px 10px;min-width:0}
+  .dk .l{grid-area:l;font-size:12.5px;color:var(--muted)}
+  .dk .v{grid-area:v;font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
+  .dk .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:0}
+  .dk .d{grid-area:d;font-size:12px;display:flex;align-items:center;gap:4px;color:var(--text2);min-width:0;flex-wrap:wrap;margin-top:2px}
+  .dk .d .ic{width:12px;height:12px}
+  .dk .d .ic.down{transform:rotate(180deg)}
+  .dk .d.goed{color:var(--ok)}.dk .d.slecht{color:var(--bad)}
+  .dk .d.goed .mut,.dk .d.slecht .mut{color:var(--muted)}
+  .dk .vonkw{grid-area:vonk;align-self:center;color:var(--brand);opacity:.85;min-width:0}
+  .dk .vonkw svg{width:100%;height:auto;display:block}
+  .dk .s{grid-area:s;font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .verd{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:var(--surface2)}
+  .verd i{display:block;height:100%;min-width:3px}
+  .diag.heat .lst li{align-items:center}
+  .diag.heat .barw .trk{width:64px}
+  .fr{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+  .v2{font-size:22px;font-weight:600;letter-spacing:-.02em}
+  .strip{position:relative;height:26px;border-radius:6px;background:var(--surface);margin-top:4px}
+  .strip i{position:absolute;top:8px;width:10px;height:10px;border-radius:50%;background:var(--brand);opacity:.45;transform:translateX(-50%)}
+  .strip b{position:absolute;top:2px;bottom:2px;width:2px;background:var(--text);transform:translateX(-50%)}
+  .chart .grid line{stroke:var(--viz-grid)}
+  @container bsp (max-width:1199px){ .dks{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @container bsp (max-width:760px){ .dks{grid-template-columns:repeat(2,minmax(0,1fr))} .dks>:last-child:nth-child(odd){grid-column:1/-1} .dk .v{font-size:24px} }
 }

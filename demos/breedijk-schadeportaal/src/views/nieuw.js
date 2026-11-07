@@ -1,18 +1,27 @@
-// Nieuwe melding: een claim die telefonisch of per mail buiten de mailbox komt, of wat een chauffeur zelf meldt. Het
-// kenteken zoekt meteen de rit in de ritten van de laatste negentig dagen.
-import { GEBIEDEN, SOORTEN, ERNST, kentekenNorm, kentekenToon, fmtDatumJ, fmtEur } from '../regels.js';
-import { esc, plaat, ico } from '../h.js';
+// Nieuwe melding: een claim die telefonisch of per mail buiten de mailbox komt, of wat een chauffeur zelf meldt. Twee
+// manieren: de velden zelf invullen, of een mail plakken die het portaal uitleest (src/intake.js; in het echt de Claude
+// API). Het kenteken zoekt meteen de rit; staat "RDW live" aan, dan haalt een knop de voertuiggegevens bij de RDW.
+import { GEBIEDEN, SOORTEN, ERNST, kentekenNorm, kentekenToon, fmtDatumJ, fmtEur, fmtNum } from '../regels.js';
+import { leesMail } from '../intake.js';
+import { zoekRdw } from '../rdw.js';
+import { esc, ico } from '../h.js';
 
 export function nieuweMelding(ctx, vooraf = {}) {
   const { D, inst, acties } = ctx;
   if (!ctx.kan('besluit') && !ctx.kan('melden')) { ctx.toast('Een melding invoeren is er voor de schadebehandeling en de chauffeur.', { icon: 'lock' }); return; }
-  const r0 = vooraf.rit ? D.ritMap.get(vooraf.rit) : null;
-  const d = ctx.dialog(`<div class="dlg-h"><h2 id="dlgTitle">Nieuwe melding</h2><button type="button" class="ib" data-close aria-label="Sluiten">${ico('x')}</button></div>
-    <form class="dlg-b" id="nf">
+  const r0 = vooraf.rit ? D.ritMap.get(vooraf.rit) : null; let tab = vooraf.tab || 'velden'; let rdw = null;
+  const d = ctx.dialog(`<div class="dlg-h"><h2 id="dlgTitle">Nieuwe melding</h2><div class="seg" role="tablist"><button type="button" role="tab" class="${tab === 'velden' ? 'on' : ''}" data-tab="velden">Velden</button><button type="button" role="tab" class="${tab === 'mail' ? 'on' : ''}" data-tab="mail">Plak een mail</button></div><button type="button" class="ib" data-close aria-label="Sluiten">${ico('x')}</button></div>
+    <div class="dlg-b" id="tabMail" ${tab === 'mail' ? '' : 'hidden'}>
+      <textarea class="fld" id="mailTekst" rows="9" placeholder="Plak hier de tekst van de mail (met kenteken, datum, schade en bedrag)." aria-label="Tekst van de mail" style="min-height:180px"></textarea>
+      <div class="row" style="justify-content:space-between"><span class="mut" style="font-size:12.5px">Het portaal leest kenteken, datum, bedrag, plek en soort uit de tekst. In het echt doet de Claude API dat; hier een vaste lezer die niets naar buiten stuurt.</span><button type="button" class="btn pri" id="leesMail">${ico('sparkle')}Lees de mail</button></div>
+      <div id="mailUit"></div>
+    </div>
+    <form class="dlg-b" id="nf" ${tab === 'mail' ? 'hidden' : ''}>
       <div class="grid g2">
         <label class="flabel">Bron<select class="fld" name="bron">${inst.rol === 'chauffeur' ? '' : '<option value="telefoon">Telefonisch</option><option value="mail">Mail buiten schade@</option>'}<option value="chauffeur" ${inst.rol === 'chauffeur' ? 'selected' : ''}>Chauffeur meldt zelf</option></select></label>
         <label class="flabel">Kenteken<input class="fld" name="kenteken" autocomplete="off" placeholder="XX-123-X" value="${esc(r0 ? kentekenToon(r0.kenteken) : '')}" autofocus required><small id="ritUit">Typ een kenteken; de rit wordt gezocht.</small></label>
       </div>
+      <div id="rdwRij" class="row" hidden><button type="button" class="btn sm" id="rdwKnop">${ico('car')}Zoek bij de RDW</button><span class="mut" id="rdwUit" style="font-size:12.5px"></span></div>
       <label class="flabel">Opdrachtgever<select class="fld" name="opdrachtgever">${D.opdrachtgevers.map(k => `<option value="${k.id}" ${r0 && r0.k === k.id ? 'selected' : ''}>${esc(k.naam)}</option>`).join('')}</select></label>
       <div class="grid g3">
         <label class="flabel">Plek<select class="fld" name="gebied">${Object.entries(GEBIEDEN).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label>
@@ -21,10 +30,40 @@ export function nieuweMelding(ctx, vooraf = {}) {
       </div>
       <div class="grid g2"><label class="flabel">Gevraagd bedrag (euro, als genoemd)<input class="fld" name="bedrag" type="number" min="0" step="10"></label><label class="flabel">Fase<select class="fld" name="fase"><option value="">Onbekend</option><option value="laden">Bij het laden</option><option value="rijden">Onderweg</option><option value="lossen">Bij het lossen</option><option value="terrein">Op het terrein</option></select></label></div>
       <label class="flabel">Wat is er gemeld<textarea class="fld" name="tekst" rows="3" placeholder="In de woorden van de melder"></textarea></label>
+      <input type="hidden" name="merk"><input type="hidden" name="model"><input type="hidden" name="kleur"><input type="hidden" name="massa"><input type="hidden" name="bouwjaar"><input type="hidden" name="toelating"><input type="hidden" name="catalogusprijs"><input type="hidden" name="soortVoertuig"><input type="hidden" name="rdw"><input type="hidden" name="uitMail"><input type="hidden" name="onderwerp">
     </form>
-    <div class="dlg-f"><span class="l">De chauffeur die zelf meldt, met foto's, staat sterk als de claim komt.</span><button type="button" class="btn" data-close>Annuleer</button><button type="submit" form="nf" class="btn pri">${ico('plus')}Maak dossier</button></div>`);
-  const f = d.querySelector('#nf'); const uit = d.querySelector('#ritUit'); const kent = f.elements.kenteken;
-  const zoekRit = () => { const kn = kentekenNorm(kent.value); if (kn.length < 4) { uit.textContent = 'Typ een kenteken; de rit wordt gezocht.'; uit.className = ''; return null; } const L = D.ritten.filter(r => r.kenteken === kn).sort((a, b) => b.aflever - a.aflever); if (L.length) { const r = L[0]; uit.innerHTML = `${ico('check')} Rit ${esc(r.id)}: ${esc(r.merk)} ${esc(r.model)}, ${esc(fmtDatumJ(r.ophaal))}, ${esc(r.chauffeurNaam)}, ${esc(r.van.plaats)} naar ${esc(r.naar.plaats)} (${esc(D.kMap.get(r.k).naam)})`; uit.className = 'tok'; f.elements.opdrachtgever.value = r.k; return r; } const deel = D.ritten.filter(r => r.kenteken.includes(kn)).length; uit.textContent = deel ? `Geen rit met precies dit kenteken; ${deel} ${deel === 1 ? 'rit lijkt' : 'ritten lijken'} erop.` : 'Geen rit op dit kenteken in de laatste 90 dagen: dan is de auto niet door ons vervoerd, of klopt het kenteken niet.'; uit.className = 'twarn'; return null; };
+    <div class="dlg-f"><span class="l">De chauffeur die zelf meldt, met foto's, staat sterk als de claim komt.</span><button type="button" class="btn" data-close>Annuleer</button><button type="submit" form="nf" class="btn pri" id="maak">${ico('plus')}Maak dossier</button></div>`);
+  const f = d.querySelector('#nf'); const uit = d.querySelector('#ritUit'); const kent = f.elements.kenteken; const rdwRij = d.querySelector('#rdwRij'); const rdwUit = d.querySelector('#rdwUit');
+  const toon = t => { tab = t; d.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); d.querySelector('#tabMail').hidden = t !== 'mail'; f.hidden = t === 'mail'; d.querySelector('#maak').hidden = t === 'mail'; };
+  d.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => toon(b.dataset.tab))); toon(tab);
+  const zoekRit = () => {
+    const kn = kentekenNorm(kent.value); rdwRij.hidden = true;
+    if (kn.length < 4) { uit.textContent = 'Typ een kenteken; de rit wordt gezocht.'; uit.className = ''; return null; }
+    const L = D.ritten.filter(r => r.kenteken === kn).sort((a, b) => b.aflever - a.aflever);
+    if (L.length) { const r = L[0]; uit.innerHTML = `${ico('check')} Rit ${esc(r.id)}: ${esc(r.merk)} ${esc(r.model)}, ${esc(fmtDatumJ(r.ophaal))}, ${esc(r.chauffeurNaam)}, ${esc(r.van.plaats)} naar ${esc(r.naar.plaats)}${r.k ? ` (${esc(D.kMap.get(r.k).naam)})` : r.opdrachtgever ? ` (${esc(r.opdrachtgever)})` : ''}`; uit.className = 'tok'; if (r.k) f.elements.opdrachtgever.value = r.k; return r; }
+    const deel = D.ritten.filter(r => r.kenteken.includes(kn)).length;
+    uit.textContent = deel ? `Geen rit met precies dit kenteken; ${deel} ${deel === 1 ? 'rit lijkt' : 'ritten lijken'} erop.` : 'Geen rit op dit kenteken in de laatste 90 dagen: niet door ons vervoerd, of het kenteken klopt niet.'; uit.className = 'twarn';
+    if (kn.length === 6 && inst.rdwLive) { rdwRij.hidden = false; rdwUit.textContent = 'Haal merk, kleur en gewicht op bij de RDW (open data; alleen het kenteken gaat erheen).'; }
+    return null;
+  };
   kent.addEventListener('input', zoekRit); if (r0) zoekRit();
-  f.addEventListener('submit', ev => { ev.preventDefault(); const v = Object.fromEntries(new FormData(f).entries()); if (!kentekenNorm(v.kenteken)) { kent.focus(); return; } const id = acties.nieuwId(); acties.add({ soort: 'nieuw', id, velden: { ...v, kenteken: kentekenNorm(v.kenteken) }, wie: inst.naam }); ctx.closeDialog(); ctx.toast(`Dossier ${id} aangemaakt${D.claims.find(c => c.id === id).rit ? ', rit gekoppeld.' : '; geen rit gevonden.'}`); ctx.go(`schade/${id}`); });
+  d.querySelector('#rdwKnop').addEventListener('click', async () => {
+    const knop = d.querySelector('#rdwKnop'); knop.disabled = true; rdwUit.textContent = 'Bezig…';
+    const res = await zoekRdw(kent.value); knop.disabled = false;
+    if (!res.ok) { rdwUit.textContent = res.reden; rdwUit.className = 'twarn'; return; }
+    if (!res.gevonden) { rdwUit.textContent = 'De RDW kent dit kenteken niet (de kentekens van de demo zijn verzonnen; typ een echt kenteken).'; rdwUit.className = 'twarn'; return; }
+    rdw = res.voertuig; const v = rdw; for (const [k, w] of Object.entries({ merk: v.merk, model: v.model, kleur: v.kleur, massa: v.massa, bouwjaar: v.bouwjaar, toelating: v.toelating, catalogusprijs: v.catalogusprijs, soortVoertuig: v.soort, rdw: '1' })) f.elements[k].value = w == null ? '' : w;
+    rdwUit.innerHTML = `${ico('check')} RDW: <b>${esc(v.merk)} ${esc(v.model)}</b>, ${esc(v.kleur)}, ${v.bouwjaar || ''}, ${v.massa ? `${fmtNum(v.massa)} kg` : ''}${v.catalogusprijs ? `, cataloguswaarde ${fmtEur(v.catalogusprijs)}` : ''}`; rdwUit.className = 'tok';
+  });
+  d.querySelector('#leesMail').addEventListener('click', () => {
+    const t = d.querySelector('#mailTekst').value; if (!t.trim()) { d.querySelector('#mailTekst').focus(); return; }
+    const m = leesMail(t, { nu: ctx.NU }); const uitEl = d.querySelector('#mailUit');
+    if (m.kenteken.w) kent.value = kentekenToon(m.kenteken.w); if (m.bedrag.w) f.elements.bedrag.value = m.bedrag.w; if (m.gebied.w) f.elements.gebied.value = m.gebied.w; if (m.soort.w) f.elements.soort.value = m.soort.w; f.elements.ernst.value = String(m.ernst);
+    f.elements.tekst.value = m.tekst; f.elements.bron.value = inst.rol === 'chauffeur' ? 'chauffeur' : 'mail'; f.elements.uitMail.value = '1'; if (m.onderwerp) f.elements.onderwerp.value = m.onderwerp;
+    if (m.afzender) { const k = D.opdrachtgevers.find(x => m.afzender.toLowerCase().includes(x.naam.toLowerCase())); if (k) f.elements.opdrachtgever.value = k.id; }
+    const z = v => `${Math.round(v * 100)}%`;
+    uitEl.innerHTML = `<div class="uit" style="margin-top:4px"><span class="k">Kenteken</span><span class="z ${m.kenteken.z < 0.9 ? 'low' : ''}">${m.kenteken.w ? z(m.kenteken.z) : ''}</span><span class="v">${m.kenteken.w ? esc(kentekenToon(m.kenteken.w)) : '<span class="twarn">niet gevonden</span>'}</span><span></span><span class="k">Datum</span><span class="z">${m.datum.w ? z(m.datum.z) : ''}</span><span class="v">${m.datum.w ? esc(fmtDatumJ(m.datum.w)) : '<span class="mut">geen</span>'}</span><span></span><span class="k">Plek en soort</span><span class="z">${m.gebied.w ? z(m.gebied.z) : ''}</span><span class="v">${m.gebied.w ? esc(GEBIEDEN[m.gebied.w]) : '<span class="mut">geen</span>'}${m.soort.w ? `, ${esc(SOORTEN[m.soort.w].toLowerCase())}` : ''}</span><span></span><span class="k">Bedrag</span><span class="z">${m.bedrag.w ? z(m.bedrag.z) : ''}</span><span class="v">${m.bedrag.w ? fmtEur(m.bedrag.w) : '<span class="mut">geen</span>'}</span><span></span><span class="k">Afzender</span><span></span><span class="v">${m.afzender ? esc(m.afzender) : '<span class="mut">geen</span>'}</span><span></span></div>${m.kenteken.noot ? `<div class="note warn" style="margin-top:8px">${ico('alert')}<span>${esc(m.kenteken.noot)}</span></div>` : ''}<div class="row" style="margin-top:10px;justify-content:flex-end"><button type="button" class="btn pri" id="naarVelden">${ico('check')}Neem over en controleer</button></div>`;
+    d.querySelector('#naarVelden').addEventListener('click', () => { toon('velden'); zoekRit(); kent.focus(); });
+  });
+  f.addEventListener('submit', ev => { ev.preventDefault(); const v = Object.fromEntries(new FormData(f).entries()); if (!kentekenNorm(v.kenteken)) { kent.focus(); return; } if (v.soortVoertuig) { v.soort_voertuig = v.soortVoertuig; } const id = acties.nieuwId(); acties.add({ soort: 'nieuw', id, velden: { ...v, kenteken: kentekenNorm(v.kenteken), soort: v.soort, rdw: v.rdw === '1', uitMail: v.uitMail === '1', merk: v.merk, model: v.model, kleur: v.kleur, massa: v.massa, bouwjaar: v.bouwjaar, toelating: v.toelating, catalogusprijs: v.catalogusprijs }, wie: inst.naam }); ctx.closeDialog(); const c = D.claims.find(x => x.id === id); ctx.toast(`Dossier ${id} aangemaakt${c.rit ? ', rit gekoppeld.' : c.voertuig.rdw ? ', voertuig van de RDW; geen rit gevonden.' : '; geen rit gevonden.'}`); ctx.go(`schade/${id}`); });
 }

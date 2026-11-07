@@ -11,6 +11,7 @@ import * as dossier from './views/dossier.js';
 import * as chauffeurs from './views/chauffeurs.js';
 import * as opdrachtgevers from './views/opdrachtgevers.js';
 import * as rapporten from './views/rapporten.js';
+import * as dashboard from './views/dashboard.js';
 import * as instellingen from './views/instellingen.js';
 import { nieuweMelding } from './views/nieuw.js';
 
@@ -22,17 +23,18 @@ const VIEWS = {
   chauffeur: { n: 'Chauffeur', el: 'v-chauffeurs', mod: chauffeurs, hidden: true, parent: 'chauffeurs' },
   opdrachtgevers: { n: 'Opdrachtgevers', ic: 'building', el: 'v-opdrachtgevers', mod: opdrachtgevers, grp: 'Mensen en klanten', key: '4' },
   opdrachtgever: { n: 'Opdrachtgever', el: 'v-opdrachtgevers', mod: opdrachtgevers, hidden: true, parent: 'opdrachtgevers' },
-  rapporten: { n: 'Rapporten', ic: 'chart', el: 'v-rapporten', mod: rapporten, grp: 'Cijfers', key: '5' },
-  instellingen: { n: 'Instellingen', ic: 'settings', el: 'v-instellingen', mod: instellingen, grp: 'Cijfers', key: '6' },
+  dashboard: { n: 'Dashboard', ic: 'grid', el: 'v-dashboard', mod: dashboard, grp: 'Cijfers', key: '5' },
+  rapporten: { n: 'Rapporten', ic: 'chart', el: 'v-rapporten', mod: rapporten, grp: 'Cijfers', key: '6' },
+  instellingen: { n: 'Instellingen', ic: 'settings', el: 'v-instellingen', mod: instellingen, grp: 'Cijfers', key: '7' },
 };
-const BOTTOM = ['overzicht', 'schades', 'chauffeurs', 'rapporten', 'instellingen'];
+const BOTTOM = ['overzicht', 'schades', 'chauffeurs', 'dashboard', 'instellingen'];
 
-export function createUI(app, D, inst, store, acties, cfg) {
+export function createUI(app, D, inst, store, acties, cfg, importen) {
   const NU = D.NU;
   const root = app; let huidig = null; let dlgSluit = null;
   const views = document.getElementById('views');
   const ctx = {
-    D, inst, store, NU, acties, cfg,
+    D, inst, store, NU, acties, cfg, importen,
     go: h => { const want = h.startsWith('#') ? h : '#' + h; if (location.hash === want) route(); else location.hash = want; },
     toast, dialog, closeDialog: () => closeDialog(), refresh: () => route(true),
     kan: p => (ROLLEN[inst.rol] || ROLLEN.behandelaar).kan.includes(p),
@@ -52,7 +54,7 @@ export function createUI(app, D, inst, store, acties, cfg) {
     const cnt = { schades: open, overzicht: laat };
     const item = (k, v) => `<a href="#${k}" data-view="${k}" ${huidig && (huidig === k || VIEWS[huidig].parent === k) ? 'aria-current="page"' : ''}>${ico(v.ic)}<span class="n">${esc(v.n)}</span>${cnt[k] ? `<span class="cnt ${k === 'overzicht' ? 'hot' : ''}" title="${k === 'overzicht' ? `${laat} over de antwoordtermijn` : `${open} open, ${nieuw} nieuw`}">${cnt[k]}</span>` : ''}</a>`;
     const groepen = {}; for (const [k, v] of Object.entries(VIEWS)) if (!v.hidden) (groepen[v.grp] = groepen[v.grp] || []).push(item(k, v));
-    document.getElementById('side').innerHTML = `<div class="brand"><span class="mark" aria-hidden="true">BT</span><span><b>Schadeportaal</b><small>demo voor Breedijk Transport</small></span></div><nav class="nav" aria-label="Hoofdmenu">${Object.entries(groepen).map(([g, L]) => `<div class="grp">${esc(g)}</div>${L.join('')}`).join('')}</nav><div class="side-f"><button type="button" class="btn sm" data-act="navc" title="Menu inklappen (toets [)">${ico('panel')}<span class="lbl">Inklappen</span></button></div>`;
+    document.getElementById('side').innerHTML = `<div class="brand"><span class="mark" aria-hidden="true">B</span><span><b>Breedijk</b><small>Schadeportaal · demo</small></span></div><nav class="nav" aria-label="Hoofdmenu">${Object.entries(groepen).map(([g, L]) => `<div class="grp">${esc(g)}</div>${L.join('')}`).join('')}</nav><div class="side-f"><button type="button" class="btn sm" data-act="navc" title="Menu inklappen (toets [)">${ico('panel')}<span class="lbl">Inklappen</span></button></div>`;
     document.getElementById('bottombar').innerHTML = BOTTOM.map(k => { const v = VIEWS[k]; return `<a href="#${k}" ${huidig && (huidig === k || VIEWS[huidig].parent === k) ? 'aria-current="page"' : ''}>${ico(v.ic)}<span>${esc(v.n)}</span>${cnt[k] ? `<span class="cnt">${cnt[k]}</span>` : ''}</a>`; }).join('');
     const rol = ROLLEN[inst.rol] || ROLLEN.behandelaar;
     document.getElementById('topbar').innerHTML = `

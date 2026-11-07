@@ -2,6 +2,7 @@ import './style.css';
 import { maakWereld } from './data.js';
 import { laadInstellingen } from './instellingen.js';
 import { createActies } from './acties.js';
+import { createImporten } from './importen.js';
 import { createUI } from './ui.js';
 
 // De app-root (#app.bsp) draagt het thema en de opties, zodat dezelfde code als losse pagina en ingebed in een site
@@ -12,7 +13,8 @@ const store = { get: k => { try { return localStorage.getItem(k); } catch { retu
 const inst = laadInstellingen(store);
 root.dataset.theme = inst.thema === 'donker' ? 'dark' : 'light';
 const D = maakWereld();
+const importen = createImporten(store, D);
 const acties = createActies(store, D, () => D.NU + (Date.now() % 3600000));
-const ui = createUI(root, D, inst, store, acties, cfg);
+const ui = createUI(root, D, inst, store, acties, cfg, importen);
 document.getElementById('loading').hidden = true;
-window.BSP = { D, inst, acties, ui, cfg };
+window.BSP = { D, inst, acties, ui, cfg, importen };

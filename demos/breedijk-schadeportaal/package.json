@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && node tools/artifact.mjs",
     "preview": "vite preview",
-    "test": "node --test tests/regels.test.mjs tests/data.test.mjs",
+    "test": "node --test tests/regels.test.mjs tests/data.test.mjs tests/intake.test.mjs",
     "verify": "node tests/verify.mjs"
   },
   "devDependencies": {

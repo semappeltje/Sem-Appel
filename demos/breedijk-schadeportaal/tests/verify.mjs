@@ -10,7 +10,7 @@ const [, , port = '8791', shots = ''] = process.argv;
 const url = /^\d+$/.test(port) ? `http://127.0.0.1:${port}/index.html` : port;
 const browser = await chromium.launch();
 let fail = 0; const check = (ok, msg) => { console.log(`${ok ? 'OK ' : 'FOUT'} ${msg}`); if (!ok) fail++; };
-const VIEWS = ['overzicht', 'schades', 'schades?status=alle', 'chauffeurs', 'chauffeur/C-08', 'opdrachtgevers', 'opdrachtgever/K-01', 'rapporten', 'rapporten?periode=jaar', 'instellingen'];
+const VIEWS = ['overzicht', 'schades', 'schades?status=alle', 'chauffeurs', 'chauffeur/C-08', 'opdrachtgevers', 'opdrachtgever/K-01', 'dashboard', 'dashboard?p=365', 'rapporten', 'rapporten?periode=jaar', 'instellingen'];
 for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm: true }, { w: 1024, h: 768, embedded: true }]) {
   const tag = `${vp.w}${vp.rm ? '-rm' : ''}${vp.embedded ? '-embedded' : ''}`;
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, isMobile: vp.w < 500, hasTouch: vp.w < 500, reducedMotion: vp.rm ? 'reduce' : 'no-preference' });
@@ -59,6 +59,19 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     await page.click('#nf ~ .dlg-f button[type=submit], button[form=nf]'); await page.waitForTimeout(400);
     const nieuw = await page.evaluate(() => ({ hash: location.hash, rit: (window.BSP.D.claims[window.BSP.D.claims.length - 1] || {}).rit }));
     check(/#schade\/S-2026-07/.test(nieuw.hash) && !!nieuw.rit, `${tag} eigen dossier aangemaakt en geopend (${nieuw.hash}, rit ${nieuw.rit})`);
+    // een mail plakken: de lezer vult de velden
+    await page.keyboard.press('Escape'); await page.evaluate(() => window.BSP.ui.ctx.nieuweMelding({ tab: 'mail' })); await page.waitForTimeout(250);
+    await page.fill('#mailTekst', 'Hoi,\n\nJullie hebben 14 okt 2026 een Volkswagen Polo bij ons opgehaald, kenteken RV-743-J. Er zit een stoeprandschade op de velg rechtsvoor. Offerte: € 215.\n\nGroet,\nvestigingsmanager, Verhuur Kustlijn');
+    await page.click('#leesMail'); await page.waitForTimeout(200); await page.click('#naarVelden'); await page.waitForTimeout(200);
+    const gelezen = await page.evaluate(() => { const f = document.getElementById('nf'); return { k: f.elements.kenteken.value, b: f.elements.bedrag.value, g: f.elements.gebied.value, s: f.elements.soort.value, o: f.elements.opdrachtgever.value }; });
+    check(gelezen.k === 'RV-743-J' && gelezen.b === '215' && gelezen.g === 'velg_rv' && gelezen.s === 'stoeprand' && gelezen.o === 'K-13', `${tag} mail gelezen: ${JSON.stringify(gelezen)}`);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(150);
+    // een rittenexport inlezen via de instellingen
+    await page.evaluate(h => { location.hash = '#' + h; }, 'instellingen'); await page.waitForTimeout(250);
+    await page.setInputFiles('input[data-chg="csv"]', { name: 'export.csv', mimeType: 'text/csv', buffer: Buffer.from('rit;kenteken;merk;model;ophaal;aflever;chauffeur;van;naar;opdrachtgever\nR-IMP-9;ZZ-999-Z;Testmerk;Model;2026-11-03 09:00;2026-11-03 15:00;Test C.;Hoorn;Barneveld;Testklant\n') }); await page.waitForTimeout(400);
+    const imp = await page.evaluate(() => ({ n: window.BSP.importen.aantal, rit: window.BSP.D.ritMap.has('R-IMP-9'), uit: (document.getElementById('importUit') || {}).textContent || '' }));
+    check(imp.n >= 1 && imp.rit && /ingelezen/.test(imp.uit), `${tag} rittenexport ingelezen (${imp.n})`);
+    await page.evaluate(() => window.BSP.importen.wis());
     // zoeken met / en pijltjes
     await page.keyboard.press('Escape'); await page.keyboard.press('/'); await page.keyboard.type('polder'); await page.waitForTimeout(250);
     const pop = await page.evaluate(() => ({ open: !document.getElementById('popover').hidden, n: document.querySelectorAll('#popover .pi').length }));
@@ -66,7 +79,8 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     await page.keyboard.press('Enter'); await page.waitForTimeout(250);
     check(/#opdrachtgever\/K-05/.test(await page.evaluate(() => location.hash)), `${tag} Enter opent de opdrachtgever`);
     // sneltoetsen 1 en 5
-    await page.keyboard.press('5'); await page.waitForTimeout(200); check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} toets 5 opent Rapporten`);
+    await page.keyboard.press('6'); await page.waitForTimeout(200); check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} toets 6 opent Rapporten`);
+    await page.keyboard.press('5'); await page.waitForTimeout(200); check(/#dashboard/.test(await page.evaluate(() => location.hash)) && await page.evaluate(() => document.querySelectorAll('.dk').length === 5 && !!document.querySelector('.diag.heat svg')), `${tag} toets 5 opent het dashboard met vijf tegels en de warmtekaart`);
     // thema
     await page.click('#themeBtn'); await page.waitForTimeout(200);
     const th = await page.evaluate(() => ({ root: document.getElementById('app').dataset.theme, html: document.documentElement.dataset.theme, bg: getComputedStyle(document.getElementById('app')).backgroundColor }));
@@ -83,17 +97,19 @@ for (const vp of [{ w: 1440, h: 900 }, { w: 390, h: 844 }, { w: 1440, h: 900, rm
     check(await page.evaluate(() => window.BSP.acties.aantal() === 0), `${tag} handelingen gewist`);
   }
   if (vp.embedded) {
+    const sb = await page.evaluate(() => ({ w: Math.round(document.getElementById('side').getBoundingClientRect().width), lbl: getComputedStyle(document.querySelector('.side .nav a .n')).display }));
+    check(sb.w <= 72 && sb.lbl === 'none', `${tag} zijbalk ingeklapt op 1024 px (${sb.w} px, labels ${sb.lbl})`);
     // ingebed: sneltoetsen alleen met de focus in de app
     await page.evaluate(() => { location.hash = '#overzicht'; }); await page.waitForTimeout(200);
     await page.evaluate(() => { document.activeElement && document.activeElement.blur(); }); // de focus ligt buiten de app
-    await page.keyboard.press('5'); await page.waitForTimeout(150);
+    await page.keyboard.press('6'); await page.waitForTimeout(150);
     check(/#overzicht/.test(await page.evaluate(() => location.hash)), `${tag} ingebed: toets zonder focus doet niets`);
-    await page.mouse.click(700, 100); await page.waitForTimeout(100); await page.keyboard.press('5'); await page.waitForTimeout(150);
+    await page.evaluate(() => document.querySelector('#v-overzicht .ph').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))); await page.waitForTimeout(100); await page.keyboard.press('6'); await page.waitForTimeout(150);
     check(/#rapporten/.test(await page.evaluate(() => location.hash)), `${tag} ingebed: toets met focus werkt`);
   }
   if (vp.w < 500) {
-    const m = await page.evaluate(() => { location.hash = '#schades'; return new Promise(r => setTimeout(() => r({ bar: getComputedStyle(document.getElementById('bottombar')).display, lijst: document.querySelectorAll('.ml .ml-i').length, tabel: getComputedStyle(document.querySelector('.tbl.m-list')).display }), 250)); });
-    check(m.bar === 'flex' && m.lijst > 0 && m.tabel === 'none', `${tag} onderbalk en lijst in plaats van tabel (${m.lijst} rijen)`);
+    const m = await page.evaluate(() => { location.hash = '#schades'; return new Promise(r => setTimeout(() => { const bar = document.getElementById('bottombar'); const bb = bar.getBoundingClientRect(); const v = document.getElementById('views').getBoundingClientRect(); r({ bar: getComputedStyle(bar).display, barH: Math.round(bb.height), barTop: Math.round(bb.top), vin: innerHeight, side: Math.round(document.getElementById('side').getBoundingClientRect().width), labels: [...bar.querySelectorAll('a span:not(.cnt)')].filter(s => s.getBoundingClientRect().height > 0).length, lijst: document.querySelectorAll('.ml .ml-i').length, tabel: getComputedStyle(document.querySelector('.tbl.m-list')).display, pad: parseInt(getComputedStyle(document.getElementById('views')).paddingBottom) }); }, 250)); });
+    check(m.bar === 'flex' && m.barH >= 50 && m.barTop + m.barH <= m.vin && m.labels >= 5 && m.side === 0 && m.pad >= 50 && m.lijst > 0 && m.tabel === 'none', `${tag} onderbalk ${m.barH} px hoog met ${m.labels} labels, zijbalk ${m.side} px, lijst in plaats van tabel (${m.lijst} rijen)`);
     if (shots) await page.screenshot({ path: `${shots}/verify-${tag}-schades.png` });
   }
   const realErrors = errors.filter(e => !/Failed to load resource|ERR_BLOCKED_BY_CLIENT|ERR_FAILED/.test(e));

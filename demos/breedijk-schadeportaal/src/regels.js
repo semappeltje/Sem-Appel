@@ -101,21 +101,31 @@ export function beoordeel(c, r, inst, nu) {
   const push = (id, kleur, kort, uitleg, extra) => S.push({ id, kleur, kort, uitleg, ...extra });
   // 1. hebben wij hem vervoerd
   if (!r) {
-    push('vervoerd', 'slecht', 'Geen rit gevonden op dit kenteken', 'Niets in Transpas op dit kenteken rond de genoemde datum. Vraag de tegenpartij om de vrachtbrief of het ordernummer; staat het er niet, dan is de schade niet door ons vervoerd.');
+    push('vervoerd', 'slecht', 'Geen rit gevonden op dit kenteken', 'Niets in Transplan op dit kenteken rond de genoemde datum. Vraag de tegenpartij om de vrachtbrief of het ordernummer; staat het er niet, dan is de schade niet door ons vervoerd.');
     return { signalen: S, advies: { besluit: 'info', reden: 'Eerst vaststellen of wij deze auto vervoerd hebben.' }, eerder: false, getekend: null, termijn: null, limiet: null };
   }
-  const dagenNaRit = Math.round((new Date(c.datumClaim) - new Date(r.aflever)) / DAG);
+  const dagenNaRit = Math.max(0, Math.round((new Date(c.datumClaim) - new Date(r.aflever)) / DAG));
   push('vervoerd', 'ok', `Vervoerd door ons: rit ${r.id}, ${fmtDatumJ(r.ophaal)}`, `${r.van.plaats} naar ${r.naar.plaats}, chauffeur ${r.chauffeurNaam}, ${r.truck}, positie ${r.positie} op de oplegger. Afgeleverd ${fmtDatumTijd(r.aflever)}.`);
   // 2. stond de schade al op de ophaalinspectie
-  const eerder = r.inspectieOphaal.filter(s => zelfdePlek(s.gebied, c.gebied));
+  // dezelfde plek, of een aangrenzende plek met een vergelijkbare ernst (een krasje op het zijpaneel verklaart geen deuk van
+  // dertig centimeter in de bumper)
+  const eerder = r.inspectieOphaal.filter(s => s.gebied === c.gebied || (zelfdePlek(s.gebied, c.gebied) && c.ernst <= s.ernst + 1));
   const fotosEerder = r.fotos.filter(f => f.moment === 'ophaal' && zelfdePlek(f.gebied, c.gebied));
-  if (eerder.length) push('eerder', 'ok', `Schade op deze plek stond al op de ophaalinspectie`, `Bij ophalen op ${fmtDatumTijd(r.ophaal)} noteerde de chauffeur: ${eerder.map(s => `${GEBIEDEN[s.gebied].toLowerCase()}, ${SOORTEN[s.soort].toLowerCase()} (${ERNST[s.ernst]})`).join('; ')}. ${fotosEerder.length ? `${fotosEerder.length} foto('s) van die plek, met tijdstip.` : 'Geen foto van precies die plek; wel de notitie.'}`, { fotos: fotosEerder.map(f => f.id) });
-  else if (fotosEerder.length) push('eerder', 'ok', 'Foto van deze plek bij ophalen, zonder schade genoteerd', `${fotosEerder.length} foto('s) van ${GEBIEDEN[c.gebied].toLowerCase()} bij ophalen (${fmtDatumTijd(r.ophaal)}). Leg ze naast de foto's van de tegenpartij: staat de schade er niet op, dan is ze daarna ontstaan.`, { fotos: fotosEerder.map(f => f.id) });
+  if (eerder.length) push('eerder', 'ok', `Schade op deze plek stond al op de ophaalinspectie`, `Bij ophalen op ${fmtDatumTijd(r.ophaal)} noteerde de chauffeur: ${eerder.map(s => `${GEBIEDEN[s.gebied].toLowerCase()}, ${SOORTEN[s.soort].toLowerCase()} (${ERNST[s.ernst]})`).join('; ')}. ${fotosEerder.length ? `${fotosEerder.length === 1 ? '1 foto' : `${fotosEerder.length} foto's`} van die plek, met tijdstip.` : 'Geen foto van precies die plek; wel de notitie.'}`, { fotos: fotosEerder.map(f => f.id) });
+  else if (fotosEerder.length) push('eerder', 'ok', 'Foto van deze plek bij ophalen, zonder schade genoteerd', `${fotosEerder.length === 1 ? '1 foto' : `${fotosEerder.length} foto's`} van ${GEBIEDEN[c.gebied].toLowerCase()} bij ophalen (${fmtDatumTijd(r.ophaal)}). Leg ze naast de foto's van de tegenpartij: staat de schade er niet op, dan is ze daarna ontstaan.`, { fotos: fotosEerder.map(f => f.id) });
   else push('eerder', 'let', 'Geen foto en geen notitie van deze plek bij ophalen', `De ophaalinspectie noemt deze plek niet en er is geen foto van. We kunnen niet aantonen dat de schade er al zat. Vraag de chauffeur wat hij zich herinnert en kijk of een overzichtsfoto de plek toch toont.`);
+  // 2b. de keten: ging de auto over het overslagterrein, dan zegt de intake-controle daar op welk stuk de schade ontstond
+  if (r.via && r.inspectieTerrein) {
+    const opTerrein = r.inspectieTerrein.filter(s => s.gebied === c.gebied || (zelfdePlek(s.gebied, c.gebied) && c.ernst <= s.ernst + 1));
+    const fotosT = r.fotos.filter(f => f.moment === 'terrein' && zelfdePlek(f.gebied, c.gebied));
+    if (eerder.length && opTerrein.length) push('keten', 'ok', `Bij de intake in ${r.via.plaats} opnieuw genoteerd`, `De controle op het overslagterrein (${fmtDatumTijd(r.via.aankomst)}) noteerde dezelfde plek. Twee controles, zelfde beeld.`, { fotos: fotosT.map(f => f.id) });
+    else if (opTerrein.length) push('keten', 'info', `Bij de intake in ${r.via.plaats} al gezien: ontstaan op de aanvoerrit`, `De schade stond niet op de ophaalinspectie maar wel bij de intake op het terrein (${fmtDatumTijd(r.via.aankomst)}). Ze is dus ontstaan tussen ophalen en het terrein: de rit van ${r.chauffeurNaam}.`, { fotos: fotosT.map(f => f.id) });
+    else push('keten', 'info', `Bij de intake in ${r.via.plaats} nog niet gezien`, `De controle op het terrein (${fmtDatumTijd(r.via.aankomst)}) noemt deze plek niet. Is de schade van ons, dan ontstond ze op het terrein of bij de uitlevering${r.chauffeur2Naam ? ` (${r.chauffeur2Naam})` : ''}.`, { fotos: fotosT.map(f => f.id) });
+  }
   // 3. bij aflevering getekend
   const afl = r.aflevering;
   const inAfl = r.inspectieAflever.filter(s => zelfdePlek(s.gebied, c.gebied));
-  if (afl.voorbehoud && inAfl.length) push('getekend', 'slecht', 'Bij aflevering is deze schade al genoteerd', `De ontvanger tekende met voorbehoud: "${afl.tekst}". De schade stond dus bij aflevering op de auto en is niet op de ophaalinspectie te zien${eerder.length ? ', maar wel op de ophaalinspectie genoteerd' : ''}.`);
+  if (afl.voorbehoud && inAfl.length) push('getekend', 'slecht', 'Bij aflevering is deze schade al genoteerd', `De ontvanger tekende met voorbehoud: "${afl.tekst}". De schade stond dus bij aflevering op de auto${eerder.length ? ' en was ook al op de ophaalinspectie genoteerd' : ' en is niet op de ophaalinspectie te zien'}.`);
   else if (afl.voorbehoud) push('getekend', 'let', 'Getekend met voorbehoud, over een andere plek', `De ontvanger tekende met voorbehoud: "${afl.tekst}". Dat gaat over ${inAfl.length ? 'deze' : 'een andere'} plek.`);
   else push('getekend', 'ok', 'Bij aflevering getekend zonder voorbehoud', `De ontvanger (${afl.rol}) tekende op ${fmtDatumTijd(r.aflever)} zonder opmerking. Zichtbare schade hoort bij aflevering gemeld te worden; voor niet zichtbare schade geldt een termijn van ${inst.meldtermijnDagen} dagen (AVC en CMR, laten toetsen).`);
   // 4. op tijd gemeld
@@ -142,7 +152,8 @@ export function beoordeel(c, r, inst, nu) {
   // het advies
   let advies;
   const sterkBewijs = (eerder.length > 0) || (fotosEerder.length > 0 && c.fotosClaimTonenSchade === false);
-  if (afl.voorbehoud && inAfl.length && !eerder.length) advies = { besluit: verzekeraar ? 'verzekeraar' : (cal && S.find(s => s.id === 'calculatie').kleur === 'let' ? 'tegenvoorstel' : 'erkennen'), reden: 'De schade is bij aflevering genoteerd en stond niet op de ophaalinspectie: waarschijnlijk tijdens ons vervoer ontstaan.' };
+  if (afl.voorbehoud && inAfl.length && !eerder.length && !cal) advies = { besluit: 'info', reden: 'De schade is bij aflevering genoteerd en stond niet op de ophaalinspectie; vraag eerst een gespecificeerde calculatie voordat je erkent.' };
+  else if (afl.voorbehoud && inAfl.length && !eerder.length) advies = { besluit: verzekeraar ? 'verzekeraar' : (S.find(s => s.id === 'calculatie').kleur === 'let' ? 'tegenvoorstel' : 'erkennen'), reden: 'De schade is bij aflevering genoteerd en stond niet op de ophaalinspectie: waarschijnlijk tijdens ons vervoer ontstaan.' };
   else if (sterkBewijs) advies = { besluit: 'afwijzen', reden: eerder.length ? 'De ophaalinspectie toont dezelfde schade: ze was er al voordat wij de auto meenamen.' : 'Onze ophaalfoto van die plek toont de schade niet, en die van de tegenpartij evenmin overtuigend.' };
   else if (!termijnOk && !afl.voorbehoud) advies = { besluit: 'afwijzen', reden: 'Getekend zonder voorbehoud en pas na de termijn gemeld; zonder bewijs van onze kant blijft dat een verweer, geen zekerheid.' };
   else if (!cal) advies = { besluit: 'info', reden: 'Eerst een gespecificeerde calculatie vragen.' };
@@ -176,11 +187,14 @@ export function antwoordTermijn(c, inst, nu) {
   return { wacht, over: wacht > inst.antwoordWerkdagen, rest: inst.antwoordWerkdagen - wacht };
 }
 
-// De regel voor het gesprek: drie schades in zeven dagen (het eerste signaal), of drie in negentig dagen (het
-// tweede). Telt alleen schades die erkend zijn, bij de verzekeraar liggen of nog open staan: een afgewezen claim is
-// geen schade van de chauffeur. `schades` zijn de claims van een chauffeur, `nu` het moment.
+// Wat telt als schade van een chauffeur: een claim die beoordeeld is (niet meer nieuw) en niet is afgewezen; een
+// gesloten dossier telt alleen als het besluit niet afwijzen was. Dezelfde regel voor het signaal, de tabel en het
+// dashboard.
+export const teltVoorChauffeur = c => c.status !== 'nieuw' && c.status !== 'afgewezen' && c.besluit !== 'afgewezen';
+// De regel voor het gesprek: drie schades in zeven dagen (het eerste signaal), of vijf in negentig dagen (het
+// tweede, een instelling). `schades` zijn de claims van een chauffeur, `nu` het moment.
 export function gesprekSignaal(schades, inst, nu) {
-  const telt = schades.filter(s => s.status !== 'afgewezen' && s.status !== 'gesloten_afgewezen').map(s => new Date(s.datumClaim).getTime()).sort((a, b) => a - b);
+  const telt = schades.filter(teltVoorChauffeur).map(s => new Date(s.datumClaim).getTime()).sort((a, b) => a - b);
   const venster = (dagen, aantal) => { for (let i = 0; i + aantal - 1 < telt.length; i++) if (telt[i + aantal - 1] - telt[i] <= dagen * DAG && nu - telt[i + aantal - 1] <= 60 * DAG) return { van: telt[i], tot: telt[i + aantal - 1] }; return null; };
   const kort = venster(inst.gesprekDagen, inst.gesprekAantal); if (kort) return { niveau: 'gesprek', tekst: `${inst.gesprekAantal} schades binnen ${inst.gesprekDagen} dagen`, ...kort };
   const lang = venster(inst.signaalDagen, inst.signaalAantal); if (lang) return { niveau: 'signaal', tekst: `${inst.signaalAantal} schades binnen ${inst.signaalDagen} dagen`, ...lang };

@@ -1,4 +1,4 @@
-# Schadeportaal (demo voor Breedijk Transport, versie 1.0)
+# Schadeportaal (demo voor Breedijk Transport, versie 1.1)
 
 Werkende demo van een schadeportaal voor een autotransporteur: de schade-mailbox, de rit uit het TMS met de
 inspecties en foto's van de chauffeur, een vaste beoordeling met signalen, het conceptantwoord aan de
@@ -10,8 +10,15 @@ onderzoek en het memo staan in `rapporten/breedijk-schadeportaal/`.
 mails, calculaties en bedragen. Echt zijn alleen de plaatsnamen en de drie vestigingen van Breedijk (Opmeer,
 Nijkerk, Barneveld, volgens hun eigen site). De demo speelt op een vaste dag (vrijdag 6 november 2026,
 09:40), zodat termijnen en tellers niet verlopen. Geen naam van een echte persoon, geen huisstijl van
-Breedijk (het accent is een token in `src/style.css`). De pagina doet geen enkel verzoek naar buiten: geen
-font, geen tegel, geen API. Wat de behandelaar doet, blijft in de browser (localStorage `bs-*`).
+Breedijk behalve het rood van hun site (#E30613 uit het child-theme van breedijktransport.nl, gelezen 7 november;
+Sem vroeg om de Breedijk-stijl; een token in `src/style.css`). De pagina doet uit zichzelf geen enkel verzoek naar
+buiten: geen font, geen tegel, geen API; alleen als je "RDW live" aanzet gaat op jouw klik een kenteken naar
+opendata.rdw.nl. Wat de behandelaar doet, blijft in de browser (localStorage `bs-*`).
+
+**Versie 1.1 (7 november, later op de dag):** het TMS heet Transplan (RGB+), niet Transpas; het dashboard; de
+keten ophalen, overslagterrein (intake-controle), uitleveren met twee chauffeurs; de koppelingen die echt werken
+(mail plakken en uitlezen, een rittenexport inlezen, de RDW live); de huisstijl; een rustiger interface; de
+reparaties uit de Fable-review van ronde 1 (`rapporten/breedijk-schadeportaal/review.md`).
 
 ## Wat erin zit
 
@@ -19,29 +26,34 @@ font, geen tegel, geen API. Wat de behandelaar doet, blijft in de browser (local
 | --- | --- | --- |
 | Overzicht | `#overzicht`, toets 1 | Vijf cijfers (nieuw, over de antwoordtermijn, open met bedrag, erkend dit kwartaal, aandeel afgewezen), "Wat nu" (over de termijn, nieuw, wacht te lang op de chauffeur of de verzekeraar, door de chauffeur zelf gemeld), schades per week over twaalf weken, signalen (chauffeur boven de regel, opdrachtgever die vaak schade claimt die er al zat, open dossiers zonder foto van de plek) |
 | Schades | `#schades`, toets 2 | De werkvoorraad als tabel (op een telefoon een lijst): kenteken als plaat, opdrachtgever, ontvangen met werkdagen, gevraagd, status, signaalicoontjes, behandelaar, chauffeur; zoeken op kenteken met of zonder streepjes; chips per status, keuzemenu's per opdrachtgever, vestiging, chauffeur en periode; sorteren op elke kolom; csv. Elke filter staat in het adres |
-| Dossier | `#schade/S-2026-0585` | Drie kolommen (op een telefoon drie tabbladen). Links de melding: de mail, de bijlagen, de uitgelezen velden met hun zekerheid, de calculatie met de punten om te bespreken en de herrekening. In het midden onze rit uit Transpas: rit, van en naar, chauffeur, truck en positie, kilometerstand, het voertuig met de RDW-velden; de inspectie bij ophalen op een autodiagram met de claim ernaast (dezelfde plek rood omlijnd), de foto's bij ophalen met tijd en plek (de treffers gemarkeerd), de aflevering met de handtekening met of zonder voorbehoud. Rechts de beoordeling: zeven signalen (vervoerd door ons, stond al op de ophaalinspectie, getekend zonder voorbehoud, op tijd gemeld, limiet per kilogram, boven of onder de grens naar de verzekeraar, de calculatie), het advies met de reden, het besluit (zeven keuzes, bedrag waar dat hoort), "Besluit vastleggen", "Conceptantwoord", de vraag aan de chauffeur, toewijzen, sluiten; notities en het logboek |
+| Dossier | `#schade/S-2026-0585` | Drie kolommen (op een telefoon drie tabbladen). Links de melding: de mail, de bijlagen, de uitgelezen velden met hun zekerheid, de calculatie met de punten om te bespreken en de herrekening. In het midden onze rit uit Transplan: rit, van en naar, chauffeur, truck en positie, kilometerstand, het voertuig met de RDW-velden; de inspectie bij ophalen op een autodiagram met de claim ernaast (dezelfde plek rood omlijnd), de foto's bij ophalen met tijd en plek (de treffers gemarkeerd), de aflevering met de handtekening met of zonder voorbehoud. Rechts de beoordeling: zeven signalen (vervoerd door ons, stond al op de ophaalinspectie, getekend zonder voorbehoud, op tijd gemeld, limiet per kilogram, boven of onder de grens naar de verzekeraar, de calculatie), het advies met de reden, het besluit (zeven keuzes, bedrag waar dat hoort), "Besluit vastleggen", "Conceptantwoord", de vraag aan de chauffeur, toewijzen, sluiten; notities en het logboek |
 | Chauffeurs | `#chauffeurs`, `#chauffeur/C-08`, toets 3 | Per chauffeur ritten, schades (afgewezen claims tellen niet), schades per duizend ritten, onze kosten, het signaal van de regel (drie in zeven dagen is een gesprek; het tweede signaal is een instelling) en de laatste schade; per chauffeur de dossiers, per maand, de fase en de plek die het vaakst voorkomen. Alleen voor de schadebehandeling en de directie; met de noot over AVG en OR |
 | Opdrachtgevers | `#opdrachtgevers`, `#opdrachtgever/K-01`, toets 4 | Claims per opdrachtgever, aandeel afgewezen, aandeel "schade bestond al", doorlooptijd, gemiddeld gevraagd; per opdrachtgever de dossiers en, als het patroon er is, de aanbeveling voor een gesprek over hun uitgiftecontrole |
-| Rapporten | `#rapporten`, toets 5 | Het maandoverzicht voor het management: per maand, kwartaal of jaar de aantallen en bedragen, per vestiging, fase, plek, opdrachtgever en chauffeur, de uitkomst; csv en afdrukken |
-| Instellingen | `#instellingen`, toets 6 | De getallen van Breedijk (grens naar de verzekeraar 1.750 euro, eigen risico 750 euro), de limiet per kilogram (AVC 3,40), de termijnen, het gangbare uurtarief (schatting), de regel voor het gesprek, naam, rol (behandelaar, planner, directie, chauffeur), thema, de koppelingen met wat ze in het echt zijn, en wat de browser bewaart |
-| Nieuwe melding | toets n | Telefonisch, per mail of door de chauffeur zelf; het kenteken zoekt meteen de rit; het dossier opent |
+| Dashboard | `#dashboard`, toets 5 | Het beeld voor de directie: vijf tegels met de richting en een vonklijn (claims, onze kosten, aandeel afgewezen, claims per duizend ritten, doorlooptijd), de kosten per maand, de uitkomst als een balk, waar de schade zit als warmtekaart op de auto, per vestiging, wanneer het gebeurt, de opdrachtgevers en de spreiding van de chauffeurs; per 30 of 90 dagen of een jaar, per vestiging |
+| Rapporten | `#rapporten`, toets 6 | Het maandoverzicht voor het management: per maand, kwartaal of jaar de aantallen en bedragen, per vestiging, fase, plek, opdrachtgever en chauffeur, de uitkomst; csv en afdrukken |
+| Instellingen | `#instellingen`, toets 7 | De getallen van Breedijk (grens naar de verzekeraar 1.750 euro, eigen risico 750 euro), de limiet per kilogram (AVC 3,40), de termijnen, het gangbare uurtarief (schatting), de regel voor het gesprek, naam, rol (behandelaar, planner, directie), thema, de koppelingen (mail plakken, een rittenexport inlezen met het voorbeeldbestand als datacontract, RDW live aan of uit) en wat de browser bewaart |
+| Nieuwe melding | toets n | Velden invullen, of een mail plakken die het portaal uitleest (`src/intake.js`: kenteken, datum, bedrag, plek, soort, afzender, met zekerheid); het kenteken zoekt meteen de rit; zonder rit en met "RDW live" haalt een knop merk, kleur, gewicht en cataloguswaarde bij de RDW; het dossier opent |
 | Zoeken | toets / | Kenteken (met of zonder streepjes), dossiernummer, chauffeur, opdrachtgever; een rit zonder claim opent een nieuwe melding |
 
-Toetsen: 1 tot 6, /, n, [ (menu), Esc (sluiten of terug naar de lijst), ? (de lijst).
+Toetsen: 1 tot 7, /, n, [ (menu), Esc (sluiten of terug naar de lijst), ? (de lijst).
 
 ## Hoe de beoordeling werkt (`src/regels.js`)
 
-Per claim legt het portaal zeven dingen naast elkaar en zegt wat het ziet; de mens beslist.
+Per claim legt het portaal zeven dingen naast elkaar (acht als de auto over het overslagterrein ging) en zegt wat het
+ziet; de mens beslist.
 
 1. **Vervoerd door ons?** De rit op kenteken en datum. Geen rit is ook een antwoord.
 2. **Stond de schade al op de ophaalinspectie?** Dezelfde of een aangrenzende plek (bumper en spatbord
    lopen in elkaar over), met de foto's van die plek en hun tijdstip.
-3. **Bij aflevering getekend?** Zonder voorbehoud, of met een voorbehoud over deze plek.
-4. **Op tijd gemeld?** Zichtbare schade bij aflevering, niet zichtbare binnen zeven dagen (AVC en CMR; signaal,
+3. **De keten.** Ging de auto over het overslagterrein in Barneveld, dan zegt de intake-controle daar of de schade op
+   de aanvoerrit ontstond (al gezien bij de intake) of op het terrein of bij de uitlevering (nog niet gezien). De
+   aflevering is altijd bij de tegenpartij; onze eigen handtekening op het terrein telt nooit als bewijs.
+4. **Bij aflevering getekend?** Zonder voorbehoud, of met een voorbehoud over deze plek.
+5. **Op tijd gemeld?** Zichtbare schade bij aflevering, niet zichtbare binnen zeven dagen (AVC en CMR; signaal,
    laten toetsen).
-5. **De limiet per kilogram.** Massa van het voertuig maal het tarief (AVC 3,40 euro; CMR 8,33 SDR); signaal.
-6. **Boven of onder de grens naar de verzekeraar**, en het eigen risico.
-7. **De calculatie.** Uurtarief tegen de norm (schatting), vervangen waar herstellen past, dubbele posten,
+6. **De limiet per kilogram.** Massa van het voertuig maal het tarief (AVC 3,40 euro; CMR 8,33 SDR); signaal.
+7. **Boven of onder de grens naar de verzekeraar**, en het eigen risico.
+8. **De calculatie.** Uurtarief tegen de norm (schatting), vervangen waar herstellen past, dubbele posten,
    btw bij een ondernemer; een herrekend tegenvoorstel, nooit boven de limiet.
 
 Het advies volgt uit die signalen (afwijzen met bewijs, erkennen, indienen bij de verzekeraar, tegenvoorstel,
@@ -55,7 +67,7 @@ nagelezen door de behandelaar en verstuurd vanuit Outlook.
 npm install
 npm run dev          # ontwikkelserver
 npm run build        # dist/index.html: een bestand met alles erin (ca. 180 kB), plus dist/artifact.html
-npm test             # de regels en de gesimuleerde wereld, zonder browser (node --test)
+npm test             # de regels, de gesimuleerde wereld en de intake, zonder browser (node --test)
 cd dist && python3 -m http.server 8791 --bind 127.0.0.1
 node tests/verify.mjs 8791 [map voor schermafbeeldingen]   # de app in Chromium op 1440, 390 en 1024 px, met minder beweging en ingebed
 ```
@@ -64,7 +76,9 @@ node tests/verify.mjs 8791 [map voor schermafbeeldingen]   # de app in Chromium 
 overloop in elke weergave, drie kolommen op 1440 en tabbladen op 390 px, een besluit dat na een herlaad nog
 staat, het conceptantwoord met het dossiernummer, een nieuwe melding die de rit vindt, zoeken met pijltjes en
 Enter, de sneltoetsen, het donkere thema op de app-root, de rol planner zonder chauffeursbeeld, de onderbalk
-en de lijst op een telefoon, en ingebed (`data-embedded`) de sneltoetsen alleen na een klik in de app.
+en de lijst op een telefoon (gemeten in pixels), de zijbalk ingeklapt op 1024 px, het dashboard, een geplakte
+mail die de velden vult, een rittenexport die ingelezen wordt, en ingebed (`data-embedded`) de sneltoetsen alleen
+na een klik in de app.
 
 ## Inbedden in een site
 
@@ -78,20 +92,26 @@ de demosite (repo `controltower-demo`, `public/schadeportaal/`).
 ## Bestanden
 
 - `index.html`: het skelet (de id's die `src/ui.js` verwacht).
-- `src/regels.js`: de pure regels (statussen, besluiten, gebieden, de beoordeling, het tegenvoorstel, de regel
-  voor het gesprek, zoeken, csv). Geen DOM, geen opslag.
-- `src/data.js`: de gesimuleerde wereld met een vaste seed: vestigingen, 14 opdrachtgevers, 48 chauffeurs,
-  ongeveer 11.000 ritten in 90 dagen (800 per week), 470 claims over een jaar met hun verhaal (stond er al,
-  nieuw met voorbehoud, nieuw zonder voorbehoud, onduidelijk, geen rit, door de chauffeur gemeld), de mails,
+- `src/regels.js`: de pure regels (statussen, besluiten, gebieden, de beoordeling met het ketensignaal, het
+  tegenvoorstel, wat telt als schade van een chauffeur, de regel voor het gesprek, zoeken, csv). Geen DOM, geen opslag.
+- `src/intake.js`: de mail lezen zonder taalmodel en een rittenexport (csv) inlezen; `voorbeeldCsv()` is het
+  datacontract. `src/rdw.js`: de RDW open data op verzoek. `src/importen.js`: geïmporteerde ritten over de wereld heen.
+- `src/data.js`: de gesimuleerde wereld met een vaste seed: de drie adressen van Breedijk (Opmeer, het
+  overslagterrein in Barneveld, Nijkerk), 14 verzonnen opdrachtgevers (de namen zijn gezocht en komen voor zover
+  bekend niet voor), 48 chauffeurs, ongeveer 11.000 ritten in 90 dagen (800 per week; bijna de helft over het
+  overslagterrein met een intake-controle en een tweede chauffeur voor de uitlevering), 470 claims over een jaar
+  met hun verhaal (stond er al, nieuw met voorbehoud, nieuw zonder voorbehoud, onduidelijk, geen rit, door de
+  chauffeur gemeld) en de fase waarin de schade ontstond (die bepaalt welke chauffeur erbij hoort), de mails,
   calculaties, inspecties en foto's (per rit pas gemaakt als een dossier ze nodig heeft).
 - `src/instellingen.js`: de standaardwaarden en de rollen.
 - `src/acties.js`: wat de behandelaar doet, over de dag heen gelegd en bewaard (`bs-acties`).
 - `src/antwoord.js`: het conceptantwoord en de vraag aan de chauffeur.
 - `src/diagram.js`: het autodiagram van boven en de schets op een fotokaartje.
 - `src/ui.js`: de schil (menu, topbalk, onderbalk, adressen, zoeken, dialogen, meldingen, sneltoetsen).
-- `src/views/`: de weergaven.
+- `src/views/`: de weergaven (overzicht, schades, dossier, chauffeurs, opdrachtgevers, dashboard, rapporten,
+  instellingen, nieuw).
 - `src/style.css`: het ontwerpsysteem (tokens licht en donker, 13,5 px, 8-puntsraster) en de onderdelen.
-- `tests/`: `regels.test.mjs`, `data.test.mjs` (node --test) en `verify.mjs` (Playwright).
+- `tests/`: `regels.test.mjs`, `data.test.mjs`, `intake.test.mjs` (node --test) en `verify.mjs` (Playwright).
 - `tools/artifact.mjs`: maakt `dist/artifact.html` voor een Claude-artifact.
 
 ## Wat echt is en wat niet

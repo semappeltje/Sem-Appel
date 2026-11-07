@@ -53,3 +53,20 @@ export function fotoSchets(gebied) {
   const detail = vlak ? '' : `M${x / 2 - 16} ${y / 4.24 - 12}h32v24h-32z`;
   return `<svg class="zone" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${vlak || detail}" fill="currentColor" opacity=".12"/></svg>`;
 }
+
+// Warmtekaart: dezelfde auto van boven, elk gebied gevuld naar het aantal schades (0 tot max). Voor het dashboard:
+// waar zit de schade. Vormen zijn vereenvoudigd tot vlakken binnen de carrosserie.
+const VLAK = {
+  bumper_voor: 'M60 12 C 60 6, 140 6, 140 12 L 142 30 L 58 30 Z', motorkap: 'M50 34 L 150 34 L 146 100 L 54 100 Z', voorruit: 'M62 118 C 62 108, 138 108, 138 118 L 128 156 L 72 156 Z',
+  dak: 'M72 158 L 128 158 L 130 246 L 70 246 Z', achterruit: 'M70 248 L 130 248 L 136 292 C 136 300, 64 300, 64 292 Z', achterklep: 'M52 304 L 148 304 L 150 372 L 50 372 Z', bumper_achter: 'M50 376 L 150 376 L 150 400 C 150 410, 130 414, 100 414 C 70 414, 50 410, 50 400 Z',
+  spatbord_lv: 'M42 60 L 58 34 L 50 100 L 42 100 Z M38 104 L 58 104 L 58 150 L 38 150 Z', spatbord_rv: 'M158 60 L 142 34 L 150 100 L 158 100 Z M162 104 L 142 104 L 142 150 L 162 150 Z',
+  spatbord_la: 'M38 270 L 60 270 L 60 372 L 50 372 L 40 330 Z', spatbord_ra: 'M162 270 L 140 270 L 140 372 L 150 372 L 160 330 Z',
+  portier_lv: 'M42 154 L 70 154 L 70 210 L 40 210 Z', portier_rv: 'M158 154 L 130 154 L 130 210 L 160 210 Z', portier_la: 'M40 214 L 70 214 L 70 266 L 40 266 Z', portier_ra: 'M160 214 L 130 214 L 130 266 L 160 266 Z',
+  velg_lv: 'M30 96 h 14 v 40 h -14 z', velg_rv: 'M156 96 h 14 v 40 h -14 z', velg_la: 'M30 296 h 14 v 40 h -14 z', velg_ra: 'M156 296 h 14 v 40 h -14 z',
+  spiegel_l: 'M14 140 h 24 v 12 h -24 z', spiegel_r: 'M162 140 h 24 v 12 h -24 z', dorpel_l: 'M36 152 h 6 v 116 h -6 z', dorpel_r: 'M158 152 h 6 v 116 h -6 z',
+};
+export function warmteDiagram(tellingen, opt = {}) {
+  const max = Math.max(1, ...Object.values(tellingen));
+  const vlakken = Object.entries(VLAK).map(([g, d]) => { const n = tellingen[g] || 0; const a = n ? 0.12 + 0.78 * (n / max) : 0; return `<path d="${d}" fill="var(--heat)" fill-opacity="${a.toFixed(2)}" stroke="var(--dg-line)" stroke-width=".8"><title>${GEBIEDEN[g]}: ${n}</title></path>`; }).join('');
+  return `<svg viewBox="0 0 200 424" width="${opt.width || 150}" role="img" aria-label="${opt.label || 'Waar de schade zit'}">${STYLE}${DELEN}${vlakken}</svg>`;
+}

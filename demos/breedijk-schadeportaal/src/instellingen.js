@@ -7,13 +7,12 @@
 export const STANDAARD = {
   drempelVerzekeraar: 1750, eigenRisico: 750, tariefPerKg: 3.40, meldtermijnDagen: 7, antwoordWerkdagen: 10,
   gesprekAantal: 3, gesprekDagen: 7, signaalAantal: 5, signaalDagen: 90, normUurtarief: 90,
-  naam: 'Ilse', rol: 'behandelaar', thema: 'licht',
+  naam: 'Ilse', rol: 'behandelaar', thema: 'licht', rdwLive: false,
 };
 export const ROLLEN = {
   behandelaar: { n: 'Schadebehandelaar', sub: 'beoordeelt, antwoordt, dient in', kan: ['besluit', 'toewijzen', 'chauffeur'] },
   planner: { n: 'Planner', sub: 'ziet de dossiers en de chauffeurs, besluit niet', kan: ['toewijzen'] },
   directie: { n: 'Directie', sub: 'ziet de cijfers en de signalen per chauffeur', kan: ['cijfers', 'chauffeur'] },
-  chauffeur: { n: 'Chauffeur', sub: 'meldt een schade en ziet zijn eigen dossiers', kan: ['melden'] },
 };
 const KEY = 'bs-instellingen';
 export function laadInstellingen(store) {
