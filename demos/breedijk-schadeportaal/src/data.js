@@ -64,9 +64,10 @@ function kenteken(R, bouwjaar, soort) {
   if (bouwjaar <= 2021) return `${L()}${N()}${N()}${N()}${L()}${L()}`;
   return `${L()}${L()}${L()}${N()}${N()}${L()}`;
 }
+let KLEUR_VOOR = null;
 function voertuig(R) {
   const m = R.w(MODELLEN.map(x => [x, x[5]]));
-  const bouwjaar = R.i(2016, 2024); const kleur = R.w(KLEUREN);
+  const bouwjaar = R.i(2016, 2024); const kleur = (KLEUR_VOOR && KLEUR_VOOR(m[0], m[1])) || R.w(KLEUREN);
   const massa = m[2] + R.i(-40, 60); const cat = Math.round((m[3] * (0.85 + R.f() * 0.4)) / 100) * 100;
   const toelating = new Date(bouwjaar, R.i(0, 11), R.i(1, 28)).getTime();
   return { kenteken: kenteken(R, bouwjaar, m[4]), merk: m[0], model: m[1], kleur, bouwjaar, toelating, massa, catalogusprijs: cat, soort: m[4], km: R.i(12000, 160000) };
@@ -269,8 +270,9 @@ function maakClaim(R, r, k, seq, oud, datumOntvangen, losVoertuig, bron, forceer
 }
 
 // ---------- de wereld ----------
-export function maakWereld() {
+export function maakWereld(opt = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+  KLEUR_VOOR = opt.kleurVoor || null;
   const chauffeurs = maakChauffeurs(); const ritten = maakRitten(chauffeurs); const claims = maakClaims(ritten, chauffeurs);
   const ritMap = new Map(ritten.map(r => [r.id, r])); const chMap = new Map(chauffeurs.map(c => [c.id, c])); const kMap = new Map(OPDRACHTGEVERS.map(k => [k.id, k]));
   for (const c of claims) if (c.rit && !ritMap.has(c.rit)) { /* oude rit: alleen via de claim bereikbaar */ }

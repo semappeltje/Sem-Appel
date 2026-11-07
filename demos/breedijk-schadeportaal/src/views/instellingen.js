@@ -4,6 +4,7 @@ import { fmtEur } from '../regels.js';
 import { leesRittenExport, voorbeeldCsv } from '../intake.js';
 import { STANDAARD, ROLLEN } from '../instellingen.js';
 import { esc, ico, bind, download } from '../h.js';
+import { bronnen as fotoBronnen, AUTO, SCHADE, OVERZICHT } from '../fotos.js';
 
 export function render(el, ctx) {
   const { inst, acties, store, importen, D } = ctx;
@@ -37,6 +38,7 @@ export function render(el, ctx) {
         <tr><td><b>Taalmodel (Claude API)</b><div class="mut">De vrije tekst van een mail, de foto's naast elkaar, het conceptantwoord.</div></td><td><span class="pill plain">uit</span></td><td class="wrap mut">In de demo vaste zinnen en een vaste lezer. In het echt alleen de tekst van die ene mail en de foto's van dat dossier, contactgegevens eerst gewist; nooit het chauffeursoverzicht.</td><td></td></tr>
         <tr><td><b>Verzekeraar</b><div class="mut">Indienen van een erkend dossier boven de grens.</div></td><td><span class="pill plain">handmatig</span></td><td class="wrap mut">Per mail met het complete dossier (vrachtbrief, inspecties, foto's, claim, calculatie); veel verzekeraars hebben een portaal.</td><td></td></tr>
       </tbody></table></div><div id="importUit" class="card-f" hidden></div></div>
+      ${fotoBronnen().length ? `<div class="card" style="grid-column:1/-1"><div class="card-h"><h2>Foto's in de demo</h2><span class="mut">${AUTO.length} auto's, ${SCHADE.length} schades, ${OVERZICHT.length} overzichten</span></div><div class="card-b"><p class="mut" style="font-size:12.5px;margin-bottom:10px">Voorbeeldfoto's uit Wikimedia Commons met een vrije licentie, gebundeld in de app; geen foto toont een echt dossier. Naamsvermelding volgens de licentie:</p><details><summary class="lnk quiet" style="cursor:pointer">Alle makers en licenties (${fotoBronnen().length})</summary><ul class="mut" style="font-size:12px;columns:2;margin-top:8px;list-style:disc;padding-left:18px">${fotoBronnen().map(b => `<li>${esc(b.bestand)}: ${esc(b.maker || 'onbekend')}, <a class="lnk quiet" href="${esc(b.licentieUrl || b.bron || '#')}" target="_blank" rel="noopener">${esc(b.licentie || '')}</a> (<a class="lnk quiet" href="${esc(b.bron || '#')}" target="_blank" rel="noopener">bron</a>)</li>`).join('')}</ul></details></div></div>` : ''}
       <div class="card" style="grid-column:1/-1"><div class="card-h"><h2>Wat deze browser bewaart</h2></div><div class="card-b row" style="justify-content:space-between"><span class="mut">${acties.aantal()} ${acties.aantal() === 1 ? 'handeling' : 'handelingen'} (besluiten, toewijzingen, notities, eigen meldingen) en deze instellingen, in localStorage. Niets gaat naar een server.</span><button type="button" class="btn danger" data-act="wis">${ico('trash')}Wis alles en begin opnieuw</button></div></div>
       <div class="row" style="grid-column:1/-1;justify-content:flex-end;gap:8px"><button type="button" class="btn" data-act="standaard">Terug naar de standaard</button><button type="submit" class="btn pri">${ico('save')}Bewaar</button></div>
     </form></div>`;

@@ -93,7 +93,7 @@ async function haal(url, soort = 'json') {
     if (status === 429 || status >= 500 || !status) {
       const ra = Number((kop.match(/^retry-after:\s*(\d+)/im) || [])[1]) || 5;
       if (process.env.FOTOS_LOG || poging % 4 === 3) console.warn(`  ${status}, wacht ${ra}s, poging ${poging + 1}: ${host}`);
-      await slaap((ra + 1 + poging * 2) * 1000 + Math.random() * 2000); continue;
+      await slaap((ra + 1 + Math.min(poging, 3) * 2) * 1000 + Math.random() * 2000); continue;
     }
     if (status >= 400) throw new Error(`${status} ${url}`);
     const buf = readFileSync(TMP);
@@ -172,8 +172,8 @@ async function zoek(groepNaam, cache) {
       if (g === 'auto' && [...gezien.values()].filter(f => !AUTO_WEG.test(f.titel)).length >= 7) break;
     }
     let lijst = [...gezien.values()];
-    if (g === 'auto') lijst = lijst.filter(f => !AUTO_WEG.test(f.titel) && f.breedte > f.hoogte).slice(0, 7);
-    else lijst = lijst.filter(f => !/diagram|drawing|logo|icon|map/i.test(f.titel)).slice(0, 14);
+    if (g === 'auto') lijst = lijst.filter(f => !AUTO_WEG.test(f.titel) && f.breedte > f.hoogte).slice(0, 4);
+    else lijst = lijst.filter(f => !/diagram|drawing|logo|icon|map/i.test(f.titel)).slice(0, 10);
     const vel = [];
     for (const [i, f] of lijst.entries()) {
       const pad = join(cache, 'img', veilig(f.titel));

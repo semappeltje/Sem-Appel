@@ -354,6 +354,10 @@
   .foto .img .zone{position:absolute;inset:0}
   .foto .cap{padding:6px 8px;font-size:11.5px;line-height:1.3;color:var(--text2)}
   .foto .cap b{display:block;font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .foto .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .foto.echt .img .ic{display:none}
+  .fotogroot{display:block;width:100%;max-height:60vh;object-fit:contain;border-radius:8px;background:var(--surface2)}
+  .autofoto{width:72px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none}
   .foto.hit{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
   .foto.hit .img{background:linear-gradient(160deg,var(--brand-soft),var(--surface3))}
   .foto.claim .img{background:linear-gradient(160deg,var(--info-soft),var(--surface3))}
