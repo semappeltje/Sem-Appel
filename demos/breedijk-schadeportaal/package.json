@@ -1,0 +1,17 @@
+{
+  "name": "breedijk-schadeportaal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/artifact.mjs",
+    "preview": "vite preview",
+    "test": "node --test tests/regels.test.mjs tests/data.test.mjs",
+    "verify": "node tests/verify.mjs"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "vite-plugin-singlefile": "^2.2.0"
+  }
+}

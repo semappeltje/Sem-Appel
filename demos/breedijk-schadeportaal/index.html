@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Schadeportaal · demo voor Breedijk Transport</title>
+<meta name="description" content="Demo van een schadeportaal voor een autotransporteur: de schade-mailbox, de rit uit het TMS met inspecties en foto's, een vaste beoordeling met signalen, het conceptantwoord en het overzicht per chauffeur en opdrachtgever. Gesimuleerde data.">
+<meta name="robots" content="noindex">
+<style>html,body{height:100%;margin:0;background:#FFFFFF}</style>
+</head>
+<body>
+<!-- De app-root: class "bsp" draagt alle stijl en het thema (data-theme). Optie: data-embedded (ingebed in een site). -->
+<div id="app" class="app bsp">
+  <nav class="side" id="side" aria-label="Hoofdmenu"></nav>
+  <div class="main">
+    <header class="top" id="topbar"></header>
+    <div class="views" id="views">
+      <section class="view on" id="v-overzicht" aria-label="Overzicht"></section>
+      <section class="view" id="v-schades" aria-label="Schades"></section>
+      <section class="view" id="v-dossier" aria-label="Dossier"></section>
+      <section class="view" id="v-chauffeurs" aria-label="Chauffeurs"></section>
+      <section class="view" id="v-opdrachtgevers" aria-label="Opdrachtgevers"></section>
+      <section class="view" id="v-rapporten" aria-label="Rapporten"></section>
+      <section class="view" id="v-instellingen" aria-label="Instellingen"></section>
+    </div>
+  </div>
+  <nav class="bottombar" id="bottombar" aria-label="Hoofdmenu"></nav>
+  <div class="pop" id="popover" hidden></div>
+  <div class="modal" id="dialog" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="loading" id="loading" role="status" style="position:absolute;inset:0;display:grid;place-items:center;color:#5F6775;font:14px system-ui,sans-serif">Schadeportaal wordt geladen…</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
