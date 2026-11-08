@@ -39,9 +39,19 @@ export function th(kolommen, sort) {
 }
 export function sorteer(rijen, sort, get) { const v = get[sort.k]; if (!v) return rijen; return rijen.slice().sort((a, b) => { const x = v(a), y = v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (typeof x === 'string' ? x.localeCompare(y, 'nl') : x - y) * sort.d; }); }
 
-// csv downloaden
-export function download(naam, tekst, type = 'text/csv;charset=utf-8') {
-  const blob = new Blob(['﻿' + tekst], { type }); const url = URL.createObjectURL(blob);
+// csv downloaden. In een Claude-artifact mag een pagina niet zelf downloaden: daar gaat het via de
+// downloads-capability (de kijker bevestigt de naam en het bestand). Elders (de demosite) is er geen
+// window.claude en werkt de gewone link. Een "nee" van de kijker is geen fout.
+let dlRoute = null;
+function artifactDownloads() {
+  if (!dlRoute) dlRoute = window.claude && typeof window.claude.use === 'function' ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return dlRoute;
+}
+if (typeof window !== 'undefined') artifactDownloads();
+export async function download(naam, tekst, type = 'text/csv;charset=utf-8') {
+  const dl = await artifactDownloads();
+  if (dl) { try { await dl.save({ filename: naam, data: '\ufeff' + tekst }); } catch { /* geweigerd of niet beschikbaar */ } return; }
+  const blob = new Blob(['\ufeff' + tekst], { type }); const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = naam; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
