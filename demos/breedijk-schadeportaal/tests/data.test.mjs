@@ -65,7 +65,51 @@ test('aanrijschade en diverse schade: het wagenpark, de verhalen en het advies',
   const per = k => D.claims.filter(c => c.categorie === k);
   assert.ok(per('eigen').length >= 60 && per('derde').length >= 20 && per('divers').length >= 8);
   for (const c of per('eigen')) { assert.ok(D.vlootMap.has(c.eigenVoertuig)); assert.equal(c.opdrachtgever.id, 'K-00'); const B = beoordeel(c, null, STANDAARD, NU); assert.ok(['werkplaats', 'casco', 'formulier'].includes(B.advies.besluit), `${c.id} ${B.advies.besluit}`); if (c.formulier.status === 'ontvangen') assert.equal(B.advies.besluit, c.bedragGevraagd >= STANDAARD.cascoGrens ? 'casco' : 'werkplaats'); }
-  for (const c of per('derde')) { const B = beoordeel(c, null, STANDAARD, NU); if (!c.gps.gevonden) assert.equal(B.advies.besluit, 'afwijzen'); assert.ok(c.tegenpartij && c.tegenpartij.naam); assert.ok(!/[A-Z][a-z]+ [A-Z]\.$/.test(c.tegenpartij.naam), 'geen persoonsnaam bij de tegenpartij'); }
+  for (const c of per('derde')) { const B = beoordeel(c, null, STANDAARD, NU); if (!c.gps.gevonden) assert.equal(B.advies.besluit, c.bewijsTegenpartij === 'camera' ? 'info' : 'afwijzen', `${c.id}: niet van ons`); if (!c.gps.gevonden) assert.ok(!/kenteken [0-9A-Z]{2}-/.test(c.mail) || c.bron === 'chauffeur', `${c.id}: de mail noemt geen kenteken van ons als het voertuig er niet was`); assert.ok(c.tegenpartij && c.tegenpartij.naam); assert.ok(!/[A-Z][a-z]+ [A-Z]\.$/.test(c.tegenpartij.naam), 'geen persoonsnaam bij de tegenpartij'); }
   assert.ok(per('eigen').some(c => c.status === 'werkplaats') && per('derde').some(c => OPEN_STATUS.includes(c.status)), 'er ligt open werk van elke soort');
   assert.ok(D.claims.every(c => [0, 6].indexOf(new Date(c.ontvangen).getDay()) === -1 || c.categorie !== 'lading'), 'geen ladingsclaims in het weekend');
+});
+
+test('review ronde 4: geen tijd na de demo-dag, uitkomstgroepen, een melding van de werkplaats telt niet voor een chauffeur', () => {
+  for (const c of D.claims) {
+    for (const l of c.log) assert.ok(l.t <= NU, `${c.id}: logregel na de demo-dag (${l.tekst})`);
+    assert.ok(!c.beslotenOp || c.beslotenOp <= NU, `${c.id}: besluit na de demo-dag`);
+    if (c.moment) assert.ok(c.ontvangen >= c.moment, `${c.id}: ontvangen voor het moment`);
+    if (c.formulier && c.formulier.op) assert.ok(c.formulier.op <= NU, `${c.id}: formulier na de demo-dag`);
+  }
+  const ids = D.claims.map(c => c.id); assert.equal(new Set(ids).size, ids.length); assert.ok(!ids.includes('S-2025-0000')); assert.ok(ids.includes('S-2026-0001'));
+  for (const c of D.claims.filter(x => x.categorie === 'eigen' && x.vermoedelijk && !x.chauffeur)) assert.ok(!c.chauffeur, `${c.id}: zonder navraag geen chauffeur`);
+  for (const c of D.claims.filter(x => x.besluit === 'werkplaats')) assert.ok(c.bedragUitkomst > 0, `${c.id}: werkplaats zonder kosten`);
+  for (const c of D.claims.filter(x => x.categorie === 'derde' && x.calculatie)) { const k = c.calculatie; assert.equal(k.uren * k.uurtarief + k.onderdelen + k.lak, k.totaal, `${c.id}: offerte telt niet op`); }
+});
+test('review ronde 4: dezelfde wereld in Node en in de browser (de fotokleur verschuift niets)', () => {
+  const B = maakWereld({ kleurVoor: () => 'zwart' });
+  assert.equal(B.claims.length, D.claims.length);
+  assert.deepEqual(B.claims.slice(0, 50).map(c => c.id + c.kenteken), D.claims.slice(0, 50).map(c => c.id + c.kenteken));
+});
+test('review ronde 4: handelingen afspelen (werkplaats, telematica, chauffeur koppelen) en na herladen hetzelfde', async () => {
+  const { createActies } = await import('../src/acties.js');
+  const W = maakWereld(); const mem = new Map(); const store = { get: k => mem.get(k) || null, set: (k, v) => mem.set(k, v) };
+  const A = createActies(store, W, () => NU);
+  const eigen = W.claims.find(c => c.categorie === 'eigen' && c.status === 'nieuw');
+  A.add({ soort: 'besluit', claim: eigen.id, besluit: 'werkplaats', bedrag: 1450, wie: 'Ilse' });
+  assert.equal(eigen.status, 'werkplaats'); assert.equal(eigen.bedragUitkomst, 1450); assert.ok(eigen.werkorder);
+  const id = A.nieuwId(); A.add({ soort: 'nieuw', id, wie: 'Ilse', velden: { categorie: 'derde', eigenVoertuig: 'BT-23', tegenpartij: 'geparkeerd', gebied: 'bumper_voor', soort: 'deuk', plaats: 'Hoorn', moment: '2026-11-05T14:20' } });
+  const n = W.claims.find(c => c.id === id); assert.equal(n.gps, null, 'geen verzonnen telematica'); assert.equal(new Date(n.moment).getHours(), 14);
+  A.add({ soort: 'telematica', claim: id, wie: 'Ilse' }); assert.ok(n.gps && n.gps.punten.length === 6);
+  const zonder = W.claims.find(c => c.categorie === 'eigen' && c.vermoedelijk && !c.chauffeur);
+  if (zonder) { A.add({ soort: 'chauffeur', claim: zonder.id, chauffeur: zonder.vermoedelijk.id, wie: 'Ilse' }); assert.equal(zonder.chauffeur, zonder.vermoedelijk.id); }
+  // herladen: een nieuwe wereld met dezelfde opgeslagen handelingen
+  const W2 = maakWereld(); createActies(store, W2, () => NU);
+  const e2 = W2.claims.find(c => c.id === eigen.id); assert.equal(e2.status, 'werkplaats'); assert.equal(e2.bedragUitkomst, 1450);
+  const n2 = W2.claims.find(c => c.id === id); assert.deepEqual(n2.gps, n.gps);
+  if (zonder) assert.equal(W2.claims.find(c => c.id === zonder.id).chauffeur, zonder.vermoedelijk.id);
+});
+test('review ronde 4: elke keuze per soort geeft een tekst die bij het besluit past', async () => {
+  const { besluitenVoor } = await import('../src/regels.js');
+  const verwacht = { casco: /verzekeraar|Polisnummer/, werkplaats: /^Werkorder/, extern: /herstelbedrijf/, expert: /expertise/i, formulier: /schadeformulier/i, wa: /WA-verzekeraar/, afwijzen: /nagekeken/, erkennen: /vergoeden|eigen rekening/, info: /nodig|reservesleutel|beelden|vestiging|kijken/, chauffeur: /wat er gebeurde/ };
+  for (const cat of ['eigen', 'derde', 'divers']) {
+    const c = D.claims.find(x => x.categorie === cat && x.status !== 'gesloten' && (cat !== 'derde' || x.gps.gevonden)); const B = beoordeel(c, null, STANDAARD, NU);
+    for (const [k] of besluitenVoor(cat)) { const m = conceptAntwoord(c, null, B, k, STANDAARD, 1000); assert.ok(m && m.tekst && m.tekst.length > 40, `${cat}/${k}: geen tekst`); if (verwacht[k]) assert.match(m.tekst, verwacht[k], `${cat}/${k}: tekst past niet bij het besluit`); assert.ok(!/[—–]|!/.test(m.tekst), `${cat}/${k}: streepje of uitroepteken`); }
+  }
 });

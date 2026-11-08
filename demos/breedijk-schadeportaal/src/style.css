@@ -639,3 +639,12 @@
   .soortbar .r1{display:flex;justify-content:space-between;font-size:13px;gap:10px}
   .soortbar .r1 b{font-weight:600}
 }
+/* review ronde 4: een tabel die opzij schuift, krijgt een zachte schaduw aan de kant waar meer staat (scroll-schaduw met
+   achtergronden die met de inhoud meeschuiven; geen script nodig) */
+.bsp .card-b.tight{
+  background:
+    linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--bg) 30%, transparent) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.14), transparent) left / 10px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.14), transparent) right / 10px 100% no-repeat scroll;
+}

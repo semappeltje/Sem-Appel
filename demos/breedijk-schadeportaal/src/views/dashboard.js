@@ -1,6 +1,6 @@
 // Dashboard: het beeld voor de directie in een oogopslag. Weinig tekst, elke tegel een getal met zijn richting en een
 // vonklijn; daaronder de kosten per maand, de uitkomst, waar de schade zit, de vestigingen, de fase en de opdrachtgevers.
-import { CATEGORIEN, PLAATS, OPEN_STATUS, eigenKosten, gesprekSignaal, teltVoorChauffeur, fmtEur, fmtMaandKort, DAG, GEBIEDEN, FASEN } from '../regels.js';
+import { CATEGORIEN, PLAATS, OPEN_STATUS, uitkomstGroep, eigenKosten, gesprekSignaal, teltVoorChauffeur, fmtEur, fmtMaandKort, DAG, GEBIEDEN, FASEN } from '../regels.js';
 import { VESTIGINGEN } from '../data.js';
 import { warmteDiagram } from '../diagram.js';
 import { esc, ico, bind, staafdiagram, vonk, verdeling } from '../h.js';
@@ -14,22 +14,28 @@ export function render(el, ctx, { q }) {
   const L = D.claims.filter(c => in_(c, van, NU + 1)); const V = D.claims.filter(c => in_(c, vanVorig, van));
   const kosten = c => c.besluit ? eigenKosten(c.besluit, c.bedragUitkomst || 0, inst, c.categorie) : 0;
   const som = (A, f) => A.reduce((s, c) => s + (f(c) || 0), 0);
-  const ritten = (a, b) => D.ritten.filter(r => r.ophaal >= a && r.ophaal < b && (!vest || r.vestiging === vest)).length;
+  const eersteRit = D.ritten.reduce((m, r) => Math.min(m, r.ophaal), NU); const eersteClaim = D.claims.reduce((m, c) => Math.min(m, c.ontvangen), NU);
+  const ritten = (a, b) => {
+    if (a >= eersteRit - DAG) return D.ritten.filter(r => r.ophaal >= a && r.ophaal < b && (!vest || r.vestiging === vest)).length;
+    let n = 0; D.maanden.forEach((m, i) => { const eind = i + 1 < D.maanden.length ? D.maanden[i + 1].t : NU; const deel = Math.max(0, Math.min(b, eind) - Math.max(a, m.t)) / (eind - m.t); if (deel > 0) for (const ch of D.chauffeurs) if (!vest || ch.vestiging === vest) n += ch.rittenPerMaand[i] * deel; });
+    return Math.round(n);
+  };
+  const volledig = vanVorig >= eersteClaim; // is er een hele vorige periode om mee te vergelijken?
   const rittenNu = ritten(van, NU + 1) || Math.round(830 / 7 * per), rittenVorig = ritten(vanVorig, van) || rittenNu;
   const med = A => { const d = A.filter(c => c.beslotenOp).map(c => (c.beslotenOp - c.ontvangen) / DAG).sort((a, b) => a - b); return d.length ? d[Math.floor(d.length / 2)] : null; };
   const afgPct = A => { const b = A.filter(c => c.besluit); return b.length ? b.filter(c => c.besluit === 'afgewezen').length / b.length : 0; };
   // vonklijnen: twaalf stappen over de periode
   const stappen = 12; const reeks = f => { const out = []; for (let i = stappen - 1; i >= 0; i--) { const b = NU - i * (per * DAG / stappen), a = b - per * DAG / stappen; out.push(f(D.claims.filter(c => in_(c, a, b)))); } return out; };
-  const kpi = (l, v, sub, delta, goedAlsLager, reeksV, fmt) => { const d = delta == null ? null : delta; const richting = d == null || Math.abs(d) < 0.005 ? 0 : d > 0 ? 1 : -1; const goed = richting === 0 ? null : (goedAlsLager ? richting < 0 : richting > 0); return `<div class="dk"><span class="l">${esc(l)}</span><span class="v">${v}</span><span class="d ${goed == null ? '' : goed ? 'goed' : 'slecht'}">${richting === 0 ? '<span class="mut">gelijk</span>' : `${richting > 0 ? ico('up') : ico('up', 'down')}${Math.abs(Math.round(d * 100))}%`} <span class="mut">t.o.v. ervoor</span></span><span class="vonkw" title="${esc(sub)}">${vonk(reeksV, { nul: true })}</span><span class="s">${esc(sub)}</span></div>`; };
-  const rel = (a, b) => (b ? (a - b) / b : null);
+  const kpi = (l, v, sub, delta, goedAlsLager, reeksV, fmt) => { const d = delta == null ? null : delta; const richting = d == null || Math.abs(d) < 0.005 ? 0 : d > 0 ? 1 : -1; const goed = richting === 0 ? null : (goedAlsLager ? richting < 0 : richting > 0); return `<div class="dk"><span class="l">${esc(l)}</span><span class="v">${v}</span><span class="d ${goed == null ? '' : goed ? 'goed' : 'slecht'}">${d == null ? '<span class="mut">geen eerdere periode</span>' : richting === 0 ? '<span class="mut">gelijk</span>' : `${richting > 0 ? ico('up') : ico('up', 'down')}${Math.abs(Math.round(d * 100))}%`} <span class="mut">t.o.v. ervoor</span></span><span class="vonkw" title="${esc(sub)}">${vonk(reeksV, { nul: true })}</span><span class="s">${esc(sub)}</span></div>`; };
+  const rel = (a, b) => (volledig && b ? (a - b) / b : null);
   const kNu = som(L, kosten), kVorig = som(V, kosten);
   const perDuizend = L.length / rittenNu * 1000, perDuizendV = V.length / rittenVorig * 1000;
   const medNu = med(L), medV = med(V);
   // kosten per maand (twaalf maanden), uitkomst, plekken, vestigingen, fase, opdrachtgevers
-  const maanden = D.maanden.map(m => { const A = D.claims.filter(c => { const d = new Date(c.ontvangen); return d.getFullYear() === m.jaar && d.getMonth() === m.maand && (!vest || c.vestiging === vest); }); return { l: fmtMaandKort(m.t), kosten: som(A, kosten), n: A.length, afg: A.filter(c => c.besluit === 'afgewezen').length }; });
-  const afg = L.filter(c => c.besluit === 'afgewezen'), erk = L.filter(c => c.besluit === 'erkend'), verz = L.filter(c => c.besluit === 'verzekeraar'), open = L.filter(c => !c.besluit);
+  const maanden = D.maanden.map(m => { const A = D.claims.filter(c => { const d = new Date(c.ontvangen); return d.getFullYear() === m.jaar && d.getMonth() === m.maand && (!vest || c.vestiging === vest) && (!catF || (c.categorie || 'lading') === catF); }); return { l: fmtMaandKort(m.t), kosten: som(A, kosten), n: A.length, afg: A.filter(c => uitkomstGroep(c) === 'afgewezen').length }; });
+  const groep = g => L.filter(c => uitkomstGroep(c) === g); const afg = groep('afgewezen'), erk = groep('erkend'), werk = groep('werkplaats'), verz = groep('verzekeraar'), open = groep('open');
   const plek = {}; for (const c of L.filter(x => (x.categorie || 'lading') === 'lading')) plek[c.gebied] = (plek[c.gebied] || 0) + 1; const topPlek = Object.entries(plek).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const vesten = Object.values(VESTIGINGEN).map(v => { const A = D.claims.filter(c => c.ontvangen >= van && c.vestiging === v.n); const r = D.ritten.filter(x => x.ophaal >= van && x.vestiging === v.n).length || 1; return { v, n: A.length, kosten: som(A, kosten), per: A.length / r * 1000, afg: afgPct(A) }; });
+  const vesten = Object.values(VESTIGINGEN).map(v => { const A = D.claims.filter(c => c.ontvangen >= van && c.vestiging === v.n && (!catF || (c.categorie || 'lading') === catF)); const r = D.ritten.filter(x => x.ophaal >= van && x.vestiging === v.n).length || 1; return { v, n: A.length, kosten: som(A, kosten), per: A.length / r * 1000, afg: afgPct(A) }; });
   const fase = {}; for (const c of L.filter(x => x.besluit && x.besluit !== 'afgewezen')) fase[c.fase || 'onbekend'] = (fase[c.fase || 'onbekend'] || 0) + 1;
   const faseTot = Object.values(fase).reduce((s, n) => s + n, 0) || 1;
   const opdr = {}; for (const c of L.filter(x => D.kMap.has(x.opdrachtgever.id))) { const k = c.opdrachtgever; opdr[k.id] = opdr[k.id] || { k, n: 0, afg: 0, bes: 0 }; opdr[k.id].n++; if (c.besluit) { opdr[k.id].bes++; if (c.besluit === 'afgewezen') opdr[k.id].afg++; } }
@@ -42,7 +48,7 @@ export function render(el, ctx, { q }) {
   const maxPlek = topPlek.length ? topPlek[0][1] : 1;
   const setQ = o => { const n = new URLSearchParams(q); for (const [k, v] of Object.entries(o)) { if (v == null || v === '') n.delete(k); else n.set(k, v); } ctx.go(`dashboard${n.toString() ? '?' + n : ''}`); };
   el.innerHTML = `
-    <div class="ph"><div><h1>Dashboard</h1><div class="sub">${esc(PER[per].n)}${vest ? `, ${esc(vest)}` : ', alle vestigingen'} · ${L.length} claims op ${rittenNu.toLocaleString('nl-NL')} ritten</div></div>
+    <div class="ph"><div><h1>Dashboard</h1><div class="sub">${esc(PER[per].n)}${catF ? `, ${esc(CATEGORIEN[catF].n.toLowerCase())}` : ''}${vest ? `, ${esc(vest)}` : ', alle vestigingen'} · ${L.length} claims op ${rittenNu.toLocaleString('nl-NL')} ritten</div></div>
       <div class="acts"><div class="seg" role="tablist" aria-label="Periode">${Object.entries(PER).map(([k, p]) => `<button type="button" role="tab" class="${Number(k) === per ? 'on' : ''}" aria-selected="${Number(k) === per}" data-act="p" data-v="${k}">${p.n}</button>`).join('')}</div><select class="fld" style="width:auto" data-chg="cat" aria-label="Soort schade"><option value="">Alle soorten</option>${Object.entries(CATEGORIEN).map(([k, x]) => `<option value="${k}" ${catF === k ? 'selected' : ''}>${x.n}</option>`).join('')}</select><select class="fld" style="width:auto" data-chg="vest" aria-label="Vestiging"><option value="">Alle vestigingen</option>${Object.values(VESTIGINGEN).map(v => `<option ${vest === v.n ? 'selected' : ''}>${v.n}</option>`).join('')}</select></div></div>
     <div class="pad stack" style="gap:16px">
       <div class="dks">
@@ -55,8 +61,8 @@ export function render(el, ctx, { q }) {
       <div class="grid g32">
         <div class="card"><div class="card-h"><h2>Onze kosten per maand</h2><span class="mut">in euro, erkend plus eigen risico</span></div><div class="card-b">${staafdiagram([{ k: 'a', n: 'onze kosten', v: maanden.map(m => m.kosten) }], maanden.map(m => m.l), { w: 640, h: 190, label: 'Onze kosten per maand', fmt: v => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v) })}</div></div>
         <div class="card"><div class="card-h"><h2>Uitkomst</h2><span class="mut">${L.length} claims</span></div><div class="card-b stack" style="gap:14px">
-          ${verdeling([{ k: 'afgewezen', n: afg.length, kleur: 'var(--viz-3)' }, { k: 'erkend, zelf betaald', n: erk.length, kleur: 'var(--viz-1)' }, { k: 'bij de verzekeraar', n: verz.length, kleur: 'var(--c-verzekeraar)' }, { k: 'open', n: open.length, kleur: 'var(--viz-2)' }], { label: 'Uitkomst van de claims' })}
-          <table class="tbl plain compact"><tbody>${[['Afgewezen met bewijs', afg, 'var(--viz-3)'], ['Erkend, zelf betaald', erk, 'var(--viz-1)'], ['Bij de verzekeraar', verz, 'var(--c-verzekeraar)'], ['Nog open', open, 'var(--viz-2)']].map(([n, A, k]) => `<tr><td><i class="dot" style="background:${k}"></i> ${n}</td><td class="r num">${A.length}</td><td class="r num mut">${L.length ? Math.round(A.length / L.length * 100) : 0}%</td><td class="r num">${fmtEur(som(A, c => c.bedragGevraagd))}</td></tr>`).join('')}</tbody></table>
+          ${verdeling([{ k: 'afgewezen', n: afg.length, kleur: 'var(--viz-3)' }, { k: 'erkend, zelf betaald', n: erk.length, kleur: 'var(--viz-1)' }, { k: 'hersteld in onze werkplaats', n: werk.length, kleur: 'var(--c-werkplaats)' }, { k: 'bij de verzekeraar', n: verz.length, kleur: 'var(--c-verzekeraar)' }, { k: 'open', n: open.length, kleur: 'var(--viz-2)' }], { label: 'Uitkomst van de claims' })}
+          <table class="tbl plain compact"><tbody>${[['Afgewezen met bewijs', afg, 'var(--viz-3)'], ['Erkend, zelf betaald', erk, 'var(--viz-1)'], ['Hersteld in onze werkplaats', werk, 'var(--c-werkplaats)'], ['Bij de verzekeraar', verz, 'var(--c-verzekeraar)'], ['Nog open', open, 'var(--viz-2)']].filter(([, A]) => A.length).map(([n, A, k]) => `<tr><td><i class="dot" style="background:${k}"></i> ${n}</td><td class="r num">${A.length}</td><td class="r num mut">${L.length ? Math.round(A.length / L.length * 100) : 0}%</td><td class="r num">${fmtEur(som(A, c => c.bedragGevraagd))}</td></tr>`).join('')}</tbody></table>
         </div></div>
       </div>
       <div class="grid g3">

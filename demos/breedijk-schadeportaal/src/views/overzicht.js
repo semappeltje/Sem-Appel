@@ -7,7 +7,7 @@ export function render(el, ctx) {
   const nieuw = D.claims.filter(c => c.status === 'nieuw'); const laat = D.claims.filter(ctx.teLaat);
   const openBedrag = open.reduce((s, c) => s + (c.bedragGevraagd || 0), 0);
   const kwStart = new Date(2026, 9, 1).getTime();
-  const kw = D.claims.filter(c => c.beslotenOp && c.beslotenOp >= kwStart && (c.besluit === 'erkend' || c.besluit === 'verzekeraar'));
+  const kw = D.claims.filter(c => c.beslotenOp && c.beslotenOp >= kwStart && ['erkend', 'verzekeraar', 'werkplaats'].includes(c.besluit));
   const kwKosten = kw.reduce((s, c) => s + eigenKosten(c.besluit, c.bedragUitkomst || 0, inst, c.categorie), 0);
   const besloten90 = D.claims.filter(c => c.beslotenOp && c.beslotenOp >= NU - 90 * DAG);
   const afgew = besloten90.filter(c => c.besluit === 'afgewezen').length;
@@ -39,7 +39,7 @@ export function render(el, ctx) {
         <a class="kpi ${nieuw.length ? 'warm' : ''}" href="#schades?status=nieuw"><span class="l">Nieuw</span><span class="v">${nieuw.length}</span><span class="s">nog niet bekeken</span></a>
         <a class="kpi ${laat.length ? 'hot' : ''}" href="#schades?status=open&signaal=laat"><span class="l">Over de termijn</span><span class="v">${laat.length}</span><span class="s">meer dan ${inst.antwoordWerkdagen} werkdagen open</span></a>
         <a class="kpi" href="#schades?status=open"><span class="l">Open</span><span class="v">${open.length}<small>${fmtEur(openBedrag)}</small></span><span class="s">gevraagd, nog niet besloten</span></a>
-        <a class="kpi" href="#rapporten?periode=kwartaal"><span class="l">Erkend dit kwartaal</span><span class="v">${fmtEur(kwKosten)}</span><span class="s">${kw.length} ${kw.length === 1 ? 'schade' : 'schades'}, onze kosten</span></a>
+        <a class="kpi" href="#rapporten?periode=kwartaal"><span class="l">Onze kosten dit kwartaal</span><span class="v">${fmtEur(kwKosten)}</span><span class="s">${kw.length} ${kw.length === 1 ? 'schade' : 'schades'} erkend of hersteld</span></a>
         <a class="kpi" href="#rapporten"><span class="l">Afgewezen</span><span class="v">${besloten90.length ? Math.round(100 * afgew / besloten90.length) : 0}<small>%</small></span><span class="s">van ${besloten90.length} besluiten, ${fmtEur(afgewend)} afgewend</span></a>
       </div>
       <div class="grid g32">

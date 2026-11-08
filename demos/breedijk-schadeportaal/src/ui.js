@@ -34,7 +34,7 @@ const BOTTOM = ['overzicht', 'schades', 'chauffeurs', 'dashboard', 'instellingen
 
 export function createUI(app, D, inst, store, acties, cfg, importen) {
   const NU = D.NU;
-  const root = app; let huidig = null; let dlgSluit = null;
+  const root = app; let huidig = null; let dlgSluit = null; let instV = 0; // instV: telt elke wijziging van de instellingen
   const views = document.getElementById('views');
   const ctx = {
     D, inst, store, NU, acties, cfg, importen,
@@ -43,9 +43,9 @@ export function createUI(app, D, inst, store, acties, cfg, importen) {
     kan: p => (ROLLEN[inst.rol] || ROLLEN.behandelaar).kan.includes(p),
     mij: () => inst.naam,
     rit: c => ritVan(D, c),
-    beoordeling: c => { if (!c._B || c._Bv !== c.log.length + ':' + inst.drempelVerzekeraar + inst.tariefPerKg + inst.normUurtarief + inst.meldtermijnDagen) { c._B = beoordeel(c, ritVan(D, c), inst, NU); c._Bv = c.log.length + ':' + inst.drempelVerzekeraar + inst.tariefPerKg + inst.normUurtarief + inst.meldtermijnDagen; } return c._B; },
+    beoordeling: c => { const v = `${c.log.length}:${instV}`; if (!c._B || c._Bv !== v) { c._B = beoordeel(c, ritVan(D, c), inst, NU); c._Bv = v; } return c._B; },
     open: () => D.claims.filter(c => OPEN_STATUS.includes(c.status)),
-    setInst: (p) => { Object.assign(inst, p); bewaarInstellingen(store, inst); if (p.thema) root.dataset.theme = p.thema === 'donker' ? 'dark' : 'light'; renderChrome(); route(true); },
+    setInst: (p) => { Object.assign(inst, p); instV++; bewaarInstellingen(store, inst); if (p.thema) root.dataset.theme = p.thema === 'donker' ? 'dark' : 'light'; renderChrome(); route(true); },
     nieuweMelding: (vooraf) => nieuweMelding(ctx, vooraf),
     teLaat: c => werkdagen(c.ontvangen, NU) > inst.antwoordWerkdagen && (c.status === 'nieuw' || c.status === 'onderzoek'),
     VIEWS,

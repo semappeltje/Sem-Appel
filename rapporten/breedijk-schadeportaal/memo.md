@@ -307,7 +307,7 @@ de grens naar de casco en de eigen risico's voor casco en WA zijn schattingen to
 3. **Stilstand per voertuig.** Een schade kost ook dagen dat een autotransporter niet rijdt. Het wagenpark laat per
    voertuig zien hoeveel; dat is het argument voor preventie zoals een camera achter of sensoren bij inparkeren.
 
-**Wat we moeten doorvragen.** Welke polissen (casco, WA, vervoerdersaansprakelijkheid) en welke eigen risico's;
+**Wat we moeten doorvragen.** Welke polissen (casco, WA, vervoerdersaansprakelijkheid) en welke eigen risico's (bij veel WA-polissen voor vrachtwagens is er geen eigen risico, en zelf betalen is een erkenning van aansprakelijkheid: laten toetsen); wie verhaalt de schade als een ander ons voertuig raakt (hun WA, de schuldvraag, het Europees schadeformulier; dat is nog geen soort in het portaal);
 vanaf welk bedrag gaat een aanrijschade naar de verzekeraar; vult de chauffeur nu een papieren formulier in; houdt de
 werkplaats werkorders bij in Transplan (wagenparkbeheer) of los; kunnen we de posities van de boordcomputer
 opvragen (Rietveld of een andere leverancier); wie beslist of een chauffeur na een aanrijschade een gesprek krijgt.
@@ -317,3 +317,9 @@ van de boordcomputer (een export of de API van de leverancier), de werkorders va
 eigen risico's per polis. **Risico's en signalen:** posities en een schadebeeld per chauffeur zijn gevoelig (AVG,
 instemming van de OR, laten toetsen); de naam en het adres van een particuliere tegenpartij alleen in het dossier en
 naar de verzekeraar.
+
+**Na de review (8 november).** Een tweede Fable-review vond zes fouten die eerst weg moesten (zie `review.md`): tijden
+na de demo-dag, tellingen zonder de werkplaatsbesluiten, een dossier "niet van ons" dat zichzelf tegensprak, geen
+kosten na een werkplaatsbesluit, brieven die niet bij het besluit pasten, en verzonnen telematica bij een nieuwe
+melding. Alle zes zijn opgelost, met de punten die beter moesten. Gecontroleerd: 33 tests zonder browser en de
+browsercontrole op 1440, 1024 en 390 px.

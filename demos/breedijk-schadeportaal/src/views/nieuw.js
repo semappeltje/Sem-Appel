@@ -7,6 +7,8 @@ import { leesMail } from '../intake.js';
 import { zoekRdw } from '../rdw.js';
 import { esc, ico } from '../h.js';
 
+// een tijd als waarde voor <input type=datetime-local> (lokale tijd, op de minuut)
+const lokaal = t => { const d = new Date(t); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 const opties = (lijst, sel) => lijst.map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
 export function nieuweMelding(ctx, vooraf = {}) {
   const { D, inst, acties } = ctx;
@@ -39,7 +41,7 @@ export function nieuweMelding(ctx, vooraf = {}) {
       <div class="grid g2"><label class="flabel">${'Bedrag (euro, als bekend)'}<input class="fld" name="bedrag" type="number" min="0" step="10"></label>
         <label class="flabel" data-voor="lading">Fase<select class="fld" name="fase"><option value="">Onbekend</option><option value="laden">Bij het laden</option><option value="rijden">Onderweg</option><option value="lossen">Bij het lossen</option><option value="terrein">Op het terrein</option></select></label>
         <label class="flabel" data-voor="eigen derde">Waar<select class="fld" name="plaatsSoort">${opties(Object.entries(PLAATS), 'terrein')}</select></label></div>
-      <div class="grid g2" data-voor="eigen derde divers"><label class="flabel">Plaats<input class="fld" name="plaats" placeholder="Bijvoorbeeld Barneveld of Hoorn"></label></div>
+      <div class="grid g2" data-voor="eigen derde divers"><label class="flabel">Moment<input class="fld" type="datetime-local" name="moment" value="${lokaal(ctx.NU - 3600000)}" max="${lokaal(ctx.NU)}"><small>Wanneer het gebeurde. De telematica zoekt op dit moment.</small></label><label class="flabel">Plaats<input class="fld" name="plaats" placeholder="Bijvoorbeeld Barneveld of Hoorn"></label></div>
       <label class="flabel">Wat is er gemeld<textarea class="fld" name="tekst" rows="3" placeholder="In de woorden van de melder"></textarea></label>
       <input type="hidden" name="merk"><input type="hidden" name="model"><input type="hidden" name="kleur"><input type="hidden" name="massa"><input type="hidden" name="bouwjaar"><input type="hidden" name="toelating"><input type="hidden" name="catalogusprijs"><input type="hidden" name="soortVoertuig"><input type="hidden" name="rdw"><input type="hidden" name="uitMail"><input type="hidden" name="onderwerp">
     </form>
@@ -49,6 +51,7 @@ export function nieuweMelding(ctx, vooraf = {}) {
   const zetCat = k => {
     cat = k; d.querySelectorAll('#catSeg [data-cat]').forEach(b => { const on = b.dataset.cat === k; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     d.querySelectorAll('[data-voor]').forEach(x => { x.hidden = !x.dataset.voor.split(' ').includes(k); });
+    if (f.elements.plaatsSoort) f.elements.plaatsSoort.value = k === 'derde' ? 'rijden' : 'terrein'; // een derde raak je meestal onderweg of bij een klant
     d.querySelector('#catUitleg').textContent = CATEGORIEN[k].uitleg + '.';
     d.querySelector('#kentLabel').textContent = k === 'derde' ? 'Kenteken van de tegenpartij (als het een voertuig is)' : 'Kenteken van de auto';
     d.querySelector('#gebiedSel').innerHTML = opties(GEBIEDEN_VOOR[k].map(g => [g, GEBIEDEN[g]]), GEBIEDEN_VOOR[k][0]);
@@ -82,6 +85,7 @@ export function nieuweMelding(ctx, vooraf = {}) {
     zetCat(eigenV ? 'derde' : 'lading');
     if (eigenV) f.elements.eigenVoertuig.value = eigenV.trekker || eigenV.id; else if (m.kenteken.w) kent.value = kentekenToon(m.kenteken.w);
     if (m.bedrag.w) f.elements.bedrag.value = m.bedrag.w; if (m.gebied.w && [...f.elements.gebied.options].some(o => o.value === m.gebied.w)) f.elements.gebied.value = m.gebied.w; if (m.soort.w) f.elements.soort.value = m.soort.w; f.elements.ernst.value = String(m.ernst);
+    if (m.datum && m.datum.w) f.elements.moment.value = lokaal(Math.min(m.datum.w, ctx.NU));
     f.elements.tekst.value = m.tekst; f.elements.bron.value = 'mail'; f.elements.uitMail.value = '1'; if (m.onderwerp) f.elements.onderwerp.value = m.onderwerp;
     if (m.afzender && !eigenV) { const k = D.opdrachtgevers.find(x => m.afzender.toLowerCase().includes(x.naam.toLowerCase())); if (k) f.elements.opdrachtgever.value = k.id; }
     const z = v => `${Math.round(v * 100)}%`;

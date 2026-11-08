@@ -92,7 +92,7 @@ nagelezen door de behandelaar en verstuurd vanuit Outlook.
 ```
 npm install
 npm run dev          # ontwikkelserver
-npm run build        # dist/index.html: een bestand met alles erin (ca. 180 kB), plus dist/artifact.html
+npm run build        # dist/index.html: een bestand met alles erin (ca. 820 kB met lettertype en foto's), plus dist/artifact.html
 npm test             # de regels, de gesimuleerde wereld en de intake, zonder browser (node --test)
 cd dist && python3 -m http.server 8791 --bind 127.0.0.1
 node tests/verify.mjs 8791 [map voor schermafbeeldingen]   # de app in Chromium op 1440, 390 en 1024 px, met minder beweging en ingebed

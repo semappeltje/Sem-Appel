@@ -184,3 +184,33 @@ en `dist/index.html` gekopieerd naar `controltower-demo/public/schadeportaal/ind
   negatieve dagen, de KPI-ondertitels, 3,40 met een komma, geen weekendclaims meer, geen ritten van en naar
   dezelfde plaats, het merkteken "B". De fotokaartjes krijgen echte foto's (zie de README van ronde 2).
 - Nog open: de M-22-editie als veld, de 06-nummers (nu gesimuleerd gelabeld), de rapporttabellen op 390 px.
+
+## Review ronde 3 en 4 (8 november 2026)
+
+Een tweede Fable-review, op de rust van ronde 3 en de soorten schade van ronde 4. Oordeel: de interface haalt de lat
+(rustig, duidelijke hiërarchie, beter dan de Control Tower), het domein staat er goed in, maar zes fouten moesten eerst
+weg. Wat ermee gedaan is:
+
+- **Moet, alle zes opgelost.** (1) Geen logregel, besluit, formulier of werkorder meer na de demo-dag; een vangnet in
+  de simulatie en een test die het controleert. (2) Dashboard, rapporten en overzicht tellen de uitkomst met een
+  functie in vijf groepen, met "hersteld in onze werkplaats"; de uitkomst telt op tot het totaal. (3) Een melding
+  "niet van ons" noemt geen kenteken van ons meer; heeft de tegenpartij beelden, dan zegt het portaal "beelden en
+  telematica spreken elkaar tegen" en adviseert eerst de beelden op te vragen. (4) Een werkplaatsbesluit houdt de
+  raming als onze kosten. (5) Elke keuze heeft een eigen tekst; geen tegenvoorstel of expertise bij een derde (dat
+  doet de WA-verzekeraar), geen afwijzing bij diverse schade, een expertiseaanvraag bij eigen schade. Een test loopt
+  elke keuze per soort langs. (6) Een nieuwe melding heeft een moment en een plaats, en de telematica komt pas na
+  "Zoek in de telematica".
+- **Zou moeten, opgelost.** De beoordeling volgt elke wijziging van de instellingen; het ongebruikte werkplaatstarief
+  is weg. Een schade die de werkplaats vond, hangt niet meer aan een chauffeur tot de navraag ("Koppel aan …").
+  De pijlen op het dashboard vergelijken alleen met een volledige vorige periode, de ritten van toen komen uit de
+  ritten per maand, en de oude claims sluiten aan zonder gat. Een besloten dossier toont de volgende stap in plaats van
+  opnieuw het advies; de voortgang staat dan op "Beantwoord". De offerte van een derde wordt niet herrekend en telt
+  op. "Schadeformulier vragen" verandert de status pas als de vraag echt weg is, en verdwijnt als het formulier er
+  is. De chauffeurstabel telt alleen besloten dossiers. De soortfilter werkt ook in de maandgrafiek en per vestiging.
+  Bij de casco komt eerst de expert ("Expert geweest, start herstel"); de raming van een grote schade is 15 tot 25
+  uur. Node en browser bouwen nu dezelfde wereld.
+- **Klein, opgelost.** Telematica-afstanden volgen uit de snelheid; geen leeg uitklapdeel; "geen rit" alleen bij
+  ladingsschade; het pakket alleen bij de casco; "gegevens van de tegenpartij (nog opvragen)"; nummering per jaar vanaf
+  1; een schaduw bij tabellen die op de telefoon opzij schuiven; de README-grootte; een AVG-regel bij de telematica.
+- **Naar het memo als doorvraag**: verhaal op een tegenpartij als die ons voertuig raakt (hun WA, de schuldvraag), en
+  of er op de WA-polis een eigen risico zit (bij veel vrachtwagenpolissen niet; zelf betalen is een erkenning).

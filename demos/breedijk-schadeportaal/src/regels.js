@@ -29,20 +29,27 @@ export const CATEGORIEN = {
   divers: { n: 'Diverse schade', kort: 'Divers', uitleg: 'Sleutel, booster of laadmateriaal kwijt of kapot', polis: 'eigen kosten' },
 };
 export const BESLUITEN = {
-  afwijzen: { n: 'Afwijzen met bewijs', status: 'afgewezen', cat: ['lading', 'derde', 'divers'] },
+  afwijzen: { n: 'Afwijzen met bewijs', status: 'afgewezen', cat: ['lading', 'derde'] },
   erkennen: { n: 'Erkennen, zelf betalen', status: 'erkend', cat: ['lading', 'derde', 'divers'] },
   verzekeraar: { n: 'Erkennen, indienen bij verzekeraar', status: 'verzekeraar', cat: ['lading'] },
   wa: { n: 'Melden bij de WA-verzekeraar', status: 'verzekeraar', cat: ['derde'] },
   werkplaats: { n: 'Herstellen in onze werkplaats', status: 'werkplaats', cat: ['eigen'] },
   extern: { n: 'Laten herstellen bij een herstelbedrijf', status: 'werkplaats', cat: ['eigen'] },
   casco: { n: 'Melden bij de cascoverzekeraar', status: 'verzekeraar', cat: ['eigen'] },
-  tegenvoorstel: { n: 'Tegenvoorstel', status: 'wacht_tegenpartij', cat: ['lading', 'derde'] },
+  tegenvoorstel: { n: 'Tegenvoorstel', status: 'wacht_tegenpartij', cat: ['lading'] },
   info: { n: 'Meer informatie vragen', status: 'wacht_tegenpartij', cat: ['lading', 'derde', 'divers'] },
   chauffeur: { n: 'Chauffeur om toelichting vragen', status: 'wacht_chauffeur', cat: ['lading', 'divers'] },
   formulier: { n: 'Schadeformulier van de chauffeur vragen', status: 'wacht_chauffeur', cat: ['eigen', 'derde'] },
-  expert: { n: 'Expertise aanvragen', status: 'wacht_expert', cat: ['lading', 'eigen', 'derde'] },
+  expert: { n: 'Expertise aanvragen', status: 'wacht_expert', cat: ['lading', 'eigen'] },
 };
-export const besluitenVoor = cat => Object.entries(BESLUITEN).filter(([, b]) => b.cat.includes(cat || 'lading'));
+// De keuzes voor een dossier: per soort, en zonder de vraag om een schadeformulier als het er al is of als nog niet
+// bekend is wie reed.
+export const besluitenVoor = (cat, c) => Object.entries(BESLUITEN).filter(([k, b]) => b.cat.includes(cat || 'lading') && !(k === 'formulier' && c && ((c.formulier && c.formulier.status === 'ontvangen') || !c.chauffeur)));
+// De naam van een besluit; bij diverse schade zegt "erkennen" niets, want er is geen tegenpartij.
+export const besluitNaam = (k, cat) => cat === 'divers' && k === 'erkennen' ? 'Voor eigen rekening' : cat === 'divers' && k === 'info' ? 'Eerst navragen' : BESLUITEN[k] ? BESLUITEN[k].n : k;
+// De uitkomst van een dossier in vijf groepen. Dashboard, rapporten en overzicht tellen allemaal met deze ene functie.
+export const UITKOMST = { afgewezen: 'Afgewezen met bewijs', erkend: 'Erkend, zelf betaald', werkplaats: 'Hersteld in onze werkplaats', verzekeraar: 'Bij de verzekeraar', open: 'Nog open' };
+export const uitkomstGroep = c => ['afgewezen', 'erkend', 'werkplaats', 'verzekeraar'].includes(c.besluit) ? c.besluit : 'open';
 
 // Gebieden van de auto, in de geest van de AIAG/ECG-schadecodes (gebied, soort, ernst). De codes zelf zijn van de
 // standaard; hier staan onze eigen sleutels met een omschrijving, zodat het diagram en de teksten ze delen.
@@ -67,7 +74,7 @@ export const GEBIEDEN_VOOR = {
   divers: ['sleutel', 'booster', 'laadmateriaal'],
 };
 export const TEGENPARTIJ = { geparkeerd: 'Geparkeerde auto', rijdend: 'Auto in het verkeer', hek: 'Hek of slagboom', gebouw: 'Gebouw of laadperron', paal: 'Paal of verkeersbord' };
-export const PLAATS = { terrein: 'Op ons terrein', rijden: 'Onderweg', laden: 'Bij een klant, laden', lossen: 'Bij een klant, lossen' };
+export const PLAATS = { terrein: 'Op ons terrein', rijden: 'Onderweg', laden: 'Bij een klant, laden', lossen: 'Bij een klant, lossen', onbekend: 'Plaats onbekend' };
 export const SOORTEN = { kras: 'Kras', deuk: 'Deuk', steenslag: 'Steenslag', barst: 'Barst', schaafplek: 'Schaafplek', lakschade: 'Lakschade', ontbreekt: 'Ontbreekt', gebroken: 'Gebroken', stoeprand: 'Stoeprandschade' };
 export const ERNST = { 1: 'tot 2,5 cm', 2: '2,5 tot 7,5 cm', 3: '7,5 tot 15 cm', 4: '15 tot 30 cm', 5: 'meer dan 30 cm', 6: 'vervangen of ontbreekt' };
 export const FASEN = { laden: 'Bij het laden', rijden: 'Onderweg', lossen: 'Bij het lossen', terrein: 'Op het terrein', onbekend: 'Niet vast te stellen' };
@@ -261,18 +268,20 @@ export function beoordeelVoertuig(c, r, inst, nu) {
   const formulierSignaal = (naam) => {
     if (f.status === 'ontvangen') push('formulier', 'ok', `${naam} van de chauffeur ontvangen`, `Ingevuld op ${fmtDatumTijd(f.op)}${f.via ? `, via ${f.via}` : ''}. Het gaat mee in het pakket voor de verzekeraar.`);
     else if (f.status === 'gevraagd') push('formulier', 'let', `${naam} gevraagd, nog niet terug`, `Gevraagd op ${fmtDatumTijd(f.op)}. Zonder formulier kan de verzekeraar de melding niet in behandeling nemen.`, { actie: { act: 'formulierOntvangen', label: 'Markeer als ontvangen' } });
+    else if (!c.chauffeur && c.vermoedelijk) push('formulier', 'let', 'Nog niet bekend wie reed', `Niemand meldde de schade, dus niemand vulde een formulier in. De laatste rit van ${c.eigenVoertuig} was van ${c.vermoedelijk.naam}. Vraag het na; pas als het vaststaat, koppel je het dossier aan de chauffeur en telt het in zijn schadebeeld.`, { actie: { act: 'koppelChauffeur', label: `Koppel aan ${c.vermoedelijk.naam}` } });
     else push('formulier', 'let', `Nog geen ${naam.toLowerCase()}`, `Vraag het de chauffeur zo snel mogelijk, zolang hij het nog weet. Het formulier is altijd nodig, ook als onze werkplaats het herstelt.`, { actie: { act: 'formulierVragen', label: 'Vraag het formulier' } });
   };
   if (c.categorie === 'eigen') {
     if (m.door === 'chauffeur') push('melding', (m.uurNa || 0) <= 24 ? 'ok' : 'let', (m.uurNa || 0) <= 24 ? `Gemeld door de chauffeur, ${m.uurNa < 1 ? 'direct' : `${Math.round(m.uurNa)} uur na het voorval`}` : `Pas na ${Math.round(m.uurNa / 24)} dagen gemeld door de chauffeur`, (m.uurNa || 0) <= 24 ? 'Snel gemeld: de chauffeur weet nog wat er gebeurde en de foto\'s zijn van direct na het voorval.' : 'Een late melding maakt het lastiger vast te stellen wat er gebeurde. Vraag waarom het later kwam.');
     else push('melding', 'let', `Gevonden ${m.door === 'werkplaats' ? 'in de werkplaats' : 'bij een controle'}, niet gemeld`, 'Niemand meldde deze schade. Vraag de chauffeurs die dit voertuig de laatste dagen reden, en kijk in de telematica naar een klap of een stop op een vreemde plek.');
     formulierSignaal('Schadeformulier');
-    push('plaats', c.fase === 'laden' || c.fase === 'lossen' ? 'let' : 'info', PLAATS[c.fase] || 'Plaats onbekend', c.fase === 'laden' || c.fase === 'lossen' ? 'Bij een klant gebeurd: vraag of er camerabeelden zijn, en of er iets van de klant is geraakt. Dan is er ook een aanrijschade derde.' : c.fase === 'terrein' ? 'Op ons eigen terrein: vaak bij inparkeren of rangeren in de vakken. Kijk of een tweede voertuig is geraakt.' : 'Onderweg gebeurd. De telematica laat zien waar en hoe hard.');
+    push('plaats', c.fase === 'laden' || c.fase === 'lossen' ? 'let' : 'info', PLAATS[c.fase] || 'Plaats onbekend', c.fase === 'laden' || c.fase === 'lossen' ? 'Bij een klant gebeurd: vraag of er camerabeelden zijn, en of er iets van de klant is geraakt. Dan is er ook een aanrijschade derde.' : c.fase === 'terrein' ? 'Op ons eigen terrein: vaak bij inparkeren of rangeren in de vakken. Kijk of een tweede voertuig is geraakt.' : c.fase === 'onbekend' ? 'Waar en wanneer het gebeurde, weet niemand. De telematica laat zien waar het voertuig de laatste dagen stond en of er ergens een klap was.' : 'Onderweg gebeurd. De telematica laat zien waar en hoe hard.');
     const casco = bedrag >= inst.cascoGrens;
     push('kosten', casco ? 'info' : 'ok', casco ? `Raming ${fmtEur(bedrag)}: boven ${fmtEur(inst.cascoGrens)}, melden bij de cascoverzekeraar` : `Raming ${fmtEur(bedrag)}: herstel in onze werkplaats`, casco ? `Boven de grens dienen we in bij de cascoverzekeraar; ons eigen risico is ${fmtEur(inst.cascoEigenRisico)}. Het pakket moet compleet zijn: schadeformulier, foto's, de offerte van het herstelbedrijf.` : `Onder de grens herstelt onze eigen werkplaats het (negen van de tien keer, volgens Breedijk). Het dossier houdt de kosten bij voor het overzicht per chauffeur en per voertuig.`);
     if (c.werkorder) push('stilstand', c.werkorder.stilstand > 3 ? 'let' : 'info', `${c.werkorder.stilstand} ${c.werkorder.stilstand === 1 ? 'dag' : 'dagen'} uit de roulatie`, `Werkorder ${c.werkorder.nummer}: ${c.werkorder.status}. ${c.werkorder.stilstand > 3 ? 'Plan een vervangende combinatie of een charter voor de ritten van deze dagen.' : ''}`);
     let advies;
-    if (casco) advies = { besluit: f.status === 'ontvangen' ? 'casco' : 'formulier', reden: f.status === 'ontvangen' ? 'De raming ligt boven de grens en het schadeformulier is binnen: melden bij de cascoverzekeraar.' : 'Boven de grens, maar het schadeformulier ontbreekt nog: eerst het formulier, dan de verzekeraar.' };
+    if (!c.chauffeur && f.status !== 'ontvangen') advies = { besluit: casco ? 'casco' : 'werkplaats', reden: casco ? 'Boven de grens: melden bij de cascoverzekeraar. Zoek ondertussen uit wie reed; het formulier volgt.' : 'Onder de grens: herstellen in onze werkplaats. Zoek ondertussen uit wie reed.' };
+    else if (casco) advies = { besluit: f.status === 'ontvangen' ? 'casco' : 'formulier', reden: f.status === 'ontvangen' ? 'De raming ligt boven de grens en het schadeformulier is binnen: melden bij de cascoverzekeraar.' : 'Boven de grens, maar het schadeformulier ontbreekt nog: eerst het formulier, dan de verzekeraar.' };
     else advies = { besluit: f.status === 'ontvangen' ? 'werkplaats' : 'formulier', reden: f.status === 'ontvangen' ? 'Onder de grens en het formulier is binnen: herstellen in onze werkplaats.' : 'Vraag eerst het schadeformulier; dan kan de werkplaats het herstellen.' };
     return { signalen: S, advies, eerder: false, getekend: null, termijn: null, limiet: null, dagenNaRit: null };
   }
@@ -280,26 +289,31 @@ export function beoordeelVoertuig(c, r, inst, nu) {
     const g = c.gps;
     if (g && g.gevonden) push('gps', 'let', `Ons voertuig was er: ${g.voertuig}, ${fmtDatumTijd(g.tijd)}`, `De telematica zet ${g.voertuig} op ${g.afstand} meter van de opgegeven plek, ${g.snelheid} km/u${g.richting === 'achteruit' ? ', achteruit' : ''}. De melding is dus aannemelijk. In het echt komt dit uit de boordcomputer (gesimuleerd).`);
     else if (g) push('gps', 'ok', 'Geen voertuig van ons in de buurt op dat moment', `Op ${fmtDatumTijd(g.tijd)} was het dichtstbijzijnde voertuig van ons ${g.voertuig ? `${g.voertuig}, ` : ''}${g.afstand >= 1000 ? `${(g.afstand / 1000).toFixed(1).replace('.', ',')} km` : `${g.afstand} m`} verderop. Vraag de tegenpartij om het kenteken of de beelden; mogelijk een ander bedrijf.`);
+    else if (c.moment) push('gps', 'let', 'Telematica nog niet bekeken', `Leg het moment (${fmtDatumTijd(c.moment)}) en de plaats naast de posities van de boordcomputers: was een voertuig van ons er, hoe hard, achteruit of vooruit, en wie reed.`, { actie: { act: 'telematica', label: 'Zoek in de telematica' } });
     else push('gps', 'let', 'Moment of plaats onbekend', 'Zonder tijd en plaats kan de telematica niet zeggen of ons voertuig er was. Vraag de tegenpartij om beide.');
     const nietVanOns = g && !g.gevonden;
     if (nietVanOns) push('melding', 'ok', 'Geen rit en geen chauffeur van ons op dat moment', 'Er is dus ook geen schadeformulier nodig, zolang de tegenpartij geen beelden of kenteken laat zien die anders zeggen.');
     else if (m.door === 'chauffeur') push('melding', 'ok', 'De chauffeur meldde het zelf', 'Hij weet wat er gebeurde; het schadeformulier kan meteen.');
     else push('melding', 'let', 'De chauffeur heeft niets gemeld', 'De melding komt van de tegenpartij. Misschien had hij het niet door, zoals bij achteruitrijden of een lage paal. Vraag het hem zonder oordeel.');
     if (!nietVanOns) formulierSignaal(c.tegenpartij && c.tegenpartij.aanwezig ? 'Europees schadeformulier' : 'Schadeformulier');
-    const bw = c.bewijsTegenpartij;
-    push('bewijs', bw === 'geen' ? 'let' : 'info', bw === 'camera' ? 'De tegenpartij heeft camerabeelden' : bw === 'fotos' ? 'Foto\'s van de schade meegestuurd' : 'Nog geen foto\'s of beelden', bw === 'camera' ? 'Vraag de beelden op; ze gaan mee in het pakket voor de verzekeraar.' : bw === 'fotos' ? 'Vraag ook waar en wanneer precies, als dat niet in de mail staat.' : 'Vraag foto\'s van de schade en, als het kan, een offerte.');
+    const bw = c.bewijsTegenpartij; const tegenstrijdig = nietVanOns && bw === 'camera';
+    if (tegenstrijdig && c.besluit === 'afgewezen') push('bewijs', 'ok', 'Beelden bekeken: geen voertuig van ons', 'De tegenpartij stuurde camerabeelden; die lieten een autotransporter van een ander bedrijf zien, en de telematica zette geen voertuig van ons op die plek. Bewaar de beelden bij het dossier.');
+    else if (tegenstrijdig) push('bewijs', 'let', 'Beelden en telematica spreken elkaar tegen', 'De tegenpartij zegt een autotransporter met onze naam op camera te hebben, de telematica zet geen voertuig van ons op die plek. Vraag de beelden op: klopt de tijd, de plaats, of is het een ander bedrijf? Wijs pas af als de beelden het laten zien.');
+    else push('bewijs', bw === 'geen' ? 'let' : 'info', bw === 'camera' ? 'De tegenpartij heeft camerabeelden' : bw === 'fotos' ? 'Foto\'s van de schade meegestuurd' : 'Nog geen foto\'s of beelden', bw === 'camera' ? 'Vraag de beelden op; ze gaan mee in het pakket voor de verzekeraar.' : bw === 'fotos' ? 'Vraag ook waar en wanneer precies, als dat niet in de mail staat.' : 'Vraag foto\'s van de schade en, als het kan, een offerte.');
     push('aansprakelijkheid', 'info', 'Erken zelf geen aansprakelijkheid', 'De WA-verzekeraar beoordeelt de aansprakelijkheid en regelt het met de tegenpartij. Zeg toe dat je het meldt, niet dat je betaalt (polisvoorwaarden, laten toetsen).');
     const onder = bedrag && bedrag < inst.waEigenRisico;
-    push('kosten', 'info', bedrag ? `Gevraagd ${fmtEur(bedrag)}; WA-eigen risico ${fmtEur(inst.waEigenRisico)}` : 'Nog geen bedrag genoemd', onder ? 'Onder het eigen risico: zelf afhandelen kan, maar de polis vraagt vaak dat je elke aanspraak meldt (laten toetsen bij de makelaar).' : 'Boven het eigen risico betaalt de verzekeraar de rest.');
+    push('kosten', 'info', bedrag ? `Gevraagd ${fmtEur(bedrag)}; WA-eigen risico ${fmtEur(inst.waEigenRisico)}` : 'Nog geen bedrag genoemd', onder ? 'Onder het eigen risico zelf betalen kan, maar dat is een erkenning van aansprakelijkheid: doe het pas als de chauffeur en de telematica het bevestigen. Veel WA-polissen voor vrachtwagens hebben geen eigen risico en vragen dat je elke aanspraak meldt; kijk in de polis (laten toetsen).' : 'Boven het eigen risico betaalt de verzekeraar de rest. Of er op de WA een eigen risico zit, staat in de polis (het bedrag hier is een schatting).');
     let advies;
-    if (g && !g.gevonden) advies = { besluit: 'afwijzen', reden: 'De telematica zet geen voertuig van ons op die plek en tijd; vraag eventueel om de beelden voordat je het afsluit.' };
+    if (tegenstrijdig) advies = { besluit: 'info', reden: 'Beelden en telematica spreken elkaar tegen: eerst de beelden opvragen, dan pas besluiten.' };
+    else if (!g) advies = { besluit: 'info', reden: 'Eerst vaststellen of ons voertuig er was: zoek in de telematica, en vraag de tegenpartij om tijd, plaats en beelden.' };
+    else if (g && !g.gevonden) advies = { besluit: 'afwijzen', reden: 'De telematica zet geen voertuig van ons op die plek en tijd; vraag eventueel om de beelden voordat je het afsluit.' };
     else if (f.status !== 'ontvangen') advies = { besluit: 'formulier', reden: 'Eerst het schadeformulier van de chauffeur; daarmee meld je het bij de WA-verzekeraar.' };
-    else advies = { besluit: onder ? 'erkennen' : 'wa', reden: onder ? 'Ons voertuig was er en het bedrag ligt onder het eigen risico; zelf betalen kan als de polis dat toestaat.' : 'Ons voertuig was er en het formulier is binnen: melden bij de WA-verzekeraar met het pakket.' };
+    else advies = { besluit: onder ? 'erkennen' : 'wa', reden: onder ? 'Ons voertuig was er, het formulier is binnen en het bedrag ligt onder het eigen risico; zelf betalen kan als de polis dat toestaat. Dat is een erkenning.' : 'Ons voertuig was er en het formulier is binnen: melden bij de WA-verzekeraar met het pakket.' };
     return { signalen: S, advies, eerder: false, getekend: null, termijn: null, limiet: null, dagenNaRit: null };
   }
   // diverse schade
   push('wat', 'info', `${GEBIEDEN[c.gebied] || 'Overig'}: ${SOORTEN[c.soort] ? SOORTEN[c.soort].toLowerCase() : ''}`.replace(/: $/, ''), c.gebied === 'sleutel' ? 'Een sleutel van een auto die wij vervoeren: met de opdrachtgever afstemmen of hij een reservesleutel heeft voordat er een nieuwe wordt besteld.' : 'Kleine schade aan ons eigen materiaal. Komt zelden voor; dit dossier houdt het bij.');
   push('kosten', 'ok', bedrag ? `${fmtEur(bedrag)}` : 'Nog geen bedrag', 'Komt voor eigen rekening; geen verzekeraar.');
-  if (m.door === 'chauffeur') push('melding', 'ok', 'Gemeld door de chauffeur', ''); else push('melding', 'let', 'Niet gemeld door de chauffeur', 'Vraag hem wat er gebeurde.');
+  if (m.door === 'chauffeur') push('melding', 'ok', 'Gemeld door de chauffeur', `Uit de chauffeursapp, ${m.uurNa != null && m.uurNa >= 1 ? `${Math.round(m.uurNa)} uur na het voorval` : 'direct na het voorval'}.`); else push('melding', 'let', 'Niet gemeld door de chauffeur', 'Vraag hem wat er gebeurde.');
   return { signalen: S, advies: { besluit: c.gebied === 'sleutel' && !c.opdrachtgeverAkkoord ? 'info' : 'erkennen', reden: c.gebied === 'sleutel' ? 'Eerst bij de opdrachtgever navragen of er een reservesleutel is.' : 'Klein bedrag voor eigen rekening.' }, eerder: false, getekend: null, termijn: null, limiet: null, dagenNaRit: null };
 }
